@@ -5,6 +5,9 @@ import {
   CreateVanIssueSheetInput,
   VanDayWithDetails,
   VanStockSummary,
+  reconcileVanDaySchema,
+  ReconcileVanDayInput,
+  VanReconciliationReport,
 } from "./van.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
@@ -70,6 +73,43 @@ export class VanService {
   ): Promise<VanDayWithDetails | null> {
     assertPermission(role, Permission.STOCK_VIEW);
     return vanRepository.getActiveVanDayForSalesperson(salespersonId);
+  }
+
+  async getVanReconciliation(
+    role: UserRole,
+    vanDayId: string
+  ): Promise<VanReconciliationReport> {
+    assertPermission(role, Permission.VAN_RECONCILE);
+    return vanRepository.getVanReconciliationData(vanDayId);
+  }
+
+  async reconcileVanDay(
+    role: UserRole,
+    actorId: string,
+    input: ReconcileVanDayInput
+  ): Promise<VanReconciliationReport> {
+    assertPermission(role, Permission.VAN_RECONCILE);
+    const parsed = reconcileVanDaySchema.parse(input);
+
+    const report = await vanRepository.reconcileVanDay(actorId, parsed);
+
+    await auditService.log({
+      actorId,
+      action: "VAN_DAY_RECONCILE",
+      entity: "van_day",
+      entityId: report.vanDay.id,
+      after: {
+        issueSheetNo: report.vanDay.issueSheetNo,
+        status: report.vanDay.status,
+        totalIssuedValuationPaise: report.financials.totalIssuedValuationPaise,
+        totalSoldValuationPaise: report.financials.totalSoldValuationPaise,
+        totalShortageValuationPaise: report.financials.totalShortageValuationPaise,
+        totalExcessValuationPaise: report.financials.totalExcessValuationPaise,
+        totalCashInHandPaise: report.financials.totalCashInHandPaise,
+      },
+    });
+
+    return report;
   }
 }
 

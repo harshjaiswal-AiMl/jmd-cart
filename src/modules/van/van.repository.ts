@@ -7,6 +7,10 @@ import {
   VanDayWithDetails,
   VanStockSummary,
   VanStockItem,
+  ReconcileVanDayInput,
+  VanReconciliationReport,
+  VanReconciliationLine,
+  VanReconciliationFinancials,
 } from "./van.types";
 
 export class CentralGodownNotFoundError extends Error {
@@ -344,6 +348,449 @@ export class VanRepository {
       totalPieces,
       totalValuationPaise,
     };
+  }
+
+  async getVanReconciliationData(
+    vanDayId: string,
+    currentCounts?: Map<string, number>,
+    txClient?: Prisma.TransactionClient
+  ): Promise<VanReconciliationReport> {
+    const client = txClient ?? prisma;
+
+    const vanDay = await client.vanDay.findUnique({
+      where: { id: vanDayId },
+      include: {
+        vanLocation: true,
+        salesperson: true,
+        lines: {
+          include: {
+            product: true,
+          },
+          orderBy: { product: { name: "asc" } },
+        },
+      },
+    });
+
+    if (!vanDay) {
+      throw new Error(`Van day '${vanDayId}' not found`);
+    }
+
+    // Determine time window for invoices and collections on this van day
+    const timeWindow: Prisma.DateTimeFilter =
+      vanDay.status === VanDayStatus.OPEN
+        ? { gte: vanDay.createdAt }
+        : { gte: vanDay.createdAt, lte: vanDay.updatedAt };
+
+    // Fetch finalized invoices on this van
+    const invoices = await client.invoice.findMany({
+      where: {
+        channel: "VAN",
+        locationId: vanDay.vanLocationId,
+        status: "FINAL",
+        createdAt: timeWindow,
+      },
+      include: {
+        items: true,
+        payments: true,
+      },
+    });
+
+    // Map product sales
+    const soldMap = new Map<string, number>();
+    let invoiceTotalPaise = 0;
+    let invoiceCashPaise = 0;
+    let invoiceUpiPaise = 0;
+    let invoicePaidTotalPaise = 0;
+
+    for (const inv of invoices) {
+      invoiceTotalPaise += inv.totalPaise;
+      for (const item of inv.items) {
+        soldMap.set(item.productId, (soldMap.get(item.productId) ?? 0) + item.qty);
+      }
+      for (const p of inv.payments) {
+        if (p.mode === "CASH") invoiceCashPaise += p.amountPaise;
+        else if (p.mode === "UPI") invoiceUpiPaise += p.amountPaise;
+        invoicePaidTotalPaise += p.amountPaise;
+      }
+    }
+    const invoiceCreditPaise = Math.max(0, invoiceTotalPaise - invoicePaidTotalPaise);
+
+    // Fetch on-route payments/collections
+    const routePayments = await client.payment.findMany({
+      where: {
+        vanLocationId: vanDay.vanLocationId,
+        receiptNo: { not: null },
+        createdAt: timeWindow,
+      },
+    });
+
+    let routeCollectionCashPaise = 0;
+    let routeCollectionUpiPaise = 0;
+    for (const rp of routePayments) {
+      if (rp.mode === "CASH") routeCollectionCashPaise += rp.amountPaise;
+      else if (rp.mode === "UPI") routeCollectionUpiPaise += rp.amountPaise;
+    }
+
+    const totalCashInHandPaise = invoiceCashPaise + routeCollectionCashPaise;
+    const totalUpiReceivedPaise = invoiceUpiPaise + routeCollectionUpiPaise;
+
+    // Build reconciliation lines
+    const lineProductIds = new Set(vanDay.lines.map((l) => l.productId));
+    const extraProductIds = Array.from(soldMap.keys()).filter((pid) => !lineProductIds.has(pid));
+
+    let extraProducts: Product[] = [];
+    if (extraProductIds.length > 0) {
+      extraProducts = await client.product.findMany({
+        where: { id: { in: extraProductIds } },
+      });
+    }
+    const extraProductMap = new Map(extraProducts.map((p) => [p.id, p]));
+
+    const lines: VanReconciliationLine[] = [];
+    let totalIssuedValuationPaise = 0;
+    let totalSoldValuationPaise = 0;
+    let totalExpectedValuationPaise = 0;
+    let totalReturnedValuationPaise = 0;
+    let totalShortageValuationPaise = 0;
+    let totalExcessValuationPaise = 0;
+
+    // Process issued lines
+    for (const line of vanDay.lines) {
+      const soldQty = soldMap.get(line.productId) ?? line.soldQty ?? 0;
+      const expectedQty = Math.max(0, line.issuedQty - soldQty);
+
+      let returnedQty = line.returnedQty ?? 0;
+      if (vanDay.status === VanDayStatus.OPEN) {
+        if (currentCounts?.has(line.productId)) {
+          returnedQty = currentCounts.get(line.productId)!;
+        } else {
+          returnedQty = expectedQty;
+        }
+      }
+
+      const shortageQty = Math.max(0, expectedQty - returnedQty);
+      const excessQty = Math.max(0, returnedQty - expectedQty);
+
+      const shortageValuationPaise = shortageQty * line.product.mrpPaise;
+      const excessValuationPaise = excessQty * line.product.mrpPaise;
+      const netDiscrepancyPaise = excessValuationPaise - shortageValuationPaise;
+
+      totalIssuedValuationPaise += line.issuedQty * line.product.mrpPaise;
+      totalSoldValuationPaise += soldQty * line.product.mrpPaise;
+      totalExpectedValuationPaise += expectedQty * line.product.mrpPaise;
+      totalReturnedValuationPaise += returnedQty * line.product.mrpPaise;
+      totalShortageValuationPaise += shortageValuationPaise;
+      totalExcessValuationPaise += excessValuationPaise;
+
+      lines.push({
+        productId: line.productId,
+        productName: line.product.name,
+        shortCode: line.product.shortCode,
+        packSize: line.product.packSize,
+        mrpPaise: line.product.mrpPaise,
+        issuedQty: line.issuedQty,
+        soldQty,
+        expectedQty,
+        returnedQty,
+        shortageQty,
+        excessQty,
+        shortageValuationPaise,
+        excessValuationPaise,
+        netDiscrepancyPaise,
+      });
+    }
+
+    // Process any unissued sold products
+    for (const extraId of extraProductIds) {
+      const product = extraProductMap.get(extraId);
+      if (!product) continue;
+      const soldQty = soldMap.get(extraId) ?? 0;
+      const expectedQty = 0;
+      const returnedQty = currentCounts?.get(extraId) ?? 0;
+      const shortageQty = 0;
+      const excessQty = returnedQty;
+      const excessValuationPaise = excessQty * product.mrpPaise;
+
+      totalSoldValuationPaise += soldQty * product.mrpPaise;
+      totalReturnedValuationPaise += returnedQty * product.mrpPaise;
+      totalExcessValuationPaise += excessValuationPaise;
+
+      lines.push({
+        productId: product.id,
+        productName: product.name,
+        shortCode: product.shortCode,
+        packSize: product.packSize,
+        mrpPaise: product.mrpPaise,
+        issuedQty: 0,
+        soldQty,
+        expectedQty: 0,
+        returnedQty,
+        shortageQty: 0,
+        excessQty,
+        shortageValuationPaise: 0,
+        excessValuationPaise,
+        netDiscrepancyPaise: excessValuationPaise,
+      });
+    }
+
+    const financials: VanReconciliationFinancials = {
+      totalIssuedValuationPaise,
+      totalSoldValuationPaise,
+      totalExpectedValuationPaise,
+      totalReturnedValuationPaise,
+      totalShortageValuationPaise,
+      totalExcessValuationPaise,
+      invoiceCount: invoices.length,
+      invoiceTotalPaise,
+      invoiceCashPaise,
+      invoiceUpiPaise,
+      invoiceCreditPaise,
+      routeCollectionCount: routePayments.length,
+      routeCollectionCashPaise,
+      routeCollectionUpiPaise,
+      totalCashInHandPaise,
+      totalUpiReceivedPaise,
+    };
+
+    return {
+      vanDay,
+      lines,
+      financials,
+      isReconciled: vanDay.status !== VanDayStatus.OPEN,
+    };
+  }
+
+  async reconcileVanDay(
+    actorId: string,
+    input: ReconcileVanDayInput,
+    txClient?: Prisma.TransactionClient
+  ): Promise<VanReconciliationReport> {
+    const execute = async (tx: Prisma.TransactionClient) => {
+      // 1. Fetch van day
+      const vanDay = await tx.vanDay.findUnique({
+        where: { id: input.vanDayId },
+        include: {
+          vanLocation: true,
+          salesperson: true,
+          lines: {
+            include: { product: true },
+          },
+        },
+      });
+
+      if (!vanDay) {
+        throw new Error(`Van day '${input.vanDayId}' not found`);
+      }
+
+      if (vanDay.status !== VanDayStatus.OPEN) {
+        throw new Error(
+          `Van day '${vanDay.issueSheetNo}' is already ${vanDay.status} and cannot be re-reconciled`
+        );
+      }
+
+      // 2. Fetch Central Godown
+      const godown = await tx.location.findFirst({
+        where: { type: LocationType.GODOWN, active: true },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (!godown) {
+        throw new CentralGodownNotFoundError();
+      }
+
+      // 3. Map user entered returned quantities: (cartons * packSize) + pieces
+      const productMap = new Map<string, Product>();
+      vanDay.lines.forEach((l) => productMap.set(l.productId, l.product));
+
+      const missingProductIds = input.items
+        .map((i) => i.productId)
+        .filter((pid) => !productMap.has(pid));
+      if (missingProductIds.length > 0) {
+        const extraProducts = await tx.product.findMany({
+          where: { id: { in: missingProductIds } },
+        });
+        extraProducts.forEach((p) => productMap.set(p.id, p));
+      }
+
+      const returnedCountMap = new Map<string, number>();
+      for (const item of input.items) {
+        const product = productMap.get(item.productId);
+        if (!product) {
+          throw new Error(`Product '${item.productId}' not found`);
+        }
+        const totalPieces = (item.cartons ?? 0) * product.packSize + (item.pieces ?? 0);
+        returnedCountMap.set(item.productId, totalPieces);
+      }
+
+      // 4. Compute sold quantities from finalized invoices
+      const invoices = await tx.invoice.findMany({
+        where: {
+          channel: "VAN",
+          locationId: vanDay.vanLocationId,
+          status: "FINAL",
+          createdAt: { gte: vanDay.createdAt },
+        },
+        include: {
+          items: true,
+        },
+      });
+
+      const soldMap = new Map<string, number>();
+      for (const inv of invoices) {
+        for (const it of inv.items) {
+          soldMap.set(it.productId, (soldMap.get(it.productId) ?? 0) + it.qty);
+        }
+      }
+
+      // 5. For each line, update line status and post stock movements
+      for (const line of vanDay.lines) {
+        const soldQty = soldMap.get(line.productId) ?? 0;
+        const expectedQty = Math.max(0, line.issuedQty - soldQty);
+        const returnedQty = returnedCountMap.get(line.productId) ?? 0;
+        const shortageQty = Math.max(0, expectedQty - returnedQty);
+        const excessQty = Math.max(0, returnedQty - expectedQty);
+
+        // Update line
+        await tx.vanDayLine.update({
+          where: { id: line.id },
+          data: {
+            soldQty,
+            returnedQty,
+            shortageQty,
+            excessQty,
+          },
+        });
+
+        // Stock Ledger Movements:
+        // A) If excess stock is physically returned, adjust van stock up first
+        if (excessQty > 0) {
+          await stockService.postMovement(
+            {
+              type: MovementType.ADJUSTMENT,
+              productId: line.productId,
+              toLocationId: vanDay.vanLocationId,
+              qty: excessQty,
+              referenceType: "VAN_RECONCILE",
+              referenceId: vanDay.id,
+              reason: `Evening excess adjustment: ${vanDay.issueSheetNo}`,
+              idempotencyKey: `VAN_REC_EXCESS_${vanDay.id}_${line.productId}`,
+              actorId,
+            },
+            tx
+          );
+        }
+
+        // B) Transfer physical returned goods from Van back to Godown via VAN_RETURN
+        if (returnedQty > 0) {
+          await stockService.postMovement(
+            {
+              type: MovementType.VAN_RETURN,
+              productId: line.productId,
+              fromLocationId: vanDay.vanLocationId,
+              toLocationId: godown.id,
+              qty: returnedQty,
+              referenceType: "VAN_RECONCILE",
+              referenceId: vanDay.id,
+              reason: `Evening van return: ${vanDay.issueSheetNo}`,
+              idempotencyKey: `VAN_REC_RETURN_${vanDay.id}_${line.productId}`,
+              actorId,
+            },
+            tx
+          );
+        }
+
+        // C) If shortage, adjust van stock down so van location does not retain phantom balance
+        if (shortageQty > 0) {
+          await stockService.postMovement(
+            {
+              type: MovementType.ADJUSTMENT,
+              productId: line.productId,
+              fromLocationId: vanDay.vanLocationId,
+              qty: shortageQty,
+              referenceType: "VAN_RECONCILE",
+              referenceId: vanDay.id,
+              reason: `Evening van shortage: ${vanDay.issueSheetNo}`,
+              idempotencyKey: `VAN_REC_SHORTAGE_${vanDay.id}_${line.productId}`,
+              actorId,
+            },
+            tx
+          );
+        }
+      }
+
+      // Also handle any extra products returned that were not originally issued
+      for (const [prodId, returnedQty] of returnedCountMap.entries()) {
+        if (!vanDay.lines.some((l) => l.productId === prodId) && returnedQty > 0) {
+          const soldQty = soldMap.get(prodId) ?? 0;
+          const excessQty = returnedQty;
+
+          await tx.vanDayLine.create({
+            data: {
+              vanDayId: vanDay.id,
+              productId: prodId,
+              issuedQty: 0,
+              soldQty,
+              returnedQty,
+              shortageQty: 0,
+              excessQty,
+            },
+          });
+
+          await stockService.postMovement(
+            {
+              type: MovementType.ADJUSTMENT,
+              productId: prodId,
+              toLocationId: vanDay.vanLocationId,
+              qty: excessQty,
+              referenceType: "VAN_RECONCILE",
+              referenceId: vanDay.id,
+              reason: `Evening unissued excess adjustment: ${vanDay.issueSheetNo}`,
+              idempotencyKey: `VAN_REC_EXCESS_${vanDay.id}_${prodId}`,
+              actorId,
+            },
+            tx
+          );
+
+          await stockService.postMovement(
+            {
+              type: MovementType.VAN_RETURN,
+              productId: prodId,
+              fromLocationId: vanDay.vanLocationId,
+              toLocationId: godown.id,
+              qty: returnedQty,
+              referenceType: "VAN_RECONCILE",
+              referenceId: vanDay.id,
+              reason: `Evening unissued return: ${vanDay.issueSheetNo}`,
+              idempotencyKey: `VAN_REC_RETURN_${vanDay.id}_${prodId}`,
+              actorId,
+            },
+            tx
+          );
+        }
+      }
+
+      // 6. Update VanDay status to RECONCILED
+      const now = new Date();
+      await tx.vanDay.update({
+        where: { id: vanDay.id },
+        data: {
+          status: VanDayStatus.RECONCILED,
+          reconciledBy: actorId,
+          notes: input.notes?.trim() || vanDay.notes,
+          updatedAt: now,
+        },
+      });
+
+      return this.getVanReconciliationData(vanDay.id, returnedCountMap, tx);
+    };
+
+    if (txClient) {
+      return execute(txClient);
+    }
+    return prisma.$transaction(execute, {
+      maxWait: 5000,
+      timeout: 15000,
+    });
   }
 }
 

@@ -69,6 +69,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STOCK_VIEW,
     Permission.STOCK_ADJUST,
     Permission.VAN_ISSUE_LOAD,
+    Permission.VAN_RECONCILE,
   ],
 
   SHOP: [

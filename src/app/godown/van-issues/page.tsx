@@ -106,11 +106,26 @@ export default async function VanIssuesPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right space-x-2">
+                          {vd.status === "OPEN" ? (
+                            <Link
+                              href={`/godown/van-issues/${vd.id}/reconcile`}
+                              className="text-xs text-amber-700 hover:text-amber-900 font-semibold px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 border border-amber-200"
+                            >
+                              🔄 Reconcile Return
+                            </Link>
+                          ) : (
+                            <Link
+                              href={`/godown/van-issues/${vd.id}/reconcile`}
+                              className="text-xs text-indigo-700 hover:text-indigo-900 font-semibold px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 border border-indigo-200"
+                            >
+                              📋 View Report
+                            </Link>
+                          )}
                           <Link
                             href={`/godown/van-issues/${vd.id}/print`}
                             className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50"
                           >
-                            🖨️ Print Load Sheet
+                            🖨️ Load Sheet
                           </Link>
                         </td>
                       </tr>
