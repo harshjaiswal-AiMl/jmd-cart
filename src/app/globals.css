@@ -11,3 +11,42 @@ body {
   background-color: #EEF4F8;
   font-feature-settings: "tnum" 1;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Thermal roll specific print sizing */
+  .thermal-receipt-container {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 auto !important;
+    padding: 2mm 0 !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+
+  /* A4 document specific print sizing */
+  .a4-invoice-container {
+    width: 100% !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 8mm !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .print-page-break-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+
