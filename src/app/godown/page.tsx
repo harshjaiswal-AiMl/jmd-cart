@@ -29,6 +29,12 @@ export default async function GodownDashboardPage() {
       href: "/godown/operations",
       color: "bg-amber-50 text-amber-800 border-amber-200",
     },
+    {
+      title: "Van Load Sheets",
+      desc: "Morning stock dispatch into delivery vans and formal issue sheets.",
+      href: "/godown/van-issues",
+      color: "bg-indigo-50 text-indigo-800 border-indigo-200",
+    },
   ];
 
   return (

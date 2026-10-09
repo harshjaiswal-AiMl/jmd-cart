@@ -108,6 +108,7 @@ model User {
   receivedPayments  Payment[]
   createdPurchases  Purchase[]
   createdCreditNotes CreditNote[]
+  vanDays           VanDay[]
 
   @@map("users")
 }
@@ -129,6 +130,7 @@ model Location {
   invoices       Invoice[]
   purchases      Purchase[]
   stockAudits    StockAudit[]
+  vanDays        VanDay[]
 
   @@map("locations")
 }
@@ -184,6 +186,7 @@ model Product {
   invoiceItems   InvoiceItem[]
   purchaseItems  PurchaseItem[]
   auditLines     StockAuditLine[]
+  vanDayLines    VanDayLine[]
 
   @@index([name])
   @@index([companyId])
@@ -460,3 +463,51 @@ model StockAuditLine {
 
   @@map("stock_audit_lines")
 }
+
+enum VanDayStatus {
+  OPEN
+  RECONCILED
+  CLOSED
+}
+
+model VanDay {
+  id              String        @id @default(cuid())
+  branchId        Int           @default(1) @map("branch_id")
+  vanLocationId   String        @map("van_location_id")
+  salespersonId   String        @map("salesperson_id")
+  date            DateTime      @map("date")
+  status          VanDayStatus  @default(OPEN)
+  issueSheetNo    String        @unique @map("issue_sheet_no")
+  notes           String?
+  issuedBy        String?       @map("issued_by")
+  reconciledBy    String?       @map("reconciled_by")
+  closedBy        String?       @map("closed_by")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  vanLocation     Location      @relation(fields: [vanLocationId], references: [id], onDelete: Restrict)
+  salesperson     User          @relation(fields: [salespersonId], references: [id], onDelete: Restrict)
+  lines           VanDayLine[]
+
+  @@index([vanLocationId, date])
+  @@index([salespersonId, date])
+  @@map("van_days")
+}
+
+model VanDayLine {
+  id          String   @id @default(cuid())
+  vanDayId    String   @map("van_day_id")
+  productId   String   @map("product_id")
+  issuedQty   Int      @map("issued_qty")
+  soldQty     Int      @default(0) @map("sold_qty")
+  returnedQty Int      @default(0) @map("returned_qty")
+  shortageQty Int      @default(0) @map("shortage_qty")
+  excessQty   Int      @default(0) @map("excess_qty")
+
+  vanDay      VanDay   @relation(fields: [vanDayId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([vanDayId, productId])
+  @@map("van_day_lines")
+}
+

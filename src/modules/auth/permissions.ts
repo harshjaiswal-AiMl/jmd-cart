@@ -29,6 +29,7 @@ export enum Permission {
   // Van Sales
   VAN_BILL = "VAN_BILL",
   VAN_RECONCILE = "VAN_RECONCILE",
+  VAN_ISSUE_LOAD = "VAN_ISSUE_LOAD",
 
   // Delivery
   DELIVERY_EXECUTE = "DELIVERY_EXECUTE",
@@ -64,6 +65,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STOCK_AUDIT,
     Permission.STOCK_VIEW,
     Permission.STOCK_ADJUST,
+    Permission.VAN_ISSUE_LOAD,
   ],
 
   SHOP: [
