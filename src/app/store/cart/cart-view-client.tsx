@@ -353,13 +353,12 @@ export function CartViewClient({
             </div>
 
             <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => alert(`Ready to Checkout to ${selectedZone.name}! Task 3.5 Checkout & Order Reservation next up.`)}
+              <Link
+                href="/store/checkout"
                 className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-sm transition-colors text-center block"
               >
                 Proceed to Checkout →
-              </button>
+              </Link>
             </div>
 
             <div className="pt-2 text-center">

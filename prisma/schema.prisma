@@ -89,6 +89,16 @@ enum AuditStatus {
   REJECTED
 }
 
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+
 model User {
   id                 String    @id @default(cuid())
   branchId           Int       @default(1) @map("branch_id")
@@ -119,6 +129,7 @@ model User {
   handoversReceived CashHandover[] @relation("HandoverReceiver")
   createdDebitNotes DebitNote[]
   cart              Cart?
+  orders            Order[]
 
   @@map("users")
 }
@@ -201,6 +212,7 @@ model Product {
   vanDayLines    VanDayLine[]
   debitNoteItems DebitNoteItem[]
   cartItems      CartItem[]
+  orderItems     OrderItem[]
 
   @@index([name])
   @@index([companyId])
@@ -402,6 +414,7 @@ model Invoice {
   items         InvoiceItem[]
   payments      Payment[]
   creditNotes   CreditNote[]
+  order         Order?
 
   @@index([locationId, createdAt])
   @@index([partyId, createdAt])
@@ -634,5 +647,65 @@ model CartItem {
   @@unique([cartId, productId])
   @@map("cart_items")
 }
+
+model Order {
+  id                    String        @id @default(cuid())
+  orderNumber           String        @unique @map("order_number")
+  branchId              Int           @default(1) @map("branch_id")
+  userId                String        @map("user_id")
+  status                OrderStatus   @default(PENDING)
+  deliveryZoneCode      String        @map("delivery_zone_code")
+  deliveryZoneName      String        @map("delivery_zone_name")
+  deliveryFeePaise      Int           @default(0) @map("delivery_fee_paise")
+  subtotalPaise         Int           @map("subtotal_paise")
+  lineDiscountPaise     Int           @default(0) @map("line_discount_paise")
+  taxablePaise          Int           @map("taxable_paise")
+  cgstPaise             Int           @default(0) @map("cgst_paise")
+  sgstPaise             Int           @default(0) @map("sgst_paise")
+  igstPaise             Int           @default(0) @map("igst_paise")
+  roundOffPaise         Int           @default(0) @map("round_off_paise")
+  totalPaise            Int           @map("total_paise")
+  buyerTag              PartyType     @default(CUSTOMER) @map("buyer_tag")
+  deliveryAddress       String        @map("delivery_address")
+  contactPhone          String        @map("contact_phone")
+  customerNotes         String?       @map("customer_notes")
+  invoiceId             String?       @unique @map("invoice_id")
+  idempotencyKey        String?       @unique @map("idempotency_key")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  invoice               Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  items                 OrderItem[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String   @map("order_id")
+  productId       String   @map("product_id")
+  qty             Int
+  mrpPaise        Int      @map("mrp_paise")
+  unitPricePaise  Int      @map("unit_price_paise")
+  discountBp      Int      @default(0) @map("discount_bp")
+  lineDiscountPaise Int    @default(0) @map("line_discount_paise")
+  taxablePaise    Int      @map("taxable_paise")
+  gstRateBp       Int      @map("gst_rate_bp")
+  taxPaise        Int      @map("tax_paise")
+  hsn             String
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
 
 
