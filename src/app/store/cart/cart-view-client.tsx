@@ -1,18 +1,28 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { CartSummary } from "@/modules/cart/cart.service";
+import { DeliveryZone } from "@/modules/delivery/delivery.types";
 import { updateCartQtyAction, removeFromCartAction, clearCartAction } from "./actions";
 
 interface CartViewClientProps {
   cart: CartSummary;
+  deliveryZones?: DeliveryZone[];
   userPhone?: string;
   userName?: string;
 }
 
-export function CartViewClient({ cart, userPhone, userName }: CartViewClientProps) {
+export function CartViewClient({
+  cart,
+  deliveryZones = [],
+  userPhone,
+  userName,
+}: CartViewClientProps) {
   const [isPending, startTransition] = useTransition();
+  const [selectedZoneCode, setSelectedZoneCode] = useState<string>(
+    deliveryZones.length > 0 ? deliveryZones[0].code : "TOWN"
+  );
 
   const handleQtyChange = (productId: string, newQty: number) => {
     startTransition(async () => {
@@ -34,11 +44,30 @@ export function CartViewClient({ cart, userPhone, userName }: CartViewClientProp
     }
   };
 
+  const selectedZone = deliveryZones.find((z) => z.code === selectedZoneCode) || deliveryZones[0] || {
+    code: "TOWN",
+    name: "Saharsa Town",
+    minOrderPaise: 50000,
+    freeDeliveryThresholdPaise: 200000,
+    deliveryChargePaise: 5000,
+    estimatedDeliveryHours: 4,
+    active: true,
+  };
+
+  const isDeliveryFree = cart.totalPaise >= selectedZone.freeDeliveryThresholdPaise;
+  const deliveryFeePaise = isDeliveryFree ? 0 : selectedZone.deliveryChargePaise;
+  const finalPayablePaise = cart.totalPaise + deliveryFeePaise;
+  const deficitToFreeDeliveryPaise = isDeliveryFree
+    ? 0
+    : Math.max(0, selectedZone.freeDeliveryThresholdPaise - cart.totalPaise);
+
   const mrpTotalRupees = (cart.subtotalPaise / 100).toFixed(2);
   const discountRupees = (cart.lineDiscountPaise / 100).toFixed(2);
   const taxableRupees = (cart.taxablePaise / 100).toFixed(2);
   const taxRupees = (cart.totalTaxPaise / 100).toFixed(2);
-  const grandTotalRupees = (cart.totalPaise / 100).toFixed(2);
+  const itemsTotalRupees = (cart.totalPaise / 100).toFixed(2);
+  const deliveryFeeRupees = (deliveryFeePaise / 100).toFixed(2);
+  const finalPayableRupees = (finalPayablePaise / 100).toFixed(2);
 
   const getTierBadge = (tier: string) => {
     switch (tier) {
@@ -237,6 +266,39 @@ export function CartViewClient({ cart, userPhone, userName }: CartViewClientProp
               Price & Tax Breakdown
             </h3>
 
+            {/* Delivery Destination Zone Selector */}
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-700">Delivery Destination</span>
+                <span className="text-[11px] text-blue-600 font-medium">
+                  {selectedZone.estimatedDeliveryHours ? `~${selectedZone.estimatedDeliveryHours}h dispatch` : "Van delivery"}
+                </span>
+              </div>
+              <select
+                value={selectedZoneCode}
+                onChange={(e) => setSelectedZoneCode(e.target.value)}
+                className="w-full text-xs font-semibold px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {deliveryZones.map((z) => (
+                  <option key={z.code} value={z.code}>
+                    {z.name} (Free above ₹{(z.freeDeliveryThresholdPaise / 100).toFixed(0)})
+                  </option>
+                ))}
+              </select>
+
+              {/* Free delivery deficit banner */}
+              {isDeliveryFree ? (
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                  <span>🎉</span>
+                  <span>FREE Delivery Unlocked for {selectedZone.name}!</span>
+                </div>
+              ) : (
+                <div className="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-1.5 rounded-md border border-amber-200 leading-tight">
+                  <span className="font-bold">Add ₹{(deficitToFreeDeliveryPaise / 100).toFixed(2)} more</span> of items for FREE delivery to {selectedZone.name} (Standard fee: ₹{(selectedZone.deliveryChargePaise / 100).toFixed(0)}).
+                </div>
+              )}
+            </div>
+
             <div className="space-y-2.5 text-xs">
               <div className="flex justify-between text-slate-600">
                 <span>Retail MRP Total:</span>
@@ -270,10 +332,22 @@ export function CartViewClient({ cart, userPhone, userName }: CartViewClientProp
                 </div>
               )}
 
+              <div className="flex justify-between text-slate-600 pt-2 border-t border-slate-100">
+                <span>Items Subtotal:</span>
+                <span className="font-mono font-medium">₹{itemsTotalRupees}</span>
+              </div>
+
+              <div className="flex justify-between items-center text-slate-700">
+                <span>Delivery Charges ({selectedZone.code}):</span>
+                <span className={`font-mono font-semibold ${isDeliveryFree ? "text-emerald-600" : "text-slate-900"}`}>
+                  {isDeliveryFree ? "FREE" : `+ ₹${deliveryFeeRupees}`}
+                </span>
+              </div>
+
               <div className="flex justify-between items-baseline pt-3 border-t border-slate-200 text-slate-900">
-                <span className="text-sm font-bold">Estimated Total:</span>
+                <span className="text-sm font-bold">Estimated Payable:</span>
                 <span className="text-2xl font-black font-mono text-blue-600">
-                  ₹{grandTotalRupees}
+                  ₹{finalPayableRupees}
                 </span>
               </div>
             </div>
@@ -281,7 +355,7 @@ export function CartViewClient({ cart, userPhone, userName }: CartViewClientProp
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => alert("Checkout and Delivery Zones module (Task 3.4 & 3.5) next up!")}
+                onClick={() => alert(`Ready to Checkout to ${selectedZone.name}! Task 3.5 Checkout & Order Reservation next up.`)}
                 className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-sm transition-colors text-center block"
               >
                 Proceed to Checkout →

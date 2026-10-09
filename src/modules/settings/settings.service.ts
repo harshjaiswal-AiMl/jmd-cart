@@ -42,10 +42,42 @@ export const DEFAULT_DISCOUNT_LIMITS: RoleDiscountLimits = {
 };
 
 export const DEFAULT_DELIVERY_SETTINGS: DeliverySettings = {
-  freeDeliveryTownPaise: 200000,
-  freeDeliveryOutstationPaise: 500000,
-  deliveryChargeTownPaise: 5000,
-  deliveryChargeOutstationPaise: 15000,
+  freeDeliveryTownPaise: 200000, // Rs 2,000
+  freeDeliveryOutstationPaise: 500000, // Rs 5,000
+  deliveryChargeTownPaise: 5000, // Rs 50
+  deliveryChargeOutstationPaise: 15000, // Rs 150
+  zones: [
+    {
+      code: "TOWN",
+      name: "Saharsa Town (Within 5 km)",
+      description: "Local Saharsa municipality & town limits (Station Road, D.B. Road, Purab Bazar, Gangjala)",
+      minOrderPaise: 50000, // Rs 500
+      freeDeliveryThresholdPaise: 200000, // Rs 2,000
+      deliveryChargePaise: 5000, // Rs 50
+      estimatedDeliveryHours: 4,
+      active: true,
+    },
+    {
+      code: "OUTSTATION",
+      name: "Outstation & Beyond 5 km",
+      description: "Suburban and connecting roads (Kahra, Biraul, Sattar Kataiya, Sonbarsa Raj)",
+      minOrderPaise: 100000, // Rs 1,000
+      freeDeliveryThresholdPaise: 500000, // Rs 5,000
+      deliveryChargePaise: 15000, // Rs 150
+      estimatedDeliveryHours: 24,
+      active: true,
+    },
+    {
+      code: "SIMRI_BAKHTIARPUR",
+      name: "Simri Bakhtiarpur Sub-Division",
+      description: "Simri Bakhtiarpur market and surrounding rural distribution routes",
+      minOrderPaise: 200000, // Rs 2,000
+      freeDeliveryThresholdPaise: 750000, // Rs 7,500
+      deliveryChargePaise: 25000, // Rs 250
+      estimatedDeliveryHours: 48,
+      active: true,
+    },
+  ],
 };
 
 export const DEFAULT_VERIFICATION_SETTINGS: VerificationSettings = {
@@ -115,7 +147,16 @@ export class SettingsService {
 
   async getDeliverySettings(): Promise<DeliverySettings> {
     const data = await settingsRepository.getSetting<DeliverySettings>("delivery_settings");
-    return data ? { ...DEFAULT_DELIVERY_SETTINGS, ...data } : DEFAULT_DELIVERY_SETTINGS;
+    if (!data) return DEFAULT_DELIVERY_SETTINGS;
+
+    const zones = data.zones && data.zones.length > 0 ? data.zones : DEFAULT_DELIVERY_SETTINGS.zones;
+    return {
+      freeDeliveryTownPaise: data.freeDeliveryTownPaise ?? DEFAULT_DELIVERY_SETTINGS.freeDeliveryTownPaise,
+      freeDeliveryOutstationPaise: data.freeDeliveryOutstationPaise ?? DEFAULT_DELIVERY_SETTINGS.freeDeliveryOutstationPaise,
+      deliveryChargeTownPaise: data.deliveryChargeTownPaise ?? DEFAULT_DELIVERY_SETTINGS.deliveryChargeTownPaise,
+      deliveryChargeOutstationPaise: data.deliveryChargeOutstationPaise ?? DEFAULT_DELIVERY_SETTINGS.deliveryChargeOutstationPaise,
+      zones,
+    };
   }
 
   async updateDeliverySettings(

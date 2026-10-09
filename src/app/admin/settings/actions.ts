@@ -106,3 +106,47 @@ export async function updateVerificationSettingsAction(
     return { error: message };
   }
 }
+
+export async function updateDeliverySettingsAction(
+  prevState: SettingsActionResult | undefined,
+  formData: FormData
+): Promise<SettingsActionResult> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const freeTownRupees = Number(formData.get("freeDeliveryTownRupees") || 0);
+    const chargeTownRupees = Number(formData.get("deliveryChargeTownRupees") || 0);
+    const freeOutstationRupees = Number(formData.get("freeDeliveryOutstationRupees") || 0);
+    const chargeOutstationRupees = Number(formData.get("deliveryChargeOutstationRupees") || 0);
+
+    const zonesJson = formData.get("zonesJson") as string;
+    let zones: unknown[] = [];
+    if (zonesJson) {
+      zones = JSON.parse(zonesJson);
+    }
+
+    const payload = {
+      freeDeliveryTownPaise: Math.round(freeTownRupees * 100),
+      deliveryChargeTownPaise: Math.round(chargeTownRupees * 100),
+      freeDeliveryOutstationPaise: Math.round(freeOutstationRupees * 100),
+      deliveryChargeOutstationPaise: Math.round(chargeOutstationRupees * 100),
+      zones,
+    };
+
+    await settingsService.updateDeliverySettings(
+      session.user.role,
+      session.user.id,
+      payload
+    );
+
+    revalidatePath("/admin/settings");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update delivery settings";
+    return { error: message };
+  }
+}
+

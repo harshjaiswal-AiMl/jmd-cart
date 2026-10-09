@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { cartService } from "@/modules/cart/cart.service";
+import { deliveryService } from "@/modules/delivery/delivery.service";
 import { CartViewClient } from "./cart-view-client";
 import Link from "next/link";
 
@@ -17,7 +18,10 @@ export default async function CartPage() {
     include: { party: true },
   });
 
-  const cart = await cartService.getCartSummary(session.user.id);
+  const [cart, deliveryZones] = await Promise.all([
+    cartService.getCartSummary(session.user.id),
+    deliveryService.getDeliveryZones(),
+  ]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -48,6 +52,7 @@ export default async function CartPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <CartViewClient
           cart={cart}
+          deliveryZones={deliveryZones}
           userPhone={user?.phone}
           userName={user?.name}
         />

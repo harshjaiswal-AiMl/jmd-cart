@@ -5,9 +5,11 @@ import {
   updateBusinessDetailsAction,
   updateRoleDiscountLimitsAction,
   updateVerificationSettingsAction,
+  updateDeliverySettingsAction,
   SettingsActionResult,
 } from "./actions";
-import { AllSettings } from "@/modules/settings/settings.types";
+import { AllSettings, DeliveryZone } from "@/modules/settings/settings.types";
+import { useState } from "react";
 
 function SaveButton() {
   const { pending } = useFormStatus();
@@ -340,3 +342,453 @@ export function VerificationSettingsForm({
     </form>
   );
 }
+
+export function DeliverySettingsForm({
+  initialData,
+}: {
+  initialData: AllSettings["deliverySettings"];
+}) {
+  const [state, formAction] = useFormState<SettingsActionResult | undefined, FormData>(
+    updateDeliverySettingsAction,
+    undefined
+  );
+
+  const [zones, setZones] = useState<DeliveryZone[]>(
+    initialData.zones && initialData.zones.length > 0
+      ? initialData.zones
+      : [
+          {
+            code: "TOWN",
+            name: "Saharsa Town (Within 5 km)",
+            description: "Station Road, D.B. Road, Purab Bazar, Gangjala",
+            minOrderPaise: 50000,
+            freeDeliveryThresholdPaise: 200000,
+            deliveryChargePaise: 5000,
+            estimatedDeliveryHours: 4,
+            active: true,
+          },
+          {
+            code: "OUTSTATION",
+            name: "Outstation & Beyond 5 km",
+            description: "Suburban roads: Kahra, Biraul, Sattar Kataiya, Sonbarsa Raj",
+            minOrderPaise: 100000,
+            freeDeliveryThresholdPaise: 500000,
+            deliveryChargePaise: 15000,
+            estimatedDeliveryHours: 24,
+            active: true,
+          },
+        ]
+  );
+
+  const [newZoneCode, setNewZoneCode] = useState("");
+  const [newZoneName, setNewZoneName] = useState("");
+  const [newZoneDesc, setNewZoneDesc] = useState("");
+  const [newZoneMinOrder, setNewZoneMinOrder] = useState("500");
+  const [newZoneThreshold, setNewZoneThreshold] = useState("2000");
+  const [newZoneCharge, setNewZoneCharge] = useState("50");
+  const [newZoneHours, setNewZoneHours] = useState("24");
+
+  const handleAddZone = () => {
+    if (!newZoneCode.trim() || !newZoneName.trim()) {
+      alert("Zone code and zone name are required.");
+      return;
+    }
+    const cleanCode = newZoneCode.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_");
+    if (zones.some((z) => z.code === cleanCode)) {
+      alert(`A delivery zone with code '${cleanCode}' already exists.`);
+      return;
+    }
+
+    const created: DeliveryZone = {
+      code: cleanCode,
+      name: newZoneName.trim(),
+      description: newZoneDesc.trim() || undefined,
+      minOrderPaise: Math.round(Number(newZoneMinOrder || 0) * 100),
+      freeDeliveryThresholdPaise: Math.round(Number(newZoneThreshold || 0) * 100),
+      deliveryChargePaise: Math.round(Number(newZoneCharge || 0) * 100),
+      estimatedDeliveryHours: Number(newZoneHours) || 24,
+      active: true,
+    };
+
+    setZones([...zones, created]);
+    setNewZoneCode("");
+    setNewZoneName("");
+    setNewZoneDesc("");
+    setNewZoneMinOrder("500");
+    setNewZoneThreshold("2000");
+    setNewZoneCharge("50");
+    setNewZoneHours("24");
+  };
+
+  const handleRemoveZone = (code: string) => {
+    setZones(zones.filter((z) => z.code !== code));
+  };
+
+  const handleToggleZone = (code: string) => {
+    setZones(
+      zones.map((z) => (z.code === code ? { ...z, active: !z.active } : z))
+    );
+  };
+
+  const handleUpdateZoneField = (
+    code: string,
+    field: keyof DeliveryZone,
+    val: string | number | boolean
+  ) => {
+    setZones(
+      zones.map((z) => {
+        if (z.code !== code) return z;
+        return { ...z, [field]: val };
+      })
+    );
+  };
+
+  return (
+    <form action={formAction} className="space-y-6 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <div className="border-b border-gray-200 pb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Delivery Zones, Charges & Thresholds</h3>
+        <p className="text-sm text-gray-500">
+          Configure delivery charge rules and free delivery thresholds for Saharsa Town and outlying areas.
+        </p>
+      </div>
+
+      {state?.error && (
+        <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">
+          {state.error}
+        </div>
+      )}
+
+      {state?.success && (
+        <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm">
+          Delivery rules and zones updated successfully!
+        </div>
+      )}
+
+      {/* Hidden input to pass reactive zones state to server action */}
+      <input type="hidden" name="zonesJson" value={JSON.stringify(zones)} />
+
+      {/* Default Quick Thresholds */}
+      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+        <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
+          Quick Base Thresholds (Town vs Outstation)
+        </h4>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700">
+              Saharsa Town - Free Delivery Minimum (₹)
+            </label>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              name="freeDeliveryTownRupees"
+              defaultValue={(initialData.freeDeliveryTownPaise / 100).toFixed(0)}
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">Default: ₹2,000</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700">
+              Saharsa Town - Delivery Charge Below Threshold (₹)
+            </label>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              name="deliveryChargeTownRupees"
+              defaultValue={(initialData.deliveryChargeTownPaise / 100).toFixed(0)}
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">Default: ₹50</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700">
+              Beyond 5 km / Outstation - Free Delivery Minimum (₹)
+            </label>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              name="freeDeliveryOutstationRupees"
+              defaultValue={(initialData.freeDeliveryOutstationPaise / 100).toFixed(0)}
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">Default: ₹5,000</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700">
+              Beyond 5 km / Outstation - Delivery Charge Below Threshold (₹)
+            </label>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              name="deliveryChargeOutstationRupees"
+              defaultValue={(initialData.deliveryChargeOutstationPaise / 100).toFixed(0)}
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">Default: ₹150</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Configured Delivery Zones List */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
+            Delivery Zones Directory ({zones.length} Zones)
+          </h4>
+          <span className="text-xs text-slate-500">Available to online buyers during checkout</span>
+        </div>
+
+        <div className="space-y-3">
+          {zones.map((zone) => (
+            <div
+              key={zone.code}
+              className={`p-4 rounded-xl border transition-colors ${
+                zone.active
+                  ? "bg-white border-slate-200"
+                  : "bg-slate-50 border-slate-200 opacity-60"
+              }`}
+            >
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <span className="px-2.5 py-1 bg-blue-100 text-blue-800 text-xs font-black font-mono rounded-lg">
+                    {zone.code}
+                  </span>
+                  <div>
+                    <h5 className="text-sm font-bold text-slate-900">{zone.name}</h5>
+                    {zone.description && (
+                      <p className="text-xs text-slate-500">{zone.description}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleZone(zone.code)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold border ${
+                      zone.active
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-slate-100 text-slate-600 border-slate-200"
+                    }`}
+                  >
+                    {zone.active ? "Active" : "Inactive"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveZone(zone.code)}
+                    className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-bold"
+                    title="Delete Zone"
+                  >
+                    ✕ Remove
+                  </button>
+                </div>
+              </div>
+
+              {/* Editable zone rule inputs */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3">
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600">
+                    Min Order (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={(zone.minOrderPaise / 100).toFixed(0)}
+                    onChange={(e) =>
+                      handleUpdateZoneField(
+                        zone.code,
+                        "minOrderPaise",
+                        Math.round(Number(e.target.value || 0) * 100)
+                      )
+                    }
+                    className="mt-0.5 block w-full px-2.5 py-1 border border-slate-300 rounded-lg text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600">
+                    Free Threshold (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={(zone.freeDeliveryThresholdPaise / 100).toFixed(0)}
+                    onChange={(e) =>
+                      handleUpdateZoneField(
+                        zone.code,
+                        "freeDeliveryThresholdPaise",
+                        Math.round(Number(e.target.value || 0) * 100)
+                      )
+                    }
+                    className="mt-0.5 block w-full px-2.5 py-1 border border-slate-300 rounded-lg text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600">
+                    Delivery Charge (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={(zone.deliveryChargePaise / 100).toFixed(0)}
+                    onChange={(e) =>
+                      handleUpdateZoneField(
+                        zone.code,
+                        "deliveryChargePaise",
+                        Math.round(Number(e.target.value || 0) * 100)
+                      )
+                    }
+                    className="mt-0.5 block w-full px-2.5 py-1 border border-slate-300 rounded-lg text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-600">
+                    Est. Delivery (Hrs)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={zone.estimatedDeliveryHours || 24}
+                    onChange={(e) =>
+                      handleUpdateZoneField(
+                        zone.code,
+                        "estimatedDeliveryHours",
+                        Number(e.target.value || 24)
+                      )
+                    }
+                    className="mt-0.5 block w-full px-2.5 py-1 border border-slate-300 rounded-lg text-xs font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Add New Custom Zone Form */}
+      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+        <h5 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+          + Add New Delivery Zone / Route
+        </h5>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600">
+              Zone Code (e.g. SIMRI, NAUHATTA)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. SIMRI"
+              value={newZoneCode}
+              onChange={(e) => setNewZoneCode(e.target.value)}
+              className="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs uppercase font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600">Zone Name</label>
+            <input
+              type="text"
+              placeholder="e.g. Simri Bakhtiarpur"
+              value={newZoneName}
+              onChange={(e) => setNewZoneName(e.target.value)}
+              className="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600">
+              Description / Landmarks
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Main Chowk, High School Road"
+              value={newZoneDesc}
+              onChange={(e) => setNewZoneDesc(e.target.value)}
+              className="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600">Min Order (₹)</label>
+            <input
+              type="number"
+              min="0"
+              value={newZoneMinOrder}
+              onChange={(e) => setNewZoneMinOrder(e.target.value)}
+              className="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600">
+              Free Delivery Above (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={newZoneThreshold}
+              onChange={(e) => setNewZoneThreshold(e.target.value)}
+              className="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600">
+              Delivery Charge (₹)
+            </label>
+            <input
+              type="number"
+              min="0"
+              value={newZoneCharge}
+              onChange={(e) => setNewZoneCharge(e.target.value)}
+              className="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-slate-600">
+              Est. Delivery (Hours)
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={newZoneHours}
+              onChange={(e) => setNewZoneHours(e.target.value)}
+              className="mt-0.5 block w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+            />
+          </div>
+        </div>
+
+        <div className="pt-1 flex justify-end">
+          <button
+            type="button"
+            onClick={handleAddZone}
+            className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors"
+          >
+            + Add Zone to List
+          </button>
+        </div>
+      </div>
+
+      <div className="flex justify-end pt-4 border-t border-gray-100">
+        <SaveButton />
+      </div>
+    </form>
+  );
+}
+
