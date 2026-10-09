@@ -23,7 +23,7 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - [x] 1.4 Product master CRUD, companies, categories, search (M)
 - [x] 1.5 Excel import with row errors and idempotent re-run (M)
 - [x] 1.6 **Stock ledger service** + DB trigger blocking edits + balances + tests (L)
-- [ ] 1.7 Purchase/GRN screens (M)
+- [x] 1.7 Purchase/GRN screens (M)
 - [ ] 1.8 Godown: transfer, carton break, damage, adjustment, stock audit (L)
 - [ ] 1.9 Stock views by location + product history (S)
 - [ ] 1.10 Pricing engine (slabs, buyer tag, order discount) + tests (M)
@@ -91,6 +91,8 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - 2026-10-09: Step 7 complete (Settings Module - Task 1.3). Implemented settings repository and service managing business details, invoice printing metadata, role discount limits (Shop/Cashier, Salesperson), delivery thresholds, and verification modes. Super Admin permission guards enforced on all mutations, validated with Zod (GSTIN, FSSAI, basis points), and audit logged with before/after state diff. Created server actions and responsive admin UI at /admin/settings. 49 tests passing across 9 test files. Next is Step 8: Catalog Master CRUD & Search (Task 1.4).
 - 2026-10-09: Step 8 complete (Catalog Master CRUD & Search - Task 1.4). Implemented catalog repository and service for products, companies, and categories. Added multi-token case-insensitive search matching across product name, short code, and company name. Enforced unique uppercase shortCode, valid 4-8 digit HSN codes, and allowed Indian GST rates (0%, 5%, 12%, 18%, 28%). Super Admin permission guards on create/edit/toggle mutations with audit logs, and VIEW_PRODUCTS guards on queries. Built admin catalog page and interactive client with filters and product creation modal at /admin/catalog. 57 tests passing across 10 test suites. Next is Step 9: Excel Import with Row-Level Errors & Idempotency (Task 1.5).
 - 2026-10-09: Step 9 complete (Catalog Excel/CSV Import - Task 1.5). Implemented pure TypeScript RFC 4180 CSV parser with delimiter auto-detection and intelligent header alias normalization. Built import service with row-level validation (flagging exact row number, column, provided value, error message), automatic on-the-fly brand/category registration, and idempotent upserts. Built admin import screen at /admin/catalog/import with file upload, text paste, sample template, and error diagnosis table. Validated 900-row FMCG benchmark in 870ms (well under the 30-second acceptance criteria). 61 tests passing across 11 test suites. Next is Step 10: Purchase & GRN Service + UI (Task 1.7).
+- 2026-10-09: Step 10 complete (Purchase & GRN Service + UI - Task 1.7). Implemented purchase repository and service recording supplier receipts. Atomically posts PURCHASE_RECEIPT stock movements to designated locations via the core stock ledger, credits supplier accounts in ledger_entries, and writes audit logs. Enforced STOCK_RECEIVE permission guards. Built Godown GRN listing and interactive receipt creation UI at /godown/purchases with live tax and totals calculation. 64 tests passing across 12 test suites. Next is Step 11: Godown Operations (Transfer, Carton Break, Damage, Adjustment, Stock Audit) (Task 1.8).
+
 
 
 
