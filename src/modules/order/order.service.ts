@@ -1,14 +1,27 @@
 import { prisma } from "@/lib/prisma";
 import { getNextSequenceNumber } from "@/lib/invoice-number";
-import { pricingService } from "@/modules/pricing/pricing.service";
 import { deliveryService } from "@/modules/delivery/delivery.service";
 import { cartService } from "@/modules/cart/cart.service";
 import { auditService } from "@/modules/audit/audit.service";
-import { LocationType, UserRole } from "@prisma/client";
-import { assertPermission, Permission } from "@/modules/auth/permissions";
+import { stockService } from "@/modules/stock/stock.service";
+import {
+  InvoiceChannel,
+  InvoiceStatus,
+  LedgerKind,
+  LocationType,
+  MovementType,
+  PaymentMode,
+  PaymentStatus,
+  UserRole,
+} from "@prisma/client";
+import { assertPermission, hasPermission, Permission, ForbiddenError } from "@/modules/auth/permissions";
 import {
   CreateOrderInput,
   createOrderInputSchema,
+  AssignDeliveryInput,
+  assignDeliveryInputSchema,
+  RecordDeliveryPaymentInput,
+  recordDeliveryPaymentInputSchema,
   OrderSummary,
   OrderItemSummary,
   OrderStatus,
@@ -178,6 +191,8 @@ export class OrderService {
         },
         include: {
           user: { select: { id: true, name: true, phone: true } },
+          assignedDeliveryUser: { select: { id: true, name: true, phone: true } },
+          invoice: { select: { id: true, number: true, paymentStatus: true, totalPaise: true } },
           items: {
             include: {
               product: {
@@ -238,6 +253,14 @@ export class OrderService {
   }
 
   /**
+   * List deliveries assigned to a specific delivery staff member.
+   */
+  async listOrdersForDelivery(staffId: string, status?: OrderStatus): Promise<OrderSummary[]> {
+    const orders = await this.repo.listOrdersForDeliveryStaff(staffId, status);
+    return orders.map((o) => this.mapOrderToSummary(o));
+  }
+
+  /**
    * Updates an order's status (e.g. PENDING -> CONFIRMED -> PROCESSING -> DISPATCHED -> DELIVERED or CANCELLED).
    * Guarded by MANAGE_ORDERS permission.
    */
@@ -256,7 +279,7 @@ export class OrderService {
     }
 
     const previousStatus = existing.status;
-    const updated = await this.repo.updateOrderStatus(orderId, newStatus);
+    await this.repo.updateOrderStatus(orderId, newStatus);
 
     await auditService.log({
       actorId,
@@ -270,6 +293,420 @@ export class OrderService {
 
     const fullOrder = await this.repo.findOrderById(orderId);
     return this.mapOrderToSummary(fullOrder!);
+  }
+
+  /**
+   * Assigns a delivery staff user to an order.
+   * Guarded by MANAGE_ORDERS permission.
+   */
+  async assignDeliveryStaff(
+    actorRole: UserRole,
+    actorId: string,
+    input: AssignDeliveryInput,
+    ip?: string
+  ): Promise<OrderSummary> {
+    assertPermission(actorRole, Permission.MANAGE_ORDERS);
+    const validated = assignDeliveryInputSchema.parse(input);
+
+    const order = await this.repo.findOrderById(validated.orderId);
+    if (!order) {
+      throw new Error(`Order ${validated.orderId} not found`);
+    }
+
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new Error(`Cannot assign delivery to cancelled order ${order.orderNumber}`);
+    }
+
+    const staff = await prisma.user.findUnique({
+      where: { id: validated.deliveryStaffId },
+    });
+
+    if (!staff || !staff.active) {
+      throw new Error("Delivery staff member is not found or inactive");
+    }
+
+    if (
+      staff.role !== UserRole.DELIVERY &&
+      staff.role !== UserRole.SUPER_ADMIN &&
+      staff.role !== UserRole.SALESPERSON
+    ) {
+      throw new Error(`User '${staff.name}' (${staff.role}) cannot be assigned deliveries`);
+    }
+
+    const previousAssigned = order.assignedDeliveryUserId;
+    await this.repo.assignDeliveryStaff(validated.orderId, staff.id);
+
+    // If order was in PROCESSING or CONFIRMED state, update to DISPATCHED when delivery staff is assigned
+    let newStatus = order.status;
+    if (order.status === OrderStatus.CONFIRMED || order.status === OrderStatus.PROCESSING) {
+      newStatus = OrderStatus.DISPATCHED;
+      await this.repo.updateOrderStatus(order.id, newStatus);
+    }
+
+    await auditService.log({
+      actorId,
+      action: "ORDER_DELIVERY_ASSIGNED",
+      entity: "Order",
+      entityId: order.id,
+      before: { assignedDeliveryUserId: previousAssigned, status: order.status },
+      after: {
+        assignedDeliveryUserId: staff.id,
+        assignedDeliveryUserName: staff.name,
+        status: newStatus,
+      },
+      ip,
+    });
+
+    const updated = await this.repo.findOrderById(order.id);
+    return this.mapOrderToSummary(updated!);
+  }
+
+  /**
+   * Generates a single sales invoice for an online store order (PRD Rule 5 & 14):
+   * 1. Validates that no invoice has already been issued for this order (one invoice per order).
+   * 2. Issues next gapless IST FY invoice number (INV/26-27/XXXXXX) with row locking.
+   * 3. Freezes prices, discounts, taxes and delivery charges.
+   * 4. Deducts stock atomically via MovementType.SALE from distribution centers (Shop loose, Godown packs).
+   * 5. Debits customer ledger if customer is an established party.
+   * 6. Links order.invoiceId atomically.
+   */
+  async generateOrderInvoice(
+    actorRole: UserRole,
+    actorId: string,
+    orderId: string,
+    ip?: string
+  ): Promise<OrderSummary> {
+    assertPermission(actorRole, Permission.MANAGE_ORDERS);
+
+    const order = await this.repo.findOrderById(orderId);
+    if (!order) {
+      throw new Error(`Order ${orderId} not found`);
+    }
+
+    if (order.invoiceId) {
+      throw new Error(
+        `Order ${order.orderNumber} already has invoice #${order.invoice?.number || order.invoiceId}`
+      );
+    }
+
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new Error(`Cannot generate invoice for cancelled order ${order.orderNumber}`);
+    }
+
+    const customerUser = await prisma.user.findUnique({
+      where: { id: order.userId },
+      include: { party: true },
+    });
+
+    const shopLocation = await prisma.location.findFirst({
+      where: { type: LocationType.SHOP, active: true },
+    });
+    const godownLocation = await prisma.location.findFirst({
+      where: { type: LocationType.GODOWN, active: true },
+    });
+
+    const defaultInvoiceLocationId = shopLocation?.id || godownLocation?.id || "loc-shop-main";
+
+    const invoice = await prisma.$transaction(async (tx) => {
+      // 1. Assign gapless sequence number: INV/26-27/XXXXXX
+      const { number: invoiceNumber, fy } = await getNextSequenceNumber(tx, "INV");
+
+      // 2. Fetch product metadata
+      const productIds = order.items.map((i) => i.productId);
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, hsn: true, packSize: true },
+      });
+      const prodMap = new Map(products.map((p) => [p.id, p]));
+
+      // 3. Create Invoice record
+      const inv = await tx.invoice.create({
+        data: {
+          number: invoiceNumber,
+          fy,
+          status: InvoiceStatus.FINAL,
+          channel: InvoiceChannel.ONLINE,
+          locationId: defaultInvoiceLocationId,
+          partyId: customerUser?.partyId || null,
+          buyerType: order.buyerTag,
+          notes: `Order #${order.orderNumber}${
+            order.deliveryFeePaise > 0
+              ? ` (Includes ₹${(order.deliveryFeePaise / 100).toFixed(2)} delivery fee)`
+              : ""
+          }`,
+          subtotalPaise: order.subtotalPaise,
+          discountPaise: order.lineDiscountPaise,
+          taxablePaise: order.taxablePaise,
+          cgstPaise: order.cgstPaise,
+          sgstPaise: order.sgstPaise,
+          igstPaise: order.igstPaise,
+          roundOffPaise: order.roundOffPaise,
+          totalPaise: order.totalPaise,
+          paymentStatus: PaymentStatus.PENDING,
+          createdBy: actorId,
+          finalizedAt: new Date(),
+          items: {
+            create: order.items.map((item) => ({
+              productId: item.productId,
+              qty: item.qty,
+              mrpPaise: item.mrpPaise,
+              discountBp: item.discountBp,
+              unitPricePaise: item.unitPricePaise,
+              taxablePaise: item.taxablePaise,
+              gstRateBp: item.gstRateBp,
+              taxPaise: item.taxPaise,
+              hsn: item.hsn,
+            })),
+          },
+        },
+      });
+
+      // 4. Stock deduction (MovementType.SALE) per PRD Rule:
+      // Orders fulfil from shop (loose pieces) and godown (unopened cartons)
+      for (const item of order.items) {
+        const prod = prodMap.get(item.productId);
+        const packSize = prod?.packSize || 1;
+        const cartons = Math.floor(item.qty / packSize);
+        const loosePieces = item.qty % packSize;
+
+        // A. Full cartons: Deduct from Godown (or Shop fallback)
+        if (cartons > 0 && packSize > 1) {
+          const cartonPcs = cartons * packSize;
+          let fromLocId = godownLocation?.id;
+
+          if (fromLocId) {
+            const godownBal = await tx.stockBalance.findUnique({
+              where: {
+                productId_locationId: {
+                  productId: item.productId,
+                  locationId: fromLocId,
+                },
+              },
+            });
+            if (!godownBal || godownBal.qty < cartonPcs) {
+              fromLocId = shopLocation?.id || fromLocId;
+            }
+          } else {
+            fromLocId = shopLocation?.id || "loc-shop-main";
+          }
+
+          await stockService.postMovement(
+            {
+              type: MovementType.SALE,
+              productId: item.productId,
+              fromLocationId: fromLocId,
+              toLocationId: null,
+              qty: cartonPcs,
+              referenceType: "INVOICE",
+              referenceId: inv.id,
+              reason: `Order #${order.orderNumber} (Packs) / Invoice #${invoiceNumber}`,
+              idempotencyKey: `ord_${order.id}_sale_pack_${item.productId}`,
+              actorId,
+            },
+            tx
+          );
+        }
+
+        // B. Loose pieces: Deduct from Shop (or Godown fallback)
+        const looseQty = packSize === 1 ? item.qty : loosePieces;
+        if (looseQty > 0) {
+          let fromLocId = shopLocation?.id;
+
+          if (fromLocId) {
+            const shopBal = await tx.stockBalance.findUnique({
+              where: {
+                productId_locationId: {
+                  productId: item.productId,
+                  locationId: fromLocId,
+                },
+              },
+            });
+            if (!shopBal || shopBal.qty < looseQty) {
+              fromLocId = godownLocation?.id || fromLocId;
+            }
+          } else {
+            fromLocId = godownLocation?.id || "loc-godown-main";
+          }
+
+          await stockService.postMovement(
+            {
+              type: MovementType.SALE,
+              productId: item.productId,
+              fromLocationId: fromLocId,
+              toLocationId: null,
+              qty: looseQty,
+              referenceType: "INVOICE",
+              referenceId: inv.id,
+              reason: `Order #${order.orderNumber} (Loose) / Invoice #${invoiceNumber}`,
+              idempotencyKey: `ord_${order.id}_sale_loose_${item.productId}`,
+              actorId,
+            },
+            tx
+          );
+        }
+      }
+
+      // 5. Debit customer ledger if customer is an established credit party
+      if (customerUser?.partyId) {
+        await tx.ledgerEntry.create({
+          data: {
+            partyId: customerUser.partyId,
+            kind: LedgerKind.INVOICE,
+            debitPaise: order.totalPaise,
+            creditPaise: 0,
+            referenceType: "INVOICE",
+            referenceId: inv.id,
+          },
+        });
+      }
+
+      // 6. Link invoice to order & advance status to PROCESSING if pending
+      const nextStatus =
+        order.status === OrderStatus.PENDING || order.status === OrderStatus.CONFIRMED
+          ? OrderStatus.PROCESSING
+          : order.status;
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          invoiceId: inv.id,
+          status: nextStatus,
+        },
+      });
+
+      return inv;
+    });
+
+    // 7. Audit logging
+    await auditService.log({
+      actorId,
+      action: "ORDER_INVOICE_GENERATED",
+      entity: "Order",
+      entityId: order.id,
+      after: {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.number,
+        totalPaise: invoice.totalPaise,
+      },
+      ip,
+    });
+
+    const updated = await this.repo.findOrderById(order.id);
+    return this.mapOrderToSummary(updated!);
+  }
+
+  /**
+   * Records proof of delivery and payment collection by delivery staff.
+   * 1. Transitions order to DELIVERED with deliveredAt timestamp.
+   * 2. Sets paymentMode, paymentReference, notes.
+   * 3. Marks linked Invoice paymentStatus = PAID, and creates Payment record.
+   * 4. If customer is a linked party, records RECEIPT credit ledger entry.
+   */
+  async recordOrderDeliveryAndPayment(
+    actorRole: UserRole,
+    actorId: string,
+    input: RecordDeliveryPaymentInput,
+    ip?: string
+  ): Promise<OrderSummary> {
+    const validated = recordDeliveryPaymentInputSchema.parse(input);
+
+    const order = await this.repo.findOrderById(validated.orderId);
+    if (!order) {
+      throw new Error(`Order ${validated.orderId} not found`);
+    }
+
+    if (order.status === OrderStatus.DELIVERED) {
+      throw new Error(`Order ${order.orderNumber} is already marked as DELIVERED`);
+    }
+
+    if (order.status === OrderStatus.CANCELLED) {
+      throw new Error(`Cannot deliver cancelled order ${order.orderNumber}`);
+    }
+
+    // Authorization check: Actor must be assigned delivery staff, or have DELIVERY_EXECUTE or MANAGE_ORDERS
+    const isAssignedStaff = order.assignedDeliveryUserId === actorId;
+    const canExecute =
+      hasPermission(actorRole, Permission.DELIVERY_EXECUTE) ||
+      hasPermission(actorRole, Permission.MANAGE_ORDERS) ||
+      actorRole === UserRole.SUPER_ADMIN;
+
+    if (!isAssignedStaff && !canExecute) {
+      throw new ForbiddenError(
+        "You are not assigned to this delivery and lack permissions to record delivery completion"
+      );
+    }
+
+    const customerUser = await prisma.user.findUnique({
+      where: { id: order.userId },
+      include: { party: true },
+    });
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update Order status and delivery details
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.DELIVERED,
+          deliveredAt: new Date(),
+          paymentMode: validated.paymentMode,
+          paymentReference: validated.paymentReference?.trim() || null,
+          paymentNotes: validated.notes?.trim() || null,
+        },
+      });
+
+      // 2. If Invoice is attached, record Payment and mark invoice PAID
+      if (order.invoiceId) {
+        await tx.invoice.update({
+          where: { id: order.invoiceId },
+          data: { paymentStatus: PaymentStatus.PAID },
+        });
+
+        await tx.payment.create({
+          data: {
+            invoiceId: order.invoiceId,
+            partyId: customerUser?.partyId || null,
+            mode: validated.paymentMode,
+            amountPaise: order.totalPaise,
+            receivedBy: actorId,
+            notes: `Collected on delivery for Order #${order.orderNumber}${
+              validated.paymentReference ? ` (Ref: ${validated.paymentReference})` : ""
+            }`,
+          },
+        });
+
+        // 3. Post RECEIPT credit entry to party ledger if customer is an established party
+        if (customerUser?.partyId) {
+          await tx.ledgerEntry.create({
+            data: {
+              partyId: customerUser.partyId,
+              kind: LedgerKind.RECEIPT,
+              debitPaise: 0,
+              creditPaise: order.totalPaise,
+              referenceType: "PAYMENT",
+              referenceId: order.invoiceId,
+            },
+          });
+        }
+      }
+    });
+
+    // 4. Audit logging
+    await auditService.log({
+      actorId,
+      action: "ORDER_DELIVERED",
+      entity: "Order",
+      entityId: order.id,
+      after: {
+        status: OrderStatus.DELIVERED,
+        paymentMode: validated.paymentMode,
+        paymentReference: validated.paymentReference,
+        amountCollectedPaise: order.totalPaise,
+      },
+      ip,
+    });
+
+    const updated = await this.repo.findOrderById(order.id);
+    return this.mapOrderToSummary(updated!);
   }
 
   /**
@@ -394,6 +831,14 @@ export class OrderService {
       contactPhone: order.contactPhone,
       customerNotes: order.customerNotes,
       invoiceId: order.invoiceId,
+      invoiceNumber: order.invoice?.number || null,
+      assignedDeliveryUserId: order.assignedDeliveryUserId,
+      assignedDeliveryUserName: order.assignedDeliveryUser?.name || null,
+      assignedDeliveryUserPhone: order.assignedDeliveryUser?.phone || null,
+      deliveredAt: order.deliveredAt,
+      paymentMode: order.paymentMode,
+      paymentReference: order.paymentReference,
+      paymentNotes: order.paymentNotes,
       items,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,

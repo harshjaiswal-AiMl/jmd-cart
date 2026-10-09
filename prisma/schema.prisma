@@ -129,7 +129,8 @@ model User {
   handoversReceived CashHandover[] @relation("HandoverReceiver")
   createdDebitNotes DebitNote[]
   cart              Cart?
-  orders            Order[]
+  orders            Order[]        @relation("CustomerOrders")
+  assignedDeliveries Order[]       @relation("DeliveryStaffOrders")
 
   @@map("users")
 }
@@ -670,16 +671,23 @@ model Order {
   contactPhone          String        @map("contact_phone")
   customerNotes         String?       @map("customer_notes")
   invoiceId             String?       @unique @map("invoice_id")
+  assignedDeliveryUserId String?      @map("assigned_delivery_user_id")
+  deliveredAt           DateTime?     @map("delivered_at")
+  paymentMode           PaymentMode?  @map("payment_mode")
+  paymentReference      String?       @map("payment_reference")
+  paymentNotes          String?       @map("payment_notes")
   idempotencyKey        String?       @unique @map("idempotency_key")
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 
-  user                  User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user                  User          @relation("CustomerOrders", fields: [userId], references: [id], onDelete: Restrict)
+  assignedDeliveryUser  User?         @relation("DeliveryStaffOrders", fields: [assignedDeliveryUserId], references: [id], onDelete: SetNull)
   invoice               Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   items                 OrderItem[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
+  @@index([assignedDeliveryUserId, status])
   @@map("orders")
 }
 

@@ -124,7 +124,12 @@ export function AdminOrdersClient({ initialOrders }: AdminOrdersClientProps) {
                         >
                           #{order.orderNumber}
                         </Link>
-                        <span className="text-[11px] text-slate-400">
+                        {order.invoiceNumber && (
+                          <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
+                            🧾 {order.invoiceNumber}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-slate-400 block">
                           {new Date(order.createdAt).toLocaleDateString("en-IN", {
                             day: "numeric",
                             month: "short",
@@ -167,6 +172,11 @@ export function AdminOrdersClient({ initialOrders }: AdminOrdersClientProps) {
                         >
                           {order.status}
                         </span>
+                        {order.assignedDeliveryUserName && (
+                          <div className="text-[10px] text-blue-600 font-semibold mt-1">
+                            🚚 {order.assignedDeliveryUserName}
+                          </div>
+                        )}
                       </td>
 
                       <td className="p-3.5 text-center">
