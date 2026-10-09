@@ -8,6 +8,9 @@ import {
   reconcileVanDaySchema,
   ReconcileVanDayInput,
   VanReconciliationReport,
+  confirmCashHandoverSchema,
+  ConfirmCashHandoverInput,
+  CashHandoverWithDetails,
 } from "./van.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
@@ -110,6 +113,44 @@ export class VanService {
     });
 
     return report;
+  }
+
+  async getCashHandoverByVanDay(
+    role: UserRole,
+    vanDayId: string
+  ): Promise<CashHandoverWithDetails | null> {
+    assertPermission(role, Permission.STOCK_VIEW);
+    return vanRepository.getCashHandoverByVanDay(vanDayId);
+  }
+
+  async confirmCashHandover(
+    role: UserRole,
+    actorId: string,
+    input: ConfirmCashHandoverInput
+  ): Promise<CashHandoverWithDetails> {
+    assertPermission(role, Permission.CONFIRM_CASH_HANDOVER);
+    const parsed = confirmCashHandoverSchema.parse(input);
+
+    const handover = await vanRepository.confirmCashHandover(actorId, parsed);
+
+    await auditService.log({
+      actorId,
+      action: "CASH_HANDOVER_CONFIRM",
+      entity: "cash_handover",
+      entityId: handover.id,
+      after: {
+        vanDayId: handover.vanDayId,
+        salespersonId: handover.salespersonId,
+        receivedById: handover.receivedById,
+        expectedCashPaise: handover.expectedCashPaise,
+        receivedCashPaise: handover.receivedCashPaise,
+        shortagePaise: handover.shortagePaise,
+        excessPaise: handover.excessPaise,
+        closedVanDay: handover.vanDay.issueSheetNo,
+      },
+    });
+
+    return handover;
   }
 }
 

@@ -37,3 +37,33 @@ export async function reconcileVanDayAction(input: ReconcileVanDayInput) {
     return { success: false, error: message };
   }
 }
+
+export async function confirmCashHandoverAction(input: {
+  vanDayId: string;
+  receivedCashPaise: number;
+  notes?: string;
+}) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized. Please sign in." };
+    }
+
+    const handover = await vanService.confirmCashHandover(
+      session.user.role,
+      session.user.id,
+      input
+    );
+
+    revalidatePath("/van");
+    revalidatePath("/van/reconciliation");
+    revalidatePath("/godown/van-issues");
+    revalidatePath(`/godown/van-issues/${handover.vanDayId}/reconcile`);
+
+    return { success: true, data: handover };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Failed to confirm cash handover";
+    return { success: false, error: message };
+  }
+}
+

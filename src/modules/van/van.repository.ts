@@ -11,6 +11,8 @@ import {
   VanReconciliationReport,
   VanReconciliationLine,
   VanReconciliationFinancials,
+  ConfirmCashHandoverInput,
+  CashHandoverWithDetails,
 } from "./van.types";
 
 export class CentralGodownNotFoundError extends Error {
@@ -790,6 +792,121 @@ export class VanRepository {
     return prisma.$transaction(execute, {
       maxWait: 5000,
       timeout: 15000,
+    });
+  }
+
+  async getCashHandoverByVanDay(
+    vanDayId: string,
+    txClient?: Prisma.TransactionClient
+  ): Promise<CashHandoverWithDetails | null> {
+    const client = txClient ?? prisma;
+    return client.cashHandover.findUnique({
+      where: { vanDayId },
+      include: {
+        vanDay: {
+          include: {
+            vanLocation: true,
+            salesperson: true,
+            lines: {
+              include: { product: true },
+              orderBy: { product: { name: "asc" } },
+            },
+          },
+        },
+        salesperson: true,
+        receivedBy: true,
+      },
+    });
+  }
+
+  async confirmCashHandover(
+    receiverId: string,
+    input: ConfirmCashHandoverInput,
+    txClient?: Prisma.TransactionClient
+  ): Promise<CashHandoverWithDetails> {
+    const execute = async (tx: Prisma.TransactionClient) => {
+      // 1. Fetch van day
+      const vanDay = await tx.vanDay.findUnique({
+        where: { id: input.vanDayId },
+        include: {
+          vanLocation: true,
+          salesperson: true,
+          cashHandover: true,
+        },
+      });
+
+      if (!vanDay) {
+        throw new Error(`Van day '${input.vanDayId}' not found`);
+      }
+
+      if (vanDay.status === VanDayStatus.OPEN) {
+        throw new Error(
+          `Van day '${vanDay.issueSheetNo}' must be reconciled before confirming cash handover`
+        );
+      }
+
+      if (vanDay.status === VanDayStatus.CLOSED || vanDay.cashHandover) {
+        throw new Error(
+          `Cash handover for van day '${vanDay.issueSheetNo}' has already been confirmed and closed`
+        );
+      }
+
+      // 2. Fetch expected cash in hand from reconciliation report
+      const reconciliationReport = await this.getVanReconciliationData(vanDay.id, undefined, tx);
+      const expectedCashPaise = reconciliationReport.financials.totalCashInHandPaise;
+
+      // 3. Calculate shortage or excess
+      const shortagePaise = Math.max(0, expectedCashPaise - input.receivedCashPaise);
+      const excessPaise = Math.max(0, input.receivedCashPaise - expectedCashPaise);
+
+      // 4. Create CashHandover record
+      const handover = await tx.cashHandover.create({
+        data: {
+          vanDayId: vanDay.id,
+          salespersonId: vanDay.salespersonId,
+          receivedById: receiverId,
+          expectedCashPaise,
+          receivedCashPaise: input.receivedCashPaise,
+          shortagePaise,
+          excessPaise,
+          notes: input.notes?.trim() || null,
+          confirmedAt: new Date(),
+        },
+        include: {
+          vanDay: {
+            include: {
+              vanLocation: true,
+              salesperson: true,
+              lines: {
+                include: { product: true },
+                orderBy: { product: { name: "asc" } },
+              },
+            },
+          },
+          salesperson: true,
+          receivedBy: true,
+        },
+      });
+
+      // 5. Update VanDay to CLOSED
+      await tx.vanDay.update({
+        where: { id: vanDay.id },
+        data: {
+          status: VanDayStatus.CLOSED,
+          closedBy: receiverId,
+          updatedAt: new Date(),
+        },
+      });
+
+      return handover;
+    };
+
+    if (txClient) {
+      return execute(txClient);
+    }
+    return prisma.$transaction(execute, {
+      maxWait: 5000,
+      timeout: 10000,
     });
   }
 }

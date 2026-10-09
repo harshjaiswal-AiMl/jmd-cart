@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { VanDay, VanDayLine, Location, Product, User, VanDayStatus } from "@prisma/client";
+import { VanDay, VanDayLine, Location, Product, User, VanDayStatus, CashHandover } from "@prisma/client";
 
 export const vanIssueItemSchema = z
   .object({
@@ -104,4 +104,18 @@ export interface VanReconciliationReport {
   lines: VanReconciliationLine[];
   financials: VanReconciliationFinancials;
   isReconciled: boolean;
+}
+
+export const confirmCashHandoverSchema = z.object({
+  vanDayId: z.string().min(1, "Van day ID is required"),
+  receivedCashPaise: z.number().int().min(0, "Received cash cannot be negative"),
+  notes: z.string().max(500).optional(),
+});
+
+export type ConfirmCashHandoverInput = z.infer<typeof confirmCashHandoverSchema>;
+
+export interface CashHandoverWithDetails extends CashHandover {
+  vanDay: VanDayWithDetails;
+  salesperson: User;
+  receivedBy: User;
 }

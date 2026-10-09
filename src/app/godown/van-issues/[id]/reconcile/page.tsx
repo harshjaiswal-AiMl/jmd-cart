@@ -32,10 +32,16 @@ export default async function GodownVanReconcilePage({ params }: PageProps) {
       params.id
     );
 
+    const initialHandover = await vanService.getCashHandoverByVanDay(
+      session.user.role,
+      params.id
+    );
+
     return (
       <div className="max-w-5xl mx-auto px-4 py-6">
         <GodownVanReconcileClient
           initialReport={report}
+          initialHandover={initialHandover}
           userRole={session.user.role}
         />
       </div>

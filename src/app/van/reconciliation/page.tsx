@@ -108,9 +108,15 @@ export default async function VanReconciliationPage() {
     activeVanDay.id
   );
 
+  const initialHandover = await vanService.getCashHandoverByVanDay(
+    session.user.role,
+    activeVanDay.id
+  );
+
   return (
     <VanReconciliationClient
       initialReport={report}
+      initialHandover={initialHandover}
       userRole={session.user.role}
     />
   );

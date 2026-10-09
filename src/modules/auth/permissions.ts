@@ -26,10 +26,11 @@ export enum Permission {
   POS_CASH_CLOSE = "POS_CASH_CLOSE",
   BILL_CANCEL = "BILL_CANCEL", // Admin only
 
-  // Van Sales
+  // Van Sales & Cash Handover
   VAN_BILL = "VAN_BILL",
   VAN_RECONCILE = "VAN_RECONCILE",
   VAN_ISSUE_LOAD = "VAN_ISSUE_LOAD",
+  CONFIRM_CASH_HANDOVER = "CONFIRM_CASH_HANDOVER",
 
   // Delivery
   DELIVERY_EXECUTE = "DELIVERY_EXECUTE",
@@ -104,6 +105,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_LEDGER,
     Permission.MANAGE_PARTIES,
     Permission.RECORD_COLLECTION,
+    Permission.CONFIRM_CASH_HANDOVER,
     Permission.ACCOUNTS_VIEW,
     Permission.REPORTS_VIEW,
   ],

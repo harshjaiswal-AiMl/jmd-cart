@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { VanReconciliationReport } from "@/modules/van/van.types";
-import { reconcileVanDayAction } from "@/app/van/reconciliation/actions";
+import { VanReconciliationReport, CashHandoverWithDetails } from "@/modules/van/van.types";
+import { reconcileVanDayAction, confirmCashHandoverAction } from "@/app/van/reconciliation/actions";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -21,16 +21,29 @@ import { useRouter } from "next/navigation";
 
 interface Props {
   initialReport: VanReconciliationReport;
+  initialHandover?: CashHandoverWithDetails | null;
   userRole: string;
 }
 
-export function GodownVanReconcileClient({ initialReport, userRole }: Props) {
+export function GodownVanReconcileClient({ initialReport, initialHandover, userRole }: Props) {
   const router = useRouter();
   const [report, setReport] = useState<VanReconciliationReport>(initialReport);
+  const [handover, setHandover] = useState<CashHandoverWithDetails | null>(
+    initialHandover ?? null
+  );
   const [notes, setNotes] = useState(initialReport.vanDay.notes || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Cash Handover State
+  const [receivedCashRupees, setReceivedCashRupees] = useState<number>(
+    initialHandover
+      ? Math.round(initialHandover.receivedCashPaise / 100)
+      : Math.round(initialReport.financials.totalCashInHandPaise / 100)
+  );
+  const [handoverNotes, setHandoverNotes] = useState(initialHandover?.notes || "");
+  const [isConfirmingHandover, setIsConfirmingHandover] = useState(false);
 
   const [counts, setCounts] = useState<Record<string, { cartons: number; pieces: number }>>(() => {
     const initial: Record<string, { cartons: number; pieces: number }> = {};
@@ -148,6 +161,37 @@ export function GodownVanReconcileClient({ initialReport, userRole }: Props) {
       router.refresh();
     } else {
       setError(res.error || "Failed to reconcile van day");
+    }
+  };
+
+  const handleConfirmHandover = async () => {
+    if (isConfirmingHandover) return;
+    setIsConfirmingHandover(true);
+    setError(null);
+    setSuccessMsg(null);
+
+    const receivedCashPaise = Math.round(receivedCashRupees * 100);
+    const res = await confirmCashHandoverAction({
+      vanDayId: report.vanDay.id,
+      receivedCashPaise,
+      notes: handoverNotes,
+    });
+
+    setIsConfirmingHandover(false);
+    if (res.success && res.data) {
+      setHandover(res.data);
+      setReport((prev) => ({
+        ...prev,
+        vanDay: {
+          ...prev.vanDay,
+          status: "CLOSED",
+          closedBy: res.data.receivedById,
+        },
+      }));
+      setSuccessMsg("Cash handover confirmed by owner! Van Day is officially CLOSED.");
+      router.refresh();
+    } else {
+      setError(res.error || "Failed to confirm cash handover");
     }
   };
 
@@ -488,6 +532,188 @@ export function GodownVanReconcileClient({ initialReport, userRole }: Props) {
           </div>
         )}
       </div>
+
+      {/* Cash Handover Confirmation & Day Closing Section */}
+      {isReconciled && (
+        <div className="space-y-4">
+          {vanDay.status === "CLOSED" || handover ? (
+            <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-5 space-y-3 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Cash Handover Confirmed — Day Officially Closed
+                    </h3>
+                    <p className="text-xs text-slate-600">
+                      Received by <span className="text-slate-900 font-semibold">{handover?.receivedBy?.name || "Sachin Prakash (Owner)"}</span> • {handover?.confirmedAt ? new Date(handover.confirmedAt).toLocaleDateString("en-IN") : "Today"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-xl font-mono font-bold text-emerald-700">
+                    ₹{((handover?.receivedCashPaise ?? financials.totalCashInHandPaise) / 100).toFixed(2)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 uppercase font-semibold">
+                    Physical Cash Handed Over
+                  </span>
+                </div>
+              </div>
+
+              {/* Handover Details Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-emerald-200 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Expected Cash</span>
+                  <span className="font-mono text-slate-800">
+                    ₹{((handover?.expectedCashPaise ?? financials.totalCashInHandPaise) / 100).toFixed(2)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Actual Received</span>
+                  <span className="font-mono text-emerald-700 font-bold">
+                    ₹{((handover?.receivedCashPaise ?? financials.totalCashInHandPaise) / 100).toFixed(2)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Cash Variance</span>
+                  <span className={`font-mono font-semibold ${
+                    (handover?.shortagePaise ?? 0) > 0
+                      ? "text-rose-600"
+                      : (handover?.excessPaise ?? 0) > 0
+                      ? "text-purple-600"
+                      : "text-emerald-700"
+                  }`}>
+                    {(handover?.shortagePaise ?? 0) > 0
+                      ? `-₹${((handover?.shortagePaise ?? 0) / 100).toFixed(2)} Short`
+                      : (handover?.excessPaise ?? 0) > 0
+                      ? `+₹${((handover?.excessPaise ?? 0) / 100).toFixed(2)} Excess`
+                      : "Zero Variance"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Status</span>
+                  <span className="text-emerald-700 font-bold uppercase tracking-wider text-[11px]">
+                    Closed & Locked
+                  </span>
+                </div>
+              </div>
+
+              {handover?.notes && (
+                <p className="text-xs text-slate-700 bg-white/70 p-2.5 rounded-lg border border-emerald-200">
+                  📝 {handover.notes}
+                </p>
+              )}
+            </div>
+          ) : userRole === "SUPER_ADMIN" || userRole === "ACCOUNTS" ? (
+            /* Owner / Accounts Confirmation Panel */
+            <div className="bg-white border-2 border-emerald-500/40 rounded-xl p-5 space-y-4 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-emerald-600" />
+                    Owner Cash Handover Confirmation
+                  </h3>
+                  <p className="text-xs text-slate-600">
+                    Verify physical cash received from {vanDay.salesperson.name} to officially lock and close this van day.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-500 block uppercase font-semibold">Expected Handover</span>
+                  <span className="font-mono font-bold text-emerald-700 text-base">
+                    ₹{(financials.totalCashInHandPaise / 100).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Physical Cash Counted (₹)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={receivedCashRupees}
+                      onChange={(e) => setReceivedCashRupees(parseFloat(e.target.value) || 0)}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-8 pr-3 py-2 text-sm text-slate-900 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div className="flex gap-2 mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setReceivedCashRupees(Math.round(financials.totalCashInHandPaise / 100))}
+                      className="text-[11px] text-emerald-700 hover:underline font-medium"
+                    >
+                      Fill Exact: ₹{(financials.totalCashInHandPaise / 100).toFixed(2)}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Handover Remarks
+                  </label>
+                  <input
+                    type="text"
+                    value={handoverNotes}
+                    onChange={(e) => setHandoverNotes(e.target.value)}
+                    placeholder="e.g. Counted in safe room, verified by Sachin Prakash"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Variance & Confirm Button */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200">
+                <div className="text-xs">
+                  {Math.round(receivedCashRupees * 100) === financials.totalCashInHandPaise ? (
+                    <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Exact cash match — zero variance
+                    </span>
+                  ) : Math.round(receivedCashRupees * 100) < financials.totalCashInHandPaise ? (
+                    <span className="text-rose-600 font-semibold flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Cash Shortage: ₹{((financials.totalCashInHandPaise - Math.round(receivedCashRupees * 100)) / 100).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span className="text-purple-600 font-semibold flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Cash Excess: ₹{((Math.round(receivedCashRupees * 100) - financials.totalCashInHandPaise) / 100).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isConfirmingHandover}
+                  onClick={handleConfirmHandover}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-sm disabled:opacity-50"
+                >
+                  <Coins className="w-4 h-4" />
+                  {isConfirmingHandover ? "Confirming..." : "Confirm Handover & Close Van Day"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Godown / Non-Owner Waiting Banner */
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-2">
+              <div className="flex items-center gap-2 text-amber-800 text-sm font-semibold">
+                <Coins className="w-4 h-4 text-amber-600" />
+                Awaiting Owner Cash Handover Confirmation
+              </div>
+              <p className="text-xs text-amber-900">
+                Unsold stock is reconciled into Central Godown. Handover <strong className="font-mono">₹{(financials.totalCashInHandPaise / 100).toFixed(2)}</strong> in physical cash to Sachin Prakash (Owner) or accounts manager to officially close this van day.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

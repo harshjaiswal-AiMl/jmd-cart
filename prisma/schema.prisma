@@ -110,6 +110,8 @@ model User {
   createdCreditNotes CreditNote[]
   vanDays           VanDay[]
   creditOverrideInvoices Invoice[] @relation("CreditOverrideInvoices")
+  handoversGiven    CashHandover[] @relation("HandoverSalesperson")
+  handoversReceived CashHandover[] @relation("HandoverReceiver")
 
   @@map("users")
 }
@@ -502,6 +504,7 @@ model VanDay {
   vanLocation     Location      @relation(fields: [vanLocationId], references: [id], onDelete: Restrict)
   salesperson     User          @relation(fields: [salespersonId], references: [id], onDelete: Restrict)
   lines           VanDayLine[]
+  cashHandover    CashHandover?
 
   @@index([vanLocationId, date])
   @@index([salespersonId, date])
@@ -523,5 +526,28 @@ model VanDayLine {
 
   @@unique([vanDayId, productId])
   @@map("van_day_lines")
+}
+
+model CashHandover {
+  id                String   @id @default(cuid())
+  branchId          Int      @default(1) @map("branch_id")
+  vanDayId          String   @unique @map("van_day_id")
+  salespersonId     String   @map("salesperson_id")
+  receivedById      String   @map("received_by_id")
+  expectedCashPaise Int      @map("expected_cash_paise")
+  receivedCashPaise Int      @map("received_cash_paise")
+  shortagePaise     Int      @default(0) @map("shortage_paise")
+  excessPaise       Int      @default(0) @map("excess_paise")
+  notes             String?
+  confirmedAt       DateTime @default(now()) @map("confirmed_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  vanDay            VanDay   @relation(fields: [vanDayId], references: [id], onDelete: Cascade)
+  salesperson       User     @relation("HandoverSalesperson", fields: [salespersonId], references: [id], onDelete: Restrict)
+  receivedBy        User     @relation("HandoverReceiver", fields: [receivedById], references: [id], onDelete: Restrict)
+
+  @@index([salespersonId, confirmedAt])
+  @@index([receivedById, confirmedAt])
+  @@map("cash_handovers")
 }
 
