@@ -2,6 +2,8 @@
 
 import { signIn } from "@/auth";
 import { AuthError } from "next-auth";
+import { authService } from "@/modules/auth/auth.service";
+import { getDefaultDashboard } from "@/middleware";
 
 export interface LoginActionState {
   error?: string;
@@ -24,10 +26,16 @@ export async function loginAction(
   }
 
   try {
+    const user = await authService.authenticateWithCredentials(phone, password);
+    const targetUrl =
+      callbackUrl && callbackUrl !== "/"
+        ? callbackUrl
+        : getDefaultDashboard(user.role);
+
     await signIn("credentials", {
       phone,
       password,
-      redirectTo: callbackUrl,
+      redirectTo: targetUrl,
     });
   } catch (error) {
     if (error instanceof AuthError) {

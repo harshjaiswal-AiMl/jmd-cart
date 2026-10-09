@@ -4,7 +4,13 @@ import { UserRole } from "@prisma/client";
 import { catalogService } from "@/modules/catalog/catalog.service";
 import { CatalogClient } from "./catalog-client";
 
-export default async function AdminCatalogPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AdminCatalogPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ q?: string; companyId?: string; categoryId?: string }>;
+}) {
   const session = await auth();
 
   if (!session?.user) {
@@ -15,11 +21,23 @@ export default async function AdminCatalogPage() {
     redirect("/login");
   }
 
+  const params = await searchParams;
+  const q = params?.q;
+  const companyId = params?.companyId;
+  const categoryId = params?.categoryId;
+
   const [{ products }, companies, categories] = await Promise.all([
-    catalogService.searchProducts(session.user.role, { limit: 100, activeOnly: false }),
+    catalogService.searchProducts(session.user.role, {
+      q,
+      companyId,
+      categoryId,
+      limit: 100,
+      activeOnly: false,
+    }),
     catalogService.listCompanies(session.user.role),
     catalogService.listCategories(session.user.role),
   ]);
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8">

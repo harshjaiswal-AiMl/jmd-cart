@@ -42,6 +42,14 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Public landing page
+  if (pathname === "/") {
+    if (isLoggedIn && user?.role) {
+      return NextResponse.redirect(new URL(getDefaultDashboard(user.role), req.url));
+    }
+    return NextResponse.next();
+  }
+
   // Public login page
   if (pathname === "/login") {
     if (isLoggedIn && user?.role) {
@@ -56,6 +64,7 @@ export default auth((req) => {
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
+
 
   // Mandatory password change check
   if (user?.mustChangePassword && pathname !== "/change-password") {

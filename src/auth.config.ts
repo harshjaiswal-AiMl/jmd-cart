@@ -1,9 +1,11 @@
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig: NextAuthConfig = {
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
+
   callbacks: {
     jwt({ token, user }) {
       if (user) {
@@ -24,5 +26,11 @@ export const authConfig: NextAuthConfig = {
       return session;
     },
   },
+  session: {
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  secret: process.env.AUTH_SECRET,
   providers: [],
 };
+
