@@ -112,6 +112,7 @@ model User {
   creditOverrideInvoices Invoice[] @relation("CreditOverrideInvoices")
   handoversGiven    CashHandover[] @relation("HandoverSalesperson")
   handoversReceived CashHandover[] @relation("HandoverReceiver")
+  createdDebitNotes DebitNote[]
 
   @@map("users")
 }
@@ -135,6 +136,7 @@ model Location {
   stockAudits    StockAudit[]
   vanDays        VanDay[]
   payments       Payment[]
+  debitNotes     DebitNote[]
 
   @@map("locations")
 }
@@ -191,6 +193,7 @@ model Product {
   purchaseItems  PurchaseItem[]
   auditLines     StockAuditLine[]
   vanDayLines    VanDayLine[]
+  debitNoteItems DebitNoteItem[]
 
   @@index([name])
   @@index([companyId])
@@ -296,6 +299,7 @@ model Party {
   purchases        Purchase[]
   ledgerEntries    LedgerEntry[]
   payments         Payment[]
+  debitNotes       DebitNote[]
 
   @@map("parties")
 }
@@ -450,6 +454,51 @@ model CreditNote {
   creator    User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@map("credit_notes")
+}
+
+model DebitNote {
+  id            String          @id @default(cuid())
+  branchId      Int             @default(1) @map("branch_id")
+  number        String          @unique
+  fy            String
+  supplierId    String          @map("supplier_id")
+  locationId    String          @map("location_id")
+  reason        String
+  subtotalPaise Int             @map("subtotal_paise")
+  taxPaise      Int             @map("tax_paise")
+  roundOffPaise Int             @default(0) @map("round_off_paise")
+  totalPaise    Int             @map("total_paise")
+  notes         String?
+  createdBy     String?         @map("created_by")
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  supplier      Party           @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location      Location        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  creator       User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  items         DebitNoteItem[]
+
+  @@index([supplierId, createdAt])
+  @@index([locationId, createdAt])
+  @@map("debit_notes")
+}
+
+model DebitNoteItem {
+  id             String    @id @default(cuid())
+  debitNoteId    String    @map("debit_note_id")
+  productId      String    @map("product_id")
+  qty            Int
+  unitPricePaise Int       @map("unit_price_paise")
+  taxablePaise   Int       @map("taxable_paise")
+  gstRateBp      Int       @default(0) @map("gst_rate_bp")
+  taxPaise       Int       @default(0) @map("tax_paise")
+  totalPaise     Int       @map("total_paise")
+  batchNo        String?   @map("batch_no")
+  reason         String?
+
+  debitNote      DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("debit_note_items")
 }
 
 model StockAudit {

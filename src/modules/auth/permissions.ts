@@ -45,6 +45,9 @@ export enum Permission {
   // Accounts & Reports
   ACCOUNTS_VIEW = "ACCOUNTS_VIEW",
   REPORTS_VIEW = "REPORTS_VIEW",
+
+  // Returns to Company & Debit Notes
+  RETURN_TO_COMPANY = "RETURN_TO_COMPANY",
 }
 
 export class ForbiddenError extends Error {
@@ -71,6 +74,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.STOCK_ADJUST,
     Permission.VAN_ISSUE_LOAD,
     Permission.VAN_RECONCILE,
+    Permission.RETURN_TO_COMPANY,
   ],
 
   SHOP: [
@@ -108,6 +112,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.CONFIRM_CASH_HANDOVER,
     Permission.ACCOUNTS_VIEW,
     Permission.REPORTS_VIEW,
+    Permission.RETURN_TO_COMPANY,
   ],
 
   CUSTOMER: [
@@ -124,7 +129,7 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   SHOP: ["/shop"],
   SALESPERSON: ["/van"],
   DELIVERY: ["/delivery"],
-  ACCOUNTS: ["/accounts", "/admin/reports"],
+  ACCOUNTS: ["/accounts", "/admin/reports", "/godown/returns"],
   CUSTOMER: ["/store"],
 };
 
