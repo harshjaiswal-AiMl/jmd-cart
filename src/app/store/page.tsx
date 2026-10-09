@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { storeService } from "@/modules/store/store.service";
+import { cartService } from "@/modules/cart/cart.service";
 import { CatalogueClient } from "./catalogue-client";
 import Link from "next/link";
 
@@ -33,9 +34,10 @@ export default async function StorePage({
     inStockOnly: searchParams?.inStock === "true",
   };
 
-  const [catalogueData, filterOptions] = await Promise.all([
+  const [catalogueData, filterOptions, cartData] = await Promise.all([
     storeService.getCatalogue(queryParams),
     storeService.getFilterOptions(),
+    cartService.getCartSummary(session.user.id),
   ]);
 
   return (
@@ -60,6 +62,19 @@ export default async function StorePage({
                 {user?.phone}
               </div>
             </div>
+
+            <Link
+              href="/store/cart"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors"
+            >
+              <span>🛒 Cart</span>
+              {cartData.totalPieces > 0 && (
+                <span className="bg-white text-blue-700 text-[11px] font-bold px-1.5 py-0.2 rounded-full">
+                  {cartData.totalPieces}
+                </span>
+              )}
+            </Link>
+
             <Link
               href="/api/auth/signout"
               className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"

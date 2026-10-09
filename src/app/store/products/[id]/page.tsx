@@ -35,7 +35,13 @@ export default async function ProductDetailPage({
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-3 text-sm">
+            <Link
+              href="/store/cart"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors"
+            >
+              <span>🛒 View Cart</span>
+            </Link>
             <Link
               href="/store"
               className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"

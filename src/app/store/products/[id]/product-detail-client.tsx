@@ -2,10 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { StoreProductItem } from "@/modules/store/store.service";
+import { addToCartAction } from "@/app/store/cart/actions";
 
 export function ProductDetailClient({ product }: { product: StoreProductItem }) {
+  const router = useRouter();
   const [selectedQty, setSelectedQty] = useState(1);
+  const [isAdding, setIsAdding] = useState(false);
 
   const mrpRupees = (product.mrpPaise / 100).toFixed(2);
 
@@ -253,19 +257,31 @@ export function ProductDetailClient({ product }: { product: StoreProductItem }) 
           </div>
 
           {/* Add to Cart / Order Action */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+          <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="text-xs text-slate-500">Total Estimated Amount:</div>
               <div className="text-2xl font-black text-slate-900 font-mono">₹{totalAmountRupees}</div>
             </div>
 
-            <Link
-              href="/store"
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-sm transition-colors flex items-center gap-2"
-            >
-              <span>Back to Store Catalogue</span>
-              <span>→</span>
-            </Link>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isAdding || !product.isAvailable}
+                onClick={async () => {
+                  setIsAdding(true);
+                  const res = await addToCartAction(product.id, selectedQty);
+                  setIsAdding(false);
+                  if (res.success) {
+                    router.push("/store/cart");
+                  } else {
+                    alert(res.error || "Failed to add to cart");
+                  }
+                }}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                <span>{isAdding ? "Adding..." : "🛒 Add to Cart"}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
