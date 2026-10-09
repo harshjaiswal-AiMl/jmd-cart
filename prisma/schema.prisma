@@ -99,9 +99,14 @@ model User {
   role               UserRole
   active             Boolean   @default(true)
   mustChangePassword Boolean   @default(false) @map("must_change_password")
+  phoneVerifiedAt    DateTime? @map("phone_verified_at")
+  emailVerifiedAt    DateTime? @map("email_verified_at")
+  verificationMode   String?   @map("verification_mode") // "admin", "sms", "off"
+  partyId            String?   @map("party_id")
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
+  party              Party?    @relation("UserParty", fields: [partyId], references: [id], onDelete: SetNull)
   assignedLocations Location[]
   auditLogs         AuditLog[]
   createdInvoices   Invoice[]
@@ -300,6 +305,7 @@ model Party {
   ledgerEntries    LedgerEntry[]
   payments         Payment[]
   debitNotes       DebitNote[]
+  users            User[]      @relation("UserParty")
 
   @@map("parties")
 }

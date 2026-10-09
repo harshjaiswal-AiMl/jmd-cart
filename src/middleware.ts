@@ -27,18 +27,12 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // Public landing page
-  if (pathname === "/") {
+  // Public landing, login, register, and phone verification pages
+  if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/verify-phone") {
     if (isLoggedIn && user?.role) {
-      return NextResponse.redirect(new URL(getDefaultDashboard(user.role), req.url));
-    }
-    return NextResponse.next();
-  }
-
-  // Public login page
-  if (pathname === "/login") {
-    if (isLoggedIn && user?.role) {
-      return NextResponse.redirect(new URL(getDefaultDashboard(user.role), req.url));
+      if (pathname === "/login" || pathname === "/register") {
+        return NextResponse.redirect(new URL(getDefaultDashboard(user.role), req.url));
+      }
     }
     return NextResponse.next();
   }

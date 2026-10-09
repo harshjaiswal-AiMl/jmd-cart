@@ -2,6 +2,8 @@ import { UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { auditService } from "@/modules/audit/audit.service";
+import { settingsService } from "@/modules/settings/settings.service";
+import { defaultSmsProvider } from "@/lib/sms";
 import { assertPermission, Permission } from "./permissions";
 
 export class InvalidCredentialsError extends Error {
@@ -23,8 +25,17 @@ interface FailedAttemptTracker {
   lockedUntil: number | null;
 }
 
+interface OtpTracker {
+  hash: string;
+  expiresAt: number;
+  attempts: number;
+}
+
 // In-memory lockout tracker by phone number
 const loginAttempts = new Map<string, FailedAttemptTracker>();
+
+// In-memory OTP tracker by phone number
+const otpStore = new Map<string, OtpTracker>();
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -196,6 +207,234 @@ export class AuthService {
         role: user.role,
       },
     };
+  }
+
+  /**
+   * Register a new buyer (CUSTOMER role).
+   * Depending on settings.verification_mode:
+   * - "off": phoneVerifiedAt is set immediately.
+   * - "admin": phoneVerifiedAt is null (pending admin phone verification).
+   * - "sms": phoneVerifiedAt is null, and OTP is generated & sent via SmsProvider.
+   */
+  async registerBuyer(
+    data: {
+      name: string;
+      phone: string;
+      password: string;
+      email?: string | null;
+      gstin?: string | null;
+      address?: string | null;
+    },
+    ip?: string
+  ) {
+    const cleanPhone = data.phone.trim();
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      throw new Error("Invalid 10-digit Indian phone number");
+    }
+    if (!data.name || data.name.trim().length < 2) {
+      throw new Error("Name must be at least 2 characters");
+    }
+    if (!data.password || data.password.length < 6) {
+      throw new Error("Password must be at least 6 characters long");
+    }
+
+    // Check duplicate phone
+    const existing = await prisma.user.findUnique({
+      where: { phone: cleanPhone },
+    });
+    if (existing) {
+      throw new Error("An account with this phone number already exists");
+    }
+
+    // Get current verification mode setting
+    const verificationSetting = await settingsService.getVerificationSettings();
+    const mode = verificationSetting.mode; // "admin" | "off" | "sms"
+
+    const passwordHash = await bcrypt.hash(data.password, 10);
+    const now = new Date();
+    const phoneVerifiedAt = mode === "off" ? now : null;
+
+    // Create party record if not existing, or link existing by phone
+    let party = await prisma.party.findFirst({
+      where: { phone: cleanPhone },
+    });
+
+    if (!party) {
+      party = await prisma.party.create({
+        data: {
+          name: data.name.trim(),
+          phone: cleanPhone,
+          email: data.email?.trim() || null,
+          gstin: data.gstin?.trim() || null,
+          address: data.address?.trim() || null,
+          type: "CUSTOMER",
+          creditEnabled: false,
+        },
+      });
+    }
+
+    const user = await prisma.user.create({
+      data: {
+        name: data.name.trim(),
+        phone: cleanPhone,
+        email: data.email?.trim() || null,
+        passwordHash,
+        role: UserRole.CUSTOMER,
+        mustChangePassword: false,
+        active: true,
+        phoneVerifiedAt,
+        verificationMode: mode,
+        partyId: party.id,
+      },
+    });
+
+    await auditService.log({
+      actorId: user.id,
+      action: "BUYER_REGISTERED",
+      entity: "User",
+      entityId: user.id,
+      after: {
+        name: user.name,
+        phone: user.phone,
+        verificationMode: mode,
+        isVerified: Boolean(phoneVerifiedAt),
+      },
+      ip,
+    });
+
+    // If SMS mode, send initial OTP
+    if (mode === "sms") {
+      await this.sendPhoneVerificationOtp(cleanPhone);
+    }
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+        phoneVerifiedAt: user.phoneVerifiedAt,
+        verificationMode: user.verificationMode,
+      },
+      verificationMode: mode,
+      requiresVerification: !phoneVerifiedAt,
+    };
+  }
+
+  /**
+   * Admin verifies buyer phone (e.g. after calling customer to confirm order/account).
+   */
+  async verifyBuyerPhoneByAdmin(
+    actorRole: UserRole,
+    actorId: string,
+    targetUserId: string,
+    ip?: string
+  ) {
+    assertPermission(actorRole, Permission.MANAGE_USERS);
+
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+    });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: targetUserId },
+      data: {
+        phoneVerifiedAt: new Date(),
+        verificationMode: "admin",
+      },
+    });
+
+    await auditService.log({
+      actorId,
+      action: "BUYER_PHONE_VERIFIED_BY_ADMIN",
+      entity: "User",
+      entityId: targetUserId,
+      after: { verifiedPhone: updated.phone, verifiedAt: updated.phoneVerifiedAt },
+      ip,
+    });
+
+    return updated;
+  }
+
+  /**
+   * Send 6-digit OTP via SmsProvider (for SMS verification mode).
+   */
+  async sendPhoneVerificationOtp(phone: string) {
+    const cleanPhone = phone.trim();
+    // Generate 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = await bcrypt.hash(otp, 6);
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+    otpStore.set(cleanPhone, {
+      hash: otpHash,
+      expiresAt,
+      attempts: 0,
+    });
+
+    // Dispatch via SmsProvider
+    await defaultSmsProvider.sendSms({
+      toPhone: cleanPhone,
+      message: `Your IDMS verification code is ${otp}. Valid for 5 minutes.`,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Verify buyer phone using OTP.
+   */
+  async verifyPhoneWithOtp(phone: string, otp: string, ip?: string) {
+    const cleanPhone = phone.trim();
+    const entry = otpStore.get(cleanPhone);
+
+    if (!entry || entry.expiresAt < Date.now()) {
+      otpStore.delete(cleanPhone);
+      throw new Error("OTP has expired or was not requested. Please request a new code.");
+    }
+
+    if (entry.attempts >= 5) {
+      otpStore.delete(cleanPhone);
+      throw new Error("Maximum OTP verification attempts exceeded. Please request a new code.");
+    }
+
+    entry.attempts += 1;
+
+    const isValid = await bcrypt.compare(otp.trim(), entry.hash);
+    if (!isValid) {
+      throw new Error("Invalid verification code. Please check and try again.");
+    }
+
+    otpStore.delete(cleanPhone);
+
+    // Update user phone verified timestamp
+    const user = await prisma.user.findUnique({
+      where: { phone: cleanPhone },
+    });
+
+    if (user) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          phoneVerifiedAt: new Date(),
+          verificationMode: "sms",
+        },
+      });
+
+      await auditService.log({
+        actorId: user.id,
+        action: "BUYER_PHONE_VERIFIED_BY_SMS",
+        entity: "User",
+        entityId: user.id,
+        after: { phone: user.phone },
+        ip,
+      });
+    }
+
+    return { success: true };
   }
 
   /**

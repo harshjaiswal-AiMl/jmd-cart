@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import { settingsService } from "@/modules/settings/settings.service";
-import { BusinessDetailsForm, DiscountLimitsForm } from "./settings-forms";
+import { BusinessDetailsForm, DiscountLimitsForm, VerificationSettingsForm } from "./settings-forms";
 
 export default async function AdminSettingsPage() {
   const session = await auth();
@@ -30,6 +30,7 @@ export default async function AdminSettingsPage() {
         <div className="space-y-6">
           <BusinessDetailsForm initialData={settings.businessDetails} />
           <DiscountLimitsForm initialData={settings.roleDiscountLimits} />
+          <VerificationSettingsForm initialData={settings.verificationSettings} />
         </div>
       </div>
     </div>

@@ -103,6 +103,16 @@ export default function LoginPage({
           <div>
             <SubmitButton />
           </div>
+
+          <div className="pt-2 text-center text-sm text-gray-600 border-t border-gray-100">
+            <span>New Retailer or Customer? </span>
+            <a
+              href="/register"
+              className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
+            >
+              Create an account →
+            </a>
+          </div>
         </form>
       </div>
     </div>

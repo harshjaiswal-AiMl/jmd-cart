@@ -80,3 +80,29 @@ export async function updateRoleDiscountLimitsAction(
     return { error: message };
   }
 }
+
+export async function updateVerificationSettingsAction(
+  prevState: SettingsActionResult | undefined,
+  formData: FormData
+): Promise<SettingsActionResult> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const mode = formData.get("mode") as "admin" | "off" | "sms";
+
+    await settingsService.updateVerificationSettings(
+      session.user.role,
+      session.user.id,
+      { mode }
+    );
+
+    revalidatePath("/admin/settings");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update buyer verification settings";
+    return { error: message };
+  }
+}

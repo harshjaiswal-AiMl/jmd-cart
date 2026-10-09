@@ -4,6 +4,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import {
   updateBusinessDetailsAction,
   updateRoleDiscountLimitsAction,
+  updateVerificationSettingsAction,
   SettingsActionResult,
 } from "./actions";
 import { AllSettings } from "@/modules/settings/settings.types";
@@ -239,6 +240,97 @@ export function DiscountLimitsForm({
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
           />
           <p className="mt-1 text-xs text-gray-500">Default: 3% (300 bp)</p>
+        </div>
+      </div>
+
+      <div className="flex justify-end pt-4 border-t border-gray-100">
+        <SaveButton />
+      </div>
+    </form>
+  );
+}
+
+export function VerificationSettingsForm({
+  initialData,
+}: {
+  initialData: AllSettings["verificationSettings"];
+}) {
+  const [state, formAction] = useFormState<SettingsActionResult | undefined, FormData>(
+    updateVerificationSettingsAction,
+    undefined
+  );
+
+  return (
+    <form action={formAction} className="space-y-6 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <div className="border-b border-gray-200 pb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Buyer Phone Verification Mode</h3>
+        <p className="text-sm text-gray-500">
+          Control how newly registered online buyers verify their identity and phone numbers.
+        </p>
+      </div>
+
+      {state?.error && (
+        <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">
+          {state.error}
+        </div>
+      )}
+
+      {state?.success && (
+        <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm">
+          Buyer verification mode updated successfully!
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 p-3.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+          <input
+            type="radio"
+            id="mode-admin"
+            name="mode"
+            value="admin"
+            defaultChecked={initialData.mode === "admin"}
+            className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+          />
+          <label htmlFor="mode-admin" className="text-sm cursor-pointer">
+            <span className="font-semibold text-slate-900 block">Admin Phone Call (Default & Recommended)</span>
+            <span className="text-slate-500 text-xs">
+              Buyers register and place orders. Store owner or dispatcher calls the buyer to verify address and confirms verification on first dispatch. No SMS gateway charges.
+            </span>
+          </label>
+        </div>
+
+        <div className="flex items-start gap-3 p-3.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+          <input
+            type="radio"
+            id="mode-off"
+            name="mode"
+            value="off"
+            defaultChecked={initialData.mode === "off"}
+            className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+          />
+          <label htmlFor="mode-off" className="text-sm cursor-pointer">
+            <span className="font-semibold text-slate-900 block">Verification Off</span>
+            <span className="text-slate-500 text-xs">
+              Phone numbers are automatically marked verified upon registration. Ideal for frictionless B2B ordering or trusted local customers.
+            </span>
+          </label>
+        </div>
+
+        <div className="flex items-start gap-3 p-3.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+          <input
+            type="radio"
+            id="mode-sms"
+            name="mode"
+            value="sms"
+            defaultChecked={initialData.mode === "sms"}
+            className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+          />
+          <label htmlFor="mode-sms" className="text-sm cursor-pointer">
+            <span className="font-semibold text-slate-900 block">SMS OTP Adapter (Off / Console by default)</span>
+            <span className="text-slate-500 text-xs">
+              Sends 6-digit OTP code to buyer&apos;s phone. In development, OTP is logged to console; pluggable DLT gateway adapter when activated.
+            </span>
+          </label>
         </div>
       </div>
 
