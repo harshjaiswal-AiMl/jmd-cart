@@ -106,3 +106,14 @@ model StockMovement {
   @@index([toLocationId, createdAt])
   @@map("stock_movements")
 }
+
+model Sequence {
+  name      String
+  fy        String
+  nextValue Int      @default(1) @map("next_value")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([name, fy])
+  @@map("sequences")
+}
+
