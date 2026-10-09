@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { stockRepository, StockRepository } from "./stock.repository";
@@ -20,66 +20,72 @@ export class StockService {
   /**
    * The single authorized entry point for changing stock in the system.
    * Runs in an isolated PostgreSQL transaction with row-level locks (FOR UPDATE).
+   * Can participate in an outer Prisma transaction if txClient is provided.
    */
-  async postMovement(input: PostMovementInput): Promise<StockMovementResult> {
+  async postMovement(
+    input: PostMovementInput,
+    txClient?: Prisma.TransactionClient
+  ): Promise<StockMovementResult> {
     this.validateInput(input);
 
-    return prisma.$transaction(
-      async (tx) => {
-        // 1. Check idempotency: If this key has already been posted, return existing movement safely
-        const existing = await this.repo.findMovementByIdempotencyKey(tx, input.idempotencyKey);
-        if (existing) {
-          return existing;
-        }
-
-        const { fromLocationId, toLocationId, productId, qty, branchId = 1 } = input;
-
-        // 2. Determine locking order to prevent deadlocks when locking multiple location rows
-        // Deterministic ordering by location ID prevents circular lock wait deadlocks
-        const locationsToLock = [fromLocationId, toLocationId]
-          .filter((id): id is string => Boolean(id))
-          .sort();
-
-        // Map to store locked balances
-        const lockedBalances: Record<string, number> = {};
-
-        // Acquire row locks in sorted order
-        for (const locId of locationsToLock) {
-          lockedBalances[locId] = await this.repo.lockAndGetBalance(
-            tx,
-            productId,
-            locId,
-            branchId
-          );
-        }
-
-        // 3. Validate and apply deduction from source location (if any)
-        if (fromLocationId) {
-          const currentFromQty = lockedBalances[fromLocationId] ?? 0;
-          if (currentFromQty < qty) {
-            throw new InsufficientStockError(productId, fromLocationId, currentFromQty, qty);
-          }
-
-          const newFromQty = currentFromQty - qty;
-          await this.repo.setBalance(tx, productId, fromLocationId, newFromQty);
-        }
-
-        // 4. Apply addition to destination location (if any)
-        if (toLocationId) {
-          const currentToQty = lockedBalances[toLocationId] ?? 0;
-          const newToQty = currentToQty + qty;
-          await this.repo.setBalance(tx, productId, toLocationId, newToQty);
-        }
-
-        // 5. Insert immutable stock movement row
-        return this.repo.createMovement(tx, input);
-      },
-      {
-        // Set transaction timeout and isolation
-        maxWait: 5000,
-        timeout: 10000,
+    const executeInTx = async (tx: Prisma.TransactionClient) => {
+      // 1. Check idempotency: If this key has already been posted, return existing movement safely
+      const existing = await this.repo.findMovementByIdempotencyKey(tx, input.idempotencyKey);
+      if (existing) {
+        return existing;
       }
-    );
+
+      const { fromLocationId, toLocationId, productId, qty, branchId = 1 } = input;
+
+      // 2. Determine locking order to prevent deadlocks when locking multiple location rows
+      // Deterministic ordering by location ID prevents circular lock wait deadlocks
+      const locationsToLock = [fromLocationId, toLocationId]
+        .filter((id): id is string => Boolean(id))
+        .sort();
+
+      // Map to store locked balances
+      const lockedBalances: Record<string, number> = {};
+
+      // Acquire row locks in sorted order
+      for (const locId of locationsToLock) {
+        lockedBalances[locId] = await this.repo.lockAndGetBalance(
+          tx,
+          productId,
+          locId,
+          branchId
+        );
+      }
+
+      // 3. Validate and apply deduction from source location (if any)
+      if (fromLocationId) {
+        const currentFromQty = lockedBalances[fromLocationId] ?? 0;
+        if (currentFromQty < qty) {
+          throw new InsufficientStockError(productId, fromLocationId, currentFromQty, qty);
+        }
+
+        const newFromQty = currentFromQty - qty;
+        await this.repo.setBalance(tx, productId, fromLocationId, newFromQty);
+      }
+
+      // 4. Apply addition to destination location (if any)
+      if (toLocationId) {
+        const currentToQty = lockedBalances[toLocationId] ?? 0;
+        const newToQty = currentToQty + qty;
+        await this.repo.setBalance(tx, productId, toLocationId, newToQty);
+      }
+
+      // 5. Insert immutable stock movement row
+      return this.repo.createMovement(tx, input);
+    };
+
+    if (txClient) {
+      return executeInTx(txClient);
+    }
+
+    return prisma.$transaction(executeInTx, {
+      maxWait: 5000,
+      timeout: 10000,
+    });
   }
 
   /**

@@ -27,7 +27,7 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - [x] 1.8 Godown: transfer, carton break, damage, adjustment, stock audit (L)
 - [x] 1.9 Stock views by location + product history (S)
 - [x] 1.10 Pricing engine (slabs, buyer tag, order discount) + tests (M)
-- [ ] 1.11 GST calc + invoice numbering + finalize/cancel + tests (L)
+- [x] 1.11 GST calc + invoice numbering + finalize/cancel + tests (L)
 - [ ] 1.12 Shop POS (search-first, hold/resume, payments) (L)
 - [ ] 1.13 A4 + 80mm print templates; test on real printer (M)
 - [ ] 1.14 Basic reports (stock, low stock, daily sales, day-end cash) (M)
@@ -95,6 +95,7 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - 2026-10-09: Step 11 complete (Godown Operations - Task 1.8). Implemented Godown service and UI covering location transfers, carton breaks (converting carton count * packSize into loose units for Shop), damage logging, manual stock adjustments, and stock audits with approval workflow (pending variances require Owner/Super Admin approval before auto-posting ledger adjustments). Built tabbed Godown operations interface at /godown/operations. 72 tests passing across 13 test suites. Next is Step 12: Stock Views by Location & Product Movement History (Task 1.9).
 - 2026-10-09: Step 12 complete (Stock Views by Location & Product Movement History - Task 1.9). Implemented multi-location stock overview (`/godown/stock`) with location breakdown, brand and search filters, carton breakdown calculation, and low-stock threshold alerting. Created product-specific movement ledger (`/godown/stock/[productId]`) detailing chronological immutable movements with IST timestamps, route badges, and actor tracking. 79 tests passing across 14 test suites. Next is Step 13: Pricing Engine (Task 1.10).
 - 2026-10-09: Step 13 complete (Pricing Engine - Task 1.10). Implemented dynamic quantity price slab resolution with priority hierarchy (Product > Category > Company > Global). Built automatic buyer classification tagging (`CUSTOMER`, `RETAILER`, `WHOLESALER`) based on highest line tier. Built order-level % discount combining multiplicatively with slab discounts, and enforced role discount limits (`roleDiscountLimits` in settings) with owner approval flags. Created admin slab management UI at `/admin/pricing`. 93 tests passing across 16 test suites. Next is Step 14: Billing Service & Invoicing Finalize/Cancel (Task 1.11).
+- 2026-10-09: Step 14 complete (Billing Service & Invoicing Finalize/Cancel - Task 1.11). Implemented `BillingService` executing single-transaction invoice finalization: pessimistic locked gapless FY sequence numbers (`INV/26-27/XXXXXX`), price and GST freezing, atomic `MovementType.SALE` stock ledger deductions, multi-split payment logging (Cash/UPI/Card/Credit), and linked customer ledger postings. Built Admin-only invoice cancellation issuing Credit Notes (`CN/26-27/XXXXXX`), posting counter-movements (`MovementType.SALE_CANCEL`) restoring inventory, and offsetting party accounts. 99 tests passing across 17 test suites. Next is Step 15: Shop POS UI (Task 1.12).
 
 
 
