@@ -3,8 +3,8 @@
 import { auth } from "@/auth";
 import { pricingService } from "@/modules/pricing/pricing.service";
 import { billingService } from "@/modules/billing/billing.service";
-import { FinalizeInvoiceInput } from "@/modules/billing/billing.types";
-import { InvoiceChannel } from "@prisma/client";
+import { authService } from "@/modules/auth/auth.service";
+import { InvoiceChannel, UserRole } from "@prisma/client";
 
 export async function calculateOrderPricingAction(
   items: Array<{ productId: string; qty: number }>,
@@ -33,6 +33,7 @@ export async function finalizeBillAction(input: {
   payments: Array<{ mode: "CASH" | "UPI" | "CARD" | "CREDIT"; amountPaise: number }>;
   idempotencyKey: string;
   notes?: string;
+  creditOverride?: { approvedByUserId: string; reason: string };
 }) {
   const session = await auth();
   if (!session?.user) {
@@ -51,9 +52,41 @@ export async function finalizeBillAction(input: {
       payments: input.payments,
       idempotencyKey: input.idempotencyKey,
       notes: input.notes,
+      creditOverride: input.creditOverride,
     },
     session.user.id
   );
 
   return invoice;
+}
+
+export async function checkPartyCreditStatusAction(
+  partyId: string,
+  additionalDebitPaise: number = 0
+) {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error("Unauthorized");
+  }
+
+  return billingService.checkPartyCreditStatus(
+    session.user.role as UserRole,
+    partyId,
+    additionalDebitPaise
+  );
+}
+
+export async function verifyOwnerOverrideAction(
+  phoneOrEmail: string,
+  password: string
+): Promise<
+  | { success: true; user: { id: string; name: string; role: UserRole } }
+  | { success: false; error: string }
+> {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  return authService.verifyOwnerCredentials(phoneOrEmail, password);
 }

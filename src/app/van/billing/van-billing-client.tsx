@@ -27,7 +27,8 @@ import {
   deleteDraftInvoice,
   VanDraftInvoice,
 } from "@/lib/offline-drafts";
-import { createVanInvoiceAction } from "./actions";
+import { createVanInvoiceAction, checkVanPartyCreditStatusAction } from "./actions";
+import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
 import { PaymentMode } from "@prisma/client";
 
 interface VanProduct {
@@ -62,6 +63,8 @@ interface VanBillingClientProps {
   issueSheetNo: string;
   products: VanProduct[];
   parties: PartyOption[];
+  currentUserRole?: string;
+  currentUserId?: string;
 }
 
 export function VanBillingClient({
@@ -70,6 +73,8 @@ export function VanBillingClient({
   issueSheetNo,
   products,
   parties,
+  currentUserRole = "SALESPERSON",
+  currentUserId,
 }: VanBillingClientProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -85,6 +90,15 @@ export function VanBillingClient({
     id: string;
     number: string;
     totalPaise: number;
+  } | null>(null);
+
+  // Credit Limit Override State
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [overrideBreachReasons, setOverrideBreachReasons] = useState<string[]>([]);
+  const [pendingOverridePartyName, setPendingOverridePartyName] = useState("");
+  const [approvedCreditOverride, setApprovedCreditOverride] = useState<{
+    approvedByUserId: string;
+    reason: string;
   } | null>(null);
 
   // Offline Drafts State
@@ -213,30 +227,48 @@ export function VanBillingClient({
   };
 
   // Submit Bill
-  const handleFinalizeBill = async () => {
+  const handleFinalizeBill = async (explicitOverride?: { approvedByUserId: string; reason: string }) => {
     if (cart.length === 0) {
       setStatusMessage({ type: "error", text: "Cart is empty" });
       return;
     }
 
-    // Check credit limit if payment mode is CREDIT
-    if (paymentMode === PaymentMode.CREDIT) {
+    const overrideToUse = explicitOverride || approvedCreditOverride;
+
+    // Check credit policy if payment mode is CREDIT
+    if (paymentMode === PaymentMode.CREDIT && !overrideToUse) {
       if (!selectedParty) {
         setStatusMessage({ type: "error", text: "Select a customer party for credit sales" });
         return;
       }
-      if (!selectedParty.creditEnabled) {
-        setStatusMessage({ type: "error", text: "This party is not enabled for credit" });
-        return;
-      }
-      const remainingCredit =
-        selectedParty.creditLimitPaise - selectedParty.currentOutstandingPaise;
-      if (totalPaise > remainingCredit) {
-        setStatusMessage({
-          type: "error",
-          text: `Exceeds credit limit! Available credit: ₹${(remainingCredit / 100).toFixed(2)}`,
-        });
-        return;
+
+      if (isOnline) {
+        try {
+          const checkRes = await checkVanPartyCreditStatusAction(selectedParty.id, totalPaise);
+          if (checkRes.success && checkRes.status && !checkRes.status.canProceedWithoutOverride) {
+            setOverrideBreachReasons(checkRes.status.breachReasons);
+            setPendingOverridePartyName(checkRes.status.partyName);
+            setOverrideModalOpen(true);
+            return;
+          }
+        } catch {
+          // Proceed to let server handle it
+        }
+      } else {
+        if (!selectedParty.creditEnabled) {
+          setStatusMessage({ type: "error", text: "This party is not enabled for credit" });
+          return;
+        }
+        const remainingCredit =
+          selectedParty.creditLimitPaise - selectedParty.currentOutstandingPaise;
+        if (totalPaise > remainingCredit) {
+          setOverrideBreachReasons([
+            `Exceeds credit limit! Available credit: ₹${(remainingCredit / 100).toFixed(2)} (Bill: ₹${(totalPaise / 100).toFixed(2)})`
+          ]);
+          setPendingOverridePartyName(selectedParty.name);
+          setOverrideModalOpen(true);
+          return;
+        }
       }
     }
 
@@ -289,12 +321,22 @@ export function VanBillingClient({
         idempotencyKey,
         items: cart.map((i) => ({ productId: i.product.id, qty: i.qty })),
         payments: [{ mode: paymentMode, amountPaise: totalPaise }],
+        creditOverride: overrideToUse || undefined,
       });
 
       if (!res.success || !res.invoice) {
-        throw new Error(res.error || "Invoice finalization failed");
+        const errorMsg = res.error || "Invoice finalization failed";
+        if (errorMsg.includes("Credit sale blocked") || errorMsg.includes("Credit limit exceeded")) {
+          setOverrideBreachReasons([errorMsg]);
+          setPendingOverridePartyName(selectedParty?.name || "Customer");
+          setOverrideModalOpen(true);
+          setIsSubmitting(false);
+          return;
+        }
+        throw new Error(errorMsg);
       }
 
+      setApprovedCreditOverride(null);
       setLastInvoice(res.invoice);
       clearCart();
       setStatusMessage({
@@ -699,7 +741,7 @@ export function VanBillingClient({
 
             {/* Submit / Finalize Action */}
             <button
-              onClick={handleFinalizeBill}
+              onClick={() => handleFinalizeBill()}
               disabled={cart.length === 0 || isSubmitting}
               className={`w-full py-3.5 px-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${
                 isOnline
@@ -800,6 +842,21 @@ export function VanBillingClient({
           </div>
         </div>
       )}
+
+      {/* Credit Limit Override Modal */}
+      <CreditOverrideModal
+        isOpen={overrideModalOpen}
+        onClose={() => setOverrideModalOpen(false)}
+        partyName={pendingOverridePartyName}
+        breachReasons={overrideBreachReasons}
+        currentUserRole={currentUserRole}
+        currentUserId={currentUserId}
+        onApproved={(override) => {
+          setApprovedCreditOverride(override);
+          setOverrideModalOpen(false);
+          handleFinalizeBill(override);
+        }}
+      />
     </div>
   );
 }

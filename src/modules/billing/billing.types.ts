@@ -27,6 +27,13 @@ export const paymentInputSchema = z.object({
 
 export type PaymentInput = z.infer<typeof paymentInputSchema>;
 
+export const creditOverrideInputSchema = z.object({
+  approvedByUserId: z.string().min(1, "Approver user ID is required"),
+  reason: z.string().min(3, "Override reason must be at least 3 characters"),
+});
+
+export type CreditOverrideInput = z.infer<typeof creditOverrideInputSchema>;
+
 export const finalizeInvoiceInputSchema = z.object({
   channel: z.nativeEnum(InvoiceChannel).default(InvoiceChannel.SHOP),
   locationId: z.string().min(1, "Location ID is required"),
@@ -37,6 +44,7 @@ export const finalizeInvoiceInputSchema = z.object({
   payments: z.array(paymentInputSchema).default([]),
   idempotencyKey: z.string().min(1, "Idempotency key is required"),
   notes: z.string().optional(),
+  creditOverride: creditOverrideInputSchema.optional(),
 });
 
 export type FinalizeInvoiceInput = z.input<typeof finalizeInvoiceInputSchema>;
@@ -53,6 +61,7 @@ export interface InvoiceWithDetails extends Invoice {
   location: Location;
   party: Party | null;
   creator: Pick<User, "id" | "name" | "role"> | null;
+  creditOverrideUser: Pick<User, "id" | "name" | "role"> | null;
   items: (InvoiceItem & {
     product: {
       id: string;

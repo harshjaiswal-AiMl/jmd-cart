@@ -125,3 +125,22 @@ export interface PartyLedgerStatement {
   totalCreditPaise: number;
   closingBalancePaise: number;
 }
+
+export interface PartyCreditStatus {
+  partyId: string;
+  partyName: string;
+  creditEnabled: boolean;
+  creditLimitPaise: number;
+  creditDays: number;
+  currentOutstandingPaise: number;
+  effectiveOutstandingPaise: number;
+  availableCreditPaise: number;
+  isLimitExceeded: boolean;
+  limitExceededByPaise: number;
+  hasOverdueInvoices: boolean;
+  overdueInvoicesCount: number;
+  oldestOverdueDays?: number;
+  canProceedWithoutOverride: boolean;
+  breachReasons: string[];
+}
+

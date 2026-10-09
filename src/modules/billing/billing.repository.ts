@@ -18,6 +18,9 @@ export class BillingRepository {
         creator: {
           select: { id: true, name: true, role: true },
         },
+        creditOverrideUser: {
+          select: { id: true, name: true, role: true },
+        },
         items: {
           include: {
             product: {
@@ -52,6 +55,9 @@ export class BillingRepository {
         location: true,
         party: true,
         creator: {
+          select: { id: true, name: true, role: true },
+        },
+        creditOverrideUser: {
           select: { id: true, name: true, role: true },
         },
         items: {
@@ -114,6 +120,9 @@ export class BillingRepository {
           location: true,
           party: true,
           creator: {
+            select: { id: true, name: true, role: true },
+          },
+          creditOverrideUser: {
             select: { id: true, name: true, role: true },
           },
           items: {

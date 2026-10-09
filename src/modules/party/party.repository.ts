@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma, Party, LedgerKind, PartyType, PaymentMode } from "@prisma/client";
+import { Prisma, Party, LedgerKind, PartyType, PaymentMode, InvoiceStatus, PaymentStatus } from "@prisma/client";
 import { getNextSequenceNumber } from "@/lib/invoice-number";
 import {
   CreatePartyInput,
@@ -11,6 +11,7 @@ import {
   PartyLedgerFilter,
   PartyLedgerRow,
   PartyLedgerStatement,
+  PartyCreditStatus,
 } from "./party.types";
 
 export class PartyRepository {
@@ -462,6 +463,93 @@ export class PartyRepository {
       previousOutstandingPaise: partyOutstanding + p.amountPaise,
       currentOutstandingPaise: partyOutstanding,
       createdAt: p.createdAt,
+    };
+  }
+
+  async checkPartyCreditStatus(
+    partyId: string,
+    additionalDebitPaise: number = 0,
+    tx?: Prisma.TransactionClient
+  ): Promise<PartyCreditStatus> {
+    const client = tx || prisma;
+    const party = await client.party.findUnique({
+      where: { id: partyId },
+    });
+    if (!party) {
+      throw new Error(`Party '${partyId}' not found`);
+    }
+
+    const outstandingPaise = await this.getPartyOutstanding(partyId, client);
+    const effectiveOutstandingPaise = outstandingPaise + additionalDebitPaise;
+    const availableCreditPaise = Math.max(0, party.creditLimitPaise - outstandingPaise);
+
+    const breachReasons: string[] = [];
+
+    if (!party.creditEnabled) {
+      breachReasons.push(`Party '${party.name}' is not authorized for credit billing`);
+    }
+
+    const isLimitExceeded = party.creditEnabled && effectiveOutstandingPaise > party.creditLimitPaise;
+    const limitExceededByPaise = isLimitExceeded
+      ? effectiveOutstandingPaise - party.creditLimitPaise
+      : 0;
+
+    if (isLimitExceeded) {
+      breachReasons.push(
+        `Credit limit of ₹${(party.creditLimitPaise / 100).toFixed(2)} exceeded by ₹${(
+          limitExceededByPaise / 100
+        ).toFixed(2)} (Effective outstanding: ₹${(effectiveOutstandingPaise / 100).toFixed(2)})`
+      );
+    }
+
+    // Check overdue invoices beyond creditDays
+    let hasOverdueInvoices = false;
+    let overdueInvoicesCount = 0;
+    let oldestOverdueDays: number | undefined;
+
+    if (party.creditDays > 0) {
+      const cutoffDate = new Date(Date.now() - party.creditDays * 24 * 60 * 60 * 1000);
+      const overdueInvoices = await client.invoice.findMany({
+        where: {
+          partyId,
+          status: InvoiceStatus.FINAL,
+          paymentStatus: { in: [PaymentStatus.PENDING, PaymentStatus.PARTIAL] },
+          createdAt: { lt: cutoffDate },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (overdueInvoices.length > 0) {
+        hasOverdueInvoices = true;
+        overdueInvoicesCount = overdueInvoices.length;
+        const oldestInvoice = overdueInvoices[0];
+        oldestOverdueDays = Math.floor(
+          (Date.now() - oldestInvoice.createdAt.getTime()) / (24 * 60 * 60 * 1000)
+        );
+        breachReasons.push(
+          `Party has ${overdueInvoicesCount} overdue invoice(s) older than ${party.creditDays} days (Oldest: ${oldestInvoice.number}, ${oldestOverdueDays} days old)`
+        );
+      }
+    }
+
+    const canProceedWithoutOverride = party.creditEnabled && !isLimitExceeded && !hasOverdueInvoices;
+
+    return {
+      partyId: party.id,
+      partyName: party.name,
+      creditEnabled: party.creditEnabled,
+      creditLimitPaise: party.creditLimitPaise,
+      creditDays: party.creditDays,
+      currentOutstandingPaise: outstandingPaise,
+      effectiveOutstandingPaise,
+      availableCreditPaise,
+      isLimitExceeded,
+      limitExceededByPaise,
+      hasOverdueInvoices,
+      overdueInvoicesCount,
+      oldestOverdueDays,
+      canProceedWithoutOverride,
+      breachReasons,
     };
   }
 }

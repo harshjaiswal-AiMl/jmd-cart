@@ -163,6 +163,8 @@ export default async function VanBillingPage() {
         issueSheetNo={stockSummary.activeVanDay.issueSheetNo}
         products={billingProducts}
         parties={partyOptions}
+        currentUserRole={session.user.role}
+        currentUserId={session.user.id}
       />
     </div>
   );

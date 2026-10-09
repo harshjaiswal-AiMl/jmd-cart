@@ -14,6 +14,7 @@ import {
   partyLedgerFilterSchema,
   PartyLedgerFilterInput,
   PartyLedgerStatement,
+  PartyCreditStatus,
 } from "./party.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
@@ -161,6 +162,15 @@ export class PartyService {
       throw new Error(`Collection receipt '${receiptId}' not found`);
     }
     return receipt;
+  }
+
+  async checkPartyCreditStatus(
+    role: UserRole,
+    partyId: string,
+    additionalDebitPaise: number = 0
+  ): Promise<PartyCreditStatus> {
+    assertPermission(role, Permission.VIEW_PARTIES);
+    return partyRepository.checkPartyCreditStatus(partyId, additionalDebitPaise);
   }
 }
 

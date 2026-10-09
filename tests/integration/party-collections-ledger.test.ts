@@ -351,8 +351,10 @@ describe("Task 2.6 Integration Tests: Collections & Party Ledger Statement", () 
       tradeName: "JMD TRADERS",
       address: "Main Road, Saharsa, Bihar 852201",
       phone: "+91 94312 00000",
+      email: "admin@jmdcart.in",
       gstin: "10ABCDE1234F1Z5",
       fssai: "10421000000001",
+      upiId: "jmd@upi",
     };
 
     const bytes = formatCollectionReceiptForEscPos(receipt, business, { paperWidth: 58 });

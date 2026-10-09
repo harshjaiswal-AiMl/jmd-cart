@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { UserRole, InvoiceChannel, PaymentMode } from "@prisma/client";
 import { billingService } from "@/modules/billing/billing.service";
 import { settingsService } from "@/modules/settings/settings.service";
+import { authService } from "@/modules/auth/auth.service";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { z } from "zod";
 
@@ -20,6 +21,13 @@ const vanInvoiceActionSchema = z.object({
       })
     )
     .min(1, "At least one item is required"),
+  notes: z.string().optional(),
+  creditOverride: z
+    .object({
+      approvedByUserId: z.string().min(1),
+      reason: z.string().min(3),
+    })
+    .optional(),
   payments: z
     .array(
       z.object({
@@ -59,6 +67,8 @@ export async function createVanInvoiceAction(input: VanInvoiceActionInput) {
         orderDiscountBp: validated.orderDiscountBp,
         items: validated.items,
         payments: actualPayments,
+        notes: validated.notes,
+        creditOverride: validated.creditOverride,
       },
       session.user.id
     );
@@ -107,4 +117,38 @@ export async function getBusinessDetailsForPrintAction() {
     const message = error instanceof Error ? error.message : "Failed to load business details";
     return { success: false, error: message };
   }
+}
+
+export async function checkVanPartyCreditStatusAction(
+  partyId: string,
+  additionalDebitPaise: number = 0
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Authentication required" };
+  }
+
+  try {
+    const status = await billingService.checkPartyCreditStatus(
+      session.user.role as UserRole,
+      partyId,
+      additionalDebitPaise
+    );
+    return { success: true, status };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to check credit status";
+    return { success: false, error: message };
+  }
+}
+
+export async function verifyOwnerOverrideForVanAction(
+  phoneOrEmail: string,
+  password: string
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Authentication required" };
+  }
+
+  return authService.verifyOwnerCredentials(phoneOrEmail, password);
 }

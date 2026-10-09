@@ -308,7 +308,7 @@ describe("Task 2.4: Van Billing, Offline Drafts & Idempotent Finalize", () => {
           },
           salesUser.id
         )
-      ).rejects.toThrow(/Credit limit exceeded/);
+      ).rejects.toThrow(/Credit limit .*exceeded/i);
     });
   });
 });

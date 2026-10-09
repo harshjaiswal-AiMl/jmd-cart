@@ -104,6 +104,7 @@ export default async function ShopPosPage() {
       locationName={shopLocation.name}
       cashierName={session.user.name || "Cashier"}
       cashierRole={session.user.role}
+      cashierId={session.user.id}
       roleDiscountLimitBp={roleDiscountLimitBp}
       products={products}
       companies={companies}

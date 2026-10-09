@@ -4,7 +4,12 @@ import { useState, useTransition, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { PaymentMode } from "@prisma/client";
 import { OrderPriceResult } from "@/modules/pricing/pricing.types";
-import { calculateOrderPricingAction, finalizeBillAction } from "./actions";
+import {
+  calculateOrderPricingAction,
+  finalizeBillAction,
+  checkPartyCreditStatusAction,
+} from "./actions";
+import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
 
 interface ProductCatalogItem {
   id: string;
@@ -57,6 +62,7 @@ interface PosClientProps {
   locationName: string;
   cashierName: string;
   cashierRole: string;
+  cashierId?: string;
   roleDiscountLimitBp: number; // e.g. 500 = 5%
   products: ProductCatalogItem[];
   companies: CompanyItem[];
@@ -68,6 +74,7 @@ export function PosClient({
   locationName,
   cashierName,
   cashierRole,
+  cashierId,
   roleDiscountLimitBp,
   products,
   companies,
@@ -86,6 +93,15 @@ export function PosClient({
   const [cashTenderedPaise, setCashTenderedPaise] = useState<number>(0);
   const [splitCashPaise, setSplitCashPaise] = useState<string>("");
   const [splitUpiPaise, setSplitUpiPaise] = useState<string>("");
+
+  // Credit Limit Override state
+  const [overrideModalOpen, setOverrideModalOpen] = useState(false);
+  const [overrideBreachReasons, setOverrideBreachReasons] = useState<string[]>([]);
+  const [pendingOverridePartyName, setPendingOverridePartyName] = useState("");
+  const [approvedCreditOverride, setApprovedCreditOverride] = useState<{
+    approvedByUserId: string;
+    reason: string;
+  } | null>(null);
 
   // Live Pricing Result
   const [pricingResult, setPricingResult] = useState<OrderPriceResult | null>(null);
@@ -218,8 +234,8 @@ export function PosClient({
     setShowHeldModal(false);
   };
 
-  // Finalize Invoice
-  const handleFinalizeBill = () => {
+    // Finalize Invoice
+  const handleFinalizeBill = (explicitOverride?: { approvedByUserId: string; reason: string }) => {
     if (!pricingResult || cart.length === 0) return;
     setErrorMessage(null);
 
@@ -266,27 +282,62 @@ export function PosClient({
       if (upiAmount > 0) payments.push({ mode: "UPI", amountPaise: upiAmount });
     }
 
-    startFinalizeTransition(async () => {
-      try {
-        const idempotencyKey = `pos_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-        const invoice = await finalizeBillAction({
-          locationId,
-          partyId: selectedPartyId || null,
-          orderDiscountBp,
-          items: cart.map((c) => ({ productId: c.productId, qty: c.qty })),
-          payments,
-          idempotencyKey,
-        });
+    const totalPaidPaise = payments.reduce((sum, p) => sum + p.amountPaise, 0);
+    const balanceDuePaise = totalPaise - totalPaidPaise;
+    const overrideToUse = explicitOverride || approvedCreditOverride;
 
-        setFinalizedInvoice({
-          id: invoice.id,
-          number: invoice.number,
-          totalPaise: invoice.totalPaise,
+    const executeFinalize = () => {
+      startFinalizeTransition(async () => {
+        try {
+          const idempotencyKey = `pos_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+          const invoice = await finalizeBillAction({
+            locationId,
+            partyId: selectedPartyId || null,
+            orderDiscountBp,
+            items: cart.map((c) => ({ productId: c.productId, qty: c.qty })),
+            payments,
+            idempotencyKey,
+            creditOverride: overrideToUse || undefined,
+          });
+
+          setApprovedCreditOverride(null);
+          setFinalizedInvoice({
+            id: invoice.id,
+            number: invoice.number,
+            totalPaise: invoice.totalPaise,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Failed to finalize invoice";
+          if (msg.includes("Credit sale blocked") || msg.includes("Credit limit exceeded")) {
+            setOverrideBreachReasons([msg]);
+            setPendingOverridePartyName(
+              parties.find((p) => p.id === selectedPartyId)?.name || "Customer"
+            );
+            setOverrideModalOpen(true);
+          } else {
+            setErrorMessage(msg);
+          }
+        }
+      });
+    };
+
+    if (balanceDuePaise > 0 && selectedPartyId && !overrideToUse) {
+      checkPartyCreditStatusAction(selectedPartyId, balanceDuePaise)
+        .then((creditStatus) => {
+          if (!creditStatus.canProceedWithoutOverride) {
+            setOverrideBreachReasons(creditStatus.breachReasons);
+            setPendingOverridePartyName(creditStatus.partyName);
+            setOverrideModalOpen(true);
+          } else {
+            executeFinalize();
+          }
+        })
+        .catch(() => {
+          executeFinalize();
         });
-      } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : "Failed to finalize invoice");
-      }
-    });
+    } else {
+      executeFinalize();
+    }
   };
 
   const selectedParty = parties.find((p) => p.id === selectedPartyId);
@@ -750,7 +801,7 @@ export function PosClient({
                 <button
                   type="button"
                   disabled={isFinalizing || isPricingLoading}
-                  onClick={handleFinalizeBill}
+                  onClick={() => handleFinalizeBill()}
                   className="flex-1 py-3 px-4 rounded-lg bg-[#12355B] hover:bg-blue-900 text-white text-sm font-bold tracking-wide transition-colors shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {isFinalizing ? "Finalizing Bill..." : "✓ FINALIZE & PRINT"}
@@ -845,6 +896,21 @@ export function PosClient({
           </div>
         </div>
       )}
+
+      {/* Owner Credit Override Modal */}
+      <CreditOverrideModal
+        isOpen={overrideModalOpen}
+        onClose={() => setOverrideModalOpen(false)}
+        partyName={pendingOverridePartyName}
+        breachReasons={overrideBreachReasons}
+        currentUserRole={cashierRole}
+        currentUserId={cashierId}
+        onApproved={(override) => {
+          setApprovedCreditOverride(override);
+          setOverrideModalOpen(false);
+          handleFinalizeBill(override);
+        }}
+      />
     </div>
   );
 }

@@ -163,6 +163,42 @@ export class AuthService {
   }
 
   /**
+   * Verify owner (Super Admin) credentials for high-privilege operational overrides
+   * (such as credit limit override or discount limit bypass).
+   */
+  async verifyOwnerCredentials(phoneOrEmail: string, password: string) {
+    const clean = phoneOrEmail.trim();
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: clean },
+          { email: clean },
+        ],
+        role: UserRole.SUPER_ADMIN,
+        active: true,
+      },
+    });
+
+    if (!user) {
+      return { success: false as const, error: "Authorized owner account not found" };
+    }
+
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) {
+      return { success: false as const, error: "Incorrect owner password" };
+    }
+
+    return {
+      success: true as const,
+      user: {
+        id: user.id,
+        name: user.name,
+        role: user.role,
+      },
+    };
+  }
+
+  /**
    * Record a failed login attempt and apply temporary lockout if threshold breached.
    */
   private async recordFailedAttempt(phone: string, userId: string | null, ip?: string) {

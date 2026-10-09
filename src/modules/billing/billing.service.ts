@@ -27,6 +27,7 @@ import {
   InvoiceListFilters,
 } from "./billing.types";
 import { billingRepository, BillingRepository } from "./billing.repository";
+import { partyRepository } from "@/modules/party/party.repository";
 
 export class BillingService {
   constructor(private readonly repo: BillingRepository = billingRepository) {}
@@ -113,12 +114,17 @@ export class BillingService {
       );
     }
 
-    // 4. Payment validation
+    // 4. Payment validation & Credit Policy Enforcement
     const totalPaidPaise = validated.payments.reduce(
       (sum, p) => sum + p.amountPaise,
       0
     );
     const balanceDuePaise = orderPricing.totalPaise - totalPaidPaise;
+
+    let creditOverrideApplied = false;
+    let creditOverrideBy: string | null = null;
+    let creditOverrideReason: string | null = null;
+    let creditBreachReasons: string[] = [];
 
     if (balanceDuePaise > 0) {
       if (!validated.partyId) {
@@ -137,33 +143,53 @@ export class BillingService {
         throw new Error("Specified customer party does not exist");
       }
 
-      if (!party.creditEnabled) {
-        throw new Error(
-          `Party '${party.name}' is not authorized for credit billing`
+      const creditStatus = await partyRepository.checkPartyCreditStatus(
+        validated.partyId,
+        balanceDuePaise
+      );
+
+      if (!creditStatus.canProceedWithoutOverride) {
+        creditBreachReasons = creditStatus.breachReasons;
+
+        const callerCanOverride = hasPermission(
+          role,
+          Permission.OVERRIDE_CREDIT_LIMIT
         );
-      }
 
-      // Check credit limit against party's existing ledger entries
-      const ledgerTotals = await prisma.ledgerEntry.aggregate({
-        where: { partyId: validated.partyId },
-        _sum: {
-          debitPaise: true,
-          creditPaise: true,
-        },
-      });
+        if (callerCanOverride) {
+          creditOverrideApplied = true;
+          creditOverrideBy = actorId ?? null;
+          creditOverrideReason =
+            validated.creditOverride?.reason ||
+            validated.notes ||
+            "Authorized by Super Admin";
+        } else if (validated.creditOverride) {
+          const approver = await prisma.user.findUnique({
+            where: { id: validated.creditOverride.approvedByUserId },
+          });
 
-      const currentDebit = ledgerTotals._sum.debitPaise ?? 0;
-      const currentCredit = ledgerTotals._sum.creditPaise ?? 0;
-      const currentOutstanding = currentDebit - currentCredit;
+          if (!approver || !approver.active) {
+            throw new ForbiddenError(
+              "Credit override approver account is invalid or inactive"
+            );
+          }
 
-      if (currentOutstanding + balanceDuePaise > party.creditLimitPaise) {
-        throw new Error(
-          `Credit limit exceeded for '${party.name}'. Current Outstanding: ₹${(
-            currentOutstanding / 100
-          ).toFixed(2)}, Order Due: ₹${(balanceDuePaise / 100).toFixed(
-            2
-          )}, Limit: ₹${(party.creditLimitPaise / 100).toFixed(2)}`
-        );
+          if (!hasPermission(approver.role, Permission.OVERRIDE_CREDIT_LIMIT)) {
+            throw new ForbiddenError(
+              `User '${approver.name}' (${approver.role}) does not have permission to override credit limits`
+            );
+          }
+
+          creditOverrideApplied = true;
+          creditOverrideBy = approver.id;
+          creditOverrideReason = validated.creditOverride.reason;
+        } else {
+          throw new Error(
+            `Credit sale blocked for '${party.name}': ${creditStatus.breachReasons.join(
+              "; "
+            )}. Owner override required.`
+          );
+        }
       }
     }
 
@@ -195,6 +221,10 @@ export class BillingService {
             idempotencyKey: validated.idempotencyKey ?? null,
             partyId: validated.partyId ?? null,
             buyerType: orderPricing.buyerTag,
+            notes: validated.notes ?? null,
+            creditOverride: creditOverrideApplied,
+            creditOverrideBy,
+            creditOverrideReason,
             subtotalPaise: orderPricing.subtotalPaise,
             discountPaise:
               orderPricing.lineDiscountPaise + orderPricing.orderDiscountPaise,
@@ -306,6 +336,24 @@ export class BillingService {
       },
       ip,
     });
+
+    if (creditOverrideApplied) {
+      await auditService.log({
+        actorId: actorId ?? null,
+        action: "CREDIT_LIMIT_OVERRIDE",
+        entity: "Invoice",
+        entityId: finalizedInvoiceId,
+        after: {
+          invoiceId: finalizedInvoiceId,
+          partyId: validated.partyId,
+          balanceDuePaise,
+          breachReasons: creditBreachReasons,
+          approvedBy: creditOverrideBy,
+          reason: creditOverrideReason,
+        },
+        ip,
+      });
+    }
 
     const fullInvoice = await this.repo.findById(finalizedInvoiceId);
     if (!fullInvoice) {
@@ -449,6 +497,18 @@ export class BillingService {
    */
   async listInvoices(filters: InvoiceListFilters = {}) {
     return this.repo.listInvoices(filters);
+  }
+
+  /**
+   * Check party credit terms and overdue status before finalizing a sale.
+   */
+  async checkPartyCreditStatus(
+    role: UserRole,
+    partyId: string,
+    additionalDebitPaise: number = 0
+  ) {
+    assertPermission(role, Permission.VIEW_PARTIES);
+    return partyRepository.checkPartyCreditStatus(partyId, additionalDebitPaise);
   }
 }
 

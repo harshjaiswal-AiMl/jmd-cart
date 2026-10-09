@@ -109,6 +109,7 @@ model User {
   createdPurchases  Purchase[]
   createdCreditNotes CreditNote[]
   vanDays           VanDay[]
+  creditOverrideInvoices Invoice[] @relation("CreditOverrideInvoices")
 
   @@map("users")
 }
@@ -373,12 +374,17 @@ model Invoice {
   finalizedAt   DateTime?      @map("finalized_at")
   irn           String?
   qr            String?
+  notes         String?
+  creditOverride Boolean      @default(false) @map("credit_override")
+  creditOverrideReason String? @map("credit_override_reason")
+  creditOverrideBy String?    @map("credit_override_by")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
   location      Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
   party         Party?         @relation(fields: [partyId], references: [id], onDelete: SetNull)
   creator       User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  creditOverrideUser User?     @relation("CreditOverrideInvoices", fields: [creditOverrideBy], references: [id], onDelete: SetNull)
   items         InvoiceItem[]
   payments      Payment[]
   creditNotes   CreditNote[]
