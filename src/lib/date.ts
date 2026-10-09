@@ -55,3 +55,38 @@ export function formatISTTime(date: Date | string | null | undefined): string {
     hour12: true,
   }).format(d);
 }
+
+/**
+ * Returns current or given date in YYYY-MM-DD format according to Indian Standard Time.
+ */
+export function getISTDateString(date: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: IST_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+/**
+ * Computes the UTC start and end Date objects corresponding to an IST date (YYYY-MM-DD).
+ */
+export function getISTDayRange(dateStr?: string): {
+  startUtc: Date;
+  endUtc: Date;
+  dateStr: string;
+} {
+  const targetDateStr = dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+    ? dateStr
+    : getISTDateString();
+
+  const startUtc = new Date(`${targetDateStr}T00:00:00.000+05:30`);
+  const endUtc = new Date(`${targetDateStr}T23:59:59.999+05:30`);
+
+  return {
+    startUtc,
+    endUtc,
+    dateStr: targetDateStr,
+  };
+}
+
