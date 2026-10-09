@@ -366,6 +366,7 @@ model Invoice {
   roundOffPaise Int            @default(0) @map("round_off_paise")
   totalPaise    Int            @map("total_paise")
   paymentStatus PaymentStatus  @default(PENDING) @map("payment_status")
+  idempotencyKey String?       @unique @map("idempotency_key")
   createdBy     String?        @map("created_by")
   finalizedAt   DateTime?      @map("finalized_at")
   irn           String?

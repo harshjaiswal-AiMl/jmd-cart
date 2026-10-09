@@ -4,7 +4,8 @@ import { UserRole, LocationType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { vanService } from "@/modules/van/van.service";
 import Link from "next/link";
-import { ShoppingCart, AlertTriangle, ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { VanBillingClient } from "./van-billing-client";
 
 export const dynamic = "force-dynamic";
 
@@ -40,59 +41,129 @@ export default async function VanBillingPage() {
     ? await vanService.getVanStockSummary(session.user.role, van.id)
     : null;
 
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          href="/van"
-          className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
-        <div>
-          <h1 className="text-xl font-black text-white">Van Sales Billing</h1>
-          <p className="text-xs text-slate-400">
-            {van ? van.name : "Unassigned Van"} • Counter & Storefront Sales
-          </p>
+  if (!van || !stockSummary?.activeVanDay) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/van"
+            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-xl font-black text-white">Van Sales Billing</h1>
+            <p className="text-xs text-slate-400">
+              {van ? van.name : "Unassigned Van"} • Route Retail & Counter Sales
+            </p>
+          </div>
         </div>
-      </div>
 
-      {!stockSummary?.activeVanDay ? (
         <div className="bg-amber-950/40 border border-amber-800/80 rounded-2xl p-6 text-center text-amber-200 space-y-3">
           <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto" />
           <h3 className="font-bold text-base text-white">Morning Load Required</h3>
           <p className="text-xs text-amber-300/90 max-w-md mx-auto">
-            You cannot issue sales bills until a morning load sheet is dispatched from the Central Godown to your van.
+            {!van
+              ? "No delivery vehicle is currently assigned to your staff profile."
+              : `Van ${van.name} has no active morning load sheet dispatched today. You cannot create bills until Godown dispatches stock.`}
           </p>
+          <div className="pt-2">
+            <Link
+              href="/van"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
+            >
+              Return to Van Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fetch product company details for display
+  const productIds = stockSummary.inventory.map((item) => item.product.id);
+  const productsWithCompany = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+    include: { company: true },
+  });
+  const companyMap = new Map(productsWithCompany.map((p) => [p.id, p.company?.name || "General"]));
+
+  const billingProducts = stockSummary.inventory.map((item) => ({
+    id: item.product.id,
+    name: item.product.name,
+    shortCode: item.product.shortCode,
+    packSize: item.product.packSize,
+    packLabel: item.product.packLabel,
+    mrpPaise: item.product.mrpPaise,
+    availablePieces: item.qty,
+    cartons: item.cartons,
+    loosePieces: item.loosePieces,
+    companyName: companyMap.get(item.product.id) || "General",
+  }));
+
+  // Fetch active customer parties and their live balances
+  const parties = await prisma.party.findMany({
+    where: { active: true },
+    select: {
+      id: true,
+      name: true,
+      creditEnabled: true,
+      creditLimitPaise: true,
+      ledgerEntries: {
+        select: {
+          debitPaise: true,
+          creditPaise: true,
+        },
+      },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  const partyOptions = parties.map((p) => {
+    const totalDebit = p.ledgerEntries.reduce((sum, e) => sum + e.debitPaise, 0);
+    const totalCredit = p.ledgerEntries.reduce((sum, e) => sum + e.creditPaise, 0);
+    return {
+      id: p.id,
+      name: p.name,
+      creditEnabled: p.creditEnabled,
+      creditLimitPaise: p.creditLimitPaise,
+      currentOutstandingPaise: totalDebit - totalCredit,
+    };
+  });
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <Link
             href="/van"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
+            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
           >
-            Return to Van Stock
+            <ArrowLeft className="w-4 h-4" />
           </Link>
-        </div>
-      ) : (
-        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 text-center space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
-            <ShoppingCart className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <h2 className="text-base font-bold text-white">Ready for Offline Billing</h2>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
-              Van Day <strong className="text-white">{stockSummary.activeVanDay.issueSheetNo}</strong> is active with {stockSummary.totalPieces} pieces loaded.
+          <div>
+            <h1 className="text-xl font-black text-white">Van Sales Counter</h1>
+            <p className="text-xs text-slate-400">
+              {van.name} • Load Sheet #{stockSummary.activeVanDay.issueSheetNo}
             </p>
           </div>
-          <p className="text-xs text-slate-500 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 max-w-sm mx-auto">
-            ⚡ Full mobile billing counter with IndexedDB offline drafts and automatic online sync will be available in Task 2.4.
-          </p>
-          <Link
-            href="/van"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
-          >
-            View Available Stock
-          </Link>
         </div>
-      )}
+
+        <Link
+          href="/van/bills"
+          className="text-xs font-semibold text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800"
+        >
+          View Invoices
+        </Link>
+      </div>
+
+      <VanBillingClient
+        vanId={van.id}
+        vanName={van.name}
+        issueSheetNo={stockSummary.activeVanDay.issueSheetNo}
+        products={billingProducts}
+        parties={partyOptions}
+      />
     </div>
   );
 }

@@ -193,9 +193,10 @@ export class VanRepository {
         throw new VanAlreadyActiveError(van.name, existingOpen.issueSheetNo);
       }
 
-      // 3. Fetch Central Godown
+      // 3. Fetch Central Godown (oldest active godown = primary)
       const godown = await tx.location.findFirst({
         where: { type: LocationType.GODOWN, active: true },
+        orderBy: { createdAt: "asc" },
       });
 
       if (!godown) {
@@ -236,7 +237,7 @@ export class VanRepository {
           throw new Error(`Product '${item.productId}' not found or inactive`);
         }
 
-        const totalPieces = item.cartons * product.packSize + item.pieces;
+        const totalPieces = (item.cartons ?? 0) * product.packSize + (item.pieces ?? 0);
         if (totalPieces <= 0) continue;
 
         // Create line

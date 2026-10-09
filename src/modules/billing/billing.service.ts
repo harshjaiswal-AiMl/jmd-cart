@@ -57,6 +57,40 @@ export class BillingService {
 
     const validated = finalizeInvoiceInputSchema.parse(input);
 
+    // 1b. Idempotency deduplication: if already created with this idempotencyKey, return existing invoice
+    if (validated.idempotencyKey) {
+      const existingInvoice = await prisma.invoice.findUnique({
+        where: { idempotencyKey: validated.idempotencyKey },
+        include: {
+          items: { include: { product: true } },
+          payments: true,
+          party: true,
+          location: true,
+          creditNotes: true,
+        },
+      });
+
+      if (existingInvoice) {
+        return existingInvoice as unknown as InvoiceWithDetails;
+      }
+    }
+
+    // 1c. Van Channel Guard: verify van has active morning load sheet
+    if (validated.channel === InvoiceChannel.VAN) {
+      const activeVanDay = await prisma.vanDay.findFirst({
+        where: {
+          vanLocationId: validated.locationId,
+          status: "OPEN",
+        },
+      });
+
+      if (!activeVanDay) {
+        throw new Error(
+          "Van has no active morning load sheet for today. A load sheet must be dispatched from Godown before issuing bills."
+        );
+      }
+    }
+
     // 2. Fetch products metadata for HSN mapping
     const productIds = validated.items.map((i) => i.productId);
     const products = await prisma.product.findMany({
@@ -158,6 +192,7 @@ export class BillingService {
             status: InvoiceStatus.FINAL,
             channel: validated.channel,
             locationId: validated.locationId,
+            idempotencyKey: validated.idempotencyKey ?? null,
             partyId: validated.partyId ?? null,
             buyerType: orderPricing.buyerTag,
             subtotalPaise: orderPricing.subtotalPaise,
