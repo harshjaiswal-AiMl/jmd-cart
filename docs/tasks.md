@@ -22,7 +22,7 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - [ ] 1.3 Settings module (business details, discount limits, slabs) (S)
 - [ ] 1.4 Product master CRUD, companies, categories, search (M)
 - [ ] 1.5 Excel import with row errors and idempotent re-run (M)
-- [ ] 1.6 **Stock ledger service** + DB trigger blocking edits + balances + tests (L)
+- [x] 1.6 **Stock ledger service** + DB trigger blocking edits + balances + tests (L)
 - [ ] 1.7 Purchase/GRN screens (M)
 - [ ] 1.8 Godown: transfer, carton break, damage, adjustment, stock audit (L)
 - [ ] 1.9 Stock views by location + product history (S)
@@ -83,4 +83,6 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 ## Progress log
 (Append one line per working session: date, what finished, what is next.)
 - 2026-10-09: Scaffolding complete (Next.js 14 App Router, TypeScript strict, Tailwind, PostgreSQL native 16.4 cluster, env validation, /api/health, backup/restore scripts, Vitest).
-- 2026-10-09: Step 2 complete. Core ledger schema and migration applied. Invariants verified via integration tests: CHECK (qty >= 0) blocks negative balances, and DB trigger blocks UPDATE/DELETE on stock_movements. Next is Step 3: [RISK 1] Stock Ledger Engine & Concurrency Protection.
+- 2026-10-09: Step 2 complete. Core ledger schema and migration applied. Invariants verified via integration tests: CHECK (qty >= 0) blocks negative balances, and DB trigger blocks UPDATE/DELETE on stock_movements.
+- 2026-10-09: Step 3 complete ([RISK 1] Stock Ledger Engine & Concurrency). Implemented stock.postMovement() with deterministic row locking (FOR UPDATE), idempotency key deduplication, all 10 movement types, and nightly audit function. Integration and concurrency tests passing (parallel racing for last unit cleanly serialized). Next is Step 4: [RISK 2] GST Engine & FY Invoice Numbering Sequence Lock.
+
