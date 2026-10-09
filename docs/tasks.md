@@ -20,7 +20,7 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - [x] 1.1 Prisma schema + first migration + seed (roles, locations, sample products) (M)
 - [x] 1.2 Auth + RBAC + permission map + audit log service (M)
 - [x] 1.3 Settings module (business details, discount limits, slabs) (S)
-- [ ] 1.4 Product master CRUD, companies, categories, search (M)
+- [x] 1.4 Product master CRUD, companies, categories, search (M)
 - [ ] 1.5 Excel import with row errors and idempotent re-run (M)
 - [x] 1.6 **Stock ledger service** + DB trigger blocking edits + balances + tests (L)
 - [ ] 1.7 Purchase/GRN screens (M)
@@ -89,6 +89,8 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - 2026-10-09: Step 5 complete (Full Phase 1 Schema & Seed Data - Task 1.1). Created complete Phase 1 schema (users, roles, companies, categories, settings, audit_logs, parties, ledger_entries, purchases, invoices, credit_notes, payments, stock_audits). Migration 20261009122239_phase1_full_schema applied. Seed script created 6 role accounts with bcrypt passwords, 4 locations, companies, categories, products, settings, and sequence row. 32 tests passing. Next is Step 6: Auth + RBAC + Permission Map + Audit Log Service.
 - 2026-10-09: Step 6 complete (Auth + RBAC + Permission Map + Audit Log Service - Task 1.2). Implemented credentials authentication via NextAuth v5 and bcrypt, 5-attempt rate-limit lockout (15 min), password change workflow with mandatory first-login change, granular RBAC permission matrix (assertPermission/canAccessRoute), route-level middleware guards returning 403 on unauthorized access, audit logging with recursive sensitive data masking (passwords, tokens, phone numbers), login and change-password UI screens and server actions. 42 tests passing across 8 suites. Next is Step 7: Settings Module (Task 1.3).
 - 2026-10-09: Step 7 complete (Settings Module - Task 1.3). Implemented settings repository and service managing business details, invoice printing metadata, role discount limits (Shop/Cashier, Salesperson), delivery thresholds, and verification modes. Super Admin permission guards enforced on all mutations, validated with Zod (GSTIN, FSSAI, basis points), and audit logged with before/after state diff. Created server actions and responsive admin UI at /admin/settings. 49 tests passing across 9 test files. Next is Step 8: Catalog Master CRUD & Search (Task 1.4).
+- 2026-10-09: Step 8 complete (Catalog Master CRUD & Search - Task 1.4). Implemented catalog repository and service for products, companies, and categories. Added multi-token case-insensitive search matching across product name, short code, and company name. Enforced unique uppercase shortCode, valid 4-8 digit HSN codes, and allowed Indian GST rates (0%, 5%, 12%, 18%, 28%). Super Admin permission guards on create/edit/toggle mutations with audit logs, and VIEW_PRODUCTS guards on queries. Built admin catalog page and interactive client with filters and product creation modal at /admin/catalog. 57 tests passing across 10 test suites. Next is Step 9: Excel Import with Row-Level Errors & Idempotency (Task 1.5).
+
 
 
 
