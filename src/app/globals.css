@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-inter: "Inter", system-ui, sans-serif;
+}
+
+body {
+  color: #1F2933;
+  background-color: #EEF4F8;
+  font-feature-settings: "tnum" 1;
+}
