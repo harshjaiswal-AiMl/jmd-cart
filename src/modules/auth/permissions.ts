@@ -33,6 +33,10 @@ export enum Permission {
   // Delivery
   DELIVERY_EXECUTE = "DELIVERY_EXECUTE",
 
+  // Parties & Credit
+  MANAGE_PARTIES = "MANAGE_PARTIES",
+  VIEW_PARTIES = "VIEW_PARTIES",
+
   // Accounts & Reports
   ACCOUNTS_VIEW = "ACCOUNTS_VIEW",
   REPORTS_VIEW = "REPORTS_VIEW",
@@ -65,6 +69,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   SHOP: [
     Permission.VIEW_PRODUCTS,
     Permission.STOCK_VIEW,
+    Permission.VIEW_PARTIES,
     Permission.POS_BILL,
     Permission.POS_HOLD_RESUME,
     Permission.POS_CASH_CLOSE,
@@ -73,6 +78,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   SALESPERSON: [
     Permission.VIEW_PRODUCTS,
     Permission.STOCK_VIEW,
+    Permission.VIEW_PARTIES,
     Permission.VAN_BILL,
     Permission.VAN_RECONCILE,
   ],
@@ -84,6 +90,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ACCOUNTS: [
     Permission.VIEW_PRODUCTS,
     Permission.STOCK_VIEW,
+    Permission.VIEW_PARTIES,
+    Permission.MANAGE_PARTIES,
     Permission.ACCOUNTS_VIEW,
     Permission.REPORTS_VIEW,
   ],

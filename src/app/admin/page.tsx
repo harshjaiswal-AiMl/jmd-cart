@@ -18,6 +18,12 @@ export default async function AdminDashboardPage() {
       color: "bg-indigo-50 text-indigo-800 border-indigo-200",
     },
     {
+      title: "Party & Credit Master",
+      desc: "Manage customer/supplier ledgers, credit limits, and Tally imports.",
+      href: "/admin/parties",
+      color: "bg-orange-50 text-orange-800 border-orange-200",
+    },
+    {
       title: "Quantity Price Slabs",
       desc: "Manage customer, retailer, and wholesaler dynamic tier pricing.",
       href: "/admin/pricing",
