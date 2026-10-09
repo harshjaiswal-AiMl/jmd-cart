@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PartyType } from "@prisma/client";
 import { PartyWithOutstanding, CreatePartyInput } from "@/modules/party/party.types";
 import { createPartyAction, updatePartyAction } from "./actions";
+import { CollectionModal } from "@/components/van/collection-modal";
 
 interface PartiesClientProps {
   initialParties: PartyWithOutstanding[];
@@ -20,6 +21,7 @@ export function PartiesClient({ initialParties, totalCount }: PartiesClientProps
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingParty, setEditingParty] = useState<PartyWithOutstanding | null>(null);
+  const [collectParty, setCollectParty] = useState<PartyWithOutstanding | null>(null);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -229,7 +231,7 @@ export function PartiesClient({ initialParties, totalCount }: PartiesClientProps
                 <th className="px-4 py-3">Contact & GSTIN</th>
                 <th className="px-4 py-3">Credit Terms</th>
                 <th className="px-4 py-3 text-right">Outstanding (₹)</th>
-                <th className="px-4 py-3 text-center">Actions</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
@@ -297,13 +299,29 @@ export function PartiesClient({ initialParties, totalCount }: PartiesClientProps
                       )}
                     </td>
 
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => openEditModal(p)}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50"
-                      >
-                        Edit
-                      </button>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Link
+                          href={`/admin/parties/${p.id}/ledger`}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1 rounded hover:bg-blue-50 border border-blue-200"
+                          title="View Ledger Statement"
+                        >
+                          Ledger
+                        </Link>
+                        <button
+                          onClick={() => setCollectParty(p)}
+                          className="text-xs text-emerald-700 hover:text-emerald-800 font-medium px-2 py-1 rounded bg-emerald-50 hover:bg-emerald-100 border border-emerald-200"
+                          title="Record Collection Voucher"
+                        >
+                          Collect
+                        </button>
+                        <button
+                          onClick={() => openEditModal(p)}
+                          className="text-xs text-gray-600 hover:text-gray-900 font-medium px-2 py-1 rounded hover:bg-gray-100 border border-gray-200"
+                        >
+                          Edit
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -487,6 +505,25 @@ export function PartiesClient({ initialParties, totalCount }: PartiesClientProps
           </div>
         </div>
       )}
+
+      {/* Record Collection Modal */}
+      <CollectionModal
+        party={
+          collectParty
+            ? {
+                id: collectParty.id,
+                name: collectParty.name,
+                phone: collectParty.phone,
+                outstandingPaise: collectParty.outstandingPaise,
+              }
+            : null
+        }
+        isOpen={!!collectParty}
+        onClose={() => setCollectParty(null)}
+        onSuccess={() => {
+          window.location.reload();
+        }}
+      />
     </div>
   );
 }

@@ -3,14 +3,14 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Package, ShoppingCart, ReceiptText, ArrowLeftRight } from "lucide-react";
+import { Package, ShoppingCart, ReceiptText, ArrowLeftRight, Wallet } from "lucide-react";
 
 export function VanBottomNav() {
   const pathname = usePathname();
 
   const navItems = [
     {
-      label: "Van Stock",
+      label: "Stock",
       href: "/van",
       icon: Package,
       exact: true,
@@ -22,7 +22,13 @@ export function VanBottomNav() {
       exact: false,
     },
     {
-      label: "Invoices",
+      label: "Collect",
+      href: "/van/collections",
+      icon: Wallet,
+      exact: false,
+    },
+    {
+      label: "Bills",
       href: "/van/bills",
       icon: ReceiptText,
       exact: false,
@@ -37,7 +43,7 @@ export function VanBottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 shadow-lg sm:hidden">
-      <div className="grid grid-cols-4 h-16">
+      <div className="grid grid-cols-5 h-16">
         {navItems.map((item) => {
           const isActive = item.exact
             ? pathname === item.href

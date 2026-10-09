@@ -8,6 +8,12 @@ import {
   partySearchQuerySchema,
   PartySearchQueryInput,
   PartyWithOutstanding,
+  recordCollectionInputSchema,
+  RecordCollectionInput,
+  CollectionReceipt,
+  partyLedgerFilterSchema,
+  PartyLedgerFilterInput,
+  PartyLedgerStatement,
 } from "./party.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
@@ -105,6 +111,56 @@ export class PartyService {
     });
 
     return updated;
+  }
+
+  async recordCollection(
+    role: UserRole,
+    actorId: string,
+    input: RecordCollectionInput
+  ): Promise<CollectionReceipt> {
+    assertPermission(role, Permission.RECORD_COLLECTION);
+    const parsed = recordCollectionInputSchema.parse(input);
+
+    const receipt = await partyRepository.recordCollection(parsed, actorId);
+
+    await auditService.log({
+      actorId,
+      action: "COLLECTION_RECORD",
+      entity: "payment",
+      entityId: receipt.id,
+      after: receipt,
+    });
+
+    return receipt;
+  }
+
+  async getPartyLedgerStatement(
+    role: UserRole,
+    filter: PartyLedgerFilterInput
+  ): Promise<PartyLedgerStatement> {
+    assertPermission(role, Permission.VIEW_LEDGER);
+    const parsed = partyLedgerFilterSchema.parse(filter);
+    return partyRepository.getPartyLedgerStatement(parsed);
+  }
+
+  async getRecentCollections(
+    role: UserRole,
+    filters?: { vanLocationId?: string; actorId?: string; limit?: number }
+  ): Promise<CollectionReceipt[]> {
+    assertPermission(role, Permission.VIEW_LEDGER);
+    return partyRepository.getRecentCollections(filters);
+  }
+
+  async getCollectionById(
+    role: UserRole,
+    receiptId: string
+  ): Promise<CollectionReceipt> {
+    assertPermission(role, Permission.VIEW_LEDGER);
+    const receipt = await partyRepository.getCollectionById(receiptId);
+    if (!receipt) {
+      throw new Error(`Collection receipt '${receiptId}' not found`);
+    }
+    return receipt;
   }
 }
 

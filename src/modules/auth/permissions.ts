@@ -37,6 +37,8 @@ export enum Permission {
   // Parties & Credit
   MANAGE_PARTIES = "MANAGE_PARTIES",
   VIEW_PARTIES = "VIEW_PARTIES",
+  RECORD_COLLECTION = "RECORD_COLLECTION",
+  VIEW_LEDGER = "VIEW_LEDGER",
 
   // Accounts & Reports
   ACCOUNTS_VIEW = "ACCOUNTS_VIEW",
@@ -72,6 +74,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_PRODUCTS,
     Permission.STOCK_VIEW,
     Permission.VIEW_PARTIES,
+    Permission.VIEW_LEDGER,
+    Permission.RECORD_COLLECTION,
     Permission.POS_BILL,
     Permission.POS_HOLD_RESUME,
     Permission.POS_CASH_CLOSE,
@@ -81,6 +85,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_PRODUCTS,
     Permission.STOCK_VIEW,
     Permission.VIEW_PARTIES,
+    Permission.VIEW_LEDGER,
+    Permission.RECORD_COLLECTION,
     Permission.VAN_BILL,
     Permission.VAN_RECONCILE,
   ],
@@ -93,7 +99,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VIEW_PRODUCTS,
     Permission.STOCK_VIEW,
     Permission.VIEW_PARTIES,
+    Permission.VIEW_LEDGER,
     Permission.MANAGE_PARTIES,
+    Permission.RECORD_COLLECTION,
     Permission.ACCOUNTS_VIEW,
     Permission.REPORTS_VIEW,
   ],

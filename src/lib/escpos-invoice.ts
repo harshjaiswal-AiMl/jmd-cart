@@ -1,6 +1,7 @@
 import { EscPosBuilder } from "./escpos";
 import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { BusinessDetails } from "@/modules/settings/settings.types";
+import { CollectionReceipt } from "@/modules/party/party.types";
 import { formatISTDate, formatISTTime } from "./date";
 
 export interface EscPosInvoiceOptions {
@@ -196,6 +197,101 @@ export function formatTestPrintEscPos(
   builder.bold(true);
   builder.line("SUCCESS! READY FOR VAN SALES");
   builder.normal();
+  builder.feed(4);
+  builder.cut();
+
+  return builder.build();
+}
+
+/**
+ * Format a route collection receipt into an ESC/POS byte sequence.
+ */
+export function formatCollectionReceiptForEscPos(
+  receipt: CollectionReceipt,
+  business: BusinessDetails,
+  options: EscPosInvoiceOptions = {}
+): Uint8Array {
+  const width = options.paperWidth === 80 ? 48 : 32;
+  const builder = new EscPosBuilder();
+
+  // 1. Header
+  builder.align("center");
+  builder.bold(true);
+  builder.size("double-height");
+  builder.line(business.tradeName || business.legalName || "JMD CART");
+  builder.normal();
+
+  builder.align("center");
+  if (business.address) builder.line(business.address);
+  if (business.phone) builder.line(`Ph: ${business.phone}`);
+  if (business.gstin) builder.line(`GSTIN: ${business.gstin}`);
+
+  builder.bold(true);
+  builder.line("PAYMENT RECEIPT");
+  builder.bold(false);
+  builder.rule("-", width);
+
+  // 2. Receipt Meta
+  builder.align("left");
+  builder.twoColumn("RECEIPT NO:", receipt.receiptNo, width);
+  builder.twoColumn(
+    "DATE:",
+    `${formatISTDate(receipt.createdAt)} ${formatISTTime(receipt.createdAt)}`,
+    width
+  );
+  if (receipt.vanName) {
+    builder.twoColumn("ROUTE / VAN:", receipt.vanName, width);
+  }
+  if (receipt.collectedByName) {
+    builder.twoColumn("COLLECTED BY:", receipt.collectedByName, width);
+  }
+  builder.rule("-", width);
+
+  // 3. Party details
+  builder.twoColumn("CUSTOMER:", receipt.partyName, width);
+  if (receipt.partyPhone) {
+    builder.twoColumn("PHONE:", receipt.partyPhone, width);
+  }
+  builder.rule("-", width);
+
+  // 4. Financial Details
+  if (receipt.previousOutstandingPaise > 0) {
+    builder.twoColumn(
+      "Old Outstanding:",
+      `Rs.${(receipt.previousOutstandingPaise / 100).toFixed(2)}`,
+      width
+    );
+  }
+
+  builder.bold(true);
+  builder.size("double-height");
+  builder.twoColumn(
+    "AMOUNT PAID:",
+    `Rs.${(receipt.amountPaise / 100).toFixed(2)}`,
+    width
+  );
+  builder.normal();
+
+  builder.twoColumn("Payment Mode:", receipt.mode, width);
+  if (receipt.notes) {
+    builder.twoColumn("Notes / Ref:", receipt.notes, width);
+  }
+
+  builder.rule("=", width);
+  builder.bold(true);
+  builder.twoColumn(
+    "Balance Remaining:",
+    `Rs.${(receipt.currentOutstandingPaise / 100).toFixed(2)}`,
+    width
+  );
+  builder.normal();
+  builder.rule("=", width);
+
+  // 5. Footer
+  builder.align("center");
+  builder.line("Thank You For Your Payment!");
+  builder.line("Computer Generated Voucher");
+
   builder.feed(4);
   builder.cut();
 

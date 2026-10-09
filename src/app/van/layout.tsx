@@ -88,6 +88,12 @@ export default async function VanLayout({
               + New Bill
             </Link>
             <Link
+              href="/van/collections"
+              className="px-3 py-1.5 rounded-md font-semibold text-slate-200 hover:text-white hover:bg-slate-700 transition-colors"
+            >
+              Collections
+            </Link>
+            <Link
               href="/van/bills"
               className="px-3 py-1.5 rounded-md font-semibold text-slate-200 hover:text-white hover:bg-slate-700 transition-colors"
             >

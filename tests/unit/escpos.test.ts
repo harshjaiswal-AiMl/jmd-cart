@@ -192,10 +192,13 @@ describe("Task 2.5: ESC/POS Command Encoder & Receipt Formatter", () => {
         {
           id: "pmt-1",
           invoiceId: "inv-test-vb-01",
+          receiptNo: null,
           branchId: 1,
           partyId: "party-kirana-01",
           mode: "CASH",
           amountPaise: 55200,
+          notes: null,
+          vanLocationId: null,
           receivedBy: "user-sales",
           createdAt: new Date(),
         },

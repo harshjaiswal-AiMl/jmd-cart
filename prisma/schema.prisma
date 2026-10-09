@@ -131,6 +131,7 @@ model Location {
   purchases      Purchase[]
   stockAudits    StockAudit[]
   vanDays        VanDay[]
+  payments       Payment[]
 
   @@map("locations")
 }
@@ -291,6 +292,7 @@ model Party {
   invoices         Invoice[]
   purchases        Purchase[]
   ledgerEntries    LedgerEntry[]
+  payments         Payment[]
 
   @@map("parties")
 }
@@ -406,17 +408,22 @@ model InvoiceItem {
 }
 
 model Payment {
-  id          String      @id @default(cuid())
-  branchId    Int         @default(1) @map("branch_id")
-  invoiceId   String?     @map("invoice_id")
-  partyId     String?     @map("party_id")
-  mode        PaymentMode
-  amountPaise Int         @map("amount_paise")
-  receivedBy  String?     @map("received_by")
-  createdAt   DateTime    @default(now()) @map("created_at")
+  id            String      @id @default(cuid())
+  branchId      Int         @default(1) @map("branch_id")
+  invoiceId     String?     @map("invoice_id")
+  partyId       String?     @map("party_id")
+  receiptNo     String?     @unique @map("receipt_no")
+  mode          PaymentMode
+  amountPaise   Int         @map("amount_paise")
+  notes         String?
+  vanLocationId String?     @map("van_location_id")
+  receivedBy    String?     @map("received_by")
+  createdAt     DateTime    @default(now()) @map("created_at")
 
-  invoice     Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  receiver    User?       @relation(fields: [receivedBy], references: [id], onDelete: SetNull)
+  invoice       Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  party         Party?      @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  vanLocation   Location?   @relation(fields: [vanLocationId], references: [id], onDelete: SetNull)
+  receiver      User?       @relation(fields: [receivedBy], references: [id], onDelete: SetNull)
 
   @@map("payments")
 }

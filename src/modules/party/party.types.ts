@@ -66,3 +66,62 @@ export interface TallyPartyImportResult {
   failed: number;
   errors: TallyPartyRowError[];
 }
+
+export const recordCollectionInputSchema = z.object({
+  partyId: z.string().min(1, "Party is required"),
+  amountPaise: z.number().int().positive("Amount must be greater than zero"),
+  mode: z.enum(["CASH", "UPI", "CARD"]),
+  vanLocationId: z.string().nullable().optional(),
+  notes: z.string().max(255).optional(),
+});
+
+export type RecordCollectionInput = z.infer<typeof recordCollectionInputSchema>;
+
+export interface CollectionReceipt {
+  id: string;
+  receiptNo: string;
+  partyId: string;
+  partyName: string;
+  partyPhone: string | null;
+  amountPaise: number;
+  mode: "CASH" | "UPI" | "CARD";
+  vanLocationId: string | null;
+  vanName: string | null;
+  notes: string | null;
+  collectedById: string | null;
+  collectedByName: string | null;
+  previousOutstandingPaise: number;
+  currentOutstandingPaise: number;
+  createdAt: Date;
+}
+
+export const partyLedgerFilterSchema = z.object({
+  partyId: z.string().min(1, "Party ID is required"),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export type PartyLedgerFilter = z.infer<typeof partyLedgerFilterSchema>;
+export type PartyLedgerFilterInput = z.input<typeof partyLedgerFilterSchema>;
+
+export interface PartyLedgerRow {
+  id: string;
+  createdAt: Date;
+  kind: "INVOICE" | "RECEIPT" | "CREDIT_NOTE" | "DEBIT_NOTE" | "OPENING" | "ADJUSTMENT";
+  referenceType: string | null;
+  referenceId: string | null;
+  debitPaise: number;
+  creditPaise: number;
+  runningBalancePaise: number;
+}
+
+export interface PartyLedgerStatement {
+  party: PartyWithOutstanding;
+  openingBalancePaise: number;
+  entries: PartyLedgerRow[];
+  totalDebitPaise: number;
+  totalCreditPaise: number;
+  closingBalancePaise: number;
+}
