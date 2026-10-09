@@ -1,10 +1,20 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { UserRole } from "@prisma/client";
+import { storeService } from "@/modules/store/store.service";
+import { CatalogueClient } from "./catalogue-client";
 import Link from "next/link";
 
-export default async function StorePage() {
+export default async function StorePage({
+  searchParams,
+}: {
+  searchParams?: {
+    q?: string;
+    company?: string;
+    category?: string;
+    inStock?: string;
+  };
+}) {
   const session = await auth();
 
   if (!session?.user) {
@@ -16,13 +26,27 @@ export default async function StorePage() {
     include: { party: true },
   });
 
+  const queryParams = {
+    q: searchParams?.q,
+    companyId: searchParams?.company,
+    categoryId: searchParams?.category,
+    inStockOnly: searchParams?.inStock === "true",
+  };
+
+  const [catalogueData, filterOptions] = await Promise.all([
+    storeService.getCatalogue(queryParams),
+    storeService.getFilterOptions(),
+  ]);
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl font-black text-blue-600 tracking-tight">JMD CART</span>
+            <Link href="/store" className="text-2xl font-black text-blue-600 tracking-tight">
+              JMD CART
+            </Link>
             <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-semibold border border-blue-200">
               Saharsa Storefront
             </span>
@@ -31,7 +55,10 @@ export default async function StorePage() {
           <div className="flex items-center gap-4 text-sm">
             <div className="text-right hidden sm:block">
               <div className="font-semibold text-slate-900">{user?.name}</div>
-              <div className="text-xs text-slate-500 font-mono">{user?.phone}</div>
+              <div className="text-xs text-slate-500 font-mono">
+                {user?.party?.name ? `${user.party.name} • ` : ""}
+                {user?.phone}
+              </div>
             </div>
             <Link
               href="/api/auth/signout"
@@ -61,20 +88,33 @@ export default async function StorePage() {
         )}
 
         {/* Welcome Card */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 md:p-8 text-white shadow-sm">
-          <h1 className="text-2xl md:text-3xl font-extrabold">Welcome, {user?.name}!</h1>
-          <p className="mt-2 text-blue-100 text-sm max-w-xl">
-            Order FMCG products directly from JMD Cart Distributors in Saharsa. Live dynamic slab pricing, town delivery, and order tracking coming up!
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
-            <span className="bg-white/10 px-3 py-1 rounded-full border border-white/20">
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-800 rounded-2xl p-6 md:p-8 text-white shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-extrabold">Welcome, {user?.name}!</h1>
+            <p className="mt-2 text-blue-100 text-sm max-w-xl">
+              Wholesale and retail FMCG distribution in Saharsa. Live dynamic slab pricing: buy more pieces/cartons to unlock deeper discounts.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs self-start md:self-auto">
+            <span className="bg-white/10 px-3 py-1.5 rounded-lg border border-white/20 backdrop-blur-sm">
               Role: {user?.role}
             </span>
-            <span className="bg-white/10 px-3 py-1 rounded-full border border-white/20">
-              Status: {user?.phoneVerifiedAt ? "✓ Phone Verified" : "Pending First Call"}
+            <span className="bg-white/10 px-3 py-1.5 rounded-lg border border-white/20 backdrop-blur-sm">
+              Status: {user?.phoneVerifiedAt ? "✓ Verified" : "Pending First Call"}
             </span>
           </div>
         </div>
+
+        {/* Product Catalogue & Filter Grid */}
+        <CatalogueClient
+          initialProducts={catalogueData.products}
+          companies={filterOptions.companies}
+          categories={filterOptions.categories}
+          currentSearch={searchParams?.q ?? ""}
+          currentCompanyId={searchParams?.company ?? ""}
+          currentCategoryId={searchParams?.category ?? ""}
+          currentInStockOnly={searchParams?.inStock === "true"}
+        />
       </main>
     </div>
   );
