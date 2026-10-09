@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LocationType {
+  GODOWN
+  SHOP
+  VAN
+}
+
+enum MovementType {
+  PURCHASE_RECEIPT
+  TRANSFER
+  CARTON_BREAK
+  VAN_ISSUE
+  VAN_RETURN
+  SALE
+  SALE_CANCEL
+  RETURN_TO_COMPANY
+  DAMAGE
+  ADJUSTMENT
+}
+
+model Location {
+  id             String       @id @default(cuid())
+  branchId       Int          @default(1) @map("branch_id")
+  type           LocationType
+  name           String
+  assignedUserId String?      @map("assigned_user_id")
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  stockBalances  StockBalance[]
+  fromMovements  StockMovement[] @relation("FromLocation")
+  toMovements    StockMovement[] @relation("ToLocation")
+
+  @@map("locations")
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  branchId     Int      @default(1) @map("branch_id")
+  name         String
+  shortCode    String   @unique @map("short_code")
+  companyId    String?  @map("company_id")
+  categoryId   String?  @map("category_id")
+  hsn          String
+  gstRateBp    Int      @default(0) @map("gst_rate_bp")
+  mrpPaise     Int      @map("mrp_paise")
+  packSize     Int      @default(1) @map("pack_size")
+  packLabel    String   @default("Carton") @map("pack_label")
+  reorderLevel Int      @default(0) @map("reorder_level")
+  imageUrl     String?  @map("image_url")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  stockBalances  StockBalance[]
+  stockMovements StockMovement[]
+
+  @@map("products")
+}
+
+model StockBalance {
+  productId  String   @map("product_id")
+  locationId String   @map("location_id")
+  branchId   Int      @default(1) @map("branch_id")
+  qty        Int      @default(0)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@id([productId, locationId])
+  @@map("stock_balances")
+}
+
+model StockMovement {
+  id             String       @id @default(cuid())
+  branchId       Int          @default(1) @map("branch_id")
+  type           MovementType
+  productId      String       @map("product_id")
+  fromLocationId String?      @map("from_location_id")
+  toLocationId   String?      @map("to_location_id")
+  qty            Int
+  referenceType  String?      @map("reference_type")
+  referenceId    String?      @map("reference_id")
+  reason         String?
+  meta           Json?
+  idempotencyKey String       @unique @map("idempotency_key")
+  createdBy      String?      @map("created_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  fromLocation Location? @relation("FromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation   Location? @relation("ToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+
+  @@index([productId, createdAt])
+  @@index([fromLocationId, createdAt])
+  @@index([toLocationId, createdAt])
+  @@map("stock_movements")
+}

@@ -82,4 +82,5 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 
 ## Progress log
 (Append one line per working session: date, what finished, what is next.)
-- 2026-10-09: Scaffolding complete (Next.js 14 App Router, TypeScript strict, Tailwind, PostgreSQL native 16.4 cluster, env validation, /api/health, backup/restore scripts, Vitest). Next is Step 2: Core Ledger Schema & DB Trigger.
+- 2026-10-09: Scaffolding complete (Next.js 14 App Router, TypeScript strict, Tailwind, PostgreSQL native 16.4 cluster, env validation, /api/health, backup/restore scripts, Vitest).
+- 2026-10-09: Step 2 complete. Core ledger schema and migration applied. Invariants verified via integration tests: CHECK (qty >= 0) blocks negative balances, and DB trigger blocks UPDATE/DELETE on stock_movements. Next is Step 3: [RISK 1] Stock Ledger Engine & Concurrency Protection.
