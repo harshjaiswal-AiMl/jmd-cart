@@ -1,4 +1,4 @@
-import { InvoiceChannel, PaymentMode } from "@prisma/client";
+import { InvoiceChannel, PaymentMode, PartyType } from "@prisma/client";
 
 export interface StockValuationItem {
   productId: string;
@@ -108,4 +108,56 @@ export interface DayEndCashReport {
   totalCashPaise: number;
   transactionsCount: number;
   transactions: CashTransactionItem[];
+}
+
+export interface PartyAgeingRow {
+  partyId: string;
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+  type: PartyType;
+  creditEnabled: boolean;
+  creditLimitPaise: number;
+  creditDays: number;
+  totalOutstandingPaise: number;
+  advancePaise: number;
+  bucket0_15Paise: number;
+  bucket16_30Paise: number;
+  bucket31_60Paise: number;
+  bucket60PlusPaise: number;
+  oldestEntryDate?: Date | null;
+  maxAgeDays: number;
+  isOverdue: boolean;
+  overdueDays: number;
+  isOverLimit: boolean;
+  limitExceededByPaise: number;
+}
+
+export interface PartyAgeingSummary {
+  totalParties: number;
+  partiesWithOutstanding: number;
+  totalReceivablesPaise: number;
+  totalAdvancePaise: number;
+  totalBucket0_15Paise: number;
+  totalBucket16_30Paise: number;
+  totalBucket31_60Paise: number;
+  totalBucket60PlusPaise: number;
+  overLimitCount: number;
+  overLimitTotalPaise: number;
+  overdueCount: number;
+  overdueTotalPaise: number;
+}
+
+export interface PartyAgeingFilter {
+  type?: PartyType;
+  overdueOnly?: boolean;
+  overLimitOnly?: boolean;
+  search?: string;
+  minOutstandingPaise?: number;
+}
+
+export interface PartyAgeingReport {
+  summary: PartyAgeingSummary;
+  rows: PartyAgeingRow[];
+  asOfDate: string;
 }

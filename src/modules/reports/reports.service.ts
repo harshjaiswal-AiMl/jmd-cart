@@ -16,6 +16,8 @@ import {
   DailySalesReport,
   DailySalesReportFilter,
   DayEndCashReport,
+  PartyAgeingReport,
+  PartyAgeingFilter,
 } from "./reports.types";
 
 export class ReportsService {
@@ -101,6 +103,24 @@ export class ReportsService {
       range.dateStr,
       locationId
     );
+  }
+
+  /**
+   * Generates accounts receivables and overdue ageing report across debtor parties.
+   */
+  async getPartyAgeingReport(
+    role: UserRole,
+    filters: PartyAgeingFilter = {}
+  ): Promise<PartyAgeingReport> {
+    if (
+      !hasPermission(role, Permission.REPORTS_VIEW) &&
+      !hasPermission(role, Permission.ACCOUNTS_VIEW) &&
+      role !== UserRole.SUPER_ADMIN
+    ) {
+      throw new ForbiddenError("Not authorized to view accounts ageing report");
+    }
+
+    return this.repo.getPartyAgeingReport(filters);
   }
 }
 

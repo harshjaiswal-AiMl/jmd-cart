@@ -8,16 +8,29 @@ import {
   DayEndCashReport,
   StockValuationReport,
   LowStockReport,
+  PartyAgeingReport,
+  PartyAgeingRow,
 } from "@/modules/reports/reports.types";
 import { formatISTDate, formatISTDateTime } from "@/lib/date";
+import {
+  Download,
+  AlertTriangle,
+  Search,
+  Users,
+  CreditCard,
+  Clock,
+  ArrowUpRight,
+  ShieldAlert,
+} from "lucide-react";
 
 interface ReportsClientProps {
-  initialTab: "sales" | "cash" | "stock" | "lowstock";
+  initialTab: "sales" | "cash" | "stock" | "lowstock" | "ageing";
   selectedDate: string;
   salesData: DailySalesReport;
   cashData: DayEndCashReport;
   stockData: StockValuationReport;
   lowStockData: LowStockReport;
+  ageingData: PartyAgeingReport;
   locationsList: { id: string; name: string }[];
 }
 
@@ -28,15 +41,22 @@ export function ReportsClient({
   cashData,
   stockData,
   lowStockData,
+  ageingData,
   locationsList,
 }: ReportsClientProps) {
   const router = useRouter();
-  const [tab, setTab] = useState<"sales" | "cash" | "stock" | "lowstock">(
+  const [tab, setTab] = useState<"sales" | "cash" | "stock" | "lowstock" | "ageing">(
     initialTab
   );
   const [filterDate, setFilterDate] = useState(selectedDate);
   const [stockSearch, setStockSearch] = useState("");
   const [stockCompanyFilter, setStockCompanyFilter] = useState("ALL");
+
+  // Ageing filters
+  const [ageingSearch, setAgeingSearch] = useState("");
+  const [ageingTypeFilter, setAgeingTypeFilter] = useState("ALL");
+  const [ageingOverdueOnly, setAgeingOverdueOnly] = useState(false);
+  const [ageingOverLimitOnly, setAgeingOverLimitOnly] = useState(false);
 
   // Denomination counts state for Day-End Cash reconciliation
   const [denominations, setDenominations] = useState<{ [key: number]: number }>({
@@ -53,7 +73,7 @@ export function ReportsClient({
     router.push(`/admin/reports?tab=${tab}&date=${newDate}`);
   };
 
-  const handleTabSwitch = (newTab: "sales" | "cash" | "stock" | "lowstock") => {
+  const handleTabSwitch = (newTab: "sales" | "cash" | "stock" | "lowstock" | "ageing") => {
     setTab(newTab);
     router.push(`/admin/reports?tab=${newTab}&date=${filterDate}`);
   };
@@ -86,6 +106,76 @@ export function ReportsClient({
     return true;
   });
 
+  const filteredAgeingRows = ageingData.rows.filter((row) => {
+    if (ageingTypeFilter !== "ALL" && row.type !== ageingTypeFilter) {
+      return false;
+    }
+    if (ageingOverdueOnly && !row.isOverdue) {
+      return false;
+    }
+    if (ageingOverLimitOnly && !row.isOverLimit) {
+      return false;
+    }
+    if (ageingSearch.trim()) {
+      const q = ageingSearch.toLowerCase().trim();
+      const matchName = row.name.toLowerCase().includes(q);
+      const matchPhone = (row.phone || "").toLowerCase().includes(q);
+      if (!matchName && !matchPhone) return false;
+    }
+    return true;
+  });
+
+  const handleExportAgeingCSV = () => {
+    const headers = [
+      "Party Name",
+      "Type",
+      "Phone",
+      "Credit Limit (Rs)",
+      "Credit Days",
+      "Total Outstanding (Rs)",
+      "0-15 Days (Rs)",
+      "16-30 Days (Rs)",
+      "31-60 Days (Rs)",
+      "60+ Days (Rs)",
+      "Oldest Bill Date",
+      "Overdue Days",
+      "Risk Status",
+    ];
+
+    const csvRows = filteredAgeingRows.map((r) => [
+      `"${r.name.replace(/"/g, '""')}"`,
+      r.type,
+      `"${r.phone || ""}"`,
+      (r.creditLimitPaise / 100).toFixed(2),
+      r.creditDays,
+      (r.totalOutstandingPaise / 100).toFixed(2),
+      (r.bucket0_15Paise / 100).toFixed(2),
+      (r.bucket16_30Paise / 100).toFixed(2),
+      (r.bucket31_60Paise / 100).toFixed(2),
+      (r.bucket60PlusPaise / 100).toFixed(2),
+      r.oldestEntryDate ? new Date(r.oldestEntryDate).toISOString().slice(0, 10) : "",
+      r.overdueDays,
+      r.isOverLimit && r.isOverdue
+        ? "OVER_LIMIT & OVERDUE"
+        : r.isOverLimit
+        ? "OVER_LIMIT"
+        : r.isOverdue
+        ? "OVERDUE"
+        : "NORMAL",
+    ]);
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...csvRows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `party_ageing_report_${ageingData.asOfDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
@@ -95,7 +185,7 @@ export function ReportsClient({
             Business Reports & Analytics
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Real-time stock valuation, low stock alerts, daily sales receipts, and day-end cash register.
+            Real-time stock valuation, low stock alerts, daily sales receipts, day-end cash register, and receivables ageing.
           </p>
         </div>
 
@@ -116,7 +206,7 @@ export function ReportsClient({
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-slate-200 bg-white rounded-t-xl px-4 pt-2 gap-2 text-xs font-bold">
+      <div className="flex flex-wrap border-b border-slate-200 bg-white rounded-t-xl px-4 pt-2 gap-2 text-xs font-bold">
         <button
           type="button"
           onClick={() => handleTabSwitch("sales")}
@@ -166,6 +256,23 @@ export function ReportsClient({
           {lowStockData.totalLowStockCount > 0 && (
             <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-red-100 text-red-700 border border-red-300">
               {lowStockData.totalLowStockCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleTabSwitch("ageing")}
+          className={`px-4 py-3 border-b-2 transition relative ${
+            tab === "ageing"
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-slate-500 hover:text-slate-900"
+          }`}
+        >
+          Receivables & Ageing
+          {ageingData.summary.overdueCount > 0 && (
+            <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-amber-100 text-amber-800 border border-amber-300">
+              {ageingData.summary.overdueCount} Overdue
             </span>
           )}
         </button>
@@ -796,6 +903,293 @@ export function ReportsClient({
                             className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 px-2.5 py-1 rounded-lg font-bold text-[11px] transition"
                           >
                             Order Stock
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: RECEIVABLES & AGEING REPORT */}
+      {tab === "ageing" && (
+        <div className="space-y-6">
+          {/* Summary KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-[11px] font-bold text-slate-500 block uppercase">
+                Total Receivables
+              </span>
+              <span className="text-xl font-mono font-black text-slate-900 block mt-1">
+                ₹{(ageingData.summary.totalReceivablesPaise / 100).toFixed(2)}
+              </span>
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Across {ageingData.summary.partiesWithOutstanding} debtor accounts
+              </span>
+            </div>
+
+            <div className="bg-emerald-50/60 p-4 rounded-xl border border-emerald-200 shadow-sm">
+              <span className="text-[11px] font-bold text-emerald-800 block uppercase">
+                0–15 Days (Current)
+              </span>
+              <span className="text-xl font-mono font-bold text-emerald-700 block mt-1">
+                ₹{(ageingData.summary.totalBucket0_15Paise / 100).toFixed(2)}
+              </span>
+              <span className="text-[10px] text-emerald-600 mt-1 block">
+                Standard payment cycle
+              </span>
+            </div>
+
+            <div className="bg-amber-50/60 p-4 rounded-xl border border-amber-200 shadow-sm">
+              <span className="text-[11px] font-bold text-amber-800 block uppercase">
+                16–30 Days (Due)
+              </span>
+              <span className="text-xl font-mono font-bold text-amber-700 block mt-1">
+                ₹{(ageingData.summary.totalBucket16_30Paise / 100).toFixed(2)}
+              </span>
+              <span className="text-[10px] text-amber-600 mt-1 block">
+                Follow-up suggested
+              </span>
+            </div>
+
+            <div className="bg-orange-50/60 p-4 rounded-xl border border-orange-200 shadow-sm">
+              <span className="text-[11px] font-bold text-orange-800 block uppercase">
+                31–60 Days (Overdue)
+              </span>
+              <span className="text-xl font-mono font-bold text-orange-700 block mt-1">
+                ₹{(ageingData.summary.totalBucket31_60Paise / 100).toFixed(2)}
+              </span>
+              <span className="text-[10px] text-orange-600 mt-1 block">
+                Credit pause advised
+              </span>
+            </div>
+
+            <div className="bg-rose-50/60 p-4 rounded-xl border border-rose-200 shadow-sm">
+              <span className="text-[11px] font-bold text-rose-800 block uppercase">
+                60+ Days (Critical)
+              </span>
+              <span className="text-xl font-mono font-bold text-rose-700 block mt-1">
+                ₹{(ageingData.summary.totalBucket60PlusPaise / 100).toFixed(2)}
+              </span>
+              <span className="text-[10px] text-rose-600 mt-1 block">
+                Action required
+              </span>
+            </div>
+
+            <div className="bg-purple-50/60 p-4 rounded-xl border border-purple-200 shadow-sm">
+              <span className="text-[11px] font-bold text-purple-800 block uppercase">
+                Over-Limit Breaches
+              </span>
+              <span className="text-xl font-mono font-bold text-purple-700 block mt-1">
+                {ageingData.summary.overLimitCount} Parties
+              </span>
+              <span className="text-[10px] text-purple-600 mt-1 block">
+                +₹{(ageingData.summary.overLimitTotalPaise / 100).toFixed(2)} over limit
+              </span>
+            </div>
+          </div>
+
+          {/* Filters & Export Strip */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search party by name or phone..."
+                  value={ageingSearch}
+                  onChange={(e) => setAgeingSearch(e.target.value)}
+                  className="pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg w-64 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+
+              <select
+                value={ageingTypeFilter}
+                onChange={(e) => setAgeingTypeFilter(e.target.value)}
+                className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+              >
+                <option value="ALL">All Party Types</option>
+                <option value="RETAILER">Retailers</option>
+                <option value="WHOLESALER">Wholesalers</option>
+                <option value="CUSTOMER">General Customers</option>
+                <option value="SUPPLIER">Suppliers</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={() => setAgeingOverdueOnly((prev) => !prev)}
+                className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition ${
+                  ageingOverdueOnly
+                    ? "bg-amber-100 border-amber-300 text-amber-800"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                ⚠️ Overdue Only ({ageingData.summary.overdueCount})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAgeingOverLimitOnly((prev) => !prev)}
+                className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition ${
+                  ageingOverLimitOnly
+                    ? "bg-purple-100 border-purple-300 text-purple-800"
+                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                🚫 Over Limit Only ({ageingData.summary.overLimitCount})
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-medium">
+                Showing {filteredAgeingRows.length} of {ageingData.rows.length} parties
+              </span>
+
+              <button
+                type="button"
+                onClick={handleExportAgeingCSV}
+                className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export CSV
+              </button>
+            </div>
+          </div>
+
+          {/* Ageing Table */}
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                  <tr>
+                    <th className="p-3">Party Name</th>
+                    <th className="p-3">Credit Terms</th>
+                    <th className="p-3 text-right">Total Outstanding</th>
+                    <th className="p-3 text-right">0–15 Days</th>
+                    <th className="p-3 text-right">16–30 Days</th>
+                    <th className="p-3 text-right">31–60 Days</th>
+                    <th className="p-3 text-right">60+ Days</th>
+                    <th className="p-3">Oldest Age / Risk</th>
+                    <th className="p-3 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredAgeingRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="p-8 text-center text-slate-400">
+                        No debtor accounts found matching your selected filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAgeingRows.map((row) => (
+                      <tr key={row.partyId} className="hover:bg-slate-50/80 transition">
+                        <td className="p-3 font-semibold text-slate-900">
+                          <div>{row.name}</div>
+                          <div className="text-[11px] font-normal text-slate-400 flex items-center gap-2 mt-0.5">
+                            {row.phone && <span>📞 {row.phone}</span>}
+                            <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 text-[10px] font-medium">
+                              {row.type}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="p-3 text-slate-600">
+                          {row.creditEnabled ? (
+                            <div>
+                              <span className="font-mono font-medium text-slate-800">
+                                Limit: ₹{(row.creditLimitPaise / 100).toFixed(0)}
+                              </span>
+                              <div className="text-[10px] text-slate-400">
+                                {row.creditDays > 0 ? `${row.creditDays} days term` : "Immediate due"}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">
+                              Cash Only
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="p-3 text-right font-bold font-mono text-slate-900 text-sm">
+                          {row.totalOutstandingPaise > 0 ? (
+                            `₹${(row.totalOutstandingPaise / 100).toFixed(2)}`
+                          ) : row.advancePaise > 0 ? (
+                            <span className="text-purple-600 text-xs">
+                              (Advance ₹{(row.advancePaise / 100).toFixed(2)})
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-normal text-xs">₹0.00</span>
+                          )}
+                        </td>
+
+                        <td className="p-3 text-right font-mono text-slate-700">
+                          {row.bucket0_15Paise > 0 ? (
+                            `₹${(row.bucket0_15Paise / 100).toFixed(2)}`
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+
+                        <td className="p-3 text-right font-mono text-amber-700 font-medium">
+                          {row.bucket16_30Paise > 0 ? (
+                            `₹${(row.bucket16_30Paise / 100).toFixed(2)}`
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+
+                        <td className="p-3 text-right font-mono text-orange-700 font-medium">
+                          {row.bucket31_60Paise > 0 ? (
+                            `₹${(row.bucket31_60Paise / 100).toFixed(2)}`
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+
+                        <td className="p-3 text-right font-mono font-bold text-rose-700">
+                          {row.bucket60PlusPaise > 0 ? (
+                            `₹${(row.bucket60PlusPaise / 100).toFixed(2)}`
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+
+                        <td className="p-3">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {row.isOverLimit && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                Over Limit (+₹{(row.limitExceededByPaise / 100).toFixed(0)})
+                              </span>
+                            )}
+                            {row.isOverdue && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                Overdue ({row.overdueDays}d)
+                              </span>
+                            )}
+                            {!row.isOverLimit && !row.isOverdue && row.totalOutstandingPaise > 0 && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Current ({row.maxAgeDays}d old)
+                              </span>
+                            )}
+                            {row.totalOutstandingPaise <= 0 && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">
+                                {row.advancePaise > 0 ? "Advance" : "Settled"}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="p-3 text-center">
+                          <Link
+                            href={`/admin/parties/${row.partyId}/ledger`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition"
+                          >
+                            <span>Ledger</span>
+                            <ArrowUpRight className="w-3 h-3 text-slate-400" />
                           </Link>
                         </td>
                       </tr>

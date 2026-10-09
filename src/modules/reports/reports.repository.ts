@@ -3,8 +3,10 @@ import {
   InvoiceChannel,
   InvoiceStatus,
   PaymentMode,
+  PartyType,
   Prisma,
 } from "@prisma/client";
+import { getISTDateString } from "@/lib/date";
 import {
   StockValuationReport,
   StockValuationItem,
@@ -13,6 +15,10 @@ import {
   DailySalesReport,
   DayEndCashReport,
   CashTransactionItem,
+  PartyAgeingReport,
+  PartyAgeingRow,
+  PartyAgeingSummary,
+  PartyAgeingFilter,
 } from "./reports.types";
 
 export class ReportsRepository {
@@ -378,6 +384,225 @@ export class ReportsRepository {
       totalCashPaise,
       transactionsCount: transactions.length,
       transactions,
+    };
+  }
+
+  /**
+   * Generates accounts receivables ageing report with 0-15, 16-30, 31-60, 60+ days bucketed outstanding.
+   * Uses FIFO debit-to-credit matching across chronological party ledger entries.
+   */
+  async getPartyAgeingReport(
+    filters: PartyAgeingFilter = {}
+  ): Promise<PartyAgeingReport> {
+    const whereClause: Prisma.PartyWhereInput = {
+      active: true,
+    };
+
+    if (filters.type) {
+      whereClause.type = filters.type;
+    }
+
+    if (filters.search?.trim()) {
+      const q = filters.search.trim();
+      whereClause.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q } },
+        { tallyRef: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    const parties = await prisma.party.findMany({
+      where: whereClause,
+      include: {
+        ledgerEntries: {
+          orderBy: { createdAt: "asc" },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const now = new Date();
+    const asOfDate = getISTDateString();
+
+    const rows: PartyAgeingRow[] = [];
+
+    let totalParties = parties.length;
+    let partiesWithOutstanding = 0;
+    let totalReceivablesPaise = 0;
+    let totalAdvancePaise = 0;
+    let totalBucket0_15Paise = 0;
+    let totalBucket16_30Paise = 0;
+    let totalBucket31_60Paise = 0;
+    let totalBucket60PlusPaise = 0;
+    let overLimitCount = 0;
+    let overLimitTotalPaise = 0;
+    let overdueCount = 0;
+    let overdueTotalPaise = 0;
+
+    for (const party of parties) {
+      let totalDebitPaise = 0;
+      let totalCreditPaise = 0;
+
+      for (const entry of party.ledgerEntries) {
+        totalDebitPaise += entry.debitPaise;
+        totalCreditPaise += entry.creditPaise;
+      }
+
+      const totalOutstandingPaise = totalDebitPaise - totalCreditPaise;
+
+      let advancePaise = 0;
+      let bucket0_15Paise = 0;
+      let bucket16_30Paise = 0;
+      let bucket31_60Paise = 0;
+      let bucket60PlusPaise = 0;
+      let oldestEntryDate: Date | null = null;
+      let maxAgeDays = 0;
+
+      if (totalOutstandingPaise < 0) {
+        advancePaise = Math.abs(totalOutstandingPaise);
+        totalAdvancePaise += advancePaise;
+      } else if (totalOutstandingPaise > 0) {
+        partiesWithOutstanding++;
+        totalReceivablesPaise += totalOutstandingPaise;
+
+        // FIFO allocation of credits against debit entries
+        let remainingCredit = totalCreditPaise;
+
+        for (const entry of party.ledgerEntries) {
+          if (entry.debitPaise <= 0) continue;
+
+          let unpaidDebit = 0;
+          if (remainingCredit >= entry.debitPaise) {
+            remainingCredit -= entry.debitPaise;
+            continue; // fully paid by earlier or later credits
+          } else if (remainingCredit > 0) {
+            unpaidDebit = entry.debitPaise - remainingCredit;
+            remainingCredit = 0;
+          } else {
+            unpaidDebit = entry.debitPaise;
+          }
+
+          if (unpaidDebit > 0) {
+            const ageDays = Math.max(
+              0,
+              Math.floor((now.getTime() - entry.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+            );
+
+            if (!oldestEntryDate) {
+              oldestEntryDate = entry.createdAt;
+            }
+            if (ageDays > maxAgeDays) {
+              maxAgeDays = ageDays;
+            }
+
+            if (ageDays <= 15) {
+              bucket0_15Paise += unpaidDebit;
+            } else if (ageDays <= 30) {
+              bucket16_30Paise += unpaidDebit;
+            } else if (ageDays <= 60) {
+              bucket31_60Paise += unpaidDebit;
+            } else {
+              bucket60PlusPaise += unpaidDebit;
+            }
+          }
+        }
+
+        totalBucket0_15Paise += bucket0_15Paise;
+        totalBucket16_30Paise += bucket16_30Paise;
+        totalBucket31_60Paise += bucket31_60Paise;
+        totalBucket60PlusPaise += bucket60PlusPaise;
+      }
+
+      // Overdue check
+      let isOverdue = false;
+      let overdueDays = 0;
+      if (totalOutstandingPaise > 0) {
+        if (party.creditDays > 0) {
+          if (maxAgeDays > party.creditDays) {
+            isOverdue = true;
+            overdueDays = maxAgeDays - party.creditDays;
+          }
+        } else if (maxAgeDays > 0) {
+          isOverdue = true;
+          overdueDays = maxAgeDays;
+        }
+
+        if (isOverdue) {
+          overdueCount++;
+          overdueTotalPaise += totalOutstandingPaise;
+        }
+      }
+
+      // Over-limit check
+      const isOverLimit =
+        party.creditEnabled &&
+        party.creditLimitPaise > 0 &&
+        totalOutstandingPaise > party.creditLimitPaise;
+      const limitExceededByPaise = isOverLimit
+        ? totalOutstandingPaise - party.creditLimitPaise
+        : 0;
+
+      if (isOverLimit) {
+        overLimitCount++;
+        overLimitTotalPaise += limitExceededByPaise;
+      }
+
+      // Apply filter flags
+      if (filters.overdueOnly && !isOverdue) continue;
+      if (filters.overLimitOnly && !isOverLimit) continue;
+      if (filters.minOutstandingPaise && totalOutstandingPaise < filters.minOutstandingPaise) continue;
+
+      rows.push({
+        partyId: party.id,
+        name: party.name,
+        phone: party.phone,
+        address: party.address,
+        type: party.type,
+        creditEnabled: party.creditEnabled,
+        creditLimitPaise: party.creditLimitPaise,
+        creditDays: party.creditDays,
+        totalOutstandingPaise,
+        advancePaise,
+        bucket0_15Paise,
+        bucket16_30Paise,
+        bucket31_60Paise,
+        bucket60PlusPaise,
+        oldestEntryDate,
+        maxAgeDays,
+        isOverdue,
+        overdueDays,
+        isOverLimit,
+        limitExceededByPaise,
+      });
+    }
+
+    // Sort: highest total outstanding first, then oldest age
+    rows.sort((a, b) => {
+      if (b.totalOutstandingPaise !== a.totalOutstandingPaise) {
+        return b.totalOutstandingPaise - a.totalOutstandingPaise;
+      }
+      return b.maxAgeDays - a.maxAgeDays;
+    });
+
+    const summary: PartyAgeingSummary = {
+      totalParties,
+      partiesWithOutstanding,
+      totalReceivablesPaise,
+      totalAdvancePaise,
+      totalBucket0_15Paise,
+      totalBucket16_30Paise,
+      totalBucket31_60Paise,
+      totalBucket60PlusPaise,
+      overLimitCount,
+      overLimitTotalPaise,
+      overdueCount,
+      overdueTotalPaise,
+    };
+
+    return {
+      summary,
+      rows,
+      asOfDate,
     };
   }
 }
