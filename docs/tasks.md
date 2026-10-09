@@ -17,7 +17,7 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - [x] `CLAUDE.md` + these docs committed in `docs/` (S)
 
 ## Phase 1: Core (13-24 Oct)
-- [ ] 1.1 Prisma schema + first migration + seed (roles, locations, sample products) (M)
+- [x] 1.1 Prisma schema + first migration + seed (roles, locations, sample products) (M)
 - [ ] 1.2 Auth + RBAC + permission map + audit log service (M)
 - [ ] 1.3 Settings module (business details, discount limits, slabs) (S)
 - [ ] 1.4 Product master CRUD, companies, categories, search (M)
@@ -85,5 +85,6 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - 2026-10-09: Scaffolding complete (Next.js 14 App Router, TypeScript strict, Tailwind, PostgreSQL native 16.4 cluster, env validation, /api/health, backup/restore scripts, Vitest).
 - 2026-10-09: Step 2 complete. Core ledger schema and migration applied. Invariants verified via integration tests: CHECK (qty >= 0) blocks negative balances, and DB trigger blocks UPDATE/DELETE on stock_movements.
 - 2026-10-09: Step 3 complete ([RISK 1] Stock Ledger Engine & Concurrency). Implemented stock.postMovement() with deterministic row locking (FOR UPDATE), idempotency key deduplication, all 10 movement types, and nightly audit function. Integration and concurrency tests passing (parallel racing for last unit cleanly serialized).
-- 2026-10-09: Step 4 complete ([RISK 2] GST Engine & FY Invoice Numbering Sequence Lock). Created sequences table, built src/lib/gst.ts (tax-inclusive MRP extraction, integer paise, half-up rounding, CGST/SGST split, invoice round-off) and src/lib/invoice-number.ts (IST April-March FY calculation, locked sequence). Concurrency test verified 20 parallel requests generate strictly gapless sequence numbers 1..20, and rolled-back transactions do not burn numbers. Next is Step 5: Full Phase 1 Prisma Schema Expansion & Seed Data.
+- 2026-10-09: Step 4 complete ([RISK 2] GST Engine & FY Invoice Numbering Sequence Lock). Created sequences table, built src/lib/gst.ts (tax-inclusive MRP extraction, integer paise, half-up rounding, CGST/SGST split, invoice round-off) and src/lib/invoice-number.ts (IST April-March FY calculation, locked sequence). Concurrency test verified 20 parallel requests generate strictly gapless sequence numbers 1..20, and rolled-back transactions do not burn numbers.
+- 2026-10-09: Step 5 complete (Full Phase 1 Schema & Seed Data - Task 1.1). Created complete Phase 1 schema (users, roles, companies, categories, settings, audit_logs, parties, ledger_entries, purchases, invoices, credit_notes, payments, stock_audits). Migration 20261009122239_phase1_full_schema applied. Seed script created 6 role accounts with bcrypt passwords, 4 locations, companies, categories, products, settings, and sequence row. 32 tests passing. Next is Step 6: Auth + RBAC + Permission Map + Audit Log Service.
 

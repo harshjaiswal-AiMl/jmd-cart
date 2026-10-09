@@ -7,6 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  SUPER_ADMIN
+  GODOWN
+  SHOP
+  SALESPERSON
+  DELIVERY
+  ACCOUNTS
+  CUSTOMER
+}
+
 enum LocationType {
   GODOWN
   SHOP
@@ -26,6 +36,82 @@ enum MovementType {
   ADJUSTMENT
 }
 
+enum PartyType {
+  CUSTOMER
+  RETAILER
+  WHOLESALER
+  SUPPLIER
+}
+
+enum LedgerKind {
+  INVOICE
+  RECEIPT
+  CREDIT_NOTE
+  DEBIT_NOTE
+  OPENING
+  ADJUSTMENT
+}
+
+enum PurchaseStatus {
+  DRAFT
+  RECEIVED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  FINAL
+  CANCELLED
+}
+
+enum InvoiceChannel {
+  SHOP
+  VAN
+  ONLINE
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  CREDIT
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+}
+
+enum AuditStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  branchId           Int       @default(1) @map("branch_id")
+  name               String
+  phone              String    @unique
+  email              String?   @unique
+  passwordHash       String    @map("password_hash")
+  role               UserRole
+  active             Boolean   @default(true)
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  assignedLocations Location[]
+  auditLogs         AuditLog[]
+  createdInvoices   Invoice[]
+  receivedPayments  Payment[]
+  createdPurchases  Purchase[]
+  createdCreditNotes CreditNote[]
+
+  @@map("users")
+}
+
 model Location {
   id             String       @id @default(cuid())
   branchId       Int          @default(1) @map("branch_id")
@@ -36,11 +122,41 @@ model Location {
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
+  assignedUser   User?           @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
   stockBalances  StockBalance[]
   fromMovements  StockMovement[] @relation("FromLocation")
   toMovements    StockMovement[] @relation("ToLocation")
+  invoices       Invoice[]
+  purchases      Purchase[]
+  stockAudits    StockAudit[]
 
   @@map("locations")
+}
+
+model Company {
+  id        String    @id @default(cuid())
+  branchId  Int       @default(1) @map("branch_id")
+  name      String    @unique
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  products  Product[]
+
+  @@map("companies")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  branchId  Int       @default(1) @map("branch_id")
+  name      String    @unique
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  products  Product[]
+
+  @@map("categories")
 }
 
 model Product {
@@ -61,9 +177,17 @@ model Product {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  company        Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  category       Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   stockBalances  StockBalance[]
   stockMovements StockMovement[]
+  invoiceItems   InvoiceItem[]
+  purchaseItems  PurchaseItem[]
+  auditLines     StockAuditLine[]
 
+  @@index([name])
+  @@index([companyId])
+  @@index([categoryId])
   @@map("products")
 }
 
@@ -117,3 +241,222 @@ model Sequence {
   @@map("sequences")
 }
 
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  branchId  Int      @default(1) @map("branch_id")
+  actorId   String?  @map("actor_id")
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  before    Json?
+  after     Json?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
+
+model Party {
+  id               String      @id @default(cuid())
+  branchId         Int         @default(1) @map("branch_id")
+  type             PartyType
+  name             String
+  phone            String?
+  email            String?
+  gstin            String?
+  address          String?
+  creditEnabled    Boolean     @default(false) @map("credit_enabled")
+  creditLimitPaise Int         @default(0) @map("credit_limit_paise")
+  creditDays       Int         @default(0) @map("credit_days")
+  tallyRef         String?     @map("tally_ref")
+  active           Boolean     @default(true)
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  invoices         Invoice[]
+  purchases        Purchase[]
+  ledgerEntries    LedgerEntry[]
+
+  @@map("parties")
+}
+
+model LedgerEntry {
+  id            String     @id @default(cuid())
+  branchId      Int        @default(1) @map("branch_id")
+  partyId       String     @map("party_id")
+  kind          LedgerKind
+  debitPaise    Int        @default(0) @map("debit_paise")
+  creditPaise   Int        @default(0) @map("credit_paise")
+  referenceType String?    @map("reference_type")
+  referenceId   String?    @map("reference_id")
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  party         Party      @relation(fields: [partyId], references: [id], onDelete: Restrict)
+
+  @@index([partyId, createdAt])
+  @@map("ledger_entries")
+}
+
+model Purchase {
+  id          String         @id @default(cuid())
+  branchId    Int            @default(1) @map("branch_id")
+  supplierId  String?        @map("supplier_id")
+  billNo      String         @map("bill_no")
+  billDate    DateTime       @map("bill_date")
+  locationId  String         @map("location_id")
+  totalPaise  Int            @map("total_paise")
+  status      PurchaseStatus @default(RECEIVED)
+  createdBy   String?        @map("created_by")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  supplier    Party?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  location    Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  creator     User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  items       PurchaseItem[]
+
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  purchaseId String   @map("purchase_id")
+  productId  String   @map("product_id")
+  qty        Int
+  ratePaise  Int      @map("rate_paise")
+  gstRateBp  Int      @default(0) @map("gst_rate_bp")
+
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("purchase_items")
+}
+
+model Invoice {
+  id            String         @id @default(cuid())
+  branchId      Int            @default(1) @map("branch_id")
+  number        String         @unique
+  fy            String
+  status        InvoiceStatus  @default(DRAFT)
+  channel       InvoiceChannel @default(SHOP)
+  locationId    String         @map("location_id")
+  partyId       String?        @map("party_id")
+  buyerType     String         @default("RETAIL") @map("buyer_type")
+  subtotalPaise Int            @map("subtotal_paise")
+  discountPaise Int            @default(0) @map("discount_paise")
+  taxablePaise  Int            @map("taxable_paise")
+  cgstPaise     Int            @default(0) @map("cgst_paise")
+  sgstPaise     Int            @default(0) @map("sgst_paise")
+  igstPaise     Int            @default(0) @map("igst_paise")
+  roundOffPaise Int            @default(0) @map("round_off_paise")
+  totalPaise    Int            @map("total_paise")
+  paymentStatus PaymentStatus  @default(PENDING) @map("payment_status")
+  createdBy     String?        @map("created_by")
+  finalizedAt   DateTime?      @map("finalized_at")
+  irn           String?
+  qr            String?
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  location      Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  party         Party?         @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  creator       User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  items         InvoiceItem[]
+  payments      Payment[]
+  creditNotes   CreditNote[]
+
+  @@index([locationId, createdAt])
+  @@index([partyId, createdAt])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id             String   @id @default(cuid())
+  invoiceId      String   @map("invoice_id")
+  productId      String   @map("product_id")
+  qty            Int
+  mrpPaise       Int      @map("mrp_paise")
+  discountBp     Int      @default(0) @map("discount_bp")
+  unitPricePaise Int      @map("unit_price_paise")
+  taxablePaise   Int      @map("taxable_paise")
+  gstRateBp      Int      @map("gst_rate_bp")
+  taxPaise       Int      @map("tax_paise")
+  hsn            String
+
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id          String      @id @default(cuid())
+  branchId    Int         @default(1) @map("branch_id")
+  invoiceId   String?     @map("invoice_id")
+  partyId     String?     @map("party_id")
+  mode        PaymentMode
+  amountPaise Int         @map("amount_paise")
+  receivedBy  String?     @map("received_by")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  invoice     Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  receiver    User?       @relation(fields: [receivedBy], references: [id], onDelete: SetNull)
+
+  @@map("payments")
+}
+
+model CreditNote {
+  id         String   @id @default(cuid())
+  branchId   Int      @default(1) @map("branch_id")
+  number     String   @unique
+  invoiceId  String   @map("invoice_id")
+  reason     String
+  totalPaise Int      @map("total_paise")
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  creator    User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@map("credit_notes")
+}
+
+model StockAudit {
+  id         String           @id @default(cuid())
+  branchId   Int              @default(1) @map("branch_id")
+  locationId String           @map("location_id")
+  status     AuditStatus      @default(PENDING)
+  createdBy  String?          @map("created_by")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  location   Location         @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  lines      StockAuditLine[]
+
+  @@map("stock_audits")
+}
+
+model StockAuditLine {
+  id         String     @id @default(cuid())
+  auditId    String     @map("audit_id")
+  productId  String     @map("product_id")
+  systemQty  Int        @map("system_qty")
+  countedQty Int        @map("counted_qty")
+
+  audit      StockAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("stock_audit_lines")
+}
