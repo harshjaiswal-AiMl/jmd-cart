@@ -54,6 +54,12 @@ export default async function AdminDashboardPage() {
       color: "bg-sky-50 text-sky-800 border-sky-200",
     },
     {
+      title: "Online Store Orders",
+      desc: "Review incoming orders, confirm status, and print split pick lists.",
+      href: "/admin/orders",
+      color: "bg-rose-50 text-rose-800 border-rose-200",
+    },
+    {
       title: "Business Settings",
       desc: "GSTIN, FSSAI, address, bank details, and role discount ceilings.",
       href: "/admin/settings",

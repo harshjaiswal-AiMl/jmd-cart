@@ -60,3 +60,32 @@ export interface OrderSummary {
   createdAt: Date;
   updatedAt: Date;
 }
+
+export interface PickListItem {
+  productId: string;
+  productName: string;
+  shortCode: string;
+  packSize: number;
+  qty: number;
+  unit: string;
+  cartonsCount: number;
+  looseCount: number;
+  orderNumber: string;
+}
+
+export interface SplitPickLists {
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  customerPhone: string;
+  deliveryAddress: string;
+  deliveryZoneName: string;
+  status: OrderStatus;
+  createdAt: Date;
+  // Shop Pick List: Loose pieces (qty % packSize > 0, or packSize == 1)
+  shopLoosePicks: PickListItem[];
+  // Godown Pick List: Full unopened cartons/packs (Math.floor(qty / packSize) > 0)
+  godownPackPicks: PickListItem[];
+  totalCartons: number;
+  totalLoosePieces: number;
+}

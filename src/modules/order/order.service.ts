@@ -4,13 +4,16 @@ import { pricingService } from "@/modules/pricing/pricing.service";
 import { deliveryService } from "@/modules/delivery/delivery.service";
 import { cartService } from "@/modules/cart/cart.service";
 import { auditService } from "@/modules/audit/audit.service";
-import { LocationType } from "@prisma/client";
+import { LocationType, UserRole } from "@prisma/client";
+import { assertPermission, Permission } from "@/modules/auth/permissions";
 import {
   CreateOrderInput,
   createOrderInputSchema,
   OrderSummary,
   OrderItemSummary,
   OrderStatus,
+  SplitPickLists,
+  PickListItem,
 } from "./order.types";
 import { orderRepository, OrderRepository } from "./order.repository";
 
@@ -232,6 +235,113 @@ export class OrderService {
   async listAllOrders(status?: OrderStatus): Promise<OrderSummary[]> {
     const orders = await this.repo.listAllOrders(status);
     return orders.map((o) => this.mapOrderToSummary(o));
+  }
+
+  /**
+   * Updates an order's status (e.g. PENDING -> CONFIRMED -> PROCESSING -> DISPATCHED -> DELIVERED or CANCELLED).
+   * Guarded by MANAGE_ORDERS permission.
+   */
+  async updateOrderStatus(
+    actorRole: UserRole,
+    actorId: string,
+    orderId: string,
+    newStatus: OrderStatus,
+    ip?: string
+  ): Promise<OrderSummary> {
+    assertPermission(actorRole, Permission.MANAGE_ORDERS);
+
+    const existing = await this.repo.findOrderById(orderId);
+    if (!existing) {
+      throw new Error(`Order ${orderId} not found`);
+    }
+
+    const previousStatus = existing.status;
+    const updated = await this.repo.updateOrderStatus(orderId, newStatus);
+
+    await auditService.log({
+      actorId,
+      action: "ORDER_STATUS_UPDATED",
+      entity: "Order",
+      entityId: orderId,
+      before: { status: previousStatus },
+      after: { status: newStatus },
+      ip,
+    });
+
+    const fullOrder = await this.repo.findOrderById(orderId);
+    return this.mapOrderToSummary(fullOrder!);
+  }
+
+  /**
+   * Generates split pick lists for an order:
+   * - Shop Pick List: loose items needed for fulfilment (qty % packSize > 0, or packSize == 1)
+   * - Godown Pick List: whole unopened cartons/packs needed for fulfilment (Math.floor(qty / packSize) > 0)
+   */
+  async getSplitPickLists(orderId: string): Promise<SplitPickLists> {
+    const order = await this.repo.findOrderById(orderId);
+    if (!order) {
+      throw new Error(`Order ${orderId} not found`);
+    }
+
+    const shopLoosePicks: PickListItem[] = [];
+    const godownPackPicks: PickListItem[] = [];
+
+    let totalCartons = 0;
+    let totalLoosePieces = 0;
+
+    for (const item of order.items) {
+      const packSize = item.product.packSize || 1;
+      const cartons = Math.floor(item.qty / packSize);
+      const loosePieces = item.qty % packSize;
+
+      // If full cartons exist, add to Godown Pack pick list
+      if (cartons > 0 && packSize > 1) {
+        godownPackPicks.push({
+          productId: item.productId,
+          productName: item.product.name,
+          shortCode: item.product.shortCode,
+          packSize,
+          qty: cartons * packSize,
+          unit: `${cartons} ${cartons === 1 ? "Carton" : "Cartons"} (${cartons * packSize} pcs)`,
+          cartonsCount: cartons,
+          looseCount: 0,
+          orderNumber: order.orderNumber,
+        });
+        totalCartons += cartons;
+      }
+
+      // If loose pieces exist (or product packSize is 1), add to Shop Loose pick list
+      if (loosePieces > 0 || packSize === 1) {
+        const looseQty = packSize === 1 ? item.qty : loosePieces;
+        shopLoosePicks.push({
+          productId: item.productId,
+          productName: item.product.name,
+          shortCode: item.product.shortCode,
+          packSize,
+          qty: looseQty,
+          unit: `${looseQty} pcs loose`,
+          cartonsCount: 0,
+          looseCount: looseQty,
+          orderNumber: order.orderNumber,
+        });
+        totalLoosePieces += looseQty;
+      }
+    }
+
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.user?.name || "Customer",
+      customerPhone: order.user?.phone || order.contactPhone,
+      deliveryAddress: order.deliveryAddress,
+      deliveryZoneName: order.deliveryZoneName,
+      status: order.status,
+      createdAt: order.createdAt,
+      shopLoosePicks,
+      godownPackPicks,
+      totalCartons,
+      totalLoosePieces,
+    };
   }
 
   private mapOrderToSummary(order: any): OrderSummary {

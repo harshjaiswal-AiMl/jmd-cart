@@ -32,6 +32,10 @@ export enum Permission {
   VAN_ISSUE_LOAD = "VAN_ISSUE_LOAD",
   CONFIRM_CASH_HANDOVER = "CONFIRM_CASH_HANDOVER",
 
+  // Ecommerce Orders & Pick Lists
+  MANAGE_ORDERS = "MANAGE_ORDERS",
+  VIEW_ORDERS = "VIEW_ORDERS",
+
   // Delivery
   DELIVERY_EXECUTE = "DELIVERY_EXECUTE",
 
@@ -75,6 +79,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.VAN_ISSUE_LOAD,
     Permission.VAN_RECONCILE,
     Permission.RETURN_TO_COMPANY,
+    Permission.VIEW_ORDERS,
+    Permission.MANAGE_ORDERS,
   ],
 
   SHOP: [
@@ -86,6 +92,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.POS_BILL,
     Permission.POS_HOLD_RESUME,
     Permission.POS_CASH_CLOSE,
+    Permission.VIEW_ORDERS,
   ],
 
   SALESPERSON: [
