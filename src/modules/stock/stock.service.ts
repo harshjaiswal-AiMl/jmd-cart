@@ -1,10 +1,17 @@
+import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { stockRepository, StockRepository } from "./stock.repository";
 import {
   PostMovementInput,
   StockMovementResult,
   InsufficientStockError,
   InvalidMovementError,
+  StockFilterOptions,
+  ProductStockBalanceItem,
+  StockMovementLedgerItem,
+  ProductStockDetails,
+  StockSummaryKPIs,
 } from "./stock.types";
 
 export class StockService {
@@ -150,6 +157,48 @@ export class StockService {
    */
   async getMovements(productId: string, limit: number = 50, offset: number = 0) {
     return this.repo.getMovements(productId, limit, offset);
+  }
+
+  /**
+   * Filter and list stock balances across products and locations. Guarded by STOCK_VIEW.
+   */
+  async listStockBalances(
+    role: UserRole,
+    filters: StockFilterOptions = {}
+  ): Promise<{ items: ProductStockBalanceItem[]; total: number }> {
+    assertPermission(role, Permission.STOCK_VIEW);
+    return this.repo.getStockBalances(filters);
+  }
+
+  /**
+   * Get detailed product stock breakdown across all locations. Guarded by STOCK_VIEW.
+   */
+  async getProductStockDetails(
+    role: UserRole,
+    productId: string
+  ): Promise<ProductStockDetails | null> {
+    assertPermission(role, Permission.STOCK_VIEW);
+    return this.repo.getProductDetails(productId);
+  }
+
+  /**
+   * Get chronological movement history for a product. Guarded by STOCK_VIEW.
+   */
+  async getProductMovements(
+    role: UserRole,
+    productId: string,
+    options: { limit?: number; offset?: number } = {}
+  ): Promise<StockMovementLedgerItem[]> {
+    assertPermission(role, Permission.STOCK_VIEW);
+    return this.repo.getProductMovementsLedger(productId, options);
+  }
+
+  /**
+   * Get high-level inventory KPIs. Guarded by STOCK_VIEW.
+   */
+  async getStockKPIs(role: UserRole): Promise<StockSummaryKPIs> {
+    assertPermission(role, Permission.STOCK_VIEW);
+    return this.repo.getStockKPIs();
   }
 }
 
