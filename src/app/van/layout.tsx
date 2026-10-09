@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import Link from "next/link";
 import { PwaInstallPrompt } from "@/components/pwa/pwa-install-prompt";
+import { BluetoothHeaderButton } from "@/components/van/bluetooth-header-button";
 import { VanBottomNav } from "./van-nav";
 import { Truck, LogOut } from "lucide-react";
 import type { Metadata, Viewport } from "next";
@@ -102,6 +103,7 @@ export default async function VanLayout({
 
           {/* Right: Connectivity & Install & Profile Actions */}
           <div className="flex items-center gap-2">
+            <BluetoothHeaderButton />
             <PwaInstallPrompt />
 
             <form

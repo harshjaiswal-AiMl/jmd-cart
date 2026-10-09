@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { UserRole, InvoiceChannel, PaymentMode } from "@prisma/client";
 import { billingService } from "@/modules/billing/billing.service";
+import { settingsService } from "@/modules/settings/settings.service";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { z } from "zod";
 
@@ -74,6 +75,36 @@ export async function createVanInvoiceAction(input: VanInvoiceActionInput) {
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to create van invoice";
+    return { success: false, error: message };
+  }
+}
+
+export async function getInvoiceForPrintAction(invoiceId: string) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Authentication required" };
+  }
+
+  try {
+    const invoice = await billingService.getInvoiceById(invoiceId);
+    if (!invoice) {
+      return { success: false, error: "Invoice not found" };
+    }
+
+    const business = await settingsService.getBusinessDetails();
+    return { success: true, invoice, business };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to fetch invoice details";
+    return { success: false, error: message };
+  }
+}
+
+export async function getBusinessDetailsForPrintAction() {
+  try {
+    const business = await settingsService.getBusinessDetails();
+    return { success: true, business };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load business details";
     return { success: false, error: message };
   }
 }

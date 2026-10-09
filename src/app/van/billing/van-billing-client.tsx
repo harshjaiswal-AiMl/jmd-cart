@@ -20,6 +20,7 @@ import {
   Package,
 } from "lucide-react";
 import Link from "next/link";
+import { BluetoothPrintButton } from "@/components/van/bluetooth-print-button";
 import {
   saveDraftInvoice,
   listDraftInvoices,
@@ -440,16 +441,14 @@ export function VanBillingClient({
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href={`/shop/invoices/${lastInvoice.id}/print`}
-              className="inline-flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-950 hover:bg-slate-100 transition-colors shadow"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Print Bill</span>
-            </Link>
+            <BluetoothPrintButton
+              invoiceId={lastInvoice.id}
+              invoiceNumber={lastInvoice.number}
+              variant="primary"
+            />
             <button
               onClick={() => setLastInvoice(null)}
-              className="px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-900/60 text-emerald-200 hover:bg-emerald-900"
+              className="px-4 py-3 rounded-2xl text-xs font-semibold bg-emerald-900/60 text-emerald-200 hover:bg-emerald-900 transition"
             >
               Done
             </button>
