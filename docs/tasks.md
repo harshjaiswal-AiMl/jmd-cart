@@ -28,7 +28,7 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - [x] 1.9 Stock views by location + product history (S)
 - [x] 1.10 Pricing engine (slabs, buyer tag, order discount) + tests (M)
 - [x] 1.11 GST calc + invoice numbering + finalize/cancel + tests (L)
-- [ ] 1.12 Shop POS (search-first, hold/resume, payments) (L)
+- [x] 1.12 Shop POS (search-first, hold/resume, payments) (L)
 - [ ] 1.13 A4 + 80mm print templates; test on real printer (M)
 - [ ] 1.14 Basic reports (stock, low stock, daily sales, day-end cash) (M)
 - [ ] 1.15 E2E: login by role, import, receive, transfer, POS sale (M)
@@ -96,6 +96,8 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 - 2026-10-09: Step 12 complete (Stock Views by Location & Product Movement History - Task 1.9). Implemented multi-location stock overview (`/godown/stock`) with location breakdown, brand and search filters, carton breakdown calculation, and low-stock threshold alerting. Created product-specific movement ledger (`/godown/stock/[productId]`) detailing chronological immutable movements with IST timestamps, route badges, and actor tracking. 79 tests passing across 14 test suites. Next is Step 13: Pricing Engine (Task 1.10).
 - 2026-10-09: Step 13 complete (Pricing Engine - Task 1.10). Implemented dynamic quantity price slab resolution with priority hierarchy (Product > Category > Company > Global). Built automatic buyer classification tagging (`CUSTOMER`, `RETAILER`, `WHOLESALER`) based on highest line tier. Built order-level % discount combining multiplicatively with slab discounts, and enforced role discount limits (`roleDiscountLimits` in settings) with owner approval flags. Created admin slab management UI at `/admin/pricing`. 93 tests passing across 16 test suites. Next is Step 14: Billing Service & Invoicing Finalize/Cancel (Task 1.11).
 - 2026-10-09: Step 14 complete (Billing Service & Invoicing Finalize/Cancel - Task 1.11). Implemented `BillingService` executing single-transaction invoice finalization: pessimistic locked gapless FY sequence numbers (`INV/26-27/XXXXXX`), price and GST freezing, atomic `MovementType.SALE` stock ledger deductions, multi-split payment logging (Cash/UPI/Card/Credit), and linked customer ledger postings. Built Admin-only invoice cancellation issuing Credit Notes (`CN/26-27/XXXXXX`), posting counter-movements (`MovementType.SALE_CANCEL`) restoring inventory, and offsetting party accounts. 99 tests passing across 17 test suites. Next is Step 15: Shop POS UI (Task 1.12).
+- 2026-10-09: Step 15 complete (Shop POS UI - Task 1.12). Implemented full-screen search-first Shop POS interface at `/shop/pos` (`pos-client.tsx`, `actions.ts`). Features include multi-token search, brand/category chips, live stock badges with out-of-stock guards, quantity steppers with carton/pack conversions, dynamic slab pricing & discount calculation, multi-split payment tender modal (Cash, UPI, Card, Credit) with quick cash amount buttons, order-level discount verification against role limits with owner approval flagging, bill hold/resume with localStorage persistence, and post-sale modal linking to A4 and thermal printing. 99 tests passing across 17 test suites. Next is Step 16: A4 and 80mm Print Templates (Task 1.13).
+
 
 
 
