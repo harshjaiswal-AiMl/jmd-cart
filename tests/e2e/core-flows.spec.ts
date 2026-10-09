@@ -189,4 +189,41 @@ ${testCode},E2E Mustard Oil ${timestamp},Saloni,Oils,15149120,5,180.00,12,Carton
     await page.click('button:has-text("Low Stock Alerts")');
     await expect(page.locator("text=Products at or below reorder level")).toBeVisible();
   });
+
+  test("9. Salesperson Login, Auto-Routing to /van PWA Shell & Static Assets", async ({ page, request }) => {
+    // 1. Verify PWA manifest and service worker routes are served cleanly
+    const manifestRes = await request.get("/manifest.webmanifest");
+    expect(manifestRes.status()).toBe(200);
+    const manifestJson = await manifestRes.json();
+    expect(manifestJson.name).toContain("Van Sales");
+    expect(manifestJson.start_url).toBe("/van");
+
+    const swRes = await request.get("/sw.js");
+    expect(swRes.status()).toBe(200);
+
+    // 2. Salesperson Login
+    await page.goto("/login");
+    await page.fill('input[name="phone"]', "9876543213");
+    await page.fill('input[name="password"]', "van123");
+    await page.click('button[type="submit"]');
+
+    // 3. Verify automatic redirection to /van
+    await page.waitForURL("**/van", { timeout: 20000 });
+    await expect(page.locator("text=JMD CART").first()).toBeVisible();
+    await expect(page.locator("text=VAN PWA").first()).toBeVisible();
+    await expect(page.locator("text=Van Stock").first()).toBeVisible();
+
+    // 4. Verify PWA mobile bottom navigation bar
+    await page.setViewportSize({ width: 390, height: 844 });
+    const bottomNav = page.locator("nav.fixed.bottom-0");
+    await expect(bottomNav).toBeVisible();
+    await expect(bottomNav.getByText("New Bill")).toBeVisible();
+    await expect(bottomNav.getByText("Day End")).toBeVisible();
+    await expect(bottomNav.getByText("Invoices")).toBeVisible();
+
+    // 5. Verify Salesperson is blocked from admin routes (403 Forbidden)
+    const adminResponse = await page.goto("/admin");
+    expect(adminResponse?.status()).toBe(403);
+  });
 });
+

@@ -146,3 +146,28 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
   const allowedPrefixes = ROLE_ALLOWED_ROUTES[role] ?? [];
   return allowedPrefixes.some((prefix) => pathname.startsWith(prefix));
 }
+
+/**
+ * Return default landing dashboard path for each user role.
+ */
+export function getDefaultDashboard(role?: UserRole): string {
+  switch (role) {
+    case UserRole.SUPER_ADMIN:
+      return "/admin";
+    case UserRole.GODOWN:
+      return "/godown";
+    case UserRole.SHOP:
+      return "/shop";
+    case UserRole.SALESPERSON:
+      return "/van";
+    case UserRole.DELIVERY:
+      return "/delivery";
+    case UserRole.ACCOUNTS:
+      return "/accounts";
+    case UserRole.CUSTOMER:
+      return "/store";
+    default:
+      return "/login";
+  }
+}
+

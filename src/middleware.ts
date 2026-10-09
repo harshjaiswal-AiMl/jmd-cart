@@ -1,43 +1,28 @@
 import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
-import { canAccessRoute } from "@/modules/auth/permissions";
-import { UserRole } from "@prisma/client";
+import { canAccessRoute, getDefaultDashboard } from "@/modules/auth/permissions";
 
 const { auth } = NextAuth(authConfig);
 
-export function getDefaultDashboard(role?: UserRole): string {
-  switch (role) {
-    case UserRole.SUPER_ADMIN:
-      return "/admin";
-    case UserRole.GODOWN:
-      return "/godown";
-    case UserRole.SHOP:
-      return "/shop";
-    case UserRole.SALESPERSON:
-      return "/van";
-    case UserRole.DELIVERY:
-      return "/delivery";
-    case UserRole.ACCOUNTS:
-      return "/accounts";
-    case UserRole.CUSTOMER:
-      return "/store";
-    default:
-      return "/login";
-  }
-}
+export { getDefaultDashboard };
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
   const user = req.auth?.user;
 
-  // Static files and internal routes
+  // Static files, PWA assets and internal routes
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/health") ||
     pathname.startsWith("/api/auth") ||
-    pathname === "/favicon.ico"
+    pathname === "/favicon.ico" ||
+    pathname === "/sw.js" ||
+    pathname === "/manifest.webmanifest" ||
+    pathname === "/manifest.json" ||
+    pathname === "/offline" ||
+    pathname.startsWith("/icons/")
   ) {
     return NextResponse.next();
   }

@@ -3,7 +3,7 @@
 import { signIn } from "@/auth";
 import { AuthError } from "next-auth";
 import { authService } from "@/modules/auth/auth.service";
-import { getDefaultDashboard } from "@/middleware";
+import { getDefaultDashboard } from "@/modules/auth/permissions";
 
 export interface LoginActionState {
   error?: string;
