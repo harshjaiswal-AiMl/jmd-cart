@@ -193,4 +193,46 @@ export async function updatePaymentModeSettingsAction(
   }
 }
 
+export async function updateEInvoiceSettingsAction(
+  prevState: SettingsActionResult | undefined,
+  formData: FormData
+): Promise<SettingsActionResult> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const enabled = formData.get("enabled") === "on" || formData.get("enabled") === "true";
+    const provider = (formData.get("provider") as "noop" | "clear_tax" | "cygnet" | "nic") || "noop";
+    const gspClientId = ((formData.get("gspClientId") as string) || "").trim();
+    const gspClientSecret = ((formData.get("gspClientSecret") as string) || "").trim();
+    const gspUsername = ((formData.get("gspUsername") as string) || "").trim();
+    const gspBaseUrl = ((formData.get("gspBaseUrl") as string) || "").trim();
+    const autoGenerateOnFinalize = formData.get("autoGenerateOnFinalize") !== "false";
+
+    const payload = {
+      enabled,
+      provider,
+      gspClientId,
+      gspClientSecret,
+      gspUsername,
+      gspBaseUrl,
+      autoGenerateOnFinalize,
+    };
+
+    await settingsService.updateEInvoiceSettings(
+      session.user.role,
+      session.user.id,
+      payload
+    );
+
+    revalidatePath("/admin/settings");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update e-invoice settings";
+    return { error: message };
+  }
+}
+
 

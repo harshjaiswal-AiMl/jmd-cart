@@ -74,6 +74,30 @@ export function A4Invoice({
         </span>
       </div>
 
+      {/* E-Invoice IRN & QR Banner (when generated) */}
+      {invoice.irn && (
+        <div className="mb-3 p-2 bg-emerald-50 border border-emerald-300 rounded flex justify-between items-center text-[10px]">
+          <div className="space-y-0.5">
+            <span className="font-bold text-emerald-800 uppercase tracking-wide block">
+              Govt. E-Invoice Portal (IRN Generated)
+            </span>
+            <div className="font-mono text-emerald-950 break-all select-all">
+              <strong>IRN:</strong> {invoice.irn}
+            </div>
+          </div>
+          {invoice.qr && (
+            <div className="ml-4 shrink-0 text-center">
+              <div className="w-12 h-12 bg-white border border-emerald-400 rounded flex items-center justify-center p-0.5 shadow-xs">
+                <span className="font-mono text-[8px] text-emerald-800 font-bold leading-tight">
+                  NIC QR
+                </span>
+              </div>
+              <span className="text-[8px] text-emerald-700 block mt-0.5">Signed QR</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Header: Company & Invoice Info */}
       <div className="grid grid-cols-2 gap-4 border-b border-slate-300 pb-4 mb-3">
         <div>

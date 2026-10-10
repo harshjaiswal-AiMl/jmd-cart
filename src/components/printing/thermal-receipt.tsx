@@ -99,6 +99,12 @@ export function ThermalReceipt({ invoice, business }: ThermalReceiptProps) {
             )}
           </div>
         )}
+        {invoice.irn && (
+          <div className="pt-1 border-t border-dotted border-gray-400 mt-1">
+            <div className="font-bold">IRN (E-INVOICE):</div>
+            <div className="font-mono text-[8px] break-all select-all">{invoice.irn}</div>
+          </div>
+        )}
       </div>
 
       {/* Dashed line */}

@@ -75,10 +75,23 @@ export const paymentModeSettingsSchema = z.object({
 
 export type PaymentModeSettings = z.infer<typeof paymentModeSettingsSchema>;
 
+export const eInvoiceSettingsSchema = z.object({
+  enabled: z.boolean().default(false), // Off/No-op until client supplies GSP credentials per PRD
+  provider: z.enum(["noop", "clear_tax", "cygnet", "nic"]).default("noop"),
+  gspClientId: z.string().optional().default(""),
+  gspClientSecret: z.string().optional().default(""),
+  gspUsername: z.string().optional().default(""),
+  gspBaseUrl: z.string().optional().default(""),
+  autoGenerateOnFinalize: z.boolean().default(true),
+});
+
+export type EInvoiceSettings = z.infer<typeof eInvoiceSettingsSchema>;
+
 export interface AllSettings {
   businessDetails: BusinessDetails;
   roleDiscountLimits: RoleDiscountLimits;
   deliverySettings: DeliverySettings;
   verificationSettings: VerificationSettings;
   paymentModeSettings: PaymentModeSettings;
+  eInvoiceSettings: EInvoiceSettings;
 }

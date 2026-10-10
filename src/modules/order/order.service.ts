@@ -15,6 +15,9 @@ import {
   UserRole,
 } from "@prisma/client";
 import { assertPermission, hasPermission, Permission, ForbiddenError } from "@/modules/auth/permissions";
+import { getEInvoiceProvider } from "@/lib/e-invoice";
+import { settingsService } from "@/modules/settings/settings.service";
+import { billingRepository } from "@/modules/billing/billing.repository";
 import {
   CreateOrderInput,
   createOrderInputSchema,
@@ -635,7 +638,33 @@ export class OrderService {
       return inv;
     });
 
-    // 7. Audit logging
+    // 7. E-Invoice Adapter Hook (No-op until GSP credentials per PRD 5.10 & 11)
+    try {
+      const fullInvoice = await billingRepository.findById(invoice.id);
+      if (fullInvoice) {
+        const eInvoiceProvider = getEInvoiceProvider();
+        if (eInvoiceProvider.isEligible(fullInvoice)) {
+          const businessDetails = await settingsService.getBusinessDetails();
+          const irnResult = await eInvoiceProvider.generateIrn(fullInvoice, businessDetails);
+          if (irnResult.success && irnResult.irn) {
+            await prisma.invoice.update({
+              where: { id: invoice.id },
+              data: {
+                irn: irnResult.irn,
+                qr: irnResult.qrCode ?? null,
+              },
+            });
+          }
+        }
+      }
+    } catch (eInvoiceErr) {
+      console.error(
+        `[E-Invoice] Non-blocking adapter warning for order invoice ${invoice.number}:`,
+        eInvoiceErr
+      );
+    }
+
+    // 8. Audit logging
     await auditService.log({
       actorId,
       action: "ORDER_INVOICE_GENERATED",

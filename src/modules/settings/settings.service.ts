@@ -11,10 +11,22 @@ import {
   VerificationSettings,
   paymentModeSettingsSchema,
   PaymentModeSettings,
+  eInvoiceSettingsSchema,
+  EInvoiceSettings,
   AllSettings,
 } from "./settings.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
+
+export const DEFAULT_EINVOICE_SETTINGS: EInvoiceSettings = {
+  enabled: false,
+  provider: "noop",
+  gspClientId: "",
+  gspClientSecret: "",
+  gspUsername: "",
+  gspBaseUrl: "",
+  autoGenerateOnFinalize: true,
+};
 
 export const DEFAULT_PAYMENT_MODE_SETTINGS: PaymentModeSettings = {
   codEnabled: true,
@@ -265,6 +277,45 @@ export class SettingsService {
     return parsed;
   }
 
+  async getEInvoiceSettings(): Promise<EInvoiceSettings> {
+    const data = await settingsRepository.getSetting<EInvoiceSettings>("einvoice_settings");
+    return data ? { ...DEFAULT_EINVOICE_SETTINGS, ...data } : DEFAULT_EINVOICE_SETTINGS;
+  }
+
+  async updateEInvoiceSettings(
+    actorRole: UserRole,
+    actorId: string,
+    data: unknown,
+    ip?: string
+  ): Promise<EInvoiceSettings> {
+    assertPermission(actorRole, Permission.MANAGE_SETTINGS);
+    const parsed = eInvoiceSettingsSchema.parse(data);
+
+    const before = await this.getEInvoiceSettings();
+    await settingsRepository.setSetting("einvoice_settings", parsed);
+
+    const maskedAfter = {
+      ...parsed,
+      gspClientSecret: parsed.gspClientSecret ? "***" : "",
+    };
+    const maskedBefore = {
+      ...before,
+      gspClientSecret: before.gspClientSecret ? "***" : "",
+    };
+
+    await auditService.log({
+      actorId,
+      action: "SETTINGS_EINVOICE_UPDATED",
+      entity: "Setting",
+      entityId: "einvoice_settings",
+      before: maskedBefore,
+      after: maskedAfter,
+      ip,
+    });
+
+    return parsed;
+  }
+
   async getAllSettings(): Promise<AllSettings> {
     const [
       businessDetails,
@@ -272,12 +323,14 @@ export class SettingsService {
       deliverySettings,
       verificationSettings,
       paymentModeSettings,
+      eInvoiceSettings,
     ] = await Promise.all([
       this.getBusinessDetails(),
       this.getRoleDiscountLimits(),
       this.getDeliverySettings(),
       this.getVerificationSettings(),
       this.getPaymentModeSettings(),
+      this.getEInvoiceSettings(),
     ]);
 
     return {
@@ -286,6 +339,7 @@ export class SettingsService {
       deliverySettings,
       verificationSettings,
       paymentModeSettings,
+      eInvoiceSettings,
     };
   }
 }

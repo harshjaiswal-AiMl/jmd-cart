@@ -7,6 +7,7 @@ import {
   updateVerificationSettingsAction,
   updateDeliverySettingsAction,
   updatePaymentModeSettingsAction,
+  updateEInvoiceSettingsAction,
   SettingsActionResult,
 } from "./actions";
 import { AllSettings, DeliveryZone } from "@/modules/settings/settings.types";
@@ -989,6 +990,175 @@ export function PaymentModeSettingsForm({
             </p>
           </div>
         )}
+      </div>
+
+      <div className="flex justify-end pt-4 border-t border-gray-100">
+        <SaveButton />
+      </div>
+    </form>
+  );
+}
+
+export function EInvoiceSettingsForm({
+  initialData,
+}: {
+  initialData: AllSettings["eInvoiceSettings"];
+}) {
+  const [state, formAction] = useFormState<SettingsActionResult | undefined, FormData>(
+    updateEInvoiceSettingsAction,
+    undefined
+  );
+
+  const [enabled, setEnabled] = useState(initialData?.enabled ?? false);
+  const [provider, setProvider] = useState(initialData?.provider ?? "noop");
+
+  return (
+    <form action={formAction} className="space-y-6 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <div className="border-b border-gray-200 pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">E-Invoice & GSP Adapter</h3>
+            <p className="text-sm text-gray-500">
+              Government E-Invoice System (IRN / Signed QR) per PRD Section 5.10 & 11.
+            </p>
+          </div>
+          <span
+            className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              enabled
+                ? "bg-green-100 text-green-800 border border-green-200"
+                : "bg-amber-100 text-amber-800 border border-amber-200"
+            }`}
+          >
+            {enabled ? "Active Adapter" : "No-Op (Pending GSP)"}
+          </span>
+        </div>
+      </div>
+
+      {state?.error && (
+        <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">
+          {state.error}
+        </div>
+      )}
+
+      {state?.success && (
+        <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm">
+          E-Invoice configuration updated successfully!
+        </div>
+      )}
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-lg">
+          <div>
+            <span className="text-sm font-semibold text-slate-800 block">
+              Enable E-Invoice Generation
+            </span>
+            <p className="text-xs text-slate-500">
+              When disabled, system operates with the built-in No-Op adapter (safe local fallback).
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              name="enabled"
+              checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              GSP / IRP Provider
+            </label>
+            <select
+              name="provider"
+              value={provider}
+              onChange={(e) => setProvider(e.target.value as any)}
+              className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="noop">No-Op Adapter (Offline / Safe Default)</option>
+              <option value="clear_tax">ClearTax GSP Adapter</option>
+              <option value="cygnet">Cygnet GSP Adapter</option>
+              <option value="nic">NIC Direct e-Invoice Portal</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              GSP API Base URL
+            </label>
+            <input
+              type="text"
+              name="gspBaseUrl"
+              defaultValue={initialData?.gspBaseUrl || ""}
+              placeholder="https://api.einvoice.nic.in / GSP Gateway URL"
+              className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-blue-500 focus:border-blue-500 bg-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              GSP Client ID
+            </label>
+            <input
+              type="text"
+              name="gspClientId"
+              defaultValue={initialData?.gspClientId || ""}
+              placeholder="gsp_client_id_xxxx"
+              className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-blue-500 focus:border-blue-500 bg-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              GSP Client Secret
+            </label>
+            <input
+              type="password"
+              name="gspClientSecret"
+              defaultValue={initialData?.gspClientSecret || ""}
+              placeholder="••••••••••••••••"
+              className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-blue-500 focus:border-blue-500 bg-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              IRP Portal Username
+            </label>
+            <input
+              type="text"
+              name="gspUsername"
+              defaultValue={initialData?.gspUsername || ""}
+              placeholder="GSTIN_API_USER"
+              className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 bg-white"
+            />
+          </div>
+
+          <div className="flex items-center pt-5">
+            <label className="flex items-center space-x-2 text-sm text-slate-700 cursor-pointer">
+              <input
+                type="checkbox"
+                name="autoGenerateOnFinalize"
+                defaultChecked={initialData?.autoGenerateOnFinalize ?? true}
+                className="h-4 w-4 text-blue-600 rounded border-slate-300"
+              />
+              <span className="text-xs font-semibold">
+                Auto-generate IRN upon B2B invoice finalization
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 space-y-1">
+          <p className="font-semibold">Compliance Note (PRD Section 5.10):</p>
+          <p>
+            When client provides credentials, swap provider to live GSP. Credentials remain securely masked in audit logs.
+          </p>
+        </div>
       </div>
 
       <div className="flex justify-end pt-4 border-t border-gray-100">

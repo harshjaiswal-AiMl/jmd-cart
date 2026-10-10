@@ -8,6 +8,7 @@ import {
   VerificationSettingsForm,
   DeliverySettingsForm,
   PaymentModeSettingsForm,
+  EInvoiceSettingsForm,
 } from "./settings-forms";
 
 export default async function AdminSettingsPage() {
@@ -39,6 +40,7 @@ export default async function AdminSettingsPage() {
           <DeliverySettingsForm initialData={settings.deliverySettings} />
           <DiscountLimitsForm initialData={settings.roleDiscountLimits} />
           <VerificationSettingsForm initialData={settings.verificationSettings} />
+          <EInvoiceSettingsForm initialData={settings.eInvoiceSettings} />
         </div>
       </div>
     </div>

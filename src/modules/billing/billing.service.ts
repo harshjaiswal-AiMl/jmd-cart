@@ -28,6 +28,8 @@ import {
 } from "./billing.types";
 import { billingRepository, BillingRepository } from "./billing.repository";
 import { partyRepository } from "@/modules/party/party.repository";
+import { getEInvoiceProvider } from "@/lib/e-invoice";
+import { settingsService } from "@/modules/settings/settings.service";
 
 export class BillingService {
   constructor(private readonly repo: BillingRepository = billingRepository) {}
@@ -359,6 +361,33 @@ export class BillingService {
     if (!fullInvoice) {
       throw new Error(`Failed to retrieve finalized invoice ${finalizedInvoiceId}`);
     }
+
+    // 7. E-Invoice Adapter Hook (No-op until GSP credentials per PRD 5.10 & 11)
+    try {
+      const eInvoiceProvider = getEInvoiceProvider();
+      if (eInvoiceProvider.isEligible(fullInvoice)) {
+        const businessDetails = await settingsService.getBusinessDetails();
+        const irnResult = await eInvoiceProvider.generateIrn(fullInvoice, businessDetails);
+        if (irnResult.success && irnResult.irn) {
+          await prisma.invoice.update({
+            where: { id: finalizedInvoiceId },
+            data: {
+              irn: irnResult.irn,
+              qr: irnResult.qrCode ?? null,
+            },
+          });
+          fullInvoice.irn = irnResult.irn;
+          fullInvoice.qr = irnResult.qrCode ?? null;
+        }
+      }
+    } catch (eInvoiceErr) {
+      // Non-blocking: log error and allow invoice finalization to succeed
+      console.error(
+        `[E-Invoice] Non-blocking adapter warning for invoice ${fullInvoice.number}:`,
+        eInvoiceErr
+      );
+    }
+
     return fullInvoice;
   }
 
@@ -469,6 +498,19 @@ export class BillingService {
       },
       ip,
     });
+
+    // Hook: E-Invoice cancellation via provider if IRN exists
+    if (existing.irn) {
+      try {
+        const eInvoiceProvider = getEInvoiceProvider();
+        await eInvoiceProvider.cancelIrn(existing.irn, validated.reason);
+      } catch (cancelErr) {
+        console.error(
+          `[E-Invoice] Non-blocking adapter warning cancelling IRN ${existing.irn}:`,
+          cancelErr
+        );
+      }
+    }
 
     const updatedInvoice = await this.repo.findById(existing.id);
     if (!updatedInvoice) {
