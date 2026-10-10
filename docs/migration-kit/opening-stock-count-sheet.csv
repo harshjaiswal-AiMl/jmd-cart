@@ -1,0 +1,8 @@
+location_code,short_code,product_name,pack_size,physical_cartons,physical_loose_pieces,total_pieces_calculated,notes
+GODOWN_CENTRAL,BIK400,Bikaji Bhujia 400g,24,15,8,368,Outer godown rack A1
+GODOWN_CENTRAL,MDH100,MDH Deggi Mirch 100g,20,10,0,200,Spices bay 2
+GODOWN_CENTRAL,FORT1L,Fortune Sunlite Oil 1L,12,25,4,304,Oil stack section
+SHOP_COUNTER,BIK400,Bikaji Bhujia 400g,24,1,12,36,Shop front counter shelf
+SHOP_COUNTER,MDH100,MDH Deggi Mirch 100g,20,0,14,14,Shop shelf 3
+VAN_1,BIK400,Bikaji Bhujia 400g,24,2,0,48,BR-19-V-1001 morning stock
+VAN_1,MDH100,MDH Deggi Mirch 100g,20,1,10,30,BR-19-V-1001 route stock

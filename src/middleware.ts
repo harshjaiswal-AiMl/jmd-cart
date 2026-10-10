@@ -22,15 +22,22 @@ export default auth((req) => {
     pathname === "/manifest.webmanifest" ||
     pathname === "/manifest.json" ||
     pathname === "/offline" ||
+    pathname === "/logout" ||
     pathname.startsWith("/icons/")
   ) {
+    return NextResponse.next();
+  }
+
+  // Public storefront catalogue & cart browsing
+  if (pathname.startsWith("/store")) {
     return NextResponse.next();
   }
 
   // Public landing, login, register, and phone verification pages
   if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/verify-phone") {
     if (isLoggedIn && user?.role) {
-      if (pathname === "/login" || pathname === "/register") {
+      const isSwitching = req.nextUrl.searchParams.get("switch") === "1";
+      if ((pathname === "/login" || pathname === "/register") && !isSwitching) {
         return NextResponse.redirect(new URL(getDefaultDashboard(user.role), req.url));
       }
     }
@@ -44,7 +51,6 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-
   // Mandatory password change check
   if (user?.mustChangePassword && pathname !== "/change-password") {
     return NextResponse.redirect(new URL("/change-password", req.url));
@@ -52,7 +58,52 @@ export default auth((req) => {
 
   // Check RBAC permission for route
   if (user?.role && !canAccessRoute(user.role, pathname)) {
-    return new NextResponse("Forbidden: Access Denied", { status: 403 });
+    const dashboard = getDefaultDashboard(user.role);
+    const html = `<!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>403 - Access Denied | IDMS Saharsa</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #1e293b; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1rem; }
+        .card { background: white; border-radius: 1rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.08); max-width: 28rem; width: 100%; padding: 2rem; border: 1px solid #e2e8f0; text-align: center; }
+        .icon { width: 4rem; height: 4rem; background: #fee2e2; color: #dc2626; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; font-size: 1.75rem; margin-bottom: 1rem; }
+        h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: #0f172a; }
+        p { font-size: 0.925rem; color: #64748b; line-height: 1.5; margin-bottom: 1.25rem; }
+        .badge { background: #eff6ff; color: #2563eb; padding: 0.2rem 0.6rem; border-radius: 0.375rem; font-weight: 600; font-size: 0.85rem; border: 1px solid #bfdbfe; }
+        .route { background: #f1f5f9; padding: 0.15rem 0.4rem; border-radius: 0.25rem; font-family: monospace; font-size: 0.85rem; color: #334155; }
+        .actions { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; }
+        .btn-primary { background: #2563eb; color: white; text-decoration: none; padding: 0.75rem 1rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.95rem; transition: background 0.2s; display: block; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-secondary { background: #f1f5f9; color: #334155; text-decoration: none; padding: 0.75rem 1rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.95rem; border: 1px solid #cbd5e1; transition: background 0.2s; display: block; }
+        .btn-secondary:hover { background: #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="icon">🚫</div>
+        <h1>Access Denied (403)</h1>
+        <p>
+          Aap abhi <span class="badge">${user.role}</span> account se logged in hain.<br>
+          Is route (<span class="route">${pathname}</span>) ko open karne ke liye permissions nahi hain.
+        </p>
+        <div class="actions">
+          <a href="${dashboard}" class="btn-primary">
+            Apne Dashboard Par Jayein (${user.role})
+          </a>
+          <a href="/logout" class="btn-secondary">
+            Logout Karke Super Admin / Owner Account Se Login Karein
+          </a>
+        </div>
+      </div>
+    </body>
+    </html>`;
+    return new NextResponse(html, {
+      status: 403,
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
   }
 
   return NextResponse.next();

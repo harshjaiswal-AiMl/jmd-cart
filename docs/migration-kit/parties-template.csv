@@ -1,0 +1,8 @@
+Ledger Name,Phone,Address,GSTIN,Party Type,Credit Limit,Credit Period,Opening Balance Dr/Cr
+Maa Durga Kirana Store,9876500001,"D.B. Road, Saharsa, Bihar",10AABCM1234D1Z1,RETAILER,50000.00,15,12450.00 Dr
+Shree Ganesh Provision,9876500002,"Bata Chowk, Saharsa, Bihar",10BBBCS5678E1Z2,RETAILER,75000.00,21,28900.00 Dr
+Kisan Wholesale Mandi,9876500003,"Purab Bazar, Saharsa, Bihar",10CCCKW9012F1Z3,WHOLESALER,150000.00,30,64200.00 Dr
+Bajrang General Store,9876500004,"Station Road, Simri Bakhtiarpur",10DDDBG3456G1Z4,RETAILER,40000.00,14,0.00 Dr
+Suraj Traders,9876500005,"Main Market, Mahishi",10EEEST7890H1Z5,RETAILER,35000.00,10,8750.00 Dr
+Radhe Radhe Sweets & Daily,9876500006,"Tiwari Tola, Saharsa",,CUSTOMER,0.00,0,0.00 Dr
+Gupta Brothers Agency,9876500007,"Collectorate Road, Saharsa",10FFFGA1234J1Z6,SUPPLIER,0.00,0,85400.00 Cr
