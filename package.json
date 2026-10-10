@@ -18,7 +18,8 @@
     "db:reset": "prisma migrate reset --force",
     "db:generate": "prisma generate",
     "db:backup": "powershell -File scripts/backup.ps1",
-    "db:restore": "powershell -File scripts/restore.ps1"
+    "db:restore": "powershell -File scripts/restore.ps1",
+    "db:validate-backup": "powershell -File scripts/validate-backup-restore.ps1"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
