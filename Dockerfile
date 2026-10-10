@@ -13,6 +13,7 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
+ENV DOCKER_BUILD 1
 RUN pnpm db:generate
 RUN pnpm build
 
