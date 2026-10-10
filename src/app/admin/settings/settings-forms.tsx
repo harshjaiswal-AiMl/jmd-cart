@@ -6,6 +6,7 @@ import {
   updateRoleDiscountLimitsAction,
   updateVerificationSettingsAction,
   updateDeliverySettingsAction,
+  updatePaymentModeSettingsAction,
   SettingsActionResult,
 } from "./actions";
 import { AllSettings, DeliveryZone } from "@/modules/settings/settings.types";
@@ -783,6 +784,211 @@ export function DeliverySettingsForm({
             + Add Zone to List
           </button>
         </div>
+      </div>
+
+      <div className="flex justify-end pt-4 border-t border-gray-100">
+        <SaveButton />
+      </div>
+    </form>
+  );
+}
+
+export function PaymentModeSettingsForm({
+  initialData,
+}: {
+  initialData: AllSettings["paymentModeSettings"];
+}) {
+  const [state, formAction] = useFormState<SettingsActionResult | undefined, FormData>(
+    updatePaymentModeSettingsAction,
+    undefined
+  );
+
+  const [onlineGatewayEnabled, setOnlineGatewayEnabled] = useState(
+    initialData.onlineGatewayEnabled ?? false
+  );
+  const [gatewayProvider, setGatewayProvider] = useState(
+    initialData.gatewayProvider ?? "none"
+  );
+
+  return (
+    <form
+      action={formAction}
+      className="space-y-6 bg-white p-6 rounded-xl border border-gray-200 shadow-sm"
+    >
+      <div className="border-b border-gray-200 pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Payment Modes & Gateway Switch
+            </h3>
+            <p className="text-sm text-gray-500">
+              Control customer payment options at checkout. Online gateway is kept OFF by default per FMCG distribution policy.
+            </p>
+          </div>
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-bold border ${
+              onlineGatewayEnabled
+                ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                : "bg-slate-100 text-slate-700 border-slate-200"
+            }`}
+          >
+            Gateway: {onlineGatewayEnabled ? "ONLINE" : "OFF (DEFAULT)"}
+          </span>
+        </div>
+      </div>
+
+      {state?.error && (
+        <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">
+          {state.error}
+        </div>
+      )}
+
+      {state?.success && (
+        <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm">
+          Payment mode settings updated successfully!
+        </div>
+      )}
+
+      {/* Core Payment Channels */}
+      <div className="space-y-4">
+        <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+          Storefront Payment Options
+        </h4>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50/50 cursor-pointer transition">
+            <input
+              type="checkbox"
+              name="codEnabled"
+              defaultChecked={initialData.codEnabled ?? true}
+              className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <div>
+              <span className="text-sm font-semibold text-gray-900 block">
+                Cash on Delivery (COD)
+              </span>
+              <span className="text-xs text-gray-500">
+                Customers pay cash to the runner when delivery arrives at destination.
+              </span>
+            </div>
+          </label>
+
+          <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50/50 cursor-pointer transition">
+            <input
+              type="checkbox"
+              name="upiDeliveryEnabled"
+              defaultChecked={initialData.upiDeliveryEnabled ?? true}
+              className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <div>
+              <span className="text-sm font-semibold text-gray-900 block">
+                UPI QR on Delivery
+              </span>
+              <span className="text-xs text-gray-500">
+                Runner displays store UPI QR on their phone/receipt for instant scan & pay.
+              </span>
+            </div>
+          </label>
+
+          <label className="flex items-start gap-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50/50 cursor-pointer transition">
+            <input
+              type="checkbox"
+              name="creditEnabledForCreditParties"
+              defaultChecked={initialData.creditEnabledForCreditParties ?? true}
+              className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+            <div>
+              <span className="text-sm font-semibold text-gray-900 block">
+                Party Credit (Tally Approved)
+              </span>
+              <span className="text-xs text-gray-500">
+                Verified retailers with existing Tally credit limit may place orders on ledger credit.
+              </span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* Payment Gateway Master Switch */}
+      <div className="pt-2 border-t border-gray-200 space-y-4">
+        <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-slate-900">
+                Online Payment Gateway (Razorpay / PhonePe)
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                Kept OFF in v1
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 max-w-xl">
+              Enable online card, netbanking, and online UPI payment prior to dispatch. When turned off, the checkout only shows pay-on-delivery and approved credit.
+            </p>
+          </div>
+
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              name="onlineGatewayEnabled"
+              checked={onlineGatewayEnabled}
+              onChange={(e) => setOnlineGatewayEnabled(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none ring-0 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+          </label>
+        </div>
+
+        {/* Gateway Configuration Fields (Revealed when switch is ON) */}
+        {onlineGatewayEnabled && (
+          <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-xl space-y-4 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+                  Gateway Provider
+                </label>
+                <select
+                  name="gatewayProvider"
+                  value={gatewayProvider}
+                  onChange={(e) => setGatewayProvider(e.target.value as any)}
+                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="none">-- Select Provider --</option>
+                  <option value="razorpay">Razorpay (India PG)</option>
+                  <option value="phonepe">PhonePe Payment Gateway</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+                  Merchant Key ID
+                </label>
+                <input
+                  type="text"
+                  name="gatewayKeyId"
+                  defaultValue={initialData.gatewayKeyId || ""}
+                  placeholder="rzp_live_xxxxxxxxxxxxxx"
+                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-blue-500 focus:border-blue-500 bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+                  Key Secret / Salt
+                </label>
+                <input
+                  type="password"
+                  name="gatewayKeySecret"
+                  defaultValue={initialData.gatewayKeySecret || ""}
+                  placeholder="••••••••••••••••"
+                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono focus:ring-blue-500 focus:border-blue-500 bg-white"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-blue-700">
+              Note: Key secrets are strictly masked and encrypted in system audit logs.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end pt-4 border-t border-gray-100">

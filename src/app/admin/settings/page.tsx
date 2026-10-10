@@ -7,6 +7,7 @@ import {
   DiscountLimitsForm,
   VerificationSettingsForm,
   DeliverySettingsForm,
+  PaymentModeSettingsForm,
 } from "./settings-forms";
 
 export default async function AdminSettingsPage() {
@@ -28,12 +29,13 @@ export default async function AdminSettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">System Settings</h1>
           <p className="text-sm text-gray-600">
-            Configure business information, invoice headers, and operational limits.
+            Configure business information, delivery zones, operational limits, and payment gateway switches.
           </p>
         </div>
 
         <div className="space-y-6">
           <BusinessDetailsForm initialData={settings.businessDetails} />
+          <PaymentModeSettingsForm initialData={settings.paymentModeSettings} />
           <DeliverySettingsForm initialData={settings.deliverySettings} />
           <DiscountLimitsForm initialData={settings.roleDiscountLimits} />
           <VerificationSettingsForm initialData={settings.verificationSettings} />

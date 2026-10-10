@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { cartService } from "@/modules/cart/cart.service";
 import { deliveryService } from "@/modules/delivery/delivery.service";
+import { settingsService } from "@/modules/settings/settings.service";
 import { CheckoutClient } from "./checkout-client";
 import Link from "next/link";
 
@@ -18,13 +19,32 @@ export default async function CheckoutPage() {
     include: { party: true },
   });
 
-  const [cart, deliveryZones] = await Promise.all([
+  const [cart, deliveryZones, paymentSettings] = await Promise.all([
     cartService.getCartSummary(session.user.id),
     deliveryService.getDeliveryZones(),
+    settingsService.getPaymentModeSettings(),
   ]);
 
   if (!cart || cart.itemsCount === 0) {
     redirect("/store/cart");
+  }
+
+  // Check if buyer has approved credit account with adequate limit
+  let isCreditParty = false;
+  let creditPartyName = "";
+  if (user?.party && user.party.creditEnabled) {
+    const ledger = await prisma.ledgerEntry.findMany({
+      where: { partyId: user.party.id },
+    });
+    const outstandingPaise = ledger.reduce(
+      (acc, e) => acc + e.debitPaise - e.creditPaise,
+      0
+    );
+    const availableCreditPaise = user.party.creditLimitPaise - outstandingPaise;
+    if (availableCreditPaise >= cart.totalPaise) {
+      isCreditParty = true;
+      creditPartyName = user.party.name;
+    }
   }
 
   return (
@@ -57,6 +77,9 @@ export default async function CheckoutPage() {
         <CheckoutClient
           cart={cart}
           deliveryZones={deliveryZones}
+          paymentSettings={paymentSettings}
+          isCreditParty={isCreditParty}
+          creditPartyName={creditPartyName}
           userPhone={user?.phone}
           userName={user?.name}
           userAddress={user?.party?.address || ""}

@@ -7,9 +7,14 @@ import { CartSummary } from "@/modules/cart/cart.service";
 import { DeliveryZone } from "@/modules/delivery/delivery.types";
 import { checkoutCartAction, CheckoutActionResult } from "./actions";
 
+import { PaymentModeSettings } from "@/modules/settings/settings.types";
+
 interface CheckoutClientProps {
   cart: CartSummary;
   deliveryZones: DeliveryZone[];
+  paymentSettings: PaymentModeSettings;
+  isCreditParty?: boolean;
+  creditPartyName?: string;
   userPhone?: string;
   userName?: string;
   userAddress?: string;
@@ -42,6 +47,9 @@ function PlaceOrderButton({ disabled }: { disabled?: boolean }) {
 export function CheckoutClient({
   cart,
   deliveryZones,
+  paymentSettings,
+  isCreditParty = false,
+  creditPartyName,
   userPhone = "",
   userName = "",
   userAddress = "",
@@ -49,6 +57,19 @@ export function CheckoutClient({
   const [selectedZoneCode, setSelectedZoneCode] = useState<string>(
     deliveryZones.length > 0 ? deliveryZones[0].code : "TOWN"
   );
+
+  // Default payment selection based on active settings
+  const defaultMode = paymentSettings.codEnabled
+    ? "COD"
+    : paymentSettings.upiDeliveryEnabled
+    ? "UPI_DELIVERY"
+    : isCreditParty && paymentSettings.creditEnabledForCreditParties
+    ? "CREDIT"
+    : paymentSettings.onlineGatewayEnabled
+    ? "ONLINE_GATEWAY"
+    : "COD";
+
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>(defaultMode);
 
   const [state, formAction] = useFormState<CheckoutActionResult | undefined, FormData>(
     checkoutCartAction,
@@ -248,12 +269,179 @@ export function CheckoutClient({
             </div>
           </div>
 
-          <div className="pt-2">
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 space-y-1">
-              <span className="font-bold block">Payment on Delivery:</span>
-              <p>
-                Payment is collected via Cash or Van QR (UPI) at delivery arrival. Verified Tally credit parties can avail ledger credit upon dispatch approval.
-              </p>
+          {/* Payment Method Selection */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Payment Mode</h3>
+                <p className="text-xs text-slate-500">
+                  Select your preferred settlement method for this delivery.
+                </p>
+              </div>
+              <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 font-semibold rounded-full border border-blue-200">
+                Settlement
+              </span>
+            </div>
+
+            <input type="hidden" name="paymentMode" value={selectedPaymentMode} />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* 1. Cash on Delivery */}
+              {paymentSettings.codEnabled && (
+                <label
+                  onClick={() => setSelectedPaymentMode("COD")}
+                  className={`relative flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    selectedPaymentMode === "COD"
+                      ? "border-blue-500 bg-blue-50/50 ring-1 ring-blue-500"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentModeRadio"
+                    value="COD"
+                    checked={selectedPaymentMode === "COD"}
+                    onChange={() => setSelectedPaymentMode("COD")}
+                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">Cash on Delivery</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold uppercase">
+                        COD
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Hand cash to delivery van agent upon bill verification and receipt generation.
+                    </p>
+                  </div>
+                </label>
+              )}
+
+              {/* 2. UPI QR on Delivery */}
+              {paymentSettings.upiDeliveryEnabled && (
+                <label
+                  onClick={() => setSelectedPaymentMode("UPI_DELIVERY")}
+                  className={`relative flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    selectedPaymentMode === "UPI_DELIVERY"
+                      ? "border-blue-500 bg-blue-50/50 ring-1 ring-blue-500"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentModeRadio"
+                    value="UPI_DELIVERY"
+                    checked={selectedPaymentMode === "UPI_DELIVERY"}
+                    onChange={() => setSelectedPaymentMode("UPI_DELIVERY")}
+                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">UPI QR on Delivery</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded font-bold uppercase">
+                        Van QR
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Scan dynamic delivery boy UPI QR code via Google Pay, PhonePe, or Paytm.
+                    </p>
+                  </div>
+                </label>
+              )}
+
+              {/* 3. Party Credit (Only for verified credit parties) */}
+              {paymentSettings.creditEnabledForCreditParties && isCreditParty && (
+                <label
+                  onClick={() => setSelectedPaymentMode("CREDIT")}
+                  className={`relative flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    selectedPaymentMode === "CREDIT"
+                      ? "border-blue-500 bg-blue-50/50 ring-1 ring-blue-500"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentModeRadio"
+                    value="CREDIT"
+                    checked={selectedPaymentMode === "CREDIT"}
+                    onChange={() => setSelectedPaymentMode("CREDIT")}
+                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">Ledger Credit</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded font-bold uppercase">
+                        Approved
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Charge against verified distributor ledger ({creditPartyName || "Active Credit Account"}).
+                    </p>
+                  </div>
+                </label>
+              )}
+
+              {/* 4. Online Payment Gateway (Disabled/Off by default) */}
+              {paymentSettings.onlineGatewayEnabled ? (
+                <label
+                  onClick={() => setSelectedPaymentMode("ONLINE_GATEWAY")}
+                  className={`relative flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    selectedPaymentMode === "ONLINE_GATEWAY"
+                      ? "border-blue-500 bg-blue-50/50 ring-1 ring-blue-500"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentModeRadio"
+                    value="ONLINE_GATEWAY"
+                    checked={selectedPaymentMode === "ONLINE_GATEWAY"}
+                    onChange={() => setSelectedPaymentMode("ONLINE_GATEWAY")}
+                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900">
+                        Online Gateway ({paymentSettings.gatewayProvider.toUpperCase()})
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold uppercase">
+                        Live
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Pay instantly with Netbanking, Debit/Credit Card, or Instant UPI.
+                    </p>
+                  </div>
+                </label>
+              ) : (
+                <div className="relative flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed">
+                  <input
+                    type="radio"
+                    name="paymentModeRadio"
+                    disabled
+                    className="mt-1 h-4 w-4 text-slate-400 cursor-not-allowed"
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-500">Online Payment Gateway</span>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded font-bold uppercase">
+                        Offline / Disabled
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Prepaid gateway payments currently turned off per distributor policy. Please settle on delivery.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-xs text-blue-800 flex items-start gap-2">
+              <span className="text-blue-600 font-bold">ℹ️</span>
+              <div>
+                <span className="font-bold">Distributor Payment Policy:</span> In accordance with FMCG distributor operations in Saharsa, orders are primarily verified at van arrival and settled via Cash or Van QR, unless pre-arranged on approved ledger credit.
+              </div>
             </div>
           </div>
         </div>

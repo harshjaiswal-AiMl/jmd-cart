@@ -150,3 +150,47 @@ export async function updateDeliverySettingsAction(
   }
 }
 
+export async function updatePaymentModeSettingsAction(
+  prevState: SettingsActionResult | undefined,
+  formData: FormData
+): Promise<SettingsActionResult> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const codEnabled = formData.get("codEnabled") === "on" || formData.get("codEnabled") === "true";
+    const upiDeliveryEnabled = formData.get("upiDeliveryEnabled") === "on" || formData.get("upiDeliveryEnabled") === "true";
+    const creditEnabledForCreditParties = formData.get("creditEnabledForCreditParties") === "on" || formData.get("creditEnabledForCreditParties") === "true";
+    const onlineGatewayEnabled = formData.get("onlineGatewayEnabled") === "on" || formData.get("onlineGatewayEnabled") === "true";
+    const gatewayProvider = (formData.get("gatewayProvider") as "none" | "razorpay" | "phonepe") || "none";
+    const gatewayKeyId = ((formData.get("gatewayKeyId") as string) || "").trim();
+    const gatewayKeySecret = ((formData.get("gatewayKeySecret") as string) || "").trim();
+
+    const payload = {
+      codEnabled,
+      upiDeliveryEnabled,
+      creditEnabledForCreditParties,
+      onlineGatewayEnabled,
+      gatewayProvider: onlineGatewayEnabled ? gatewayProvider : "none",
+      gatewayKeyId: onlineGatewayEnabled ? gatewayKeyId : "",
+      gatewayKeySecret: onlineGatewayEnabled ? gatewayKeySecret : "",
+    };
+
+    await settingsService.updatePaymentModeSettings(
+      session.user.role,
+      session.user.id,
+      payload
+    );
+
+    revalidatePath("/admin/settings");
+    revalidatePath("/store/checkout");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update payment mode settings";
+    return { error: message };
+  }
+}
+
+

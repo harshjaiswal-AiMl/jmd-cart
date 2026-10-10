@@ -9,10 +9,22 @@ import {
   DeliverySettings,
   verificationSettingsSchema,
   VerificationSettings,
+  paymentModeSettingsSchema,
+  PaymentModeSettings,
   AllSettings,
 } from "./settings.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
+
+export const DEFAULT_PAYMENT_MODE_SETTINGS: PaymentModeSettings = {
+  codEnabled: true,
+  upiDeliveryEnabled: true,
+  creditEnabledForCreditParties: true,
+  onlineGatewayEnabled: false, // Online payment gateway OFF by default per client requirement
+  gatewayProvider: "none",
+  gatewayKeyId: "",
+  gatewayKeySecret: "",
+};
 
 export const DEFAULT_BUSINESS_DETAILS: BusinessDetails = {
   legalName: "JMD Cart Distributors",
@@ -214,20 +226,66 @@ export class SettingsService {
     return parsed;
   }
 
+  async getPaymentModeSettings(): Promise<PaymentModeSettings> {
+    const data = await settingsRepository.getSetting<PaymentModeSettings>("payment_mode_settings");
+    return data ? { ...DEFAULT_PAYMENT_MODE_SETTINGS, ...data } : DEFAULT_PAYMENT_MODE_SETTINGS;
+  }
+
+  async updatePaymentModeSettings(
+    actorRole: UserRole,
+    actorId: string,
+    data: unknown,
+    ip?: string
+  ): Promise<PaymentModeSettings> {
+    assertPermission(actorRole, Permission.MANAGE_SETTINGS);
+    const parsed = paymentModeSettingsSchema.parse(data);
+
+    const before = await this.getPaymentModeSettings();
+    await settingsRepository.setSetting("payment_mode_settings", parsed);
+
+    const maskedAfter = {
+      ...parsed,
+      gatewayKeySecret: parsed.gatewayKeySecret ? "***" : "",
+    };
+    const maskedBefore = {
+      ...before,
+      gatewayKeySecret: before.gatewayKeySecret ? "***" : "",
+    };
+
+    await auditService.log({
+      actorId,
+      action: "SETTINGS_PAYMENT_MODE_UPDATED",
+      entity: "Setting",
+      entityId: "payment_mode_settings",
+      before: maskedBefore,
+      after: maskedAfter,
+      ip,
+    });
+
+    return parsed;
+  }
+
   async getAllSettings(): Promise<AllSettings> {
-    const [businessDetails, roleDiscountLimits, deliverySettings, verificationSettings] =
-      await Promise.all([
-        this.getBusinessDetails(),
-        this.getRoleDiscountLimits(),
-        this.getDeliverySettings(),
-        this.getVerificationSettings(),
-      ]);
+    const [
+      businessDetails,
+      roleDiscountLimits,
+      deliverySettings,
+      verificationSettings,
+      paymentModeSettings,
+    ] = await Promise.all([
+      this.getBusinessDetails(),
+      this.getRoleDiscountLimits(),
+      this.getDeliverySettings(),
+      this.getVerificationSettings(),
+      this.getPaymentModeSettings(),
+    ]);
 
     return {
       businessDetails,
       roleDiscountLimits,
       deliverySettings,
       verificationSettings,
+      paymentModeSettings,
     };
   }
 }

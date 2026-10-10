@@ -63,9 +63,22 @@ export const verificationSettingsSchema = z.object({
 
 export type VerificationSettings = z.infer<typeof verificationSettingsSchema>;
 
+export const paymentModeSettingsSchema = z.object({
+  codEnabled: z.boolean().default(true),
+  upiDeliveryEnabled: z.boolean().default(true),
+  creditEnabledForCreditParties: z.boolean().default(true),
+  onlineGatewayEnabled: z.boolean().default(false), // Online gateway off by default per PRD
+  gatewayProvider: z.enum(["none", "razorpay", "phonepe"]).default("none"),
+  gatewayKeyId: z.string().optional().default(""),
+  gatewayKeySecret: z.string().optional().default(""),
+});
+
+export type PaymentModeSettings = z.infer<typeof paymentModeSettingsSchema>;
+
 export interface AllSettings {
   businessDetails: BusinessDetails;
   roleDiscountLimits: RoleDiscountLimits;
   deliverySettings: DeliverySettings;
   verificationSettings: VerificationSettings;
+  paymentModeSettings: PaymentModeSettings;
 }
