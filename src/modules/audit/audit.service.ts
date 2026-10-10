@@ -33,7 +33,7 @@ export function maskSensitiveData(data: unknown): unknown {
       lowerKey.includes("token")
     ) {
       result[key] = "[REDACTED]";
-    } else if (lowerKey === "phone" && typeof value === "string") {
+    } else if (lowerKey.includes("phone") && typeof value === "string") {
       // Mask phone numbers to preserve privacy: e.g. "9876543210" -> "98****3210"
       if (value.length === 10) {
         result[key] = `${value.slice(0, 2)}****${value.slice(6)}`;
