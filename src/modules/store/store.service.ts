@@ -44,7 +44,18 @@ export class StoreService {
     const { q, companyId, categoryId, inStockOnly = false, limit = 50, offset = 0 } = query;
 
     // 1. Build product filters
-    const andClauses: any[] = [{ active: true }];
+    const andClauses: any[] = [
+      { active: true },
+      {
+        NOT: [
+          { name: { contains: "Test", mode: "insensitive" } },
+          { name: { contains: "Sole Unit" } },
+          { name: { contains: "Concurrent Batch" } },
+          { name: { contains: "Negative MRP" } },
+          { name: { contains: "E2E" } },
+        ],
+      },
+    ];
 
     if (companyId) {
       andClauses.push({ companyId });
@@ -230,12 +241,50 @@ export class StoreService {
   async getFilterOptions() {
     const [companies, categories] = await Promise.all([
       prisma.company.findMany({
-        where: { active: true },
+        where: {
+          active: true,
+          products: {
+            some: {
+              active: true,
+              NOT: [
+                { name: { contains: "Test", mode: "insensitive" } },
+                { name: { contains: "Sole Unit" } },
+                { name: { contains: "Concurrent Batch" } },
+                { name: { contains: "Negative MRP" } },
+                { name: { contains: "E2E" } },
+              ],
+            },
+          },
+          NOT: [
+            { name: { contains: "Test", mode: "insensitive" } },
+            { name: { startsWith: "Print Co" } },
+            { name: { startsWith: "Report Co" } },
+          ],
+        },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       }),
       prisma.category.findMany({
-        where: { active: true },
+        where: {
+          active: true,
+          products: {
+            some: {
+              active: true,
+              NOT: [
+                { name: { contains: "Test", mode: "insensitive" } },
+                { name: { contains: "Sole Unit" } },
+                { name: { contains: "Concurrent Batch" } },
+                { name: { contains: "Negative MRP" } },
+                { name: { contains: "E2E" } },
+              ],
+            },
+          },
+          NOT: [
+            { name: { contains: "Test", mode: "insensitive" } },
+            { name: { startsWith: "Print Cat" } },
+            { name: { startsWith: "Report Cat" } },
+          ],
+        },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
       }),

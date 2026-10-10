@@ -2,6 +2,7 @@
 
 import { authService } from "@/modules/auth/auth.service";
 import { signIn } from "@/auth";
+import { isRedirectError } from "next/dist/client/components/redirect";
 
 export interface RegisterActionState {
   error?: string;
@@ -60,6 +61,13 @@ export async function registerAction(
 
     return { success: true };
   } catch (err) {
+    if (
+      isRedirectError(err) ||
+      (err as any)?.message === "NEXT_REDIRECT" ||
+      (err as any)?.digest?.includes("NEXT_REDIRECT")
+    ) {
+      throw err;
+    }
     const message = err instanceof Error ? err.message : "Failed to register account";
     return { error: message };
   }
@@ -90,6 +98,13 @@ export async function verifyOtpAction(
 
     return { success: true };
   } catch (err) {
+    if (
+      isRedirectError(err) ||
+      (err as any)?.message === "NEXT_REDIRECT" ||
+      (err as any)?.digest?.includes("NEXT_REDIRECT")
+    ) {
+      throw err;
+    }
     const message = err instanceof Error ? err.message : "OTP verification failed";
     return { error: message };
   }

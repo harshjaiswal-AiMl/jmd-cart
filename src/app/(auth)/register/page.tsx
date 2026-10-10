@@ -12,9 +12,9 @@ function SubmitButton({ label = "Register Account" }: { label?: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+      className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-[#790E11] hover:bg-[#5E0A0D] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#790E11] disabled:opacity-50 transition-colors cursor-pointer"
     >
-      {pending ? "Processing..." : label}
+      {pending ? "Creating account..." : label}
     </button>
   );
 }
@@ -30,21 +30,24 @@ export default function RegisterPage() {
 
   if (state?.requiresOtp && state.phone) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-6 bg-white p-8 rounded-xl shadow-md border border-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#FEFDF7] py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-6 bg-white p-8 rounded-2xl shadow-sm border border-[#EAD9CC]">
           <div className="text-center">
-            <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 text-blue-600 text-xl font-bold mb-3">
-              📱
-            </span>
-            <h2 className="text-2xl font-bold text-gray-900">Verify Phone Number</h2>
-            <p className="mt-1 text-sm text-gray-600">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/jmd-cart-logo.png"
+              alt="JMD Cart"
+              className="h-16 w-16 mx-auto object-contain mb-3"
+            />
+            <h2 className="text-2xl font-black text-[#2A1010]">Verify Mobile Number</h2>
+            <p className="mt-1 text-xs text-gray-600">
               We sent a 6-digit verification code to{" "}
-              <strong className="text-gray-900">{state.phone}</strong>
+              <strong className="text-[#790E11]">{state.phone}</strong>
             </p>
           </div>
 
           {otpState?.error && (
-            <div className="rounded-lg bg-red-50 p-4 border border-red-200 text-sm text-red-800">
+            <div className="rounded-xl bg-[#FEE2E2] p-3.5 border border-red-200 text-xs text-[#991B1B]">
               {otpState.error}
             </div>
           )}
@@ -54,7 +57,7 @@ export default function RegisterPage() {
             <input type="hidden" name="password" value={cachedPassword} />
 
             <div>
-              <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="otp" className="block text-xs font-bold text-[#2A1010] uppercase tracking-wider">
                 6-Digit OTP Code
               </label>
               <input
@@ -66,16 +69,16 @@ export default function RegisterPage() {
                 required
                 autoFocus
                 placeholder="123456"
-                className="mt-1 tracking-widest text-center text-2xl font-mono block w-full px-3 py-2.5 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                className="mt-1 tracking-widest text-center text-2xl font-mono block w-full px-3 py-2.5 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] text-[#2A1010]"
               />
             </div>
 
             <div>
-              <SubmitButton label="Verify & Log In" />
+              <SubmitButton label="Verify & Sign In" />
             </div>
 
             <div className="text-center text-xs text-gray-500 pt-2">
-              In test / console mode, check the server terminal for your OTP.
+              In test mode, your OTP is displayed in the server terminal logs.
             </div>
           </form>
         </div>
@@ -84,19 +87,28 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-6 bg-white p-8 rounded-xl shadow-md border border-gray-100">
-        <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900 tracking-tight">
-            IDMS Saharsa
+    <div className="min-h-screen flex items-center justify-center bg-[#FEFDF7] py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6 bg-white p-8 rounded-2xl shadow-sm border border-[#EAD9CC]">
+        <div className="text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/jmd-cart-logo.png"
+            alt="JMD Cart"
+            className="h-16 w-16 mx-auto object-contain mb-2"
+          />
+          <h2 className="text-2xl font-black text-[#790E11] tracking-tight">
+            JMD Cart
           </h2>
-          <p className="mt-1 text-center text-sm text-gray-600">
-            Create Buyer Account (Retailer / Customer)
+          <p className="text-xs font-semibold text-[#2A1010]/70">
+            Bharosa Ghar Tak.
+          </p>
+          <p className="mt-2 text-xs text-gray-500">
+            Create Buyer Account (Retailer / Wholesaler / Customer)
           </p>
         </div>
 
         {state?.error && (
-          <div className="rounded-md bg-red-50 p-4 border border-red-200 text-sm text-red-800">
+          <div className="rounded-xl bg-[#FEE2E2] p-3.5 border border-red-200 text-xs text-[#991B1B]">
             {state.error}
           </div>
         )}
@@ -111,7 +123,7 @@ export default function RegisterPage() {
           }}
         >
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="name" className="block text-xs font-bold text-[#2A1010]">
               Customer / Shop Name *
             </label>
             <input
@@ -120,12 +132,12 @@ export default function RegisterPage() {
               type="text"
               required
               placeholder="e.g. Maa Durga Kirana or Ramesh Kumar"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-900"
+              className="mt-1 block w-full px-3 py-2 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] text-xs text-[#2A1010]"
             />
           </div>
 
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="phone" className="block text-xs font-bold text-[#2A1010]">
               Mobile Number (10 digits) *
             </label>
             <input
@@ -135,12 +147,12 @@ export default function RegisterPage() {
               required
               pattern="[6-9][0-9]{9}"
               placeholder="9876543210"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-900 font-mono"
+              className="mt-1 block w-full px-3 py-2 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] text-xs text-[#2A1010] font-mono"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="password" className="block text-xs font-bold text-[#2A1010]">
               Password (min 6 characters) *
             </label>
             <input
@@ -149,13 +161,13 @@ export default function RegisterPage() {
               type="password"
               required
               placeholder="••••••••"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-900"
+              className="mt-1 block w-full px-3 py-2 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] text-xs text-[#2A1010]"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="email" className="block text-xs font-medium text-gray-600">
+              <label htmlFor="email" className="block text-xs font-bold text-[#2A1010]">
                 Email (Optional)
               </label>
               <input
@@ -163,11 +175,11 @@ export default function RegisterPage() {
                 name="email"
                 type="email"
                 placeholder="shop@example.com"
-                className="mt-1 block w-full px-2.5 py-1.5 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-xs text-gray-900"
+                className="mt-1 block w-full px-2.5 py-1.5 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] text-xs text-[#2A1010]"
               />
             </div>
             <div>
-              <label htmlFor="gstin" className="block text-xs font-medium text-gray-600">
+              <label htmlFor="gstin" className="block text-xs font-bold text-[#2A1010]">
                 GSTIN (Optional)
               </label>
               <input
@@ -176,21 +188,21 @@ export default function RegisterPage() {
                 type="text"
                 maxLength={15}
                 placeholder="10AAAAA0000A1Z5"
-                className="mt-1 block w-full px-2.5 py-1.5 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-xs text-gray-900 font-mono uppercase"
+                className="mt-1 block w-full px-2.5 py-1.5 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] text-xs text-[#2A1010] font-mono uppercase"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="address" className="block text-xs font-medium text-gray-600">
+            <label htmlFor="address" className="block text-xs font-bold text-[#2A1010]">
               Delivery Address (Saharsa Town / Market)
             </label>
             <textarea
               id="address"
               name="address"
               rows={2}
-              placeholder="Shop No. 4, Main Road, Saharsa"
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-xs text-gray-900"
+              placeholder="Shop No. 4, Main Bazar, Saharsa"
+              className="mt-1 block w-full px-3 py-2 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] text-xs text-[#2A1010]"
             />
           </div>
 
@@ -198,11 +210,11 @@ export default function RegisterPage() {
             <SubmitButton label="Create Account & Continue" />
           </div>
 
-          <div className="pt-2 text-center text-sm text-gray-600 border-t border-gray-100">
+          <div className="pt-2 text-center text-xs text-gray-600 border-t border-[#EAD9CC]">
             <span>Already have an account? </span>
             <Link
               href="/login"
-              className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
+              className="font-bold text-[#790E11] hover:underline"
             >
               Sign in here →
             </Link>

@@ -10,7 +10,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+      className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-[#790E11] hover:bg-[#5E0A0D] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#790E11] disabled:opacity-50 transition-colors cursor-pointer"
     >
       {pending ? "Signing in..." : "Sign in"}
     </button>
@@ -28,14 +28,23 @@ export default function LoginPage({
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-md border border-gray-100">
-        <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900 tracking-tight">
-            IDMS Saharsa
+    <div className="min-h-screen flex items-center justify-center bg-[#FEFDF7] py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-6 bg-white p-8 rounded-2xl shadow-sm border border-[#EAD9CC]">
+        <div className="text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/jmd-cart-logo.png"
+            alt="JMD Cart"
+            className="h-16 w-16 mx-auto object-contain mb-2"
+          />
+          <h2 className="text-2xl font-black text-[#790E11] tracking-tight">
+            JMD Cart
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Integrated Distribution Management System
+          <p className="text-xs font-semibold text-[#2A1010]/70">
+            Bharosa Ghar Tak.
+          </p>
+          <p className="mt-1 text-xs text-gray-500">
+            Sign in to your IDMS distribution account
           </p>
         </div>
 
@@ -74,7 +83,7 @@ export default function LoginPage({
                   required
                   autoComplete="tel"
                   placeholder="10-digit mobile number"
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900"
+                  className="appearance-none block w-full px-3 py-2 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11] text-xs text-[#2A1010]"
                 />
               </div>
             </div>
@@ -82,7 +91,7 @@ export default function LoginPage({
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-xs font-bold text-[#2A1010]"
               >
                 Password
               </label>
@@ -94,7 +103,7 @@ export default function LoginPage({
                   required
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-gray-900"
+                  className="appearance-none block w-full px-3 py-2 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11] text-xs text-[#2A1010]"
                 />
               </div>
             </div>
@@ -178,11 +187,11 @@ export default function LoginPage({
             </div>
           </div>
 
-          <div className="pt-2 text-center text-sm text-gray-600 border-t border-gray-100">
+          <div className="pt-2 text-center text-xs text-gray-600 border-t border-[#EAD9CC]">
             <span>New Retailer or Customer? </span>
             <a
               href="/register"
-              className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
+              className="font-bold text-[#790E11] hover:underline"
             >
               Create an account →
             </a>
