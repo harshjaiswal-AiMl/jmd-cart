@@ -104,6 +104,80 @@ export default function LoginPage({
             <SubmitButton />
           </div>
 
+          <div className="pt-4 border-t border-gray-100">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              1-Click Demo Fill:
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  const p = document.getElementById("phone") as HTMLInputElement;
+                  const w = document.getElementById("password") as HTMLInputElement;
+                  if (p && w) { p.value = "9876543210"; w.value = "admin123"; }
+                }}
+                className="p-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg border border-blue-200 text-left font-medium transition cursor-pointer"
+              >
+                👑 Super Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = document.getElementById("phone") as HTMLInputElement;
+                  const w = document.getElementById("password") as HTMLInputElement;
+                  if (p && w) { p.value = "9876543212"; w.value = "shop123"; }
+                }}
+                className="p-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg border border-emerald-200 text-left font-medium transition cursor-pointer"
+              >
+                🛒 Shop Cashier
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = document.getElementById("phone") as HTMLInputElement;
+                  const w = document.getElementById("password") as HTMLInputElement;
+                  if (p && w) { p.value = "9876543211"; w.value = "godown123"; }
+                }}
+                className="p-2 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg border border-amber-200 text-left font-medium transition cursor-pointer"
+              >
+                🏭 Godown Manager
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = document.getElementById("phone") as HTMLInputElement;
+                  const w = document.getElementById("password") as HTMLInputElement;
+                  if (p && w) { p.value = "9876543213"; w.value = "van123"; }
+                }}
+                className="p-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg border border-purple-200 text-left font-medium transition cursor-pointer"
+              >
+                🚐 Van Sales
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = document.getElementById("phone") as HTMLInputElement;
+                  const w = document.getElementById("password") as HTMLInputElement;
+                  if (p && w) { p.value = "9876543214"; w.value = "delivery123"; }
+                }}
+                className="p-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg border border-indigo-200 text-left font-medium transition cursor-pointer"
+              >
+                🚚 Delivery Staff
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = document.getElementById("phone") as HTMLInputElement;
+                  const w = document.getElementById("password") as HTMLInputElement;
+                  if (p && w) { p.value = "9876543215"; w.value = "accounts123"; }
+                }}
+                className="p-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg border border-rose-200 text-left font-medium transition cursor-pointer"
+              >
+                📊 Accounts / CA
+              </button>
+            </div>
+          </div>
+
           <div className="pt-2 text-center text-sm text-gray-600 border-t border-gray-100">
             <span>New Retailer or Customer? </span>
             <a

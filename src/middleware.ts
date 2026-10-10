@@ -35,11 +35,8 @@ export default auth((req) => {
 
   // Public landing, login, register, and phone verification pages
   if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/verify-phone") {
-    if (isLoggedIn && user?.role) {
-      const isSwitching = req.nextUrl.searchParams.get("switch") === "1";
-      if ((pathname === "/login" || pathname === "/register") && !isSwitching) {
-        return NextResponse.redirect(new URL(getDefaultDashboard(user.role), req.url));
-      }
+    if (isLoggedIn && user?.role && pathname === "/register") {
+      return NextResponse.redirect(new URL(getDefaultDashboard(user.role), req.url));
     }
     return NextResponse.next();
   }
