@@ -161,3 +161,125 @@ export interface PartyAgeingReport {
   rows: PartyAgeingRow[];
   asOfDate: string;
 }
+
+// ---------------------------------------------------------------------------
+// Task 4.2: GST Reports, Day Book & Sales/Purchase Registers
+// ---------------------------------------------------------------------------
+
+export interface GstHsnSummaryRow {
+  hsn: string;
+  description?: string;
+  uqc: string; // Unit Quantity Code, e.g. "BOX", "PCS"
+  totalQty: number;
+  totalTaxablePaise: number;
+  gstRateBp: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  totalTaxPaise: number;
+}
+
+export interface GstRateBreakdownRow {
+  gstRateBp: number; // e.g. 0, 500, 1200, 1800, 2800
+  taxablePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  totalTaxPaise: number;
+  invoiceCount: number;
+}
+
+export interface GstB2bInvoiceRow {
+  invoiceNumber: string;
+  invoiceDate: string; // YYYY-MM-DD
+  partyName: string;
+  partyGstin: string;
+  placeOfSupply: string;
+  invoiceType: "REGULAR" | "CREDIT_NOTE";
+  invoiceValuePaise: number;
+  taxablePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  reverseCharge: boolean;
+}
+
+export interface GstB2csSummaryRow {
+  placeOfSupply: string;
+  rateBp: number;
+  taxablePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  totalTaxPaise: number;
+}
+
+export interface Gstr1Report {
+  periodMonth: string; // YYYY-MM
+  startDate: string;
+  endDate: string;
+  b2bInvoices: GstB2bInvoiceRow[];
+  b2csSummary: GstB2csSummaryRow[];
+  hsnSummary: GstHsnSummaryRow[];
+  rateBreakdown: GstRateBreakdownRow[];
+  totalInvoicesCount: number;
+  totalTaxablePaise: number;
+  totalCgstPaise: number;
+  totalSgstPaise: number;
+  totalIgstPaise: number;
+  totalTaxPaise: number;
+  totalInvoiceValuePaise: number;
+}
+
+export interface DayBookEntry {
+  id: string;
+  voucherNo: string;
+  voucherType: "SALES" | "PURCHASE" | "RECEIPT" | "PAYMENT" | "CREDIT_NOTE" | "DEBIT_NOTE";
+  date: Date;
+  partyName: string;
+  particulars: string;
+  debitPaise: number;
+  creditPaise: number;
+  paymentMode?: string;
+  channel?: string;
+}
+
+export interface DayBookReport {
+  date: string; // YYYY-MM-DD in IST
+  totalDebitPaise: number;
+  totalCreditPaise: number;
+  entriesCount: number;
+  entries: DayBookEntry[];
+}
+
+export interface SalesRegisterRow {
+  id: string;
+  invoiceNumber: string;
+  date: Date;
+  customerName: string;
+  customerGstin?: string | null;
+  channel: InvoiceChannel;
+  grossAmountPaise: number;
+  discountPaise: number;
+  taxablePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  roundOffPaise: number;
+  netInvoicePaise: number;
+  paymentStatus: string;
+  status: string;
+}
+
+export interface SalesRegisterReport {
+  startDate: string;
+  endDate: string;
+  totalInvoices: number;
+  totalTaxablePaise: number;
+  totalCgstPaise: number;
+  totalSgstPaise: number;
+  totalIgstPaise: number;
+  totalTaxPaise: number;
+  totalNetSalesPaise: number;
+  rows: SalesRegisterRow[];
+}
+

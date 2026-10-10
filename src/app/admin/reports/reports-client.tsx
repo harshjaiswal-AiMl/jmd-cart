@@ -10,6 +10,8 @@ import {
   LowStockReport,
   PartyAgeingReport,
   PartyAgeingRow,
+  Gstr1Report,
+  DayBookReport,
 } from "@/modules/reports/reports.types";
 import { formatISTDate, formatISTDateTime } from "@/lib/date";
 import {
@@ -21,16 +23,20 @@ import {
   Clock,
   ArrowUpRight,
   ShieldAlert,
+  FileSpreadsheet,
+  BookOpen,
 } from "lucide-react";
 
 interface ReportsClientProps {
-  initialTab: "sales" | "cash" | "stock" | "lowstock" | "ageing";
+  initialTab: "sales" | "cash" | "stock" | "lowstock" | "ageing" | "gst" | "daybook";
   selectedDate: string;
   salesData: DailySalesReport;
   cashData: DayEndCashReport;
   stockData: StockValuationReport;
   lowStockData: LowStockReport;
   ageingData: PartyAgeingReport;
+  gstr1Data: Gstr1Report;
+  dayBookData: DayBookReport;
   locationsList: { id: string; name: string }[];
 }
 
@@ -42,10 +48,12 @@ export function ReportsClient({
   stockData,
   lowStockData,
   ageingData,
+  gstr1Data,
+  dayBookData,
   locationsList,
 }: ReportsClientProps) {
   const router = useRouter();
-  const [tab, setTab] = useState<"sales" | "cash" | "stock" | "lowstock" | "ageing">(
+  const [tab, setTab] = useState<"sales" | "cash" | "stock" | "lowstock" | "ageing" | "gst" | "daybook">(
     initialTab
   );
   const [filterDate, setFilterDate] = useState(selectedDate);
@@ -73,7 +81,9 @@ export function ReportsClient({
     router.push(`/admin/reports?tab=${tab}&date=${newDate}`);
   };
 
-  const handleTabSwitch = (newTab: "sales" | "cash" | "stock" | "lowstock" | "ageing") => {
+  const handleTabSwitch = (
+    newTab: "sales" | "cash" | "stock" | "lowstock" | "ageing" | "gst" | "daybook"
+  ) => {
     setTab(newTab);
     router.push(`/admin/reports?tab=${newTab}&date=${filterDate}`);
   };
@@ -275,6 +285,32 @@ export function ReportsClient({
               {ageingData.summary.overdueCount} Overdue
             </span>
           )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleTabSwitch("gst")}
+          className={`px-4 py-3 border-b-2 transition relative flex items-center gap-1.5 ${
+            tab === "gst"
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-slate-500 hover:text-slate-900"
+          }`}
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          <span>GSTR-1 (Outward GST)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleTabSwitch("daybook")}
+          className={`px-4 py-3 border-b-2 transition relative flex items-center gap-1.5 ${
+            tab === "daybook"
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-slate-500 hover:text-slate-900"
+          }`}
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Day Book (Registers)</span>
         </button>
       </div>
 
@@ -1198,6 +1234,380 @@ export function ReportsClient({
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 6: GSTR-1 OUTWARD SUPPLIES */}
+      {tab === "gst" && (
+        <div className="space-y-6">
+          {/* Header & Export Card */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black text-slate-900">GSTR-1 Outward Supplies Report</h2>
+                <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold uppercase">
+                  GST Filing
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Table 4A (B2B registered supplies), Table 7 (B2CS consumer walk-in sales), and Table 12 (HSN summary) for period {gstr1Data.periodMonth}.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const headers = ["Invoice No", "Date", "Party Name", "GSTIN", "POS", "Taxable Value (Rs)", "CGST (Rs)", "SGST (Rs)", "Total Value (Rs)"];
+                  const rows = gstr1Data.b2bInvoices.map((inv) => [
+                    inv.invoiceNumber,
+                    inv.invoiceDate,
+                    `"${inv.partyName}"`,
+                    inv.partyGstin,
+                    inv.placeOfSupply,
+                    (inv.taxablePaise / 100).toFixed(2),
+                    (inv.cgstPaise / 100).toFixed(2),
+                    (inv.sgstPaise / 100).toFixed(2),
+                    (inv.invoiceValuePaise / 100).toFixed(2),
+                  ]);
+                  const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+                  const link = document.createElement("a");
+                  link.setAttribute("href", encodeURI(csv));
+                  link.setAttribute("download", `gstr1_b2b_${gstr1Data.periodMonth}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export B2B CSV</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const headers = ["HSN Code", "Description", "UQC", "Total Qty", "Taxable Value (Rs)", "Rate (%)", "CGST (Rs)", "SGST (Rs)", "Total Tax (Rs)"];
+                  const rows = gstr1Data.hsnSummary.map((h) => [
+                    h.hsn,
+                    `"${h.description || ''}"`,
+                    h.uqc,
+                    h.totalQty,
+                    (h.totalTaxablePaise / 100).toFixed(2),
+                    (h.gstRateBp / 100).toFixed(1),
+                    (h.cgstPaise / 100).toFixed(2),
+                    (h.sgstPaise / 100).toFixed(2),
+                    (h.totalTaxPaise / 100).toFixed(2),
+                  ]);
+                  const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+                  const link = document.createElement("a");
+                  link.setAttribute("href", encodeURI(csv));
+                  link.setAttribute("download", `gstr1_hsn_${gstr1Data.periodMonth}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export HSN CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* GSTR-1 Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Total Taxable Value</span>
+              <div className="text-xl font-black text-slate-900">
+                ₹{(gstr1Data.totalTaxablePaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-[11px] text-slate-400">{gstr1Data.totalInvoicesCount} invoices in {gstr1Data.periodMonth}</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Central Tax (CGST)</span>
+              <div className="text-xl font-black text-emerald-700">
+                ₹{(gstr1Data.totalCgstPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-[11px] text-slate-400">Bihar Intra-State</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">State Tax (SGST)</span>
+              <div className="text-xl font-black text-teal-700">
+                ₹{(gstr1Data.totalSgstPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-[11px] text-slate-400">Bihar Intra-State</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Total Invoice Value</span>
+              <div className="text-xl font-black text-blue-700">
+                ₹{(gstr1Data.totalInvoiceValuePaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-[11px] text-slate-400">Total Tax: ₹{(gstr1Data.totalTaxPaise / 100).toFixed(0)}</p>
+            </div>
+          </div>
+
+          {/* Rate-Wise Distribution */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h3 className="text-sm font-bold text-slate-900">Tax Rate-Wise Turnover Breakdown</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              {gstr1Data.rateBreakdown.map((r) => (
+                <div key={r.gstRateBp} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                  <span className="text-xs font-bold text-slate-700 block">{(r.gstRateBp / 100).toFixed(0)}% Slab</span>
+                  <div className="text-sm font-black text-slate-900">₹{(r.taxablePaise / 100).toFixed(0)}</div>
+                  <div className="text-[10px] text-slate-500">Tax: ₹{(r.totalTaxPaise / 100).toFixed(0)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Table 4A: B2B Invoices */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-3 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Table 4A: B2B Invoices (Registered Parties)</h3>
+                <p className="text-xs text-slate-500">Supplies made to buyers holding verified GSTIN</p>
+              </div>
+              <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full">
+                {gstr1Data.b2bInvoices.length} Bills
+              </span>
+            </div>
+
+            {gstr1Data.b2bInvoices.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-y border-slate-200 text-slate-700 font-bold">
+                      <th className="p-2.5">Invoice #</th>
+                      <th className="p-2.5">Date</th>
+                      <th className="p-2.5">Party Name</th>
+                      <th className="p-2.5">GSTIN</th>
+                      <th className="p-2.5">POS</th>
+                      <th className="p-2.5 text-right">Taxable (₹)</th>
+                      <th className="p-2.5 text-right">CGST (₹)</th>
+                      <th className="p-2.5 text-right">SGST (₹)</th>
+                      <th className="p-2.5 text-right">Invoice Total (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {gstr1Data.b2bInvoices.map((inv) => (
+                      <tr key={inv.invoiceNumber} className="hover:bg-slate-50/80">
+                        <td className="p-2.5 font-mono font-bold text-blue-600">{inv.invoiceNumber}</td>
+                        <td className="p-2.5 text-slate-600">{inv.invoiceDate}</td>
+                        <td className="p-2.5 font-bold text-slate-900">{inv.partyName}</td>
+                        <td className="p-2.5 font-mono text-[11px] text-slate-700">{inv.partyGstin}</td>
+                        <td className="p-2.5 text-slate-600">{inv.placeOfSupply}</td>
+                        <td className="p-2.5 text-right font-mono">₹{(inv.taxablePaise / 100).toFixed(2)}</td>
+                        <td className="p-2.5 text-right font-mono text-emerald-700">₹{(inv.cgstPaise / 100).toFixed(2)}</td>
+                        <td className="p-2.5 text-right font-mono text-teal-700">₹{(inv.sgstPaise / 100).toFixed(2)}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-slate-900">₹{(inv.invoiceValuePaise / 100).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-8 text-center text-xs text-slate-400">
+                No B2B invoices recorded in this period. Unregistered sales are grouped in Table 7 (B2CS).
+              </div>
+            )}
+          </div>
+
+          {/* Table 12: HSN Summary */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-3 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Table 12: HSN-Wise Summary of Outward Supplies</h3>
+                <p className="text-xs text-slate-500">Summary across 4-8 digit HSN codes</p>
+              </div>
+              <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-full">
+                {gstr1Data.hsnSummary.length} HSN Codes
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-y border-slate-200 text-slate-700 font-bold">
+                    <th className="p-2.5">HSN Code</th>
+                    <th className="p-2.5">Product Description</th>
+                    <th className="p-2.5">UQC</th>
+                    <th className="p-2.5 text-right">Qty</th>
+                    <th className="p-2.5 text-right">Taxable Value (₹)</th>
+                    <th className="p-2.5 text-right">Rate</th>
+                    <th className="p-2.5 text-right">CGST (₹)</th>
+                    <th className="p-2.5 text-right">SGST (₹)</th>
+                    <th className="p-2.5 text-right">Total Tax (₹)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {gstr1Data.hsnSummary.map((h) => (
+                    <tr key={`${h.hsn}_${h.gstRateBp}`} className="hover:bg-slate-50/80">
+                      <td className="p-2.5 font-mono font-bold text-purple-700">{h.hsn}</td>
+                      <td className="p-2.5 text-slate-900">{h.description}</td>
+                      <td className="p-2.5 text-slate-600">{h.uqc}</td>
+                      <td className="p-2.5 text-right font-bold">{h.totalQty}</td>
+                      <td className="p-2.5 text-right font-mono">₹{(h.totalTaxablePaise / 100).toFixed(2)}</td>
+                      <td className="p-2.5 text-right font-semibold">{(h.gstRateBp / 100).toFixed(0)}%</td>
+                      <td className="p-2.5 text-right font-mono text-emerald-700">₹{(h.cgstPaise / 100).toFixed(2)}</td>
+                      <td className="p-2.5 text-right font-mono text-teal-700">₹{(h.sgstPaise / 100).toFixed(2)}</td>
+                      <td className="p-2.5 text-right font-mono font-bold text-slate-900">₹{(h.totalTaxPaise / 100).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 7: DAY BOOK (DAILY FINANCIAL REGISTER) */}
+      {tab === "daybook" && (
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black text-slate-900">Day Book Register</h2>
+                <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold uppercase">
+                  Daily Accounting
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Chronological ledger of all financial vouchers for {dayBookData.date}: Sales, Purchases, Receipts, and Debit Notes.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-300">
+                <span className="text-xs font-semibold text-slate-700 pl-2">Date:</span>
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="text-xs font-bold text-slate-900 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const headers = ["Voucher No", "Type", "Time", "Party Name", "Particulars", "Debit (Rs)", "Credit (Rs)"];
+                  const rows = dayBookData.entries.map((e) => [
+                    e.voucherNo,
+                    e.voucherType,
+                    new Date(e.date).toLocaleTimeString("en-IN"),
+                    `"${e.partyName}"`,
+                    `"${e.particulars}"`,
+                    (e.debitPaise / 100).toFixed(2),
+                    (e.creditPaise / 100).toFixed(2),
+                  ]);
+                  const csv = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+                  const link = document.createElement("a");
+                  link.setAttribute("href", encodeURI(csv));
+                  link.setAttribute("download", `day_book_${dayBookData.date}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+                className="px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-xs transition flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Day Book CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Totals Banner */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Total Debit Inflow</span>
+              <div className="text-xl font-black text-emerald-700">
+                ₹{(dayBookData.totalDebitPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-[11px] text-slate-400">Sales & Cash/UPI Collections</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Total Credit Outflow</span>
+              <div className="text-xl font-black text-rose-700">
+                ₹{(dayBookData.totalCreditPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+              </div>
+              <p className="text-[11px] text-slate-400">Supplier Purchases & Outflows</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase">Total Vouchers Logged</span>
+              <div className="text-xl font-black text-slate-900">{dayBookData.entriesCount}</div>
+              <p className="text-[11px] text-slate-400">Transactions on {dayBookData.date}</p>
+            </div>
+          </div>
+
+          {/* Vouchers Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900">Voucher Journal ({dayBookData.entriesCount} Entries)</h3>
+              <span className="text-xs text-slate-500">Sorted chronologically</span>
+            </div>
+
+            {dayBookData.entries.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
+                      <th className="p-3">Time</th>
+                      <th className="p-3">Voucher #</th>
+                      <th className="p-3">Voucher Type</th>
+                      <th className="p-3">Party Name</th>
+                      <th className="p-3">Particulars / Narration</th>
+                      <th className="p-3 text-right">Debit (₹)</th>
+                      <th className="p-3 text-right">Credit (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {dayBookData.entries.map((e) => {
+                      const typeBadge =
+                        e.voucherType === "SALES"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : e.voucherType === "PURCHASE"
+                          ? "bg-rose-100 text-rose-800"
+                          : e.voucherType === "RECEIPT"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-purple-100 text-purple-800";
+                      return (
+                        <tr key={e.id} className="hover:bg-slate-50/80">
+                          <td className="p-3 text-slate-500 whitespace-nowrap">
+                            {new Date(e.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                          <td className="p-3 font-mono font-bold text-slate-900">{e.voucherNo}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${typeBadge}`}>
+                              {e.voucherType}
+                            </span>
+                          </td>
+                          <td className="p-3 font-bold text-slate-900">{e.partyName}</td>
+                          <td className="p-3 text-slate-600">{e.particulars}</td>
+                          <td className="p-3 text-right font-mono font-bold text-emerald-700">
+                            {e.debitPaise > 0 ? `₹${(e.debitPaise / 100).toFixed(2)}` : "-"}
+                          </td>
+                          <td className="p-3 text-right font-mono font-bold text-rose-700">
+                            {e.creditPaise > 0 ? `₹${(e.creditPaise / 100).toFixed(2)}` : "-"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-xs text-slate-400">
+                No financial transactions recorded on {dayBookData.date}.
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -25,16 +25,23 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     : getISTDateString();
 
   const activeTab =
-    tab === "cash" || tab === "stock" || tab === "lowstock" || tab === "ageing"
+    tab === "cash" ||
+    tab === "stock" ||
+    tab === "lowstock" ||
+    tab === "ageing" ||
+    tab === "gst" ||
+    tab === "daybook"
       ? tab
       : "sales";
 
-  const [salesData, cashData, stockData, lowStockData, ageingData] = await Promise.all([
+  const [salesData, cashData, stockData, lowStockData, ageingData, gstr1Data, dayBookData] = await Promise.all([
     reportsService.getDailySalesReport(role, { date: selectedDate }),
     reportsService.getDayEndCashReport(role, selectedDate),
     reportsService.getStockValuationReport(role),
     reportsService.getLowStockReport(role),
     reportsService.getPartyAgeingReport(role),
+    reportsService.getGstr1Report(role, selectedDate.slice(0, 7)),
+    reportsService.getDayBookReport(role, selectedDate),
   ]);
 
   return (
@@ -47,6 +54,8 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         stockData={stockData}
         lowStockData={lowStockData}
         ageingData={ageingData}
+        gstr1Data={gstr1Data}
+        dayBookData={dayBookData}
         locationsList={stockData.locationsList}
       />
     </div>

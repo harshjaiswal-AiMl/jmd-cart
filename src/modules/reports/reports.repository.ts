@@ -19,6 +19,15 @@ import {
   PartyAgeingRow,
   PartyAgeingSummary,
   PartyAgeingFilter,
+  Gstr1Report,
+  GstB2bInvoiceRow,
+  GstB2csSummaryRow,
+  GstHsnSummaryRow,
+  GstRateBreakdownRow,
+  DayBookReport,
+  DayBookEntry,
+  SalesRegisterReport,
+  SalesRegisterRow,
 } from "./reports.types";
 
 export class ReportsRepository {
@@ -603,6 +612,351 @@ export class ReportsRepository {
       summary,
       rows,
       asOfDate,
+    };
+  }
+
+  /**
+   * Generates comprehensive GSTR-1 outward supplies report:
+   * - Table 4A: B2B Invoices (registered buyers with GSTIN)
+   * - Table 7: B2C Small Invoices (unregistered consumer/retail walk-ins grouped by rate)
+   * - Table 12: HSN-wise summary of outward supplies
+   * - Rate-wise GST breakdown
+   */
+  async getGstr1Report(startDateUtc: Date, endDateUtc: Date, periodMonth: string): Promise<Gstr1Report> {
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        status: InvoiceStatus.FINAL,
+        createdAt: { gte: startDateUtc, lte: endDateUtc },
+      },
+      include: {
+        party: { select: { id: true, name: true, gstin: true, address: true } },
+        items: {
+          include: {
+            product: { select: { id: true, name: true, hsn: true, gstRateBp: true, packLabel: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const b2bInvoices: GstB2bInvoiceRow[] = [];
+    const b2csMap: Record<string, { rateBp: number; taxablePaise: number; cgstPaise: number; sgstPaise: number; totalTaxPaise: number }> = {};
+    const hsnMap: Record<string, GstHsnSummaryRow> = {};
+    const rateMap: Record<number, GstRateBreakdownRow> = {};
+
+    let totalTaxablePaise = 0;
+    let totalCgstPaise = 0;
+    let totalSgstPaise = 0;
+    let totalIgstPaise = 0;
+    let totalTaxPaise = 0;
+    let totalInvoiceValuePaise = 0;
+
+    for (const inv of invoices) {
+      totalTaxablePaise += inv.taxablePaise;
+      totalCgstPaise += inv.cgstPaise;
+      totalSgstPaise += inv.sgstPaise;
+      totalIgstPaise += inv.igstPaise;
+      totalTaxPaise += inv.cgstPaise + inv.sgstPaise + inv.igstPaise;
+      totalInvoiceValuePaise += inv.totalPaise;
+
+      const isB2B = Boolean(inv.party?.gstin && inv.party.gstin.trim().length >= 15);
+      const placeOfSupply = inv.party?.gstin?.slice(0, 2) ? `${inv.party.gstin.slice(0, 2)}-${inv.party.address || "Bihar"}` : "10-Bihar";
+
+      if (isB2B) {
+        b2bInvoices.push({
+          invoiceNumber: inv.number,
+          invoiceDate: inv.createdAt.toISOString().slice(0, 10),
+          partyName: inv.party?.name || "Registered Buyer",
+          partyGstin: inv.party?.gstin || "",
+          placeOfSupply,
+          invoiceType: "REGULAR",
+          invoiceValuePaise: inv.totalPaise,
+          taxablePaise: inv.taxablePaise,
+          cgstPaise: inv.cgstPaise,
+          sgstPaise: inv.sgstPaise,
+          igstPaise: inv.igstPaise,
+          reverseCharge: false,
+        });
+      }
+
+      for (const item of inv.items) {
+        const rateBp = item.gstRateBp;
+        const itemTaxable = item.taxablePaise;
+        const itemTax = item.taxPaise;
+        const itemCgst = Math.floor(itemTax / 2);
+        const itemSgst = itemTax - itemCgst;
+
+        // B2CS summary aggregation (if not B2B)
+        if (!isB2B) {
+          const b2csKey = `${placeOfSupply}_${rateBp}`;
+          if (!b2csMap[b2csKey]) {
+            b2csMap[b2csKey] = {
+              rateBp,
+              taxablePaise: 0,
+              cgstPaise: 0,
+              sgstPaise: 0,
+              totalTaxPaise: 0,
+            };
+          }
+          b2csMap[b2csKey].taxablePaise += itemTaxable;
+          b2csMap[b2csKey].cgstPaise += itemCgst;
+          b2csMap[b2csKey].sgstPaise += itemSgst;
+          b2csMap[b2csKey].totalTaxPaise += itemTax;
+        }
+
+        // HSN Summary aggregation
+        const hsnCode = item.hsn || item.product.hsn || "21069099";
+        const hsnKey = `${hsnCode}_${rateBp}`;
+        if (!hsnMap[hsnKey]) {
+          hsnMap[hsnKey] = {
+            hsn: hsnCode,
+            description: item.product.name,
+            uqc: item.product.packLabel || "PCS",
+            totalQty: 0,
+            totalTaxablePaise: 0,
+            gstRateBp: rateBp,
+            cgstPaise: 0,
+            sgstPaise: 0,
+            igstPaise: 0,
+            totalTaxPaise: 0,
+          };
+        }
+        hsnMap[hsnKey].totalQty += item.qty;
+        hsnMap[hsnKey].totalTaxablePaise += itemTaxable;
+        hsnMap[hsnKey].cgstPaise += itemCgst;
+        hsnMap[hsnKey].sgstPaise += itemSgst;
+        hsnMap[hsnKey].totalTaxPaise += itemTax;
+
+        // Rate-wise summary
+        if (!rateMap[rateBp]) {
+          rateMap[rateBp] = {
+            gstRateBp: rateBp,
+            taxablePaise: 0,
+            cgstPaise: 0,
+            sgstPaise: 0,
+            igstPaise: 0,
+            totalTaxPaise: 0,
+            invoiceCount: 0,
+          };
+        }
+        rateMap[rateBp].taxablePaise += itemTaxable;
+        rateMap[rateBp].cgstPaise += itemCgst;
+        rateMap[rateBp].sgstPaise += itemSgst;
+        rateMap[rateBp].totalTaxPaise += itemTax;
+        rateMap[rateBp].invoiceCount += 1;
+      }
+    }
+
+    const b2csSummary: GstB2csSummaryRow[] = Object.entries(b2csMap).map(([key, val]) => ({
+      placeOfSupply: key.split("_")[0],
+      rateBp: val.rateBp,
+      taxablePaise: val.taxablePaise,
+      cgstPaise: val.cgstPaise,
+      sgstPaise: val.sgstPaise,
+      totalTaxPaise: val.totalTaxPaise,
+    }));
+
+    return {
+      periodMonth,
+      startDate: startDateUtc.toISOString().slice(0, 10),
+      endDate: endDateUtc.toISOString().slice(0, 10),
+      b2bInvoices,
+      b2csSummary,
+      hsnSummary: Object.values(hsnMap).sort((a, b) => b.totalTaxablePaise - a.totalTaxablePaise),
+      rateBreakdown: Object.values(rateMap).sort((a, b) => a.gstRateBp - b.gstRateBp),
+      totalInvoicesCount: invoices.length,
+      totalTaxablePaise,
+      totalCgstPaise,
+      totalSgstPaise,
+      totalIgstPaise,
+      totalTaxPaise,
+      totalInvoiceValuePaise,
+    };
+  }
+
+  /**
+   * Generates chronological Day Book combining all financial vouchers:
+   * Sales Invoices, Supplier Purchases, Customer Receipts, and Debit Notes.
+   */
+  async getDayBookReport(startUtc: Date, endUtc: Date, dateStr: string): Promise<DayBookReport> {
+    const [invoices, purchases, payments, debitNotes] = await Promise.all([
+      // Sales Invoices
+      prisma.invoice.findMany({
+        where: {
+          status: InvoiceStatus.FINAL,
+          createdAt: { gte: startUtc, lte: endUtc },
+        },
+        include: { party: { select: { name: true } } },
+      }),
+
+      // Purchases
+      prisma.purchase.findMany({
+        where: {
+          createdAt: { gte: startUtc, lte: endUtc },
+        },
+        include: { supplier: { select: { name: true } } },
+      }),
+
+      // Customer Receipts / Payments
+      prisma.payment.findMany({
+        where: {
+          createdAt: { gte: startUtc, lte: endUtc },
+        },
+        include: {
+          party: { select: { name: true } },
+          invoice: { select: { number: true, channel: true } },
+        },
+      }),
+
+      // Debit Notes (Returns to company)
+      prisma.debitNote.findMany({
+        where: {
+          createdAt: { gte: startUtc, lte: endUtc },
+        },
+        include: { supplier: { select: { name: true } } },
+      }),
+    ]);
+
+    const entries: DayBookEntry[] = [];
+    let totalDebitPaise = 0;
+    let totalCreditPaise = 0;
+
+    for (const inv of invoices) {
+      entries.push({
+        id: `inv-${inv.id}`,
+        voucherNo: inv.number,
+        voucherType: "SALES",
+        date: inv.createdAt,
+        partyName: inv.party?.name || "Cash Customer",
+        particulars: `Sales (${inv.channel} channel)`,
+        debitPaise: inv.totalPaise,
+        creditPaise: 0,
+        channel: inv.channel,
+      });
+      totalDebitPaise += inv.totalPaise;
+    }
+
+    for (const pur of purchases) {
+      entries.push({
+        id: `pur-${pur.id}`,
+        voucherNo: pur.billNo,
+        voucherType: "PURCHASE",
+        date: pur.createdAt,
+        partyName: pur.supplier?.name || "Supplier",
+        particulars: "Goods Purchase (Inward)",
+        debitPaise: 0,
+        creditPaise: pur.totalPaise,
+      });
+      totalCreditPaise += pur.totalPaise;
+    }
+
+    for (const pay of payments) {
+      entries.push({
+        id: `pay-${pay.id}`,
+        voucherNo: pay.receiptNo || `PAY-${pay.id.slice(-6)}`,
+        voucherType: "RECEIPT",
+        date: pay.createdAt,
+        partyName: pay.party?.name || "Customer",
+        particulars: `Collection received via ${pay.mode}${pay.invoice?.number ? ` against ${pay.invoice.number}` : ""}`,
+        debitPaise: pay.amountPaise,
+        creditPaise: 0,
+        paymentMode: pay.mode,
+      });
+      totalDebitPaise += pay.amountPaise;
+    }
+
+    for (const dn of debitNotes) {
+      entries.push({
+        id: `dn-${dn.id}`,
+        voucherNo: dn.number,
+        voucherType: "DEBIT_NOTE",
+        date: dn.createdAt,
+        partyName: dn.supplier?.name || "Supplier",
+        particulars: `Goods Return (${dn.reason || "Supplier Return"})`,
+        debitPaise: dn.totalPaise,
+        creditPaise: 0,
+      });
+      totalDebitPaise += dn.totalPaise;
+    }
+
+    entries.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    return {
+      date: dateStr,
+      totalDebitPaise,
+      totalCreditPaise,
+      entriesCount: entries.length,
+      entries,
+    };
+  }
+
+  /**
+   * Generates formal Sales Register across date range.
+   */
+  async getSalesRegisterReport(
+    startUtc: Date,
+    endUtc: Date,
+    startDateStr?: string,
+    endDateStr?: string
+  ): Promise<SalesRegisterReport> {
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        createdAt: { gte: startUtc, lte: endUtc },
+      },
+      include: {
+        party: { select: { name: true, gstin: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    let totalTaxablePaise = 0;
+    let totalCgstPaise = 0;
+    let totalSgstPaise = 0;
+    let totalIgstPaise = 0;
+    let totalTaxPaise = 0;
+    let totalNetSalesPaise = 0;
+
+    const rows: SalesRegisterRow[] = invoices.map((inv) => {
+      if (inv.status === InvoiceStatus.FINAL) {
+        totalTaxablePaise += inv.taxablePaise;
+        totalCgstPaise += inv.cgstPaise;
+        totalSgstPaise += inv.sgstPaise;
+        totalIgstPaise += inv.igstPaise;
+        totalTaxPaise += inv.cgstPaise + inv.sgstPaise + inv.igstPaise;
+        totalNetSalesPaise += inv.totalPaise;
+      }
+
+      return {
+        id: inv.id,
+        invoiceNumber: inv.number,
+        date: inv.createdAt,
+        customerName: inv.party?.name || "Cash Customer",
+        customerGstin: inv.party?.gstin,
+        channel: inv.channel,
+        grossAmountPaise: inv.subtotalPaise,
+        discountPaise: inv.discountPaise,
+        taxablePaise: inv.taxablePaise,
+        cgstPaise: inv.cgstPaise,
+        sgstPaise: inv.sgstPaise,
+        igstPaise: inv.igstPaise,
+        roundOffPaise: inv.roundOffPaise,
+        netInvoicePaise: inv.totalPaise,
+        paymentStatus: inv.paymentStatus,
+        status: inv.status,
+      };
+    });
+
+    return {
+      startDate: startDateStr || startUtc.toISOString().slice(0, 10),
+      endDate: endDateStr || endUtc.toISOString().slice(0, 10),
+      totalInvoices: invoices.length,
+      totalTaxablePaise,
+      totalCgstPaise,
+      totalSgstPaise,
+      totalIgstPaise,
+      totalTaxPaise,
+      totalNetSalesPaise,
+      rows,
     };
   }
 }
