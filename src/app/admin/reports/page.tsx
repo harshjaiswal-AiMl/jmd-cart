@@ -30,7 +30,8 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     tab === "lowstock" ||
     tab === "ageing" ||
     tab === "gst" ||
-    tab === "daybook"
+    tab === "daybook" ||
+    tab === "tally"
       ? tab
       : "sales";
 
