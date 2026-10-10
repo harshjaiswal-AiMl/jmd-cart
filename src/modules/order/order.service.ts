@@ -261,6 +261,64 @@ export class OrderService {
   }
 
   /**
+   * Reorders items from a past order into the user's shopping cart:
+   * 1. Verifies order ownership (actorId === order.userId or actorRole === SUPER_ADMIN).
+   * 2. Checks active status of products.
+   * 3. Adds active items into the buyer's active cart.
+   * 4. Logs audit event and returns summary.
+   */
+  async reorderItems(
+    actorRole: UserRole,
+    actorId: string,
+    orderId: string,
+    ip?: string
+  ): Promise<{ addedCount: number; skippedCount: number; skippedNames: string[] }> {
+    const order = await this.repo.findOrderById(orderId);
+    if (!order) {
+      throw new Error(`Order ${orderId} not found`);
+    }
+
+    if (order.userId !== actorId && actorRole !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenError("You cannot reorder items from another customer's order");
+    }
+
+    let addedCount = 0;
+    const skippedNames: string[] = [];
+
+    for (const item of order.items) {
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId },
+      });
+
+      if (!product || !product.active) {
+        skippedNames.push(item.product?.name || "Discontinued item");
+        continue;
+      }
+
+      await cartService.addToCart(actorId, item.productId, item.qty);
+      addedCount += 1;
+    }
+
+    await auditService.log({
+      actorId,
+      action: "ORDER_REORDERED",
+      entity: "Order",
+      entityId: order.id,
+      after: {
+        addedCount,
+        skippedCount: skippedNames.length,
+      },
+      ip,
+    });
+
+    return {
+      addedCount,
+      skippedCount: skippedNames.length,
+      skippedNames,
+    };
+  }
+
+  /**
    * Updates an order's status (e.g. PENDING -> CONFIRMED -> PROCESSING -> DISPATCHED -> DELIVERED or CANCELLED).
    * Guarded by MANAGE_ORDERS permission.
    */
