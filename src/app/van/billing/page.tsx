@@ -94,7 +94,7 @@ export default async function VanBillingPage() {
     shortCode: item.product.shortCode,
     packSize: item.product.packSize,
     packLabel: item.product.packLabel,
-    mrpPaise: item.product.mrpPaise,
+    mrpPaise: item.product.mrpPaise ?? item.product.priceCPaise ?? 0,
     availablePieces: item.qty,
     cartons: item.cartons,
     loosePieces: item.loosePieces,

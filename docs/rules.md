@@ -59,8 +59,19 @@ Short imperatives for humans and AI agents. If a rule blocks you, stop and ask. 
 - E2E (Playwright) for: login by role, import products, receive stock, transfer, POS sale and print preview.
 - A feature is not done until its tests pass and `pnpm typecheck && pnpm lint && pnpm test` are green.
 
+## No dummy data (empty start)
+- **Never commit or seed fake business data.** No sample products, stock balances, parties, orders, invoices, payments, charts with hardcoded numbers, or demo accounts with default passwords in any app database or UI component.
+- **`db:seed` is reference-only**: roles, permissions, the four location shells (`Godown`, `Shop`, `Van 1`, `Van 2`), default settings, the invoice sequence row, and an empty `business_details` row. Nothing else.
+- **First-run creates the owner**: the first Super Admin is created via `/setup` (shown only when zero `SUPER_ADMIN` users exist) or `pnpm admin:create` (interactive prompt). Never hardcode a default password.
+- **Test fixtures stay in `tests/`** and run against an isolated test database created and destroyed per test run.
+- **Empty states are real**: when a table has zero rows, show `0` and a clear call-to-action ("Add your first product", "Import from Excel", "Enter opening stock") — never fake rows or placeholder charts.
+- **Stock entry without a GRN is supported**: opening stock, stock counts, adjustments, and instant 1-step Excel stock uploads (`/godown/stock/update`) go through the stock ledger with a required reason, `batchId`, and full batch undo support (posting reversal ledger rows, never deleting movements).
+- **A/B/C Price Lists & Public Privacy**: `resolvePrice(product, buyerType)` is the single shared resolver (`A` = Wholesaler, `B` = Retailer, `C` = Customer/walk-in/anonymous). Anonymous and unapproved storefront visitors see `C` only; never expose `priceAPaise` or `priceBPaise` in public storefront responses.
+- **Delete vs Archive/Void Policy**: Records with history or foreign-key references (products with movements, companies with products, invoices, orders, purchases, receipts, payments) are **never hard-deleted** — they are either **Archived** (`active = false`, restorable by Admin) or **Voided/Cancelled** with a mandatory reason and reversing stock movements.
+
 ## UI
 - Follow `design.md`. Every screen has loading, empty, error and success states.
+- All management screens share `ManagementShell` driven by `src/config/nav.config.ts` (zero orphan pages, zero 404 links).
 - POS and van screens work with large touch targets and are keyboard-friendly on desktop.
 - No barcode scanner dependency. Search-first.
 

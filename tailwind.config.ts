@@ -10,6 +10,76 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Stitch Design Tokens (Primary Brand Theme)
+        primary: {
+          DEFAULT: "#5c0c1e",
+          container: "#7a2433",
+          fixed: "#ffdadc",
+          "fixed-dim": "#ffb2b9",
+          foreground: "#FFFFFF",
+        },
+        "on-primary": {
+          DEFAULT: "#ffffff",
+          container: "#ff909c",
+          fixed: "#40000f",
+          "fixed-variant": "#7f2836",
+        },
+        secondary: {
+          DEFAULT: "#914d00",
+          container: "#fc9430",
+          fixed: "#ffdcc3",
+          "fixed-dim": "#ffb77d",
+          foreground: "#FFFFFF",
+        },
+        "on-secondary": {
+          DEFAULT: "#ffffff",
+          container: "#663500",
+          fixed: "#2f1500",
+          "fixed-variant": "#6e3900",
+        },
+        tertiary: {
+          DEFAULT: "#003612",
+          container: "#004f1e",
+          fixed: "#9cf7a7",
+          "fixed-dim": "#81da8d",
+          foreground: "#FFFFFF",
+        },
+        "on-tertiary": {
+          DEFAULT: "#ffffff",
+          container: "#6bc379",
+          fixed: "#002108",
+          "fixed-variant": "#005320",
+        },
+        surface: {
+          DEFAULT: "#fcf9f8",
+          dim: "#dcd9d9",
+          bright: "#fcf9f8",
+          subtle: "#fcf9f8",
+          variant: "#e4e2e1",
+          container: "#f0eded",
+          "container-lowest": "#ffffff",
+          "container-low": "#f6f3f2",
+          "container-high": "#eae7e7",
+          "container-highest": "#e4e2e1",
+        },
+        "on-surface": {
+          DEFAULT: "#1b1c1c",
+          variant: "#554243",
+        },
+        outline: {
+          DEFAULT: "#887273",
+          variant: "#dbc0c1",
+        },
+        error: {
+          DEFAULT: "#ba1a1a",
+          container: "#ffdad6",
+        },
+        "on-error": {
+          DEFAULT: "#ffffff",
+          container: "#93000a",
+        },
+
+        // Legacy / Staff Dashboard Tokens (Backward Compatibility)
         maroon: {
           DEFAULT: "#790E11",
           700: "#790E11",
@@ -48,10 +118,6 @@ const config: Config = {
           DEFAULT: "#C63312",
           600: "#C63312",
         },
-        primary: {
-          DEFAULT: "#790E11",
-          foreground: "#FFFFFF",
-        },
         accent: {
           DEFAULT: "#FC830D",
           foreground: "#FFFFFF",
@@ -64,10 +130,6 @@ const config: Config = {
           DEFAULT: "#C63312",
           foreground: "#FFFFFF",
         },
-        surface: {
-          DEFAULT: "#FFFFFF",
-          subtle: "#FEFDF7",
-        },
         content: {
           DEFAULT: "#2A1010",
           muted: "#6B5858",
@@ -78,7 +140,9 @@ const config: Config = {
         input: "6px",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        sans: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
+        headline: ["var(--font-epilogue)", "Epilogue", "sans-serif"],
+        body: ["var(--font-inter)", "Inter", "sans-serif"],
       },
     },
   },

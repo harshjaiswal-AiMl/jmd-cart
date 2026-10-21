@@ -1,38 +1,14 @@
 "use client";
 
-import { useState, useEffect, useTransition, useMemo } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StoreProductItem } from "@/modules/store/store.service";
 import { addToCartAction, updateCartQtyAction, removeFromCartAction } from "@/app/store/cart/actions";
-
-interface CategoryTile {
-  id: string;
-  name: string;
-  query: string;
-  iconBg: string;
-  icon: string;
-}
-
-const CATEGORY_TILES: CategoryTile[] = [
-  { id: "grains", name: "Atta, Rice & Dal", query: "Rice & Grains", iconBg: "bg-[#FDAF18]", icon: "🌾" },
-  { id: "spices", name: "Masala & Spices", query: "Spices & Masala", iconBg: "bg-[#FC830D]", icon: "🌶️" },
-  { id: "oils", name: "Oil, Ghee & Salt", query: "Edible Oils", iconBg: "bg-[#075828]", icon: "🫒" },
-  { id: "snacks", name: "Snacks & Namkeen", query: "Namkeen & Snacks", iconBg: "bg-[#C63312]", icon: "🥨" },
-  { id: "biscuits", name: "Biscuits", query: "Biscuits", iconBg: "bg-[#790E11]", icon: "🍪" },
-  { id: "tea", name: "Tea & Coffee", query: "Tea & Beverages", iconBg: "bg-[#D97706]", icon: "☕" },
-  { id: "drinks", name: "Drinks & Juices", query: "Beverages", iconBg: "bg-[#F97316]", icon: "🧃" },
-  { id: "cleaning", name: "Cleaning Essentials", query: "Home Care", iconBg: "bg-[#047857]", icon: "🧼" },
-];
-
-const SEARCH_PLACEHOLDERS = [
-  'Search "Bikaji bhujia"',
-  'Search "MDH garam masala"',
-  'Search "India Gate basmati"',
-  'Search "Engine mustard oil"',
-  'Search "atta 10 kg"',
-  'Search "Tata tea gold"',
-];
+import { StoreHeader } from "@/components/store/StoreHeader";
+import { StoreFooter } from "@/components/store/StoreFooter";
+import { TrustRegionalStrip } from "@/components/store/TrustRegionalStrip";
+import { FloatingCartBar } from "@/components/store/FloatingCartBar";
 
 interface CatalogueClientProps {
   initialProducts: StoreProductItem[];
@@ -65,689 +41,498 @@ export function CatalogueClient({
   initialCartQuantities = {},
   isLoggedIn = false,
   userName = "",
-  userRole = "",
   cartSummary = { totalPieces: 0, itemsCount: 0, totalPaise: 0, savingsPaise: 0 },
 }: CatalogueClientProps) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
-  const [mounted, setMounted] = useState(false);
-  const [search, setSearch] = useState(currentSearch);
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  // Filter States
   const [selectedCompany, setSelectedCompany] = useState(currentCompanyId);
   const [selectedCategory, setSelectedCategory] = useState(currentCategoryId);
   const [inStockOnly, setInStockOnly] = useState(currentInStockOnly);
+  const [sortBy, setSortBy] = useState<"name" | "price-asc" | "price-desc">("name");
 
-  // In-place cart quantities state per product ID
+  // Cart Optimistic State
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>(initialCartQuantities);
-  // Unit mode toggle per product: 'pcs' | 'carton'
-  const [unitModes, setUnitModes] = useState<Record<string, "pcs" | "carton">>({});
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    const interval = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % SEARCH_PLACEHOLDERS.length);
-    }, 2800);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Compute live cart statistics
-  const totalCartPieces = useMemo(
-    () => Object.values(cartQuantities).reduce((a, b) => a + b, 0),
-    [cartQuantities]
-  );
-  const totalCartLines = useMemo(
-    () => Object.values(cartQuantities).filter((q) => q > 0).length,
-    [cartQuantities]
-  );
-
-  // Approximate live total paise
-  const liveTotalPaise = useMemo(() => {
-    let total = 0;
-    for (const p of initialProducts) {
-      const q = cartQuantities[p.id] || 0;
-      if (q > 0) {
-        const slab = [...p.slabs].reverse().find((s) => q >= s.minQty);
-        const unitPrice = slab ? slab.unitPricePaise : p.mrpPaise;
-        total += unitPrice * q;
-      }
-    }
-    return total > 0 ? total : cartSummary.totalPaise;
-  }, [cartQuantities, initialProducts, cartSummary.totalPaise]);
-
-  const liveTotalRupees = Math.round(liveTotalPaise / 100);
-  const freeDeliveryThresholdRupees = 2000;
-  const remainingForFreeDelivery = Math.max(0, freeDeliveryThresholdRupees - liveTotalRupees);
-  const freeDeliveryProgress = Math.min(
-    100,
-    Math.round((liveTotalRupees / freeDeliveryThresholdRupees) * 100)
-  );
-
-  const applyFilters = (
-    newSearch: string,
-    newCompany: string,
-    newCategory: string,
-    newInStock: boolean
-  ) => {
+  // Apply filters via URL
+  const applyFilters = (companyId: string, categoryId: string, inStock: boolean) => {
     const params = new URLSearchParams();
-    if (newSearch.trim()) params.set("q", newSearch.trim());
-    if (newCompany) params.set("company", newCompany);
-    if (newCategory) params.set("category", newCategory);
-    if (newInStock) params.set("inStock", "true");
+    if (currentSearch) params.set("q", currentSearch);
+    if (companyId) params.set("companyId", companyId);
+    if (categoryId) params.set("categoryId", categoryId);
+    if (inStock) params.set("inStockOnly", "true");
 
     startTransition(() => {
       router.push(`/store?${params.toString()}`);
     });
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    applyFilters(search, selectedCompany, selectedCategory, inStockOnly);
-  };
-
   const handleCompanyChange = (companyId: string) => {
-    const updated = selectedCompany === companyId ? "" : companyId;
-    setSelectedCompany(updated);
-    applyFilters(search, updated, selectedCategory, inStockOnly);
+    setSelectedCompany(companyId);
+    applyFilters(companyId, selectedCategory, inStockOnly);
   };
 
-  const handleCategoryTileClick = (catQuery: string) => {
-    // Find matching category in categories list if present
-    const matched = categories.find((c) =>
-      c.name.toLowerCase().includes(catQuery.toLowerCase()) ||
-      catQuery.toLowerCase().includes(c.name.toLowerCase())
-    );
-    if (matched) {
-      const updated = selectedCategory === matched.id ? "" : matched.id;
-      setSelectedCategory(updated);
-      applyFilters("", selectedCompany, updated, inStockOnly);
-    } else {
-      // Fallback: search by query
-      setSearch(catQuery);
-      applyFilters(catQuery, selectedCompany, "", inStockOnly);
-    }
+  const handleCategorySelect = (categoryId: string) => {
+    const nextCat = selectedCategory === categoryId ? "" : categoryId;
+    setSelectedCategory(nextCat);
+    applyFilters(selectedCompany, nextCat, inStockOnly);
   };
 
-  const handleAddFirstTap = async (product: StoreProductItem) => {
-    if (!isLoggedIn) {
-      router.push(`/login?callbackUrl=/store`);
-      return;
-    }
+  const handleInStockToggle = (checked: boolean) => {
+    setInStockOnly(checked);
+    applyFilters(selectedCompany, selectedCategory, checked);
+  };
 
-    const currentQty = cartQuantities[product.id] || 0;
-    const mode = unitModes[product.id] || "pcs";
-    const delta = mode === "carton" ? product.packSize : 1;
-    const nextQty = currentQty + delta;
-
-    setCartQuantities((prev) => ({ ...prev, [product.id]: nextQty }));
+  // Cart Handlers
+  const handleAddToCart = async (product: StoreProductItem) => {
     setUpdatingId(product.id);
+    const newQty = (cartQuantities[product.id] || 0) + 1;
+    setCartQuantities((prev) => ({ ...prev, [product.id]: newQty }));
 
     try {
-      await addToCartAction(product.id, delta);
+      const res = await addToCartAction(product.id, 1);
+      if (!res.success) {
+        setCartQuantities((prev) => ({ ...prev, [product.id]: prev[product.id] - 1 }));
+      }
     } catch {
-      setCartQuantities((prev) => ({ ...prev, [product.id]: currentQty }));
+      setCartQuantities((prev) => ({ ...prev, [product.id]: (prev[product.id] || 1) - 1 }));
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const handleStepperChange = async (product: StoreProductItem, delta: number) => {
-    if (!isLoggedIn) {
-      router.push(`/login?callbackUrl=/store`);
-      return;
-    }
-
-    const currentQty = cartQuantities[product.id] || 0;
+  const handleUpdateQty = async (productId: string, delta: number) => {
+    const currentQty = cartQuantities[productId] || 0;
     const nextQty = Math.max(0, currentQty + delta);
 
+    setUpdatingId(productId);
     setCartQuantities((prev) => {
       const copy = { ...prev };
-      if (nextQty === 0) {
-        delete copy[product.id];
-      } else {
-        copy[product.id] = nextQty;
-      }
+      if (nextQty === 0) delete copy[productId];
+      else copy[productId] = nextQty;
       return copy;
     });
 
-    setUpdatingId(product.id);
-
     try {
       if (nextQty === 0) {
-        await removeFromCartAction(product.id);
+        await removeFromCartAction(productId);
       } else {
-        await updateCartQtyAction(product.id, nextQty);
+        await updateCartQtyAction(productId, nextQty);
       }
     } catch {
-      setCartQuantities((prev) => ({ ...prev, [product.id]: currentQty }));
+      setCartQuantities((prev) => ({ ...prev, [productId]: currentQty }));
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const toggleUnitMode = (productId: string, current: "pcs" | "carton") => {
-    const next = current === "pcs" ? "carton" : "pcs";
-    setUnitModes((prev) => ({ ...prev, [productId]: next }));
-  };
+  // Calculate dynamic cart totals
+  const totalCartCount = Object.values(cartQuantities).reduce((a, b) => a + b, 0);
+  const totalCartRupees = Math.round(cartSummary.totalPaise / 100);
+  const totalSavingsRupees = Math.round(cartSummary.savingsPaise / 100);
+
+  // Sorting products
+  const sortedProducts = [...initialProducts].sort((a, b) => {
+    if (sortBy === "price-asc") {
+      const priceA = a.slabs[0]?.unitPricePaise || a.mrpPaise;
+      const priceB = b.slabs[0]?.unitPricePaise || b.mrpPaise;
+      return priceA - priceB;
+    }
+    if (sortBy === "price-desc") {
+      const priceA = a.slabs[0]?.unitPricePaise || a.mrpPaise;
+      const priceB = b.slabs[0]?.unitPricePaise || b.mrpPaise;
+      return priceB - priceA;
+    }
+    return a.name.localeCompare(b.name);
+  });
 
   return (
-    <div className="space-y-6">
-      {/* 1. TOP HEADER (White with Maroon accents matching Stitch S1) */}
-      <header className="bg-white border-b border-[#EAD9CC] sticky top-0 z-40 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="h-20 flex items-center justify-between gap-4">
-            {/* Brand Logo & Tagline */}
-            <Link href="/store" className="flex items-center gap-3 shrink-0 group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/brand/jmd-cart-logo.png"
-                alt="JMD Cart Logo"
-                className="h-12 w-12 object-contain group-hover:scale-105 transition-transform"
-              />
-              <div className="flex flex-col">
-                <span className="text-2xl font-black tracking-tight text-[#790E11] leading-none">
-                  JMD Cart
-                </span>
-                <span className="text-[11px] font-medium text-[#2A1010]/70 mt-0.5 tracking-tight">
-                  Bharosa Ghar Tak.
-                </span>
+    <div className="min-h-screen bg-surface flex flex-col justify-between">
+      {/* 1. Master Header with Theme */}
+      <StoreHeader
+        cartCount={totalCartCount}
+        cartTotalRupees={totalCartRupees}
+        currentSearch={currentSearch}
+        activeCategory={selectedCategory}
+        categories={categories}
+        userName={userName}
+        isLoggedIn={isLoggedIn}
+      />
+
+      <main className="w-full pt-36 bg-surface flex-1">
+        {/* 2. Regional Guarantee Strip */}
+        <TrustRegionalStrip />
+
+        {/* 3. Hero Section with Commercial Split Bento (when not searching) */}
+        {!currentSearch && !selectedCategory && !selectedCompany && (
+          <section className="max-w-[1280px] mx-auto w-full px-4 lg:px-8 pt-6 pb-2">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+              {/* Main Commercial Billboard */}
+              <div className="lg:col-span-8 bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/30 p-6 lg:p-10 flex flex-col justify-between relative overflow-hidden">
+                <div className="absolute -right-12 -top-12 w-64 h-64 bg-primary-container/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="relative z-10 max-w-xl">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary-fixed text-on-primary-fixed rounded-full text-xs font-bold uppercase tracking-wider mb-4 shadow-2xs">
+                    <span className="material-symbols-outlined text-[15px]">storefront</span>
+                    B2B Wholesale & Retail Portal • Saharsa Hub
+                  </div>
+                  <h1 className="font-headline text-3xl sm:text-4xl text-primary font-bold tracking-tight mb-3 leading-tight">
+                    Stock Up for Your Shop & Kitchen
+                  </h1>
+                  <p className="text-sm sm:text-base text-on-surface-variant mb-6 leading-relaxed">
+                    Direct distributor prices on daily essentials, verified regional pulses, mustard oils, and commercial master cartons. Rapid delivery across Saharsa town.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <a
+                      href="#products-grid"
+                      className="bg-primary hover:bg-primary-container text-on-primary font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-sm transition-all flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">shopping_cart</span>
+                      Shop Groceries
+                    </a>
+                    <Link
+                      href="/store/wholesale"
+                      className="bg-surface-container-low hover:bg-secondary-fixed text-secondary font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-2xs transition-all flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">warehouse</span>
+                      Explore Wholesale Slabs
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Metric highlights */}
+                <div className="relative z-10 pt-8 mt-6 grid grid-cols-3 gap-3 border-t border-surface-container-high/60">
+                  <div className="bg-surface-container-low/70 p-3 rounded-xl">
+                    <span className="font-headline text-lg sm:text-xl text-primary font-bold block">930+</span>
+                    <span className="text-[11px] text-on-surface-variant font-medium">Active SKUs in Godown</span>
+                  </div>
+                  <div className="bg-surface-container-low/70 p-3 rounded-xl">
+                    <span className="font-headline text-lg sm:text-xl text-secondary font-bold block">₹38/pack</span>
+                    <span className="text-[11px] text-on-surface-variant font-medium">Mustard Oil Starting</span>
+                  </div>
+                  <div className="bg-surface-container-low/70 p-3 rounded-xl">
+                    <span className="font-headline text-lg sm:text-xl text-tertiary font-bold block">30 Mins</span>
+                    <span className="text-[11px] text-on-surface-variant font-medium">Ward 1 to 20 Express</span>
+                  </div>
+                </div>
               </div>
-            </Link>
 
-            {/* Wide Rotating Search Bar */}
-            <div className="flex-1 max-w-xl mx-2 hidden sm:block">
-              <form onSubmit={handleSearchSubmit} className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                  🔍
-                </span>
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={
-                    mounted
-                      ? SEARCH_PLACEHOLDERS[placeholderIndex]
-                      : 'Search "Bikaji bhujia"'
-                  }
-                  className="w-full pl-10 pr-20 py-2.5 bg-white border border-[#EAD9CC] rounded-full text-sm placeholder-gray-400 text-[#2A1010] focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11] transition-all shadow-xs"
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch("");
-                      applyFilters("", selectedCompany, selectedCategory, inStockOnly);
-                    }}
-                    className="absolute inset-y-0 right-14 pr-2 flex items-center text-gray-400 hover:text-gray-600 text-xs"
-                  >
-                    ✕
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  className="absolute inset-y-1 right-1 px-4 bg-[#790E11] hover:bg-[#5E0A0D] text-white text-xs font-bold rounded-full transition-colors flex items-center justify-center cursor-pointer"
-                >
-                  Search
-                </button>
-              </form>
-            </div>
-
-            {/* User Controls & Cart Button */}
-            <div className="flex items-center gap-3 shrink-0">
-              {isLoggedIn ? (
-                <>
-                  <div className="text-right hidden md:block">
-                    <div className="text-xs font-bold text-[#2A1010] truncate max-w-[140px]">
-                      {userName}
+              {/* Secondary Promo Bento Cards */}
+              <div className="lg:col-span-4 flex flex-col gap-4">
+                {/* Daily Mandi Rates Box */}
+                <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm border border-outline-variant/30 flex flex-col justify-between flex-1 relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-tertiary text-[20px]">trending_down</span>
+                      <span className="font-bold text-xs text-on-surface">Today&apos;s Mandi Price Slabs</span>
                     </div>
-                    <div className="text-[10px] text-[#790E11] font-mono">
-                      {userRole}
+                    <span className="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold rounded">Live Rates</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center bg-surface-container-low px-3 py-2 rounded-lg text-xs">
+                      <span className="font-medium text-on-surface">MDH Garam Masala 100g</span>
+                      <span className="font-bold text-primary">₹78 <span className="text-[10px] text-outline line-through">₹118</span></span>
+                    </div>
+                    <div className="flex justify-between items-center bg-surface-container-low px-3 py-2 rounded-lg text-xs">
+                      <span className="font-medium text-on-surface">Dawat Biryani Basmati 1kg</span>
+                      <span className="font-bold text-primary">₹188 <span className="text-[10px] text-outline line-through">₹260</span></span>
+                    </div>
+                    <div className="flex justify-between items-center bg-surface-container-low px-3 py-2 rounded-lg text-xs">
+                      <span className="font-medium text-on-surface">Saloni Mustard Oil 1L Pouch</span>
+                      <span className="font-bold text-primary">₹142 <span className="text-[10px] text-outline line-through">₹175</span></span>
                     </div>
                   </div>
                   <Link
-                    href="/store/orders"
-                    className="text-xs font-semibold px-3 py-2 border border-[#EAD9CC] hover:bg-[#FEFDF7] text-[#2A1010] rounded-lg transition-colors"
+                    href="/store/wholesale"
+                    className="mt-3 inline-flex items-center justify-center gap-1.5 w-full py-2 bg-surface-container text-primary font-bold text-xs rounded-lg hover:bg-primary hover:text-on-primary transition-colors"
                   >
-                    📦 Orders
-                  </Link>
-                  <Link
-                    href="/logout"
-                    className="text-xs font-medium px-2 py-2 text-gray-500 hover:text-[#790E11] transition-colors"
-                    title="Logout"
-                  >
-                    Logout
-                  </Link>
-                </>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Link
-                    href="/login?callbackUrl=/store"
-                    className="text-xs font-bold px-4 py-2 border border-[#790E11] text-[#790E11] hover:bg-[#790E11] hover:text-white rounded-lg transition-colors"
-                  >
-                    Login
-                  </Link>
-                  <Link
-                    href="/register"
-                    className="text-xs font-medium px-3 py-2 text-gray-600 hover:text-[#2A1010] rounded-lg transition-colors hidden sm:block"
-                  >
-                    Register
+                    View All Wholesale Slabs
+                    <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
                   </Link>
                 </div>
-              )}
 
-              {/* My Cart Button (Maroon-700) */}
-              <Link
-                href="/store/cart"
-                className="flex items-center gap-2 px-4 py-2 bg-[#790E11] hover:bg-[#5E0A0D] text-white rounded-lg text-xs font-bold shadow transition-transform active:scale-95 cursor-pointer"
-              >
-                <span>🛒 My Cart</span>
-                {totalCartPieces > 0 ? (
-                  <span className="bg-[#FDAF18] text-[#2A1010] text-[11px] font-black px-2 py-0.5 rounded-full">
-                    {totalCartPieces}
-                  </span>
-                ) : (
-                  <span className="text-white/60 text-[11px]">0</span>
-                )}
-              </Link>
+                {/* Quick Logistics Banner */}
+                <div className="bg-primary-container text-on-primary rounded-2xl p-5 shadow-sm flex items-center justify-between">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-primary-fixed-dim uppercase tracking-wider block font-bold">Commercial Bulk Logistics</span>
+                    <h4 className="font-headline text-sm font-bold">Pick-Up or E-Rickshaw Drop</h4>
+                    <p className="text-[11px] text-primary-fixed opacity-90">Free town loading at Station Road Hub</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-on-primary flex-shrink-0 shadow-inner">
+                    <span className="material-symbols-outlined text-[24px]">electric_rickshaw</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
+        )}
 
-          {/* Mobile Search Bar Row */}
-          <div className="pb-3 block sm:hidden">
-            <form onSubmit={handleSearchSubmit} className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400 text-xs">
-                🔍
-              </span>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={
-                  mounted
-                    ? SEARCH_PLACEHOLDERS[placeholderIndex]
-                    : 'Search "Bikaji bhujia"'
-                }
-                className="w-full pl-8 pr-16 py-2 bg-white border border-[#EAD9CC] rounded-full text-xs placeholder-gray-400 text-[#2A1010] focus:outline-none focus:ring-1 focus:ring-[#790E11]"
-              />
+        {/* 4. Category Filter Chips Carousel */}
+        <section className="max-w-[1280px] mx-auto px-4 lg:px-8 pt-6 pb-2">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-headline text-lg font-bold text-on-surface">Shop by Category</h2>
+            {selectedCategory && (
               <button
-                type="submit"
-                className="absolute inset-y-1 right-1 px-3 bg-[#790E11] text-white text-[10px] font-bold rounded-full"
+                onClick={() => handleCategorySelect("")}
+                className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
               >
-                Search
+                <span>Clear Category</span>
+                <span className="material-symbols-outlined text-[14px]">close</span>
               </button>
-            </form>
+            )}
           </div>
-        </div>
-      </header>
-
-      {/* 2. LOCATION & TRUST TRANSPARENCY STRIP */}
-      <div className="bg-[#FFF9ED] border-y border-[#EAD9CC]/60 py-2.5 px-4 text-xs text-[#2A1010]">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          {/* Delivering Chip */}
-          <div className="inline-flex items-center gap-1.5 bg-[#FFF1D6] text-[#790E11] px-3 py-1 rounded-full text-xs font-bold border border-[#FDAF18]/40 shadow-2xs">
-            <span>📍</span>
-            <span>Delivering in Saharsa town</span>
-          </div>
-
-          {/* Three Trust Indicators */}
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 font-medium text-xs text-[#2A1010]">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[#075828] font-black text-sm">✔</span>
-              <span>Free delivery above ₹2,000</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[#075828] font-black text-sm">✔</span>
-              <span>GST invoice on every order</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[#075828] font-black text-sm">✔</span>
-              <span>Genuine products</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* 3. HERO BANNER (Maroon to Orange Gradient per Stitch S1) */}
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#790E11] via-[#9B1D20] to-[#FC830D] p-6 sm:p-8 text-white shadow-md">
-          <div className="max-w-2xl relative z-10 space-y-2">
-            <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
-              Stock up for your shop. <br />
-              <span className="text-[#FDAF18]">Bharosa Ghar Tak.</span>
-            </h1>
-            <p className="text-sm sm:text-base text-white/90 font-medium">
-              Wholesale, retail and home delivery in Saharsa town
-            </p>
-          </div>
-          <div className="mt-4 sm:mt-0 sm:absolute sm:right-8 sm:bottom-8 z-10">
-            <a
-              href="#products-section"
-              className="inline-block px-6 py-3 bg-[#FDAF18] hover:bg-[#FC830D] text-[#2A1010] font-black text-sm rounded-xl shadow-lg transition-transform hover:scale-105 active:scale-95 text-center"
-            >
-              Shop now
-            </a>
-          </div>
-        </section>
-
-        {/* 4. SHOP BY CATEGORY (8 Warm Cream Tiles #FFF4E3 per Stitch S1) */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-[#2A1010]">Shop by category</h2>
+          <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
             <button
-              onClick={() => {
-                setSelectedCategory("");
-                applyFilters(search, selectedCompany, "", inStockOnly);
-              }}
-              className="text-xs font-bold text-[#790E11] hover:underline cursor-pointer"
+              onClick={() => handleCategorySelect("")}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 border ${
+                !selectedCategory
+                  ? "bg-primary text-on-primary border-primary shadow-xs"
+                  : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low"
+              }`}
             >
-              See all &gt;
+              <span>All Items</span>
+              <span className="text-[10px] opacity-75">({sortedProducts.length})</span>
             </button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            {CATEGORY_TILES.map((cat) => {
-              const isActive =
-                selectedCategory &&
-                categories.find((c) => c.id === selectedCategory)?.name.includes(cat.query);
+            {categories.map((cat) => {
+              const isSelected = selectedCategory === cat.id;
               return (
                 <button
                   key={cat.id}
-                  onClick={() => handleCategoryTileClick(cat.query)}
-                  className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all cursor-pointer border ${
-                    isActive
-                      ? "bg-[#FFF1D6] border-[#790E11] shadow-sm scale-105"
-                      : "bg-[#FFF4E3] border-[#EAD9CC]/50 hover:border-[#FDAF18] hover:shadow-xs hover:scale-102"
+                  onClick={() => handleCategorySelect(cat.id)}
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 border ${
+                    isSelected
+                      ? "bg-primary text-on-primary border-primary shadow-xs"
+                      : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low"
                   }`}
                 >
-                  <div
-                    className={`w-12 h-12 rounded-full ${cat.iconBg} flex items-center justify-center text-xl text-white shadow-xs mb-2`}
-                  >
-                    {cat.icon}
-                  </div>
-                  <span className="text-xs font-bold text-[#2A1010] text-center leading-tight">
-                    {cat.name}
-                  </span>
+                  <span>{cat.name}</span>
                 </button>
               );
             })}
           </div>
         </section>
 
-        {/* 5. POPULAR FMCG BRANDS STRIP */}
-        {companies.length > 0 && (
-          <section className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Popular FMCG Brands
-              </span>
-              {selectedCompany && (
-                <button
-                  onClick={() => handleCompanyChange("")}
-                  className="text-xs text-[#790E11] font-semibold hover:underline"
+        {/* 5. Main Catalog & Products Grid */}
+        <section id="products-grid" className="max-w-[1280px] mx-auto px-4 lg:px-8 py-4">
+          {/* Active Filter Bar & Controls */}
+          <div className="bg-surface-container-lowest rounded-xl p-3 sm:p-4 mb-6 border border-outline-variant/40 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Brand Filter */}
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-on-surface-variant font-medium">Brand:</span>
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => handleCompanyChange(e.target.value)}
+                  className="bg-surface-container-low border border-outline-variant/60 rounded-lg px-2.5 py-1.5 font-bold text-xs text-on-surface focus:outline-none focus:border-primary"
                 >
-                  Clear Brand Filter
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => handleCompanyChange("")}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-colors cursor-pointer border ${
-                  !selectedCompany
-                    ? "bg-[#790E11] text-white border-[#790E11]"
-                    : "bg-white text-[#2A1010] border-[#EAD9CC] hover:bg-[#FFF4E3]"
-                }`}
-              >
-                All Brands
-              </button>
-              {companies.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => handleCompanyChange(c.id)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-colors cursor-pointer border ${
-                    selectedCompany === c.id
-                      ? "bg-[#790E11] text-white border-[#790E11]"
-                      : "bg-white text-[#2A1010] border-[#EAD9CC] hover:bg-[#FFF4E3]"
-                  }`}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
+                  <option value="">All Brands (26)</option>
+                  {companies.map((comp) => (
+                    <option key={comp.id} value={comp.id}>
+                      {comp.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-        {/* 6. FREE DELIVERY PROGRESS BAR */}
-        <section className="bg-white rounded-xl border border-[#EAD9CC] p-4 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-xs font-bold">
-            <span className="text-[#2A1010]">
-              {remainingForFreeDelivery === 0 ? (
-                <span className="text-[#075828]">
-                  🎉 You have unlocked Free Delivery in Saharsa town!
-                </span>
-              ) : (
-                <span>
-                  Add ₹{remainingForFreeDelivery} more for{" "}
-                  <strong className="text-[#790E11]">Free Delivery</strong>
-                </span>
-              )}
-            </span>
-            <span className="text-gray-500 text-[11px]">
-              ₹{liveTotalRupees} / ₹2,000
-            </span>
-          </div>
-          <div className="h-2.5 w-full bg-[#FFF4E3] rounded-full overflow-hidden border border-[#EAD9CC]/50">
-            <div
-              className="h-full bg-gradient-to-r from-[#790E11] to-[#FC830D] rounded-full transition-all duration-300"
-              style={{ width: `${freeDeliveryProgress}%` }}
-            />
-          </div>
-        </section>
-
-        {/* 7. BULK DEALS PRODUCT GRID (Matching Stitch S1 Mockup) */}
-        <section id="products-section" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black text-[#2A1010]">
-              Bulk deals: buy 12+ and save more
-            </h2>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-gray-700 select-none">
+              {/* In-Stock Toggle */}
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-on-surface">
                 <input
                   type="checkbox"
                   checked={inStockOnly}
-                  onChange={() => {
-                    const next = !inStockOnly;
-                    setInStockOnly(next);
-                    applyFilters(search, selectedCompany, selectedCategory, next);
-                  }}
-                  className="rounded border-[#EAD9CC] text-[#790E11] focus:ring-[#790E11] h-3.5 w-3.5"
+                  onChange={(e) => handleInStockToggle(e.target.checked)}
+                  className="w-4 h-4 accent-primary rounded cursor-pointer"
                 />
                 <span>In Stock Only</span>
               </label>
-              <button
-                onClick={() => {
-                  setSelectedCategory("");
-                  setSelectedCompany("");
-                  setSearch("");
-                  applyFilters("", "", "", false);
-                }}
-                className="text-xs font-bold text-[#790E11] hover:underline"
+
+              {/* Active search chip */}
+              {currentSearch && (
+                <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-fixed text-on-primary-fixed text-xs font-bold">
+                  <span>&quot;{currentSearch}&quot;</span>
+                  <button
+                    onClick={() => {
+                      const params = new URLSearchParams();
+                      if (selectedCompany) params.set("companyId", selectedCompany);
+                      if (selectedCategory) params.set("categoryId", selectedCategory);
+                      router.push(`/store?${params.toString()}`);
+                    }}
+                    className="hover:text-primary"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">close</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-1.5 text-xs ml-auto">
+              <span className="text-on-surface-variant font-medium">Sort:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="bg-surface-container-low border border-outline-variant/60 rounded-lg px-2.5 py-1.5 font-bold text-xs text-on-surface focus:outline-none focus:border-primary"
               >
-                See all &gt;
-              </button>
+                <option value="name">Product Name (A-Z)</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+              </select>
             </div>
           </div>
 
-          {initialProducts.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#EAD9CC] p-12 text-center space-y-3">
+          {/* Product Cards Grid */}
+          {sortedProducts.length === 0 ? (
+            <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-12 text-center space-y-3">
               <span className="text-4xl block">📦</span>
-              <h3 className="text-lg font-bold text-[#2A1010]">No products found</h3>
-              <p className="text-xs text-gray-500 max-w-md mx-auto">
-                No items match your active search or filters. Try clearing your filters to see the full Saharsa catalogue.
+              <h3 className="font-headline text-lg font-bold text-on-surface">No products found</h3>
+              <p className="text-xs text-on-surface-variant max-w-md mx-auto">
+                No items match your active search or filters. Try resetting your search or brand filters to see the full warehouse catalog.
               </p>
               <button
                 onClick={() => {
-                  setSearch("");
                   setSelectedCompany("");
                   setSelectedCategory("");
                   setInStockOnly(false);
-                  applyFilters("", "", "", false);
+                  router.push("/store");
                 }}
-                className="mt-2 text-xs font-bold text-[#790E11] hover:underline cursor-pointer"
+                className="mt-3 px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-lg hover:bg-primary-container transition-colors"
               >
-                Clear all filters
+                Reset All Filters
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {initialProducts.map((product) => {
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
+              {sortedProducts.map((product) => {
                 const mrpRupees = Math.round(product.mrpPaise / 100);
-                const bestSlab = product.slabs[product.slabs.length - 1];
-                const bestRateRupees = bestSlab
+                const bestSlab = product.slabs[0];
+                const effectiveRateRupees = bestSlab
                   ? Math.round(bestSlab.unitPricePaise / 100)
                   : mrpRupees;
-
+                const savingsRupees = mrpRupees > effectiveRateRupees ? mrpRupees - effectiveRateRupees : 0;
                 const qty = cartQuantities[product.id] || 0;
-                const mode = unitModes[product.id] || "pcs";
                 const isUpdating = updatingId === product.id;
-
-                // Stock Display Policy (Phase 3 Rule): Never expose raw high counts
-                let stockBadgeText = "In stock";
-                let stockBadgeClass = "bg-[#E3F3E6] text-[#075828]";
-
-                if (!product.isAvailable || product.totalAvailableQty === 0) {
-                  stockBadgeText = "Out of stock";
-                  stockBadgeClass = "bg-[#FEE2E2] text-[#991B1B]";
-                } else if (product.totalAvailableQty <= 10) {
-                  stockBadgeText = `Only ${product.totalAvailableQty} left`;
-                  stockBadgeClass = "bg-[#FEF3C7] text-[#B45309]";
-                }
 
                 return (
                   <div
                     key={product.id}
-                    className="bg-white rounded-2xl border border-[#EAD9CC] p-3 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group"
+                    className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-3 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
                   >
                     <div>
-                      {/* Product Image Tile with In-Place ADD Stepper Button */}
-                      <div className="h-44 bg-[#FFFDF7] rounded-xl border border-[#EAD9CC]/50 flex items-center justify-center relative p-3 overflow-hidden">
+                      {/* Product Image / Brand Visual Tile */}
+                      <Link
+                        href={`/store/products/${product.id}`}
+                        className="block h-36 sm:h-40 bg-surface-container-low rounded-xl border border-outline-variant/30 relative p-3 overflow-hidden group-hover:border-primary/40 transition-colors"
+                      >
                         {product.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={product.imageUrl}
                             alt={product.name}
-                            className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
+                            className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                            loading="lazy"
                           />
                         ) : (
-                          <div className="text-center text-gray-300">
-                            <span className="text-4xl block">🛒</span>
-                            <span className="text-[10px] uppercase font-mono text-gray-400">
-                              {product.shortCode}
-                            </span>
+                          <div className="w-full h-full flex flex-col items-center justify-center text-center text-outline">
+                            <span className="material-symbols-outlined text-[32px]">inventory_2</span>
+                            <span className="text-[10px] font-mono mt-1 uppercase">{product.shortCode}</span>
                           </div>
                         )}
 
-                        {/* Floating ADD Button / Stepper (Bottom-Right of Photo) */}
-                        <div className="absolute bottom-2.5 right-2.5 z-10">
-                          {!product.isAvailable ? (
-                            <button
-                              disabled
-                              className="px-3 py-1 bg-gray-100 text-gray-400 text-xs font-bold rounded-lg border border-gray-200 cursor-not-allowed"
-                            >
-                              ADD
-                            </button>
-                          ) : qty === 0 ? (
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleAddFirstTap(product)}
-                                disabled={isUpdating}
-                                className="px-3.5 py-1.5 bg-white border-2 border-[#790E11] hover:bg-[#790E11] hover:text-white text-[#790E11] text-xs font-black rounded-lg shadow-sm transition-colors active:scale-95 cursor-pointer disabled:opacity-50"
-                              >
-                                ADD
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => toggleUnitMode(product.id, mode)}
-                                className="px-1.5 py-1 text-[10px] font-bold text-gray-600 bg-[#FFF4E3] border border-[#EAD9CC] rounded-lg"
-                                title="Switch unit: Pieces or Carton"
-                              >
-                                {mode === "pcs" ? "pcs" : "ctn"}
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1 bg-[#790E11] text-white rounded-lg p-0.5 shadow-sm">
-                              <button
-                                onClick={() => {
-                                  const step = mode === "carton" ? product.packSize : 1;
-                                  handleStepperChange(product, -step);
-                                }}
-                                disabled={isUpdating}
-                                className="w-6 h-6 flex items-center justify-center font-black text-sm hover:bg-[#5E0A0D] rounded transition-colors"
-                              >
-                                -
-                              </button>
-                              <span className="px-1.5 text-xs font-black">{qty}</span>
-                              <button
-                                onClick={() => {
-                                  const step = mode === "carton" ? product.packSize : 1;
-                                  handleStepperChange(product, step);
-                                }}
-                                disabled={isUpdating}
-                                className="w-6 h-6 flex items-center justify-center font-black text-sm hover:bg-[#5E0A0D] rounded transition-colors"
-                              >
-                                +
-                              </button>
-                            </div>
+                        {/* Top Badges */}
+                        <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+                          {savingsRupees > 0 && (
+                            <span className="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-black uppercase tracking-tight">
+                              Save ₹{savingsRupees}
+                            </span>
                           )}
                         </div>
-                      </div>
 
-                      {/* Pricing and Details per Mockup */}
-                      <div className="mt-3 space-y-1.5">
-                        {/* Price Badge + Strikethrough MRP */}
-                        <div className="flex items-baseline gap-2">
-                          <span className="inline-block bg-[#E3F3E6] text-[#075828] text-sm font-black px-2 py-0.5 rounded">
-                            ₹{bestRateRupees}
+                        {/* Stock status indicator */}
+                        <div className="absolute bottom-2 left-2">
+                          {product.isAvailable ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-tertiary bg-surface-container-lowest/90 px-1.5 py-0.5 rounded-full shadow-2xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+                              In stock
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-outline bg-surface-container-lowest/90 px-1.5 py-0.5 rounded-full">
+                              Out of stock
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+
+                      {/* Product Metadata */}
+                      <div className="mt-2.5 space-y-1">
+                        <div className="flex items-center justify-between text-[11px] text-on-surface-variant">
+                          <span className="font-bold text-secondary truncate">{product.companyName || "JMD"}</span>
+                          {product.weight && <span className="text-outline font-medium">{product.weight}</span>}
+                        </div>
+
+                        <Link
+                          href={`/store/products/${product.id}`}
+                          className="font-bold text-xs text-on-surface hover:text-primary transition-colors line-clamp-2 leading-tight block"
+                          title={product.name}
+                        >
+                          {product.name}
+                        </Link>
+                      </div>
+                    </div>
+
+                    {/* Pricing & Add Stepper */}
+                    <div className="mt-3 pt-2.5 border-t border-surface-container-high/60 flex items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="font-headline text-sm font-bold text-primary">
+                            ₹{effectiveRateRupees}
                           </span>
-                          {mrpRupees > bestRateRupees && (
-                            <span className="text-xs text-gray-400 line-through">
+                          {mrpRupees > effectiveRateRupees && (
+                            <span className="text-[10px] text-outline line-through">
                               ₹{mrpRupees}
                             </span>
                           )}
                         </div>
-
-                        {/* Product Title */}
-                        <Link
-                          href={`/store/products/${product.id}`}
-                          className="font-bold text-[#2A1010] hover:text-[#790E11] text-sm line-clamp-2 block leading-snug"
-                        >
-                          {product.name}
-                        </Link>
-
-                        {/* Pack Size */}
-                        <div className="text-xs text-gray-500">
-                          1 pack ({product.packSize} {product.packLabel.toLowerCase()})
-                        </div>
-
-                        {/* Slab Hint Chip */}
-                        {bestSlab && (
-                          <div className="inline-block bg-[#FFF1D6] text-[#790E11] text-xs font-bold px-2 py-0.5 rounded">
-                            Buy {bestSlab.minQty}+ ₹{Math.round(bestSlab.unitPricePaise / 100)} each
+                        {product.packSize > 1 && (
+                          <div className="text-[9px] text-on-surface-variant">
+                            {product.packSize} pcs / carton
                           </div>
                         )}
                       </div>
-                    </div>
 
-                    {/* Stock Status Chip */}
-                    <div className="mt-3 pt-2 border-t border-[#EAD9CC]/40 flex items-center justify-between">
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${stockBadgeClass}`}>
-                        {stockBadgeText}
-                      </span>
-                      {product.companyName && (
-                        <span className="text-[10px] font-semibold text-gray-400 truncate max-w-[120px]">
-                          {product.companyName}
-                        </span>
+                      {/* Add Button or Stepper */}
+                      {!product.isAvailable ? (
+                        <button
+                          disabled
+                          className="px-2.5 py-1 bg-surface-container text-outline text-[11px] font-bold rounded-lg cursor-not-allowed"
+                        >
+                          Sold
+                        </button>
+                      ) : qty === 0 ? (
+                        <button
+                          onClick={() => handleAddToCart(product)}
+                          disabled={isUpdating}
+                          className="px-3 py-1.5 bg-primary hover:bg-primary-container text-on-primary text-xs font-bold rounded-lg shadow-2xs transition-all active:scale-95 flex items-center gap-1"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">add</span>
+                          <span>ADD</span>
+                        </button>
+                      ) : (
+                        <div className="flex items-center bg-primary text-on-primary rounded-lg p-0.5 shadow-2xs">
+                          <button
+                            onClick={() => handleUpdateQty(product.id, -1)}
+                            disabled={isUpdating}
+                            className="w-6 h-6 flex items-center justify-center hover:bg-primary-container rounded font-bold"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">remove</span>
+                          </button>
+                          <span className="w-6 text-center text-xs font-bold">{qty}</span>
+                          <button
+                            onClick={() => handleUpdateQty(product.id, 1)}
+                            disabled={isUpdating}
+                            className="w-6 h-6 flex items-center justify-center hover:bg-primary-container rounded font-bold"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">add</span>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -756,101 +541,17 @@ export function CatalogueClient({
             </div>
           )}
         </section>
-      </div>
+      </main>
 
-      {/* 8. STICKY BOTTOM CART BAR (Matching Blinkit/Zepto & Stitch S1) */}
-      {totalCartPieces > 0 && (
-        <div className="fixed bottom-0 inset-x-0 bg-[#5E0A0D] text-white py-3.5 px-4 shadow-2xl z-50 border-t border-[#FDAF18]/40">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🛒</span>
-              <div>
-                <div className="text-sm font-black flex items-center gap-2">
-                  <span>
-                    {totalCartLines} items ({totalCartPieces} pcs)
-                  </span>
-                  <span className="text-xs font-bold text-[#FDAF18]">
-                    • ₹{liveTotalRupees}
-                  </span>
-                </div>
-                <div className="text-xs text-white/80">
-                  {remainingForFreeDelivery === 0
-                    ? "Free delivery applied in Saharsa town!"
-                    : `Add ₹${remainingForFreeDelivery} more for free delivery`}
-                </div>
-              </div>
-            </div>
+      {/* 6. Floating Cart Bar when items are selected */}
+      <FloatingCartBar
+        totalPieces={totalCartCount}
+        totalRupees={totalCartRupees}
+        savingsRupees={totalSavingsRupees}
+      />
 
-            <Link
-              href="/store/cart"
-              className="py-2.5 px-6 bg-[#FC830D] hover:bg-[#FDAF18] text-[#2A1010] font-black text-sm rounded-xl shadow-lg transition-transform active:scale-95 flex items-center gap-2 cursor-pointer"
-            >
-              <span>View Cart</span>
-              <span>→</span>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* 9. FLOATING WHATSAPP HELP BUTTON */}
-      <a
-        href="https://wa.me/919876543210?text=Hello%20JMD%20Cart%2C%20I%20have%20an%20inquiry%20regarding%20wholesale%20distribution%20in%20Saharsa"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-20 right-4 z-40 bg-[#25D366] hover:bg-emerald-600 text-white p-3 rounded-full shadow-lg flex items-center gap-2 text-xs font-bold transition-transform hover:scale-105"
-        title="WhatsApp Order Support"
-      >
-        <span className="text-lg">💬</span>
-        <span className="hidden sm:inline">WhatsApp Help</span>
-      </a>
-
-      {/* 10. FOOTER (Deep Maroon #5E0A0D per Stitch Design) */}
-      <footer className="mt-16 bg-[#5E0A0D] text-white/90 border-t border-[#FDAF18]/30 py-10 px-4">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-black text-white">JMD Cart</span>
-              <span className="text-xs bg-[#FDAF18] text-[#2A1010] font-bold px-2 py-0.5 rounded">
-                Saharsa
-              </span>
-            </div>
-            <p className="text-xs text-white/70 mt-2">
-              A unit of Jai Mata Di. Integrated FMCG Distribution Management System serving retailers and wholesalers across Saharsa, Bihar.
-            </p>
-            <p className="text-xs text-[#FDAF18] font-bold mt-2">
-              Bharosa Ghar Tak.
-            </p>
-          </div>
-
-          <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-2">
-              Customer &amp; Wholesaler Support
-            </h4>
-            <ul className="text-xs space-y-1.5 text-white/80">
-              <li>📍 Main Market &amp; Godown Hub, Saharsa, Bihar</li>
-              <li>📞 Phone: +91 98765 43210</li>
-              <li>⚡ Daily Delivery Routes: Morning &amp; Afternoon Vans</li>
-              <li>📑 100% Tax Compliant GST Billing</li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-2">
-              Quick Links
-            </h4>
-            <div className="flex flex-col gap-1.5 text-xs text-white/80">
-              <Link href="/store" className="hover:text-white">Storefront Catalogue</Link>
-              <Link href="/store/cart" className="hover:text-white">Shopping Cart</Link>
-              <Link href="/store/orders" className="hover:text-white">Order History &amp; Tracking</Link>
-              <Link href="/login" className="hover:text-white">Staff / Admin Login</Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-white/10 text-center text-[11px] text-white/60">
-          © {new Date().getFullYear()} JMD Cart. All rights reserved. Built for speed, live inventory, and GST compliance.
-        </div>
-      </footer>
+      {/* 7. Master Footer with Theme */}
+      <StoreFooter />
     </div>
   );
 }

@@ -21,8 +21,8 @@ describe("Task 2.11 Integration Tests: Return to Company, Debit Notes & Stock-Wi
   let shopUser: { id: string; role: UserRole; name: string };
   let centralGodown: { id: string; name: string };
   let testSupplier: { id: string; name: string };
-  let testProduct1: { id: string; name: string; mrpPaise: number; packSize: number };
-  let testProduct2: { id: string; name: string; mrpPaise: number; packSize: number };
+  let testProduct1: { id: string; name: string; mrpPaise: number | null; packSize: number };
+  let testProduct2: { id: string; name: string; mrpPaise: number | null; packSize: number };
 
   const cleanup = async () => {
     // 1. Delete debit note items and debit notes linked to test suppliers

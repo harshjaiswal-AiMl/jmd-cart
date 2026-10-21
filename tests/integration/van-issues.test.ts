@@ -13,7 +13,7 @@ describe("Task 2.2 Integration Tests: Van Locations & Van Issue Sheet", () => {
   let adminUser: { id: string; role: UserRole };
   let godownLocation: { id: string };
   let vanLocation: { id: string; name: string };
-  let testProduct: { id: string; name: string; packSize: number; mrpPaise: number };
+  let testProduct: { id: string; name: string; packSize: number; mrpPaise: number | null };
 
   const cleanup = async () => {
     // Delete test van days

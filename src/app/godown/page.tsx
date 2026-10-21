@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { auth } from "@/auth";
+import { autoConvertService } from "@/modules/godown/auto-convert.service";
 
 export default async function GodownDashboardPage() {
   const session = await auth();
+  const autoConvertSummary = await autoConvertService.getDailyAutoConvertSummary();
 
   const links = [
     {
@@ -10,6 +12,12 @@ export default async function GodownDashboardPage() {
       desc: "Live inventory breakdown and carton conversions across Godown and Shop.",
       href: "/godown/stock",
       color: "bg-teal-50 text-teal-800 border-teal-200",
+    },
+    {
+      title: "Update Stock (Opening / Count / Adjust)",
+      desc: "Enter opening stock, physical stock count, +/- adjustments, or bulk CSV upload without a GRN.",
+      href: "/godown/stock/update",
+      color: "bg-purple-50 text-purple-800 border-purple-200",
     },
     {
       title: "Receive Goods (GRN)",
@@ -24,14 +32,14 @@ export default async function GodownDashboardPage() {
       color: "bg-blue-50 text-blue-800 border-blue-200",
     },
     {
-      title: "Godown Operations",
-      desc: "Internal stock transfers, carton breaking, damage, adjustments, and audits.",
+      title: "Godown Operations & Auto-Convert Report",
+      desc: "Carton → Loose conversion, daily auto-opened cartons report, reverse option, transfers & damage.",
       href: "/godown/operations",
       color: "bg-amber-50 text-amber-800 border-amber-200",
     },
     {
-      title: "Van Load Sheets",
-      desc: "Morning stock dispatch into delivery vans and formal issue sheets.",
+      title: "Van Load Sheets & Evening Return",
+      desc: "Morning stock dispatch (Carton + Loose) and evening Van Stock-Wise Return to Godown.",
       href: "/godown/van-issues",
       color: "bg-indigo-50 text-indigo-800 border-indigo-200",
     },
@@ -42,17 +50,58 @@ export default async function GodownDashboardPage() {
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Godown & Inventory Operations
+            Godown &amp; Inventory Operations
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Logged in as {session?.user?.name || "Godown Staff"} • Main Warehouse
+            Logged in as {session?.user?.name || "Godown Staff"} • Main Warehouse (Fulfils Online &amp; Van Orders: Carton + Loose)
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/management"
+            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-2.5 rounded-xl transition"
+          >
+            ← Management Hub
+          </Link>
+          <Link
+            href="/godown/stock/update"
+            className="bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition"
+          >
+            Update Stock
+          </Link>
+          <Link
+            href="/godown/purchases/new"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition"
+          >
+            + New GRN Receipt
+          </Link>
+        </div>
+      </div>
+
+      {/* SAFEGUARD #1: Godown Keeper Notification Banner */}
+      <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <span className="text-3xl">📦</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded">
+                Godown Keeper Alert
+              </span>
+              <h2 className="text-base font-black text-slate-900">
+                Aaj {autoConvertSummary.totalCartonsOpenedToday} carton auto-open hue (+
+                {autoConvertSummary.totalLooseGeneratedToday} loose pieces)
+              </h2>
+            </div>
+            <p className="text-xs text-slate-700 mt-1">
+              Online order, van issue ya transfer me loose stock kam hone par system ne zaroorat ke hisaab se carton auto-open kiye. Physical stock match karne ya reverse karne ke liye report dekhein.
+            </p>
+          </div>
+        </div>
         <Link
-          href="/godown/purchases/new"
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition"
+          href="/godown/operations"
+          className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition text-center"
         >
-          + New GRN Receipt
+          View Auto-Convert Report &amp; Reverse →
         </Link>
       </div>
 

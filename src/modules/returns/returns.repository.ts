@@ -97,7 +97,7 @@ export class ReturnsRepository {
         const unitPricePaise =
           item.unitPricePaise !== undefined
             ? item.unitPricePaise
-            : Math.round(product.mrpPaise * 0.8);
+            : Math.round((product.mrpPaise ?? product.priceCPaise ?? 0) * 0.8);
 
         const gstRateBp =
           item.gstRateBp !== undefined ? item.gstRateBp : product.gstRateBp;

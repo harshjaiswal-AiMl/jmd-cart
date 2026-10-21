@@ -59,3 +59,33 @@ Labels for all inputs, visible focus rings, contrast AA, keyboard path for the w
 
 ## 9. Content tone
 Plain English, short labels (Receive stock, Issue to van, Break carton). Error messages say what to do next.
+
+## 10. Empty start, onboarding and stock entry (`management.jmdcart.com`)
+The system ships with **zero products, zero stock, zero parties, zero bills**. Every screen must look intentional when empty and make the next action obvious.
+- **First-run `/setup` screen** (shown only when no `SUPER_ADMIN` exists): single clean card — Owner name, phone, password, confirm password, business legal/trade name, GSTIN, FSSAI, address. Submits once, creates the owner, signs in, and lands on the Owner Dashboard.
+- **Owner Dashboard — "Getting Started" checklist** (shown until all steps are completed, dismissible afterwards, always reachable from Help):
+  1. Business & GST details (`Settings -> Business details`)
+  2. Add companies & categories (or auto-create on product add/import)
+  3. Add products (`+ Add product` form **or** `Import from Excel`)
+  4. Set price slabs (`Settings -> Price slabs` — Customer / Retailer / Wholesaler)
+  5. Enter stock (`Update stock` — Opening stock / Stock count / Excel upload, or `New GRN` with a supplier bill)
+  6. Import or add credit parties (`Parties -> Import from Tally` or `+ Add party`)
+  7. Create staff logins (`Users -> + Add staff` for Godown, Shop, Van, Delivery, Accounts)
+- **Quick-action bar on Owner & Godown dashboards**: `+ Product`, `Import products`, `Update stock`, `+ GRN (purchase)`, `+ Party` — one click from anywhere.
+- **Update Stock screen (`/godown/stock/update`)** — works **without** a supplier GRN so the owner/godown keeper can set or correct stock anytime:
+  - **Tab 1 — Opening stock**: pick location (`Godown` or `Shop`), search/select products, enter cartons and/or loose pieces (auto-calculates total pieces from `packSize`), reason defaults to `"Opening stock"`, posts `OPENING_STOCK` movements.
+  - **Tab 2 — Stock count (set current quantity)**: shows current system balance (cartons + loose), user types actual counted cartons + loose, system previews the delta (`+` or `−` pieces) and posts an `ADJUSTMENT` movement with reason `"Stock count"`.
+  - **Tab 3 — Quick adjust (+/-)**: add or subtract cartons/loose on a single product with a mandatory reason.
+  - **Tab 4 — Excel / CSV upload**: upload `shortCode, cartons, loosePieces, reason` for bulk opening stock or stock count, with row-level preview and error report before committing.
+- **Empty-state rule across every table and report**: show real `0` / `₹0` KPIs (never sample numbers or demo charts) plus a centered empty card with a one-sentence explanation and the primary action button (`+ Add your first product`, `Enter opening stock`, `Import parties`, etc.).
+- **Storefront (`jmdcart.com`) when catalog is empty**: shows the header, location strip, and a clean "Store is being stocked — check back soon" card; never fake products.
+
+## 11. Shared Management App Shell & Reusable CRUD Kit (Prompt #06)
+- **JMD Cart Brand Palette on Management Shell**:
+  - Persistent left sidebar in deep maroon (`#790E11`) with cream text (`#FEFDF7`), active item highlight in vibrant orange (`#FC830D`), badges in warm amber (`#FDAF18`), and positive/storefront actions in leaf green (`#075828`).
+  - Desktop sidebar collapses to an icon rail (`64px`) and remembers group collapse state in `localStorage`. On mobile (`360px`), collapses into a slide-over drawer.
+  - Top bar includes dynamic Group/Page breadcrumbs, `Ctrl+K` Global Search Command Palette (searching both navigation pages and product SKUs), active Location Switcher, Notifications Bell (Auto-Converted Cartons, Low Stock Alerts, Pending Online Orders), and User Menu.
+- **Reusable CRUD DataTable (`src/components/crud/crud-data-table.tsx`)**:
+  - Unified toolbar with instant search, "Show Archived / Voided" filter toggle, column visibility pills, sortable headers, multi-select checkboxes, CSV export, slide-over Create/Edit Drawer, and safe Delete/Archive/Void confirmation modal with mandatory audit reason for accounting records.
+
+

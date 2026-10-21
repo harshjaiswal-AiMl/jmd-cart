@@ -11,7 +11,7 @@ interface VanInventoryItem {
     shortCode: string;
     packSize: number;
     packLabel: string;
-    mrpPaise: number;
+    mrpPaise: number | null;
     company?: { name: string } | null;
   };
   qty: number;
@@ -135,7 +135,7 @@ export function VanStockView({
                     </div>
                     <div className="text-right flex-shrink-0">
                       <span className="text-sm font-bold text-emerald-400">
-                        ₹{(item.product.mrpPaise / 100).toFixed(2)}
+                        ₹{((item.product.mrpPaise ?? 0) / 100).toFixed(2)}
                       </span>
                       <p className="text-[10px] text-slate-400">MRP/pc</p>
                     </div>
@@ -208,7 +208,7 @@ export function VanStockView({
                         {item.qty} pcs
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-slate-300">
-                        ₹{(item.product.mrpPaise / 100).toFixed(2)}
+                        ₹{((item.product.mrpPaise ?? 0) / 100).toFixed(2)}
                       </td>
                     </tr>
                   ))}

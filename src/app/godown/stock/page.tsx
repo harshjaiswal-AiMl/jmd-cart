@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hasPermission, Permission } from "@/modules/auth/permissions";
 import { stockService } from "@/modules/stock/stock.service";
+import Link from "next/link";
 import { StockClient } from "./stock-client";
 
 export default async function GodownStockOverviewPage() {
@@ -40,6 +41,14 @@ export default async function GodownStockOverviewPage() {
             <p className="text-sm text-gray-600">
               Live balances across Godown, Shop, and Sales Vans with low-stock reorder thresholds.
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/godown/stock/update"
+              className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-xs transition"
+            >
+              + Update Stock (Opening / Count / Adjust)
+            </Link>
           </div>
         </div>
 

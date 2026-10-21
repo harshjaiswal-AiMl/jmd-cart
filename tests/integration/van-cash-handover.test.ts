@@ -23,7 +23,7 @@ describe("Task 2.9 Integration Tests: Owner Cash Handover Confirmation & Day Clo
   let shopUser: { id: string; role: UserRole; name: string };
   let centralGodown: { id: string; name: string };
   let testVan: { id: string; name: string };
-  let testProduct: { id: string; name: string; mrpPaise: number; packSize: number };
+  let testProduct: { id: string; name: string; mrpPaise: number | null; packSize: number };
 
   const cleanup = async () => {
     // 1. Clean up payments & invoices on test van

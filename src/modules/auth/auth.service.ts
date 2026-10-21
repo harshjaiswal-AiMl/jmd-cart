@@ -42,39 +42,57 @@ const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 export class AuthService {
   /**
-   * Authenticate a user with phone and password.
+   * Authenticate a user with phone or email and password.
    * Handles attempt rate-limiting / lockout and audit logging.
    */
-  async authenticateWithCredentials(phone: string, password: string, ip?: string) {
-    const cleanPhone = phone.trim();
+  async authenticateWithCredentials(phoneOrEmail: string, password: string, ip?: string) {
+    const cleanInput = phoneOrEmail.trim();
     const now = Date.now();
 
     // 1. Check account lockout
-    const tracker = loginAttempts.get(cleanPhone);
+    const tracker = loginAttempts.get(cleanInput.toLowerCase());
     if (tracker?.lockedUntil && tracker.lockedUntil > now) {
       const minutesRemaining = Math.ceil((tracker.lockedUntil - now) / 60000);
       throw new AccountLockedError(minutesRemaining);
     }
 
-    // 2. Lookup user by phone
-    const user = await prisma.user.findUnique({
-      where: { phone: cleanPhone },
+    // 2. Lookup user by phone OR email (case-insensitive)
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: cleanInput },
+          ...(cleanInput.includes("@")
+            ? [{ email: { equals: cleanInput, mode: "insensitive" as const } }]
+            : []),
+        ],
+      },
     });
 
     if (!user || !user.active) {
-      await this.recordFailedAttempt(cleanPhone, null, ip);
+      await this.recordFailedAttempt(cleanInput.toLowerCase(), null, ip);
       throw new InvalidCredentialsError();
+    }
+
+    // Also check lockout by canonical phone
+    const phoneTracker = loginAttempts.get(user.phone);
+    if (phoneTracker?.lockedUntil && phoneTracker.lockedUntil > now) {
+      const minutesRemaining = Math.ceil((phoneTracker.lockedUntil - now) / 60000);
+      throw new AccountLockedError(minutesRemaining);
     }
 
     // 3. Verify password hash
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      await this.recordFailedAttempt(cleanPhone, user.id, ip);
+      await this.recordFailedAttempt(cleanInput.toLowerCase(), user.id, ip);
+      if (cleanInput.toLowerCase() !== user.phone) {
+        await this.recordFailedAttempt(user.phone, user.id, ip);
+      }
       throw new InvalidCredentialsError();
     }
 
     // 4. Successful login: clear lockout tracker
-    loginAttempts.delete(cleanPhone);
+    loginAttempts.delete(cleanInput.toLowerCase());
+    loginAttempts.delete(user.phone);
 
     // 5. Write audit log
     await auditService.log({

@@ -185,7 +185,7 @@ export class DashboardRepository {
     let totalStockValuationPaise = 0;
     for (const bal of stockBalances) {
       totalStockUnits += bal.qty;
-      totalStockValuationPaise += bal.qty * bal.product.mrpPaise;
+      totalStockValuationPaise += bal.qty * (bal.product.mrpPaise ?? 0);
     }
 
     let totalLowStockCount = 0;
@@ -319,6 +319,112 @@ export class DashboardRepository {
 
     recentActivities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
+    // 8. Getting Started Checklist (driven by real DB data per design.md section 10 & architecture.md section 15)
+    const [
+      businessDetailsSetting,
+      companyCount,
+      categoryCount,
+      productCount,
+      partyCount,
+      staffCount,
+      priceSlabsSetting,
+    ] = await Promise.all([
+      prisma.setting.findUnique({ where: { key: "business_details" } }),
+      prisma.company.count(),
+      prisma.category.count(),
+      prisma.product.count({ where: { active: true } }),
+      prisma.party.count(),
+      prisma.user.count({
+        where: {
+          active: true,
+          role: {
+            notIn: ["SUPER_ADMIN", "CUSTOMER"],
+          },
+        },
+      }),
+      prisma.setting.findUnique({ where: { key: "price_slabs" } }),
+    ]);
+
+    const priceSlabCount = Array.isArray(priceSlabsSetting?.value)
+      ? (priceSlabsSetting.value as Array<{ active?: boolean }>).filter(
+          (s) => s.active !== false
+        ).length
+      : 0;
+
+    const bizVal = (businessDetailsSetting?.value as Record<string, string> | null) || {};
+    const hasBusinessDetails = Boolean(
+      bizVal.legalName && bizVal.legalName.trim().length > 0 && bizVal.address && bizVal.address.trim().length > 0
+    );
+
+    const gettingStartedSteps: OwnerDashboardData["gettingStartedSteps"] = [
+      {
+        id: "business-details",
+        title: "1. Business details",
+        description: hasBusinessDetails
+          ? `${bizVal.tradeName || bizVal.legalName} (${bizVal.address})`
+          : "Configure legal name, trade name (JMD Cart), GSTIN, FSSAI, and address.",
+        done: hasBusinessDetails,
+        actionLabel: hasBusinessDetails ? "Edit details" : "Set business details",
+        actionHref: "/admin/settings",
+      },
+      {
+        id: "companies-categories",
+        title: "2. Companies and categories",
+        description: `${companyCount} companies, ${categoryCount} categories configured.`,
+        done: companyCount > 0 && categoryCount > 0,
+        actionLabel: "Manage brands & categories",
+        actionHref: "/admin/catalog",
+      },
+      {
+        id: "products",
+        title: "3. Add product / Import products",
+        description: `${productCount} active product(s) in catalogue.`,
+        done: productCount > 0,
+        actionLabel: "+ Add product",
+        actionHref: "/admin/catalog",
+        secondaryLabel: "Import products",
+        secondaryHref: "/admin/catalog/import",
+      },
+      {
+        id: "opening-stock",
+        title: "4. Opening stock / Update stock",
+        description: `${totalStockUnits.toLocaleString("en-IN")} piece(s) across locations.`,
+        done: totalStockUnits > 0,
+        actionLabel: "Update stock",
+        actionHref: "/godown/stock/update",
+        secondaryLabel: "+ GRN",
+        secondaryHref: "/godown/purchases/new",
+      },
+      {
+        id: "parties",
+        title: "5. Parties",
+        description: `${partyCount} customer/retailer/supplier party record(s).`,
+        done: partyCount > 0,
+        actionLabel: "+ Add party",
+        actionHref: "/admin/parties",
+        secondaryLabel: "Import Tally CSV",
+        secondaryHref: "/admin/parties/import",
+      },
+      {
+        id: "staff-accounts",
+        title: "6. Staff accounts",
+        description: `${staffCount} staff account(s) (Godown, Shop POS, Van Sales, Delivery, Accounts).`,
+        done: staffCount > 0,
+        actionLabel: "Manage staff",
+        actionHref: "/admin/users",
+      },
+      {
+        id: "settings-slabs",
+        title: "7. Settings (slabs, delivery, discount limits)",
+        description: `${priceSlabCount} active quantity price slab(s) configured.`,
+        done: priceSlabCount > 0,
+        actionLabel: "Configure slabs",
+        actionHref: "/admin/slabs",
+        secondaryLabel: "Settings",
+        secondaryHref: "/admin/settings",
+      },
+    ];
+
     return {
       asOfDate: todayStr,
       metrics: {
@@ -342,6 +448,7 @@ export class DashboardRepository {
         outForDeliveryOrdersCount,
         deliveredOrdersCount,
       },
+      gettingStartedSteps,
       channelBreakdown,
       topSellingProducts,
       criticalAlerts,

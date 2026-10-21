@@ -1,43 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CartSummary } from "@/modules/cart/cart.service";
 import { DeliveryZone } from "@/modules/delivery/delivery.types";
 import { checkoutCartAction, CheckoutActionResult } from "./actions";
-
+import { updateCartQtyAction, removeFromCartAction } from "@/app/store/cart/actions";
 import { PaymentModeSettings } from "@/modules/settings/settings.types";
+import { StoreHeader } from "@/components/store/StoreHeader";
+import { StoreFooter } from "@/components/store/StoreFooter";
 
 interface CheckoutClientProps {
   cart: CartSummary;
   deliveryZones: DeliveryZone[];
   paymentSettings: PaymentModeSettings;
+  categories?: Array<{ id: string; name: string }>;
   isCreditParty?: boolean;
   creditPartyName?: string;
   userPhone?: string;
   userName?: string;
   userAddress?: string;
+  userGstin?: string;
 }
 
-function PlaceOrderButton({ disabled }: { disabled?: boolean }) {
+function PlaceOrderButton({ disabled, isPending }: { disabled?: boolean; isPending?: boolean }) {
   const { pending } = useFormStatus();
+  const loading = pending || isPending;
 
   return (
     <button
       type="submit"
-      disabled={pending || disabled}
-      className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow-md transition-colors disabled:opacity-50 text-center flex items-center justify-center gap-2"
+      disabled={loading || disabled}
+      className="w-full py-3.5 px-5 bg-primary hover:bg-primary-container text-on-primary rounded-xl font-bold text-sm shadow-md transition-all active:scale-[0.99] disabled:opacity-50 text-center flex items-center justify-center gap-2"
     >
-      {pending ? (
+      {loading ? (
         <>
-          <span className="animate-spin text-lg">⏳</span>
+          <span className="material-symbols-outlined text-[18px] animate-spin">hourglass_top</span>
           <span>Placing Order & Reserving Stock...</span>
         </>
       ) : (
         <>
+          <span className="material-symbols-outlined text-[18px]">verified</span>
           <span>Confirm & Place Order</span>
-          <span>✓</span>
+          <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
         </>
       )}
     </button>
@@ -48,25 +55,36 @@ export function CheckoutClient({
   cart,
   deliveryZones,
   paymentSettings,
+  categories = [],
   isCreditParty = false,
-  creditPartyName,
+  creditPartyName = "",
   userPhone = "",
   userName = "",
   userAddress = "",
+  userGstin = "",
 }: CheckoutClientProps) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+
   const [selectedZoneCode, setSelectedZoneCode] = useState<string>(
     deliveryZones.length > 0 ? deliveryZones[0].code : "TOWN"
   );
+  const [selectedSlot, setSelectedSlot] = useState<"evening" | "morning">("evening");
+  const [gstEnabled, setGstEnabled] = useState<boolean>(!!userGstin);
+  const [gstinValue, setGstinValue] = useState<string>(userGstin || "10AAECJ3829K1ZT");
+  const [contactPhone, setContactPhone] = useState<string>(userPhone);
+  const [addressValue, setAddressValue] = useState<string>(
+    userAddress || "Shop No. 4, D.B. Road, Near Shankar Chowk, Saharsa, Bihar - 852201"
+  );
+  const [customerNotes, setCustomerNotes] = useState<string>("");
+  const [cartLines, setCartLines] = useState(cart.lines);
 
-  // Default payment selection based on active settings
   const defaultMode = paymentSettings.codEnabled
     ? "COD"
     : paymentSettings.upiDeliveryEnabled
     ? "UPI_DELIVERY"
     : isCreditParty && paymentSettings.creditEnabledForCreditParties
     ? "CREDIT"
-    : paymentSettings.onlineGatewayEnabled
-    ? "ONLINE_GATEWAY"
     : "COD";
 
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>(defaultMode);
@@ -76,12 +94,18 @@ export function CheckoutClient({
     undefined
   );
 
+  useEffect(() => {
+    if (state?.success && state?.orderId) {
+      router.push(`/store/orders/${state.orderId}`);
+    }
+  }, [state, router]);
+
   const selectedZone = deliveryZones.find((z) => z.code === selectedZoneCode) || deliveryZones[0] || {
     code: "TOWN",
     name: "Saharsa Town",
     minOrderPaise: 50000,
     freeDeliveryThresholdPaise: 200000,
-    deliveryChargePaise: 5000,
+    deliveryChargePaise: 4000,
     estimatedDeliveryHours: 4,
     active: true,
   };
@@ -89,453 +113,598 @@ export function CheckoutClient({
   const isDeliveryFree = cart.totalPaise >= selectedZone.freeDeliveryThresholdPaise;
   const deliveryFeePaise = isDeliveryFree ? 0 : selectedZone.deliveryChargePaise;
   const finalPayablePaise = cart.totalPaise + deliveryFeePaise;
-  const deficitToFreeDeliveryPaise = isDeliveryFree
-    ? 0
-    : Math.max(0, selectedZone.freeDeliveryThresholdPaise - cart.totalPaise);
-  const minOrderMet = cart.totalPaise >= selectedZone.minOrderPaise;
+  const progressPercent = Math.min(
+    100,
+    Math.round((cart.totalPaise / selectedZone.freeDeliveryThresholdPaise) * 100)
+  );
+  const deficitPaise = Math.max(0, selectedZone.freeDeliveryThresholdPaise - cart.totalPaise);
 
-  const mrpTotalRupees = (cart.subtotalPaise / 100).toFixed(2);
-  const discountRupees = (cart.lineDiscountPaise / 100).toFixed(2);
-  const taxableRupees = (cart.taxablePaise / 100).toFixed(2);
-  const taxRupees = (cart.totalTaxPaise / 100).toFixed(2);
-  const itemsTotalRupees = (cart.totalPaise / 100).toFixed(2);
-  const deliveryFeeRupees = (deliveryFeePaise / 100).toFixed(2);
-  const finalPayableRupees = (finalPayablePaise / 100).toFixed(2);
+  const totalSavingsPaise = Math.max(0, cart.subtotalPaise - cart.totalPaise);
+  const savingsPercent =
+    cart.subtotalPaise > 0
+      ? Math.round((totalSavingsPaise / cart.subtotalPaise) * 100)
+      : 0;
 
-  if (state?.success && state.orderNumber) {
-    return (
-      <div className="bg-white rounded-2xl border border-slate-200 p-8 md:p-12 text-center max-w-xl mx-auto shadow-sm space-y-6">
-        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl font-bold">
-          ✓
-        </div>
+  const handleUpdateQty = (productId: string, newQty: number) => {
+    if (newQty < 1) return;
+    startTransition(async () => {
+      await updateCartQtyAction(productId, newQty);
+      setCartLines((prev) =>
+        prev.map((l) =>
+          l.productId === productId
+            ? {
+                ...l,
+                qty: newQty,
+                pricing: {
+                  ...l.pricing,
+                  qty: newQty,
+                  lineTotalPaise: l.pricing.unitPricePaise * newQty,
+                },
+              }
+            : l
+        )
+      );
+      router.refresh();
+    });
+  };
 
-        <div>
-          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-200">
-            Order Placed Successfully
-          </span>
-          <h2 className="text-2xl font-black text-slate-900 mt-2">
-            Order #{state.orderNumber}
-          </h2>
-          <p className="text-sm text-slate-600 mt-2">
-            Thank you, <span className="font-semibold">{userName || "Customer"}</span>! Your order has been placed and inventory is reserved at our Saharsa distribution godown.
-          </p>
-        </div>
-
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-left text-xs space-y-2">
-          <div className="flex justify-between">
-            <span className="text-slate-500">Destination:</span>
-            <span className="font-semibold text-slate-800">{selectedZone.name}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-500">Dispatch Window:</span>
-            <span className="font-semibold text-slate-800">
-              Within {selectedZone.estimatedDeliveryHours || 24} hours
-            </span>
-          </div>
-          <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-sm">
-            <span>Total Payable:</span>
-            <span className="font-mono text-blue-600">₹{finalPayableRupees}</span>
-          </div>
-          <div className="text-[11px] text-slate-500 pt-1">
-            Payment Mode: Cash on Delivery / UPI upon arrival. Dispatcher will verify details before departure.
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
-          <Link
-            href="/store"
-            className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors text-center"
-          >
-            ← Back to Store
-          </Link>
-          <Link
-            href="/store/orders"
-            className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-semibold text-sm transition-colors text-center"
-          >
-            View My Orders
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const handleRemoveItem = (productId: string) => {
+    startTransition(async () => {
+      await removeFromCartAction(productId);
+      setCartLines((prev) => prev.filter((l) => l.productId !== productId));
+      router.refresh();
+    });
+  };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Checkout & Delivery Details</h1>
-          <p className="text-xs text-slate-500">
-            Confirm your destination zone, delivery address, and contact number.
-          </p>
-        </div>
-        <Link
-          href="/store/cart"
-          className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
-        >
-          ← Edit Shopping Cart ({cart.itemsCount} items)
-        </Link>
-      </div>
+    <div className="min-h-screen bg-surface font-body text-on-surface antialiased flex flex-col">
+      {/* Header */}
+      <StoreHeader
+        cartCount={cart.itemsCount}
+        cartTotalRupees={Math.round(cart.totalPaise / 100)}
+        userName={userName}
+        isLoggedIn={true}
+        categories={categories}
+      />
 
-      {state?.error && (
-        <div className="p-4 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-sm font-medium flex items-center gap-2">
-          <span>⚠️</span>
-          <span>{state.error}</span>
-        </div>
-      )}
-
-      <form action={formAction} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Form: Delivery Information */}
-        <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-          <div className="border-b border-slate-100 pb-3">
-            <h3 className="text-base font-bold text-slate-900">1. Delivery Destination & Address</h3>
-            <p className="text-xs text-slate-500">
-              Our Saharsa distribution van fleet will deliver directly to your retail counter or doorstep.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-                Delivery Zone / Destination Area
-              </label>
-              <select
-                name="deliveryZoneCode"
-                value={selectedZoneCode}
-                onChange={(e) => setSelectedZoneCode(e.target.value)}
-                className="mt-1 block w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold text-slate-900 focus:ring-blue-500 focus:border-blue-500"
+      <main className="flex-1 w-full pt-36 bg-surface">
+        <div className="w-full max-w-[1280px] mx-auto px-4 lg:px-8 py-6 space-y-6">
+          {/* Stepper Context Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/store"
+                className="w-9 h-9 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface transition-colors"
+                title="Back to Catalog"
               >
-                {deliveryZones.map((z) => (
-                  <option key={z.code} value={z.code}>
-                    {z.name} (Free delivery above ₹{(z.freeDeliveryThresholdPaise / 100).toFixed(0)})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-                Full Delivery Address & Landmark
-              </label>
-              <textarea
-                name="deliveryAddress"
-                defaultValue={userAddress}
-                required
-                rows={3}
-                placeholder="Shop Name / House No., Landmark, Road/Ward, Saharsa, Bihar - 852201"
-                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+              </Link>
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-                  Contact Mobile Number
-                </label>
-                <input
-                  type="tel"
-                  name="contactPhone"
-                  defaultValue={userPhone}
-                  required
-                  maxLength={10}
-                  placeholder="9876543210"
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-xl text-sm font-mono text-slate-900 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-                  Customer / Business Name
-                </label>
-                <input
-                  type="text"
-                  readOnly
-                  disabled
-                  defaultValue={userName}
-                  className="mt-1 block w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-600 cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-                Delivery Notes / Dispatch Instructions (Optional)
-              </label>
-              <input
-                type="text"
-                name="customerNotes"
-                placeholder="e.g. Call before delivery, deliver in morning before 11 AM"
-                className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Payment Method Selection */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Payment Mode</h3>
-                <p className="text-xs text-slate-500">
-                  Select your preferred settlement method for this delivery.
-                </p>
-              </div>
-              <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 font-semibold rounded-full border border-blue-200">
-                Settlement
-              </span>
-            </div>
-
-            <input type="hidden" name="paymentMode" value={selectedPaymentMode} />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* 1. Cash on Delivery */}
-              {paymentSettings.codEnabled && (
-                <label
-                  onClick={() => setSelectedPaymentMode("COD")}
-                  className={`relative flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                    selectedPaymentMode === "COD"
-                      ? "border-blue-500 bg-blue-50/50 ring-1 ring-blue-500"
-                      : "border-slate-200 bg-white hover:border-slate-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="paymentModeRadio"
-                    value="COD"
-                    checked={selectedPaymentMode === "COD"}
-                    onChange={() => setSelectedPaymentMode("COD")}
-                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">Cash on Delivery</span>
-                      <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold uppercase">
-                        COD
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Hand cash to delivery van agent upon bill verification and receipt generation.
-                    </p>
-                  </div>
-                </label>
-              )}
-
-              {/* 2. UPI QR on Delivery */}
-              {paymentSettings.upiDeliveryEnabled && (
-                <label
-                  onClick={() => setSelectedPaymentMode("UPI_DELIVERY")}
-                  className={`relative flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                    selectedPaymentMode === "UPI_DELIVERY"
-                      ? "border-blue-500 bg-blue-50/50 ring-1 ring-blue-500"
-                      : "border-slate-200 bg-white hover:border-slate-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="paymentModeRadio"
-                    value="UPI_DELIVERY"
-                    checked={selectedPaymentMode === "UPI_DELIVERY"}
-                    onChange={() => setSelectedPaymentMode("UPI_DELIVERY")}
-                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">UPI QR on Delivery</span>
-                      <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded font-bold uppercase">
-                        Van QR
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Scan dynamic delivery boy UPI QR code via Google Pay, PhonePe, or Paytm.
-                    </p>
-                  </div>
-                </label>
-              )}
-
-              {/* 3. Party Credit (Only for verified credit parties) */}
-              {paymentSettings.creditEnabledForCreditParties && isCreditParty && (
-                <label
-                  onClick={() => setSelectedPaymentMode("CREDIT")}
-                  className={`relative flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                    selectedPaymentMode === "CREDIT"
-                      ? "border-blue-500 bg-blue-50/50 ring-1 ring-blue-500"
-                      : "border-slate-200 bg-white hover:border-slate-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="paymentModeRadio"
-                    value="CREDIT"
-                    checked={selectedPaymentMode === "CREDIT"}
-                    onChange={() => setSelectedPaymentMode("CREDIT")}
-                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">Ledger Credit</span>
-                      <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded font-bold uppercase">
-                        Approved
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Charge against verified distributor ledger ({creditPartyName || "Active Credit Account"}).
-                    </p>
-                  </div>
-                </label>
-              )}
-
-              {/* 4. Online Payment Gateway (Disabled/Off by default) */}
-              {paymentSettings.onlineGatewayEnabled ? (
-                <label
-                  onClick={() => setSelectedPaymentMode("ONLINE_GATEWAY")}
-                  className={`relative flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                    selectedPaymentMode === "ONLINE_GATEWAY"
-                      ? "border-blue-500 bg-blue-50/50 ring-1 ring-blue-500"
-                      : "border-slate-200 bg-white hover:border-slate-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="paymentModeRadio"
-                    value="ONLINE_GATEWAY"
-                    checked={selectedPaymentMode === "ONLINE_GATEWAY"}
-                    onChange={() => setSelectedPaymentMode("ONLINE_GATEWAY")}
-                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900">
-                        Online Gateway ({paymentSettings.gatewayProvider.toUpperCase()})
-                      </span>
-                      <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold uppercase">
-                        Live
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Pay instantly with Netbanking, Debit/Credit Card, or Instant UPI.
-                    </p>
-                  </div>
-                </label>
-              ) : (
-                <div className="relative flex items-start gap-3 p-3.5 rounded-xl border border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed">
-                  <input
-                    type="radio"
-                    name="paymentModeRadio"
-                    disabled
-                    className="mt-1 h-4 w-4 text-slate-400 cursor-not-allowed"
-                  />
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-500">Online Payment Gateway</span>
-                      <span className="text-[10px] px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded font-bold uppercase">
-                        Offline / Disabled
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400">
-                      Prepaid gateway payments currently turned off per distributor policy. Please settle on delivery.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-xs text-blue-800 flex items-start gap-2">
-              <span className="text-blue-600 font-bold">ℹ️</span>
-              <div>
-                <span className="font-bold">Distributor Payment Policy:</span> In accordance with FMCG distributor operations in Saharsa, orders are primarily verified at van arrival and settled via Cash or Van QR, unless pre-arranged on approved ledger credit.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Summary Card */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 sticky top-24">
-            <h3 className="text-base font-bold text-slate-900 pb-3 border-b border-slate-100">
-              Order Summary ({cart.itemsCount} Items)
-            </h3>
-
-            {/* Selected Zone Threshold Banner */}
-            {isDeliveryFree ? (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-center gap-2">
-                <span>🎉</span>
-                <span>FREE Delivery applied for {selectedZone.name}!</span>
-              </div>
-            ) : (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
-                <span className="font-bold block">Standard Delivery Fee: ₹{(selectedZone.deliveryChargePaise / 100).toFixed(0)}</span>
-                <p>
-                  Add ₹{(deficitToFreeDeliveryPaise / 100).toFixed(2)} more to qualify for free van delivery.
-                </p>
-              </div>
-            )}
-
-            {!minOrderMet && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 font-semibold">
-                ⚠️ Order total does not meet the minimum order requirement of ₹{(selectedZone.minOrderPaise / 100).toFixed(0)} for {selectedZone.name}.
-              </div>
-            )}
-
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between text-slate-600">
-                <span>Retail MRP Total:</span>
-                <span className="font-mono font-medium">₹{mrpTotalRupees}</span>
-              </div>
-
-              {cart.lineDiscountPaise > 0 && (
-                <div className="flex justify-between text-emerald-600 font-semibold">
-                  <span>Dynamic Slab Discount ({cart.buyerTag}):</span>
-                  <span className="font-mono">- ₹{discountRupees}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between text-slate-600 pt-2 border-t border-slate-100">
-                <span>Taxable Value:</span>
-                <span className="font-mono font-medium">₹{taxableRupees}</span>
-              </div>
-
-              <div className="flex justify-between text-slate-600">
-                <span>GST (CGST + SGST):</span>
-                <span className="font-mono font-medium">₹{taxRupees}</span>
-              </div>
-
-              {cart.roundOffPaise !== 0 && (
-                <div className="flex justify-between text-slate-500">
-                  <span>Round-off:</span>
-                  <span className="font-mono">
-                    {cart.roundOffPaise > 0 ? "+" : ""}₹{(cart.roundOffPaise / 100).toFixed(2)}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex justify-between text-slate-700 pt-2 border-t border-slate-100">
-                <span>Items Subtotal:</span>
-                <span className="font-mono font-medium">₹{itemsTotalRupees}</span>
-              </div>
-
-              <div className="flex justify-between items-center text-slate-700">
-                <span>Delivery Charge:</span>
-                <span className={`font-mono font-semibold ${isDeliveryFree ? "text-emerald-600" : "text-slate-900"}`}>
-                  {isDeliveryFree ? "FREE" : `+ ₹${deliveryFeeRupees}`}
+                <span className="text-xs text-secondary uppercase tracking-widest block font-bold font-headline">
+                  Checkout • Saharsa Ward Hub
                 </span>
-              </div>
-
-              <div className="flex justify-between items-baseline pt-3 border-t border-slate-200 text-slate-900">
-                <span className="text-sm font-bold">Total Amount:</span>
-                <span className="text-2xl font-black font-mono text-blue-600">
-                  ₹{finalPayableRupees}
-                </span>
+                <h1 className="font-headline text-xl lg:text-2xl text-primary font-bold">
+                  Review Your Order • {cart.itemsCount} {cart.itemsCount === 1 ? "Product" : "Products"} ({cart.totalPieces} Pieces)
+                </h1>
               </div>
             </div>
 
-            <div className="pt-2">
-              <PlaceOrderButton disabled={!minOrderMet} />
-            </div>
-
-            <div className="text-[11px] text-slate-400 text-center leading-tight">
-              By confirming, inventory is reserved from Saharsa central warehouse. One combined invoice will be issued upon dispatch.
+            {/* Stepper */}
+            <div className="flex items-center gap-2 bg-surface-container-low px-4 py-2 rounded-xl border border-surface-container-high text-xs">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-on-primary font-bold">1</span>
+              <span className="font-bold text-primary">Basket</span>
+              <span className="text-outline text-xs">→</span>
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-secondary text-on-secondary font-bold">2</span>
+              <span className="font-bold text-secondary">Saharsa Address</span>
+              <span className="text-outline text-xs">→</span>
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-surface-container-high text-on-surface-variant font-bold">3</span>
+              <span className="text-on-surface-variant font-medium">Payment</span>
             </div>
           </div>
+
+          {/* Error Banner */}
+          {state?.error && (
+            <div className="bg-error-container text-on-error-container p-4 rounded-xl flex items-center gap-3 border border-error text-sm font-semibold">
+              <span className="material-symbols-outlined text-[20px]">error</span>
+              <span>{state.error}</span>
+            </div>
+          )}
+
+          {/* Form wrapper */}
+          <form action={formAction}>
+            <input type="hidden" name="deliveryZoneCode" value={selectedZoneCode} />
+            <input type="hidden" name="deliveryAddress" value={addressValue} />
+            <input type="hidden" name="contactPhone" value={contactPhone} />
+            <input
+              type="hidden"
+              name="customerNotes"
+              value={`Slot: ${selectedSlot === "evening" ? "Today 5-8 PM" : "Tomorrow 8-11 AM"}. GST: ${
+                gstEnabled ? gstinValue : "None"
+              }. Mode: ${selectedPaymentMode}. ${customerNotes}`}
+            />
+
+            {/* Main Dual Panel Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* LEFT SECTION (7 cols): Progress + Items + Address + Slot + GST */}
+              <div className="lg:col-span-7 flex flex-col gap-6">
+                {/* Free Delivery Meter Card */}
+                <div className="bg-surface-container-lowest p-5 rounded-xl shadow-sm border border-surface-container-high flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-secondary text-[22px]">local_shipping</span>
+                      <span className="text-xs md:text-sm text-on-surface font-bold">
+                        {isDeliveryFree ? (
+                          <span className="text-tertiary">Congratulations! You unlocked Free Town Delivery!</span>
+                        ) : (
+                          <>
+                            Add <span className="text-secondary font-bold">₹{Math.round(deficitPaise / 100)}</span> more to unlock <span className="text-tertiary font-bold">Free Town Delivery!</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    <span className="text-[11px] bg-tertiary-fixed text-on-tertiary-fixed font-bold px-2.5 py-0.5 rounded-full">
+                      ₹{Math.round(cart.totalPaise / 100)} / ₹{Math.round(selectedZone.freeDeliveryThresholdPaise / 100)}
+                    </span>
+                  </div>
+
+                  {/* Gauge Bar */}
+                  <div className="w-full bg-surface-container-high rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-secondary-container h-full rounded-full transition-all duration-500"
+                      style={{ width: `${progressPercent}%` }}
+                    ></div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-on-surface-variant">
+                    <span>Standard Ward Rate: ₹{Math.round(selectedZone.deliveryChargePaise / 100)}</span>
+                    <span className="text-tertiary font-bold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">bolt</span>
+                      Saharsa Express Ward 1–20 Qualified
+                    </span>
+                  </div>
+                </div>
+
+                {/* Basket Items List */}
+                <div className="bg-surface-container-lowest p-5 rounded-xl shadow-sm border border-surface-container-high flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary text-[22px]">shopping_cart</span>
+                      <h2 className="text-sm font-bold text-on-surface font-headline">
+                        Cart Items ({cartLines.length} Products)
+                      </h2>
+                    </div>
+                    <span className="text-[11px] text-secondary bg-secondary-fixed/50 px-2 py-0.5 rounded font-bold">
+                      Live Mandi Slabs Applied
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {cartLines.map((line) => {
+                      const lineMrp = Math.round(line.mrpPaise / 100);
+                      const linePrice = Math.round(line.pricing.unitPricePaise / 100);
+                      const lineTotal = Math.round(line.pricing.lineTotalPaise / 100);
+                      const perUnitSavings = lineMrp - linePrice;
+
+                      return (
+                        <div
+                          key={line.productId}
+                          className="bg-surface-container-low p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between border border-surface-container-high"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 h-14 rounded-lg bg-surface-container flex items-center justify-center flex-shrink-0 text-primary">
+                              <span className="material-symbols-outlined text-[24px]">inventory_2</span>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] bg-tertiary-fixed text-on-tertiary-fixed px-1.5 py-0.2 rounded font-bold">
+                                  {line.pricing.tier || "CUSTOMER"} Slab
+                                </span>
+                              </div>
+                              <h3 className="text-xs font-bold text-on-surface mt-0.5">
+                                <Link
+                                  href={`/store/products/${line.productId}`}
+                                  className="hover:text-primary transition-colors line-clamp-1"
+                                >
+                                  {line.productName}
+                                </Link>
+                              </h3>
+                              <div className="flex items-baseline gap-2 mt-1">
+                                <span className="text-xs font-bold text-primary font-mono">₹{linePrice}</span>
+                                {perUnitSavings > 0 && (
+                                  <>
+                                    <span className="text-[11px] text-outline line-through">MRP ₹{lineMrp}</span>
+                                    <span className="text-[10px] text-tertiary font-bold">Save ₹{perUnitSavings}/pc</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Stepper & Line Total */}
+                          <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
+                            <div className="flex items-center bg-surface-container-lowest rounded-lg p-1 shadow-sm border border-surface-container-high">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateQty(line.productId, line.qty - 1)}
+                                className="w-7 h-7 flex items-center justify-center text-primary hover:bg-surface-container-low rounded font-bold"
+                              >
+                                -
+                              </button>
+                              <span className="w-8 text-center text-xs font-bold text-on-surface font-mono">
+                                {line.qty}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateQty(line.productId, line.qty + 1)}
+                                className="w-7 h-7 flex items-center justify-center text-primary hover:bg-surface-container-low rounded font-bold"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <div className="text-right min-w-[70px]">
+                              <div className="text-sm font-bold text-on-surface font-mono">₹{lineTotal}</div>
+                              <div className="text-[10px] text-outline">₹{linePrice}/pc</div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(line.productId)}
+                              className="text-outline hover:text-error transition-colors p-1"
+                              title="Remove item"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Suggestion banner */}
+                  <div className="bg-surface-container-low p-3 rounded-lg flex items-center justify-between border border-surface-container-high">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-secondary text-[20px]">add_circle</span>
+                      <span className="text-xs text-on-surface font-semibold">
+                        Need sugar, tea or bulk sacks for wholesale slab savings?
+                      </span>
+                    </div>
+                    <Link href="/store/wholesale" className="text-xs font-bold text-primary hover:underline">
+                      Explore Slabs →
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Delivery Address Card */}
+                <div className="bg-surface-container-lowest p-5 rounded-xl shadow-sm border border-surface-container-high flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-secondary text-[22px]">pin_drop</span>
+                      <h2 className="text-sm font-bold text-on-surface font-headline">Delivery Address (Saharsa Hub)</h2>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="bg-surface-container-low p-4 rounded-xl border border-surface-container-high">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-bold text-on-surface">{userName || "Customer / Kirana Partner"}</span>
+                        <span className="text-[10px] bg-secondary-fixed text-on-secondary-fixed px-2 py-0.2 rounded font-bold">
+                          Saharsa Ward Delivery
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-[11px] text-outline uppercase font-bold block mb-1">
+                            Unloading Shop / Godown Address
+                          </label>
+                          <textarea
+                            rows={2}
+                            value={addressValue}
+                            onChange={(e) => setAddressValue(e.target.value)}
+                            required
+                            className="w-full bg-surface-container-lowest p-2 rounded-lg text-xs text-on-surface border border-outline-variant/40 focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-outline uppercase font-bold block mb-1">
+                            Contact Phone (For Tempo Pilot)
+                          </label>
+                          <input
+                            type="tel"
+                            value={contactPhone}
+                            onChange={(e) => setContactPhone(e.target.value)}
+                            required
+                            placeholder="e.g. 94314XXXXX"
+                            className="w-full sm:w-64 bg-surface-container-lowest p-2 rounded-lg text-xs text-on-surface border border-outline-variant/40 focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Zone Selector */}
+                    <div>
+                      <label className="text-[11px] text-outline uppercase font-bold block mb-1">
+                        Select Saharsa Delivery Zone
+                      </label>
+                      <select
+                        value={selectedZoneCode}
+                        onChange={(e) => setSelectedZoneCode(e.target.value)}
+                        className="w-full bg-surface-container-low p-2.5 rounded-lg text-xs text-on-surface font-semibold border border-surface-container-high focus:outline-none"
+                      >
+                        {deliveryZones.map((z) => (
+                          <option key={z.code} value={z.code}>
+                            {z.name} (Delivery: ₹{Math.round(z.deliveryChargePaise / 100)} • Free above ₹{Math.round(z.freeDeliveryThresholdPaise / 100)})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery Slot Picker */}
+                <div className="bg-surface-container-lowest p-5 rounded-xl shadow-sm border border-surface-container-high flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary text-[22px]">schedule</span>
+                      <h2 className="text-sm font-bold text-on-surface font-headline">Select Fulfillment Slot</h2>
+                    </div>
+                    <span className="text-[11px] text-tertiary font-bold bg-tertiary-fixed/40 px-2 py-0.5 rounded">
+                      30-min Express Available
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div
+                      onClick={() => setSelectedSlot("evening")}
+                      className={`p-3.5 rounded-xl cursor-pointer flex flex-col gap-1 transition-all border ${
+                        selectedSlot === "evening"
+                          ? "bg-primary-fixed/20 border-primary shadow-sm"
+                          : "bg-surface-container-low border-surface-container-high hover:bg-surface-container"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-primary">Today Evening</span>
+                        <span className="text-[10px] bg-tertiary text-on-tertiary px-2 py-0.2 rounded font-bold">Fastest</span>
+                      </div>
+                      <div className="text-sm font-bold text-on-surface">5:00 PM – 8:00 PM</div>
+                      <div className="text-[11px] text-on-surface-variant">Saharsa Local Electric Tempo Dispatch</div>
+                    </div>
+
+                    <div
+                      onClick={() => setSelectedSlot("morning")}
+                      className={`p-3.5 rounded-xl cursor-pointer flex flex-col gap-1 transition-all border ${
+                        selectedSlot === "morning"
+                          ? "bg-primary-fixed/20 border-primary shadow-sm"
+                          : "bg-surface-container-low border-surface-container-high hover:bg-surface-container"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-on-surface">Tomorrow Morning</span>
+                        <span className="text-[10px] text-outline font-semibold">Standard</span>
+                      </div>
+                      <div className="text-sm font-bold text-on-surface">8:00 AM – 11:00 AM</div>
+                      <div className="text-[11px] text-on-surface-variant">Best for kirana bulk restocking</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* GST Invoice Input / Commercial ITC Card */}
+                <div className="bg-surface-container-lowest p-5 rounded-xl shadow-sm border border-surface-container-high flex flex-col gap-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed shrink-0 mt-0.5">
+                        <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+                      </div>
+                      <div>
+                        <h3 className="text-xs md:text-sm font-bold text-on-surface">Input Tax Credit (GST Invoice)</h3>
+                        <p className="text-[11px] text-on-surface-variant">
+                          Claim 100% GSTR-3B tax offset for registered Bihar commercial buyers
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={gstEnabled}
+                        onChange={(e) => setGstEnabled(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-surface-container-high peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+
+                  {gstEnabled && (
+                    <div className="bg-surface-container-low p-4 rounded-xl border border-surface-container-high space-y-2">
+                      <div>
+                        <label className="block text-[10px] text-outline uppercase font-bold mb-1">
+                          Business GSTIN
+                        </label>
+                        <input
+                          type="text"
+                          value={gstinValue}
+                          onChange={(e) => setGstinValue(e.target.value.toUpperCase())}
+                          placeholder="e.g. 10AAECJ3829K1ZT"
+                          className="w-full bg-surface-container-lowest text-xs text-on-surface px-3 py-2 rounded-lg uppercase tracking-wider font-semibold border border-outline-variant/40 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5 text-tertiary text-xs">
+                        <span className="material-symbols-outlined text-[16px]">verified</span>
+                        <span>Commercial tax invoice will include your GSTIN for GSTR-1 input credit.</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* RIGHT SECTION (5 cols): Sticky Summary & Payment */}
+              <div className="lg:col-span-5 flex flex-col gap-6 lg:sticky lg:top-40">
+                {/* Savings Banner */}
+                {totalSavingsPaise > 0 && (
+                  <div className="bg-tertiary text-on-tertiary p-4 rounded-xl shadow-md flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-on-tertiary/20 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-tertiary-fixed text-[22px]">savings</span>
+                      </div>
+                      <div>
+                        <div className="text-xs md:text-sm font-bold">Total Savings: ₹{Math.round(totalSavingsPaise / 100)}</div>
+                        <div className="text-[11px] text-on-tertiary/80">Direct Mandi rates + Slab discounts</div>
+                      </div>
+                    </div>
+                    <span className="text-xs uppercase bg-on-tertiary text-tertiary font-bold px-2 py-1 rounded">
+                      {savingsPercent}% Saved
+                    </span>
+                  </div>
+                )}
+
+                {/* Bill Breakdown Card */}
+                <div className="bg-surface-container-lowest p-5 rounded-xl shadow-sm border border-surface-container-high flex flex-col gap-4">
+                  <h2 className="text-sm font-bold text-on-surface font-headline border-b border-surface-container pb-2">
+                    Price Details (Bill Breakdown)
+                  </h2>
+
+                  <div className="space-y-2 text-xs text-on-surface-variant">
+                    <div className="flex justify-between">
+                      <span>Total Retail MRP</span>
+                      <span className="line-through text-outline font-mono">₹{Math.round(cart.subtotalPaise / 100)}</span>
+                    </div>
+                    <div className="flex justify-between text-tertiary font-semibold">
+                      <span>Wholesale Slab Savings</span>
+                      <span className="font-mono">- ₹{Math.round(totalSavingsPaise / 100)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Taxable Value</span>
+                      <span className="text-on-surface font-mono">₹{Math.round(cart.taxablePaise / 100)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Estimated GST</span>
+                      <span className="text-on-surface font-mono">₹{Math.round(cart.totalTaxPaise / 100)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Delivery Fee ({selectedZone.name})</span>
+                      <span className={isDeliveryFree ? "text-tertiary font-bold" : "text-on-surface font-mono"}>
+                        {isDeliveryFree ? "FREE" : `₹${Math.round(deliveryFeePaise / 100)}`}
+                      </span>
+                    </div>
+
+                    <div className="pt-3 border-t border-surface-container flex items-baseline justify-between text-base font-bold text-on-surface">
+                      <span>Net Payable Amount</span>
+                      <span className="text-primary text-xl font-bold font-mono">
+                        ₹{Math.round(finalPayablePaise / 100)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Payment Mode Selector */}
+                  <div className="pt-2 border-t border-surface-container space-y-2">
+                    <label className="text-[11px] text-outline uppercase font-bold block mb-1">
+                      Payment Choice upon Delivery
+                    </label>
+
+                    {/* Mode 1: COD */}
+                    {paymentSettings.codEnabled && (
+                      <label
+                        onClick={() => setSelectedPaymentMode("COD")}
+                        className={`p-3 rounded-lg flex items-center justify-between cursor-pointer border transition-all ${
+                          selectedPaymentMode === "COD"
+                            ? "bg-primary-fixed/20 border-primary"
+                            : "bg-surface-container-low border-surface-container-high hover:bg-surface-container"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary text-[18px]">payments</span>
+                          <div>
+                            <div className="text-xs font-bold text-on-surface">Cash on Delivery (COD)</div>
+                            <div className="text-[10px] text-on-surface-variant">Pay cash directly to tempo pilot</div>
+                          </div>
+                        </div>
+                        {selectedPaymentMode === "COD" && (
+                          <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                        )}
+                      </label>
+                    )}
+
+                    {/* Mode 2: UPI */}
+                    {paymentSettings.upiDeliveryEnabled && (
+                      <label
+                        onClick={() => setSelectedPaymentMode("UPI_DELIVERY")}
+                        className={`p-3 rounded-lg flex items-center justify-between cursor-pointer border transition-all ${
+                          selectedPaymentMode === "UPI_DELIVERY"
+                            ? "bg-primary-fixed/20 border-primary"
+                            : "bg-surface-container-low border-surface-container-high hover:bg-surface-container"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-primary text-[18px]">qr_code_scanner</span>
+                          <div>
+                            <div className="text-xs font-bold text-on-surface">UPI / QR on Delivery</div>
+                            <div className="text-[10px] text-on-surface-variant">GPay, PhonePe, Paytm on unloading</div>
+                          </div>
+                        </div>
+                        {selectedPaymentMode === "UPI_DELIVERY" && (
+                          <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                        )}
+                      </label>
+                    )}
+
+                    {/* Mode 3: Credit */}
+                    {isCreditParty && (
+                      <label
+                        onClick={() => setSelectedPaymentMode("CREDIT")}
+                        className={`p-3 rounded-lg flex items-center justify-between cursor-pointer border transition-all ${
+                          selectedPaymentMode === "CREDIT"
+                            ? "bg-primary-fixed/20 border-primary"
+                            : "bg-surface-container-low border-surface-container-high hover:bg-surface-container"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-tertiary text-[18px]">account_balance</span>
+                          <div>
+                            <div className="text-xs font-bold text-on-surface">15-Day Merchant Khata ({creditPartyName})</div>
+                            <div className="text-[10px] text-on-surface-variant">Post order to registered credit account</div>
+                          </div>
+                        </div>
+                        {selectedPaymentMode === "CREDIT" && (
+                          <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                        )}
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Order Note */}
+                  <div>
+                    <label className="text-[11px] text-outline uppercase font-bold block mb-1">
+                      Delivery Landmark / Notes (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Near Shankar Chowk, DB Road"
+                      value={customerNotes}
+                      onChange={(e) => setCustomerNotes(e.target.value)}
+                      className="w-full bg-surface-container-low p-2 rounded-lg text-xs text-on-surface border border-surface-container-high focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <PlaceOrderButton disabled={cartLines.length === 0} />
+
+                  <div className="flex items-center justify-center gap-3 text-[11px] text-outline pt-1">
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">lock</span> 256-bit Secure
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">verified</span> 100% Genuine
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
         </div>
-      </form>
+      </main>
+
+      {/* Footer */}
+      <StoreFooter />
     </div>
   );
 }

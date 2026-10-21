@@ -164,3 +164,59 @@ Principle: **our logic, swappable delivery.** We write all verification logic ou
 - OTP/token rules: 6 digits, random, stored hashed, 5-minute expiry, max 5 attempts, per-phone and per-IP rate limit, single use. Email verification uses signed, expiring, single-use tokens.
 - Password reset: by admin for staff; for buyers via verified phone or email when a provider is enabled, else by admin.
 - Login throttling and lockout after repeated failures; all auth events go to the audit log.
+
+## 13. Domains and surface split
+One codebase, one database, two hostnames routed by Next.js `middleware.ts` based on the `Host` header (configurable via `STORE_HOST` and `MANAGEMENT_HOST` env vars):
+- **`jmdcart.com`** (`STORE_HOST`, default `localhost:3000` in dev): public customer/retailer/wholesaler **storefront is the main homepage (`/`)**. Serves `/`, `/c/*`, `/brand/*`, `/p/*`, `/search`, `/cart`, `/checkout`, `/orders/*`, `/account/*`, `/login`. Any request to `/admin`, `/godown`, `/shop`, `/van`, `/delivery`, `/accounts` on the store host returns `404` (never leaks staff routes).
+- **`management.jmdcart.com`** (`MANAGEMENT_HOST`, or `/management` path prefix in local dev when a single host is used): staff portal. Serves `/login` and the role-routed apps: `/admin` (Super Admin), `/godown` (Godown), `/shop` (Shop POS), `/van` (Van PWA), `/delivery` (Delivery PWA), `/accounts` (Accounts). Unauthenticated requests redirect to `/login`.
+- Session cookies are scoped per host (`__Host-` in prod over HTTPS) so a buyer session on `jmdcart.com` never grants access on `management.jmdcart.com`.
+- Both surfaces read and write the **same PostgreSQL database** through the same services (`stock`, `pricing`, `billing`, `orders`), so stock changes in the godown or on a van reflect on `jmdcart.com` immediately.
+
+## 14. Empty start, seeding and first-run setup
+- **Zero dummy data in the app database.** `pnpm db:seed` is idempotent and inserts **reference data only**:
+  - Roles & permissions map.
+  - Default locations: `Godown` (`type = GODOWN`), `Shop` (`type = SHOP`), `Van 1` (`type = VAN`), `Van 2` (`type = VAN`).
+  - Default settings keys (discount limits, slab tier names, verification mode `admin`, delivery charge defaults, auto-convert on) and the `INV` sequence row for the current FY.
+  - Empty `business_details` row (trade name `JMD Cart`, other fields blank until the owner fills them in Settings).
+  - **Never** seeds products, companies, categories, stock balances, stock movements, parties, orders, invoices, or sample users.
+- **First-run bootstrap**:
+  - If `users` has zero `SUPER_ADMIN` rows, `management.jmdcart.com` redirects any request to `/setup` (one-time owner creation screen: name, phone, email, password, business details) **or** the operator runs `pnpm admin:create` (interactive CLI that prompts for phone and password — never a hardcoded default password).
+  - Once one `SUPER_ADMIN` exists, `/setup` is permanently disabled (`404` / `403`).
+- **Test fixtures** live exclusively under `tests/fixtures.ts` and are loaded only against a dedicated test database (`DATABASE_URL` pointing to `idms_test`) inside Vitest / Playwright setup, torn down after the run. They are never imported by `src/` or `prisma/seed.ts`.
+- **Entering stock on day 1 (and ongoing)**: the owner or godown keeper can populate stock in three ways, all calling `stockService.postMovement()` with audit logs:
+  1. **Direct Opening / Stock Update** (`/godown/stock/update` — single product or bulk table/Excel): posts `OPENING_STOCK` or `ADJUSTMENT` (`STOCK_COUNT`) for a chosen location (`Godown` or `Shop`, cartons + loose pieces) with a mandatory reason, **no supplier GRN required**.
+  2. **Purchase / GRN** (`/godown/purchases/new`): when entering a supplier bill.
+  3. **Excel import** (`/admin/catalog/import` for products, `/godown/stock/update` CSV/Excel tab for instant stock uploads with batch undo, `/admin/parties/import` for Tally credit parties).
+
+## 15. A/B/C Price Lists, Brand Sheet Importers, Shared Nav Shell & Admin CRUD Registry (Prompt #06)
+- **A / B / C Price Lists**:
+  - `products` stores `mrp_paise` (nullable), `price_a_paise` (Wholesaler), `price_b_paise` (Retailer), `price_c_paise` (Customer / walk-in / anonymous storefront), `weight`, and `pack_size` (`QTY IN CASE` / `PCS` = pieces per 1 carton).
+  - `resolvePrice(product, buyerType)` in `src/modules/pricing/pricing.service.ts` resolves the unit price across Shop POS, Van billing, Online Storefront, and Orders.
+  - Quantity-tier slab pricing (`enableQuantityTierPricing`) defaults to `false` in `settings` (`pricing_settings`). When enabled by Admin, the customer gets `min(partyTierPrice, quantitySlabPrice)`.
+  - Storefront API and server components strip `priceAPaise` and `priceBPaise` for anonymous and unapproved buyers.
+- **Multi-Sheet Brand Catalog & Price Importer (`/admin/catalog/import`)**:
+  - Zero-dependency `.xlsx` and `.csv` engine (`src/lib/xlsx.ts`) + `brandSheetImportService` (`src/modules/catalog/import/brand-sheet-import.service.ts`).
+  - Auto-detects brand from title rows (ignoring `JAI MATA DI` / `SAHARSA` headers) or sheet tab names (`SALONI`, `DAWAT`, `MDH`), maps `QTY IN CASE` / `PCS` to `packSize`, auto-detects Absolute ₹ vs `% off MRP` (`round_half_up(MRP * (100 - pct) / 100)`), and flags `OK`, `WARNING`, `NEEDS_REVIEW`, `SUSPICIOUS`, and `ERROR` rows with a downloadable multi-sheet `.xlsx` review report.
+- **Instant 1-Step Excel Stock Upload & Batch Undo (`/godown/stock/update`)**:
+  - Accessible to `SUPER_ADMIN`, `ADMIN`, and `GODOWN` (Warehouse Manager restricted to Godown location on the server).
+  - Validates and immediately applies all valid rows in one DB transaction, tagging `StockMovement` rows with `batch_id` (`ImportBatch`).
+  - Supports 1-click **Undo this upload** posting exact reversal ledger movements (blocked by negative-stock guard if stock was subsequently consumed; `GODOWN` restricted to own batches within 24h).
+- **Shared Management App Shell & `src/config/nav.config.ts`**:
+  - Single navigation source of truth (`src/config/nav.config.ts`) with 10 groups (`Dashboard`, `Sales`, `Inventory`, `Van`, `Catalog`, `Parties`, `Delivery`, `Accounts`, `Reports`, `Admin`) rendered by `ManagementShell` (`src/components/layout/management-shell.tsx`).
+- **Reusable Admin CRUD Kit (`src/modules/crud/*`)**:
+  - Entity registry (`crud.registry.ts`) and service (`crud.service.ts`) powering `/admin/crud` and `/admin/crud/[entity]` across all 19 entities with Archive/Void vs Hard Delete protection and full `AuditLog` coverage.
+
+## 16. Google Cloud Production Deployment (Prompt #07 GCP)
+- **Region**: Mumbai (`asia-south1`), Project: `jmd-cart`.
+- **Application**: Cloud Run service `jmd-cart` running Next.js standalone container (`node:20-alpine`, non-root `nextjs` user, port 8080).
+- **Database**: Cloud SQL PostgreSQL 16 (`jmd-cart-db`, Enterprise edition, `db-g1-small`, SSD 10GB, automated 02:00 UTC backups, 7-day point-in-time recovery, SSL required). Connected via `/cloudsql/jmd-cart:asia-south1:jmd-cart-db` Unix domain socket with a connection limit of 5.
+- **Uploads & File Storage**: Cloud Storage bucket `gs://jmd-cart-uploads` mounted directly into Cloud Run container at `/uploads` via Cloud Run second-generation volume mount with versioning and public-access-prevention enforced.
+- **Secrets**: Managed in Google Secret Manager (`AUTH_SECRET`, `SETUP_TOKEN`, `DB_PASSWORD`, `DATABASE_URL`) with runtime accessor permissions for `jmd-cart-run@jmd-cart.iam.gserviceaccount.com`. `SETUP_TOKEN` is recorded in git-ignored `.env.deploy`.
+- **Networking & Domains**:
+  - Global External Application Load Balancer with static IPv4 `136.81.89.67`.
+  - Regional Serverless NEG in `asia-south1` routing to `jmd-cart` Cloud Run service.
+  - Google-Managed SSL Certificate (`jmd-cart-cert`) securing `jmdcart.com`, `management.jmdcart.com`, and `www.jmdcart.com`.
+  - HTTP-to-HTTPS automatic 301 redirect map on port 80.
+  - Host-based routing via `src/middleware.ts`: `jmdcart.com` serves the storefront and returns 404 for staff paths; `management.jmdcart.com` serves all staff interfaces with unauthenticated redirect to `/login`; `www.jmdcart.com` redirects permanently to apex.
+
+

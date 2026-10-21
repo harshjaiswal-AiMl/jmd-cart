@@ -13,12 +13,18 @@ export async function loginAction(
   prevState: LoginActionState | undefined,
   formData: FormData
 ): Promise<LoginActionState | undefined> {
-  const phone = (formData.get("phone") as string)?.trim();
+  const isRedirectError = (err: unknown): boolean => {
+    if (!err || typeof err !== "object") return false;
+    const digest = (err as { digest?: unknown }).digest;
+    return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
+  };
+
+  const phoneOrEmail = (formData.get("phone") as string)?.trim();
   const password = formData.get("password") as string;
   const callbackUrl = (formData.get("callbackUrl") as string)?.trim() || "/";
 
-  if (!phone || phone.length < 10) {
-    return { error: "Please enter a valid 10-digit mobile number" };
+  if (!phoneOrEmail || phoneOrEmail.length < 3) {
+    return { error: "Please enter a valid mobile number or email address" };
   }
 
   if (!password) {
@@ -26,29 +32,37 @@ export async function loginAction(
   }
 
   try {
-    const user = await authService.authenticateWithCredentials(phone, password);
+    const user = await authService.authenticateWithCredentials(phoneOrEmail, password);
     const targetUrl =
       callbackUrl && callbackUrl !== "/"
         ? callbackUrl
         : getDefaultDashboard(user.role);
 
     await signIn("credentials", {
-      phone,
+      phone: user.phone,
       password,
       redirectTo: targetUrl,
     });
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
     if (error instanceof AuthError) {
       switch (error.type) {
         case "CredentialsSignin":
-          return { error: "Invalid phone number or password" };
+          return { error: "Invalid mobile number/email or password" };
         default:
-          return { error: "Authentication failed. Please check credentials or contact administrator." };
+          return {
+            error: "Authentication failed. Please check credentials or contact administrator.",
+          };
       }
     }
-    // Re-throw redirect errors so Next.js can navigate
-    throw error;
+    if (error instanceof Error) {
+      return { error: error.message };
+    }
+    return { error: "Invalid mobile number/email or password" };
   }
 
   return undefined;
 }
+

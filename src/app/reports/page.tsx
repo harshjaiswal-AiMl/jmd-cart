@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import ReportsPage from "@/app/admin/reports/page";
 
-export default function ReportsRedirect() {
-  redirect("/admin/reports");
-}
+export const dynamic = "force-dynamic";
+
+export default ReportsPage;

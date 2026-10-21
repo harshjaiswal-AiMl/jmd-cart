@@ -2,6 +2,10 @@
   "name": "idms",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:lan": "next dev -H 0.0.0.0 --experimental-https",
@@ -14,12 +18,20 @@
     "e2e": "playwright test",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "prisma db seed",
-    "db:reset": "prisma migrate reset --force",
+    "db:seed": "tsx scripts/guard-local-db.ts && prisma db seed",
+    "db:reset": "tsx scripts/guard-local-db.ts && prisma migrate reset --force",
+    "db:verify-empty": "tsx scripts/verify-empty-db.ts",
+    "admin:create": "tsx scripts/create-admin.ts",
     "db:generate": "prisma generate",
     "db:backup": "powershell -File scripts/backup.ps1",
     "db:restore": "powershell -File scripts/restore.ps1",
-    "db:validate-backup": "powershell -File scripts/validate-backup-restore.ps1"
+    "db:validate-backup": "powershell -File scripts/validate-backup-restore.ps1",
+    "gcp:setup": "powershell -ExecutionPolicy Bypass -File scripts/gcp-setup.ps1",
+    "gcp:lb": "powershell -ExecutionPolicy Bypass -File scripts/gcp-lb.ps1",
+    "gcp:deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy-gcp.ps1",
+    "gcp:deploy:build-only": "powershell -ExecutionPolicy Bypass -File scripts/deploy-gcp.ps1 -BuildOnly",
+    "gcp:deploy:migrate": "powershell -ExecutionPolicy Bypass -File scripts/deploy-gcp.ps1 -MigrateOnly",
+    "smoke": "tsx scripts/smoke-prod.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -35,7 +47,7 @@
   },
   "dependencies": {
     "@auth/core": "^0.34.2",
-    "@prisma/client": "^5.21.1",
+    "@prisma/client": "5.22.0",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
     "lucide-react": "^0.453.0",
@@ -50,6 +62,7 @@
     "@playwright/test": "^1.48.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.16.11",
+    "@types/pg": "^8.11.10",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
@@ -57,7 +70,6 @@
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.15",
     "pg": "^8.13.0",
-    "@types/pg": "^8.11.10",
     "postcss": "^8.4.47",
     "prisma": "^5.21.1",
     "tailwindcss": "^3.4.14",

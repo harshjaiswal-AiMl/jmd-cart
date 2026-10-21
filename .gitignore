@@ -25,3 +25,10 @@ test-results/
 
 # Temporary databases or zips
 *.zip
+
+# Deployment environment files
+.env.deploy
+
+# Temporary extraction directories
+temp_design/
+temp_xlsx/

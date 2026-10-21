@@ -69,8 +69,9 @@ export class ReportsRepository {
       const cartonCount = Math.floor(productQty / packSize);
       const looseCount = productQty % packSize;
 
+      const effectiveMrp = product.mrpPaise ?? product.priceCPaise ?? 0;
       // Use product mrpPaise as valuation baseline (or estimated cost base)
-      const costPaise = Math.round(product.mrpPaise * 0.8);
+      const costPaise = Math.round(effectiveMrp * 0.8);
       const lineValuationPaise = productQty * costPaise;
 
       totalUnits += productQty;
@@ -89,7 +90,7 @@ export class ReportsRepository {
         totalQty: productQty,
         cartonCount,
         looseCount,
-        mrpPaise: product.mrpPaise,
+        mrpPaise: effectiveMrp,
         costPaise,
         valuationPaise: lineValuationPaise,
       };

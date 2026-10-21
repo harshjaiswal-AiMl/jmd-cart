@@ -4,8 +4,15 @@ import { prisma } from "@/lib/prisma";
 import { cartService } from "@/modules/cart/cart.service";
 import { deliveryService } from "@/modules/delivery/delivery.service";
 import { settingsService } from "@/modules/settings/settings.service";
+import { storeService } from "@/modules/store/store.service";
 import { CheckoutClient } from "./checkout-client";
-import Link from "next/link";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Review Order & Checkout — Saharsa Express Delivery | JMD Cart",
+  description:
+    "Review your JMD Cart grocery and wholesale order. Express delivery across Saharsa Ward 1-20, GST input tax invoicing, and verified mandi wholesale rates.",
+};
 
 export default async function CheckoutPage() {
   const session = await auth();
@@ -19,14 +26,15 @@ export default async function CheckoutPage() {
     include: { party: true },
   });
 
-  const [cart, deliveryZones, paymentSettings] = await Promise.all([
+  const [cart, deliveryZones, paymentSettings, filterOptions] = await Promise.all([
     cartService.getCartSummary(session.user.id),
     deliveryService.getDeliveryZones(),
     settingsService.getPaymentModeSettings(),
+    storeService.getFilterOptions(),
   ]);
 
   if (!cart || cart.itemsCount === 0) {
-    redirect("/store/cart");
+    redirect("/store");
   }
 
   // Check if buyer has approved credit account with adequate limit
@@ -48,43 +56,17 @@ export default async function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/store" className="text-2xl font-black text-blue-600 tracking-tight">
-              JMD CART
-            </Link>
-            <span className="text-xs bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full font-semibold border border-emerald-200">
-              Secure Checkout
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 text-sm">
-            <Link
-              href="/store/cart"
-              className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              ← Back to Cart
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <CheckoutClient
-          cart={cart}
-          deliveryZones={deliveryZones}
-          paymentSettings={paymentSettings}
-          isCreditParty={isCreditParty}
-          creditPartyName={creditPartyName}
-          userPhone={user?.phone}
-          userName={user?.name}
-          userAddress={user?.party?.address || ""}
-        />
-      </main>
-    </div>
+    <CheckoutClient
+      cart={cart}
+      deliveryZones={deliveryZones}
+      paymentSettings={paymentSettings}
+      categories={filterOptions.categories}
+      isCreditParty={isCreditParty}
+      creditPartyName={creditPartyName}
+      userPhone={user?.phone || ""}
+      userName={user?.party?.name || user?.name || ""}
+      userAddress={user?.party?.address || "Shop No. 4, D.B. Road, Near Shankar Chowk, Saharsa, Bihar - 852201"}
+      userGstin={user?.party?.gstin || ""}
+    />
   );
 }

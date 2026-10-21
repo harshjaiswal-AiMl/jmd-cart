@@ -62,3 +62,24 @@ export const createAuditSchema = z.object({
 });
 
 export type CreateAuditInput = z.infer<typeof createAuditSchema>;
+
+export const openingStockSchema = z.object({
+  productId: z.string().min(1, "Product is required"),
+  locationId: z.string().min(1, "Location is required"),
+  qty: z.number().int().positive("Opening stock quantity must be greater than zero pieces"),
+  reason: z.string().trim().min(3, "Reason is required (at least 3 characters)"),
+  idempotencyKey: z.string().optional(),
+});
+
+export type OpeningStockInput = z.infer<typeof openingStockSchema>;
+
+export const stockCountSetSchema = z.object({
+  productId: z.string().min(1, "Product is required"),
+  locationId: z.string().min(1, "Location is required"),
+  countedQty: z.number().int().min(0, "Counted quantity cannot be negative"),
+  reason: z.string().trim().min(3, "Reason for stock count adjustment is required"),
+  idempotencyKey: z.string().optional(),
+});
+
+export type StockCountSetInput = z.infer<typeof stockCountSetSchema>;
+

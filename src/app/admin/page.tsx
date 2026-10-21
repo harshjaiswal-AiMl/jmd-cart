@@ -32,7 +32,7 @@ export default async function AdminDashboardPage() {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Welcome back, {session.user.name || "Sachin Prakash"}. Real-time business control center for FMCG Distribution in Saharsa.
+            Welcome back, {session.user.name || "Owner"}. Real-time business control center for FMCG distribution.
           </p>
         </div>
 

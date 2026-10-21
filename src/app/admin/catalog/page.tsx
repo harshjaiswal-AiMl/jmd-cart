@@ -17,7 +17,11 @@ export default async function AdminCatalogPage({
     redirect("/login");
   }
 
-  if (session.user.role !== UserRole.SUPER_ADMIN && session.user.role !== UserRole.GODOWN) {
+  if (
+    session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.ADMIN &&
+    session.user.role !== UserRole.GODOWN
+  ) {
     redirect("/login");
   }
 
@@ -38,6 +42,7 @@ export default async function AdminCatalogPage({
     catalogService.listCategories(session.user.role),
   ]);
 
+  const isReadOnly = session.user.role === UserRole.GODOWN;
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8">
@@ -45,7 +50,7 @@ export default async function AdminCatalogPage({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Product Catalog Master</h1>
           <p className="text-sm text-gray-600">
-            Manage FMCG products, pack sizes, MRP, HSN codes, and GST rates.
+            Manage FMCG products, Qty in Case (pack sizes), MRP, and A/B/C price lists.
           </p>
         </div>
 
@@ -53,6 +58,7 @@ export default async function AdminCatalogPage({
           initialProducts={products}
           companies={companies}
           categories={categories}
+          readOnly={isReadOnly}
         />
       </div>
     </div>

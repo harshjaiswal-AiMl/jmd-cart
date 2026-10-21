@@ -13,24 +13,24 @@ function getPool() {
 }
 
 export async function GET() {
-  let dbStatus = "unknown";
+  let isDbOk = false;
   try {
     const p = getPool();
     await p.query("SELECT 1");
-    dbStatus = "connected";
-  } catch (error) {
-    dbStatus = `disconnected: ${(error as Error).message}`;
+    isDbOk = true;
+  } catch {
+    isDbOk = false;
   }
 
-  const isHealthy = dbStatus === "connected";
+  if (isDbOk) {
+    return NextResponse.json(
+      { status: "ok", db: "ok" },
+      { status: 200 }
+    );
+  }
 
   return NextResponse.json(
-    {
-      status: isHealthy ? "ok" : "degraded",
-      timestamp: new Date().toISOString(),
-      database: dbStatus,
-      uptime: process.uptime(),
-    },
-    { status: isHealthy ? 200 : 503 }
+    { status: "error", db: "error" },
+    { status: 503 }
   );
 }

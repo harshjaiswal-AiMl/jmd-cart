@@ -2,13 +2,17 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CartSummary } from "@/modules/cart/cart.service";
 import { DeliveryZone } from "@/modules/delivery/delivery.types";
 import { updateCartQtyAction, removeFromCartAction, clearCartAction } from "./actions";
+import { StoreHeader } from "@/components/store/StoreHeader";
+import { StoreFooter } from "@/components/store/StoreFooter";
 
 interface CartViewClientProps {
   cart: CartSummary;
   deliveryZones?: DeliveryZone[];
+  categories?: Array<{ id: string; name: string }>;
   userPhone?: string;
   userName?: string;
 }
@@ -16,362 +20,309 @@ interface CartViewClientProps {
 export function CartViewClient({
   cart,
   deliveryZones = [],
-  userPhone,
-  userName,
+  categories = [],
+  userName = "",
 }: CartViewClientProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [selectedZoneCode, setSelectedZoneCode] = useState<string>(
-    deliveryZones.length > 0 ? deliveryZones[0].code : "TOWN"
-  );
+  const [cartLines, setCartLines] = useState(cart.lines);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const selectedZone = deliveryZones[0] || {
+    code: "TOWN",
+    name: "Saharsa Town",
+    minOrderPaise: 50000,
+    freeDeliveryThresholdPaise: 200000,
+    deliveryChargePaise: 4000,
+    estimatedDeliveryHours: 4,
+    active: true,
+  };
+
+  const totalPaise = cartLines.reduce((sum, l) => sum + l.pricing.lineTotalPaise, 0);
+  const itemsCount = cartLines.length;
+  const totalPieces = cartLines.reduce((sum, l) => sum + l.qty, 0);
+  const isDeliveryFree = totalPaise >= selectedZone.freeDeliveryThresholdPaise;
+  const deliveryFeePaise = isDeliveryFree ? 0 : selectedZone.deliveryChargePaise;
+  const finalPayablePaise = totalPaise + deliveryFeePaise;
+  const progressPercent = Math.min(100, Math.round((totalPaise / selectedZone.freeDeliveryThresholdPaise) * 100));
+  const deficitPaise = Math.max(0, selectedZone.freeDeliveryThresholdPaise - totalPaise);
+  const totalSavingsPaise = Math.max(0, cart.subtotalPaise - totalPaise);
 
   const handleQtyChange = (productId: string, newQty: number) => {
+    if (newQty < 1) return;
     startTransition(async () => {
       await updateCartQtyAction(productId, newQty);
+      setCartLines((prev) =>
+        prev.map((l) =>
+          l.productId === productId
+            ? {
+                ...l,
+                qty: newQty,
+                pricing: {
+                  ...l.pricing,
+                  qty: newQty,
+                  lineTotalPaise: l.pricing.unitPricePaise * newQty,
+                },
+              }
+            : l
+        )
+      );
+      router.refresh();
     });
   };
 
   const handleRemove = (productId: string) => {
     startTransition(async () => {
       await removeFromCartAction(productId);
+      setCartLines((prev) => prev.filter((l) => l.productId !== productId));
+      setToastMessage("Item removed from cart");
+      setTimeout(() => setToastMessage(null), 2500);
+      router.refresh();
     });
   };
 
   const handleClear = () => {
-    if (confirm("Are you sure you want to clear your cart?")) {
+    if (confirm("Are you sure you want to empty your entire cart?")) {
       startTransition(async () => {
         await clearCartAction();
+        setCartLines([]);
+        router.refresh();
       });
     }
   };
 
-  const selectedZone = deliveryZones.find((z) => z.code === selectedZoneCode) || deliveryZones[0] || {
-    code: "TOWN",
-    name: "Saharsa Town",
-    minOrderPaise: 50000,
-    freeDeliveryThresholdPaise: 200000,
-    deliveryChargePaise: 5000,
-    estimatedDeliveryHours: 4,
-    active: true,
-  };
-
-  const isDeliveryFree = cart.totalPaise >= selectedZone.freeDeliveryThresholdPaise;
-  const deliveryFeePaise = isDeliveryFree ? 0 : selectedZone.deliveryChargePaise;
-  const finalPayablePaise = cart.totalPaise + deliveryFeePaise;
-  const deficitToFreeDeliveryPaise = isDeliveryFree
-    ? 0
-    : Math.max(0, selectedZone.freeDeliveryThresholdPaise - cart.totalPaise);
-
-  const mrpTotalRupees = (cart.subtotalPaise / 100).toFixed(2);
-  const discountRupees = (cart.lineDiscountPaise / 100).toFixed(2);
-  const taxableRupees = (cart.taxablePaise / 100).toFixed(2);
-  const taxRupees = (cart.totalTaxPaise / 100).toFixed(2);
-  const itemsTotalRupees = (cart.totalPaise / 100).toFixed(2);
-  const deliveryFeeRupees = (deliveryFeePaise / 100).toFixed(2);
-  const finalPayableRupees = (finalPayablePaise / 100).toFixed(2);
-
-  const getTierBadge = (tier: string) => {
-    switch (tier) {
-      case "WHOLESALER":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "RETAILER":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
-    }
-  };
-
-  if (cart.itemsCount === 0) {
-    return (
-      <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4 max-w-lg mx-auto shadow-sm">
-        <span className="text-5xl block">🛒</span>
-        <h2 className="text-xl font-bold text-slate-800">Your Cart is Empty</h2>
-        <p className="text-sm text-slate-500">
-          Looks like you haven&apos;t added any FMCG products to your cart yet. Explore our wholesale catalog to unlock quantity discounts.
-        </p>
-        <div className="pt-2">
-          <Link
-            href="/store"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-sm"
-          >
-            <span>Start Shopping</span>
-            <span>→</span>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Buyer Tag / Dynamic Pricing Banner */}
-      <div className="bg-gradient-to-r from-blue-700 to-indigo-800 rounded-2xl p-5 md:p-6 text-white shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
-              Live Order Buyer Classification:
-            </span>
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${getTierBadge(cart.buyerTag)}`}>
-              {cart.buyerTag} PRICING
-            </span>
-          </div>
-          <p className="text-xs text-blue-100 mt-1 max-w-xl">
-            {cart.buyerTag === "WHOLESALER"
-              ? "Wholesaler tier unlocked! You are receiving the distributor's deepest quantity rate across applicable bulk lines."
-              : cart.buyerTag === "RETAILER"
-              ? "Retailer wholesale pricing unlocked! Add full cartons to unlock top wholesaler rates."
-              : "Standard customer rates. Increase order pieces or order full cartons to unlock retailer wholesale slabs!"}
-          </p>
+    <div className="min-h-screen bg-surface font-body text-on-surface antialiased flex flex-col">
+      {toastMessage && (
+        <div className="fixed top-24 right-4 z-50 bg-tertiary text-on-tertiary px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-fade-in text-sm font-semibold border border-tertiary-fixed">
+          <span className="material-symbols-outlined text-[20px]">check_circle</span>
+          <span>{toastMessage}</span>
         </div>
+      )}
 
-        {cart.lineDiscountPaise > 0 && (
-          <div className="bg-white/10 px-4 py-2.5 rounded-xl border border-white/20 text-right backdrop-blur-sm">
-            <div className="text-[11px] text-blue-100 uppercase tracking-wider font-medium">Wholesale Savings</div>
-            <div className="text-lg font-black text-emerald-300 font-mono">₹{discountRupees} OFF</div>
+      {/* Header */}
+      <StoreHeader
+        cartCount={itemsCount}
+        cartTotalRupees={Math.round(totalPaise / 100)}
+        userName={userName}
+        isLoggedIn={true}
+        categories={categories}
+      />
+
+      <main className="flex-1 w-full pt-36 bg-surface">
+        <div className="max-w-[1280px] mx-auto px-4 lg:px-8 py-6 space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <span className="text-xs text-secondary uppercase tracking-widest block font-bold font-headline">
+                Saharsa Quick Commerce & Bulk Slabs
+              </span>
+              <h1 className="font-headline text-2xl lg:text-3xl text-primary font-bold">
+                Your Shopping Cart ({itemsCount} {itemsCount === 1 ? "Item" : "Items"})
+              </h1>
+            </div>
+
+            {cartLines.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClear}
+                disabled={isPending}
+                className="text-xs text-error hover:underline flex items-center gap-1 font-semibold"
+              >
+                <span className="material-symbols-outlined text-[16px]">delete_sweep</span>
+                Empty Cart
+              </button>
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left: Cart Line Items */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-            <h2 className="text-lg font-bold text-slate-900">
-              Order Items ({cart.itemsCount} products, {cart.totalPieces} pcs)
-            </h2>
-            <button
-              onClick={handleClear}
-              disabled={isPending}
-              className="text-xs text-rose-600 hover:text-rose-700 hover:underline font-semibold"
-            >
-              Clear Cart
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {cart.lines.map((line) => {
-              const lineMrpRupees = ((line.mrpPaise * line.qty) / 100).toFixed(2);
-              const lineUnitRupees = (line.pricing.unitPricePaise / 100).toFixed(2);
-              const lineTotalRupees = (line.pricing.lineTotalPaise / 100).toFixed(2);
-              const hasDiscount = line.pricing.slabDiscountBp > 0;
-
-              return (
-                <div
-                  key={line.id}
-                  className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:border-slate-300 transition-colors flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+          {cartLines.length === 0 ? (
+            <div className="bg-surface-container-lowest rounded-2xl border border-surface-container-high p-12 text-center space-y-4 max-w-lg mx-auto shadow-sm">
+              <span className="material-symbols-outlined text-6xl text-primary/40 block">shopping_cart</span>
+              <h2 className="text-xl font-bold text-on-surface font-headline">Your Cart is Empty</h2>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                You haven&apos;t added any FMCG grocery staples or wholesale packs yet. Browse our live catalog with wholesale volume slabs.
+              </p>
+              <div className="pt-2">
+                <Link
+                  href="/store"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs rounded-xl transition-colors shadow-sm"
                 >
-                  {/* Product Info */}
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="w-14 h-14 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center shrink-0 p-1">
-                      {line.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={line.imageUrl}
-                          alt={line.productName}
-                          className="max-h-full max-w-full object-contain"
-                        />
-                      ) : (
-                        <span className="text-xl">🛍️</span>
-                      )}
+                  <span>Explore Products</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left Column: Items (8 cols) */}
+              <div className="lg:col-span-8 space-y-4">
+                {/* Free Delivery Meter */}
+                <div className="bg-surface-container-lowest p-5 rounded-xl shadow-sm border border-surface-container-high flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-secondary text-[22px]">local_shipping</span>
+                      <span className="text-xs md:text-sm text-on-surface font-bold">
+                        {isDeliveryFree ? (
+                          <span className="text-tertiary">Congratulations! You unlocked Free Town Delivery!</span>
+                        ) : (
+                          <>
+                            Add <span className="text-secondary font-bold">₹{Math.round(deficitPaise / 100)}</span> more to unlock <span className="text-tertiary font-bold">Free Delivery!</span>
+                          </>
+                        )}
+                      </span>
                     </div>
+                    <span className="text-[11px] bg-tertiary-fixed text-on-tertiary-fixed font-bold px-2.5 py-0.5 rounded-full">
+                      ₹{Math.round(totalPaise / 100)} / ₹{Math.round(selectedZone.freeDeliveryThresholdPaise / 100)}
+                    </span>
+                  </div>
 
-                    <div className="min-w-0">
-                      <div className="text-[11px] font-mono text-slate-400">
-                        {line.companyName ? `${line.companyName} • ` : ""}
-                        {line.shortCode}
-                      </div>
-                      <Link
-                        href={`/store/products/${line.productId}`}
-                        className="font-bold text-sm text-slate-900 hover:text-blue-600 truncate block"
+                  <div className="w-full bg-surface-container-high rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="bg-secondary-container h-full rounded-full transition-all duration-500"
+                      style={{ width: `${progressPercent}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {/* Cart Items List */}
+                <div className="bg-surface-container-lowest p-5 rounded-xl shadow-sm border border-surface-container-high flex flex-col gap-3">
+                  {cartLines.map((line) => {
+                    const lineMrp = Math.round(line.mrpPaise / 100);
+                    const linePrice = Math.round(line.pricing.unitPricePaise / 100);
+                    const lineTotal = Math.round(line.pricing.lineTotalPaise / 100);
+                    const unitSavings = lineMrp - linePrice;
+
+                    return (
+                      <div
+                        key={line.productId}
+                        className="bg-surface-container-low p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between border border-surface-container-high"
                       >
-                        {line.productName}
-                      </Link>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        Pack: {line.packSize} pcs per {line.packLabel}
-                        <span className="ml-2 font-medium text-slate-700">
-                          ({line.cartonsCount} {line.packLabel}{line.cartonsCount !== 1 ? "s" : ""}
-                          {line.looseCount > 0 ? ` + ${line.looseCount} loose` : ""})
-                        </span>
-                      </div>
-
-                      {hasDiscount && (
-                        <div className="mt-1 flex items-center gap-1.5">
-                          <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded border border-emerald-200">
-                            {(line.pricing.slabDiscountBp / 100).toFixed(0)}% SLAB OFF
-                          </span>
-                          <span className="text-[10px] text-slate-400 line-through font-mono">
-                            MRP ₹{(line.mrpPaise / 100).toFixed(2)}
-                          </span>
+                        <div className="flex items-center gap-3">
+                          <div className="w-14 h-14 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0">
+                            <span className="material-symbols-outlined text-[24px]">inventory_2</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] bg-tertiary-fixed text-on-tertiary-fixed px-1.5 py-0.2 rounded font-bold">
+                              {line.pricing.tier || "CUSTOMER"} Slab
+                            </span>
+                            <h3 className="text-xs font-bold text-on-surface mt-0.5">
+                              <Link
+                                href={`/store/products/${line.productId}`}
+                                className="hover:text-primary transition-colors line-clamp-1"
+                              >
+                                {line.productName}
+                              </Link>
+                            </h3>
+                            <div className="flex items-baseline gap-2 mt-1">
+                              <span className="text-xs font-bold text-primary font-mono">₹{linePrice}</span>
+                              {unitSavings > 0 && (
+                                <>
+                                  <span className="text-[11px] text-outline line-through">MRP ₹{lineMrp}</span>
+                                  <span className="text-[10px] text-tertiary font-bold">Save ₹{unitSavings}/pc</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      )}
+
+                        {/* Controls */}
+                        <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4">
+                          <div className="flex items-center bg-surface-container-lowest rounded-lg p-1 shadow-sm border border-surface-container-high">
+                            <button
+                              type="button"
+                              onClick={() => handleQtyChange(line.productId, line.qty - 1)}
+                              className="w-7 h-7 flex items-center justify-center text-primary hover:bg-surface-container-low rounded font-bold"
+                            >
+                              -
+                            </button>
+                            <span className="w-8 text-center text-xs font-bold text-on-surface font-mono">
+                              {line.qty}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleQtyChange(line.productId, line.qty + 1)}
+                              className="w-7 h-7 flex items-center justify-center text-primary hover:bg-surface-container-low rounded font-bold"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <div className="text-right min-w-[70px]">
+                            <div className="text-sm font-bold text-on-surface font-mono">₹{lineTotal}</div>
+                            <div className="text-[10px] text-outline">₹{linePrice}/pc</div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(line.productId)}
+                            className="text-outline hover:text-error transition-colors p-1"
+                            title="Remove item"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right Column: Order Summary (4 cols) */}
+              <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-40">
+                <div className="bg-surface-container-lowest p-5 rounded-xl shadow-sm border border-surface-container-high flex flex-col gap-4">
+                  <h2 className="text-sm font-bold text-on-surface font-headline border-b border-surface-container pb-2">
+                    Order Summary
+                  </h2>
+
+                  <div className="space-y-2 text-xs text-on-surface-variant">
+                    <div className="flex justify-between">
+                      <span>Total Items</span>
+                      <span className="font-bold text-on-surface">{itemsCount} products ({totalPieces} pcs)</span>
+                    </div>
+                    <div className="flex justify-between text-tertiary font-semibold">
+                      <span>Wholesale Slab Savings</span>
+                      <span className="font-mono">- ₹{Math.round(totalSavingsPaise / 100)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Estimated Delivery</span>
+                      <span className={isDeliveryFree ? "text-tertiary font-bold" : "text-on-surface font-mono"}>
+                        {isDeliveryFree ? "FREE" : `₹${Math.round(deliveryFeePaise / 100)}`}
+                      </span>
+                    </div>
+
+                    <div className="pt-3 border-t border-surface-container flex items-baseline justify-between text-base font-bold text-on-surface">
+                      <span>Estimated Total</span>
+                      <span className="text-primary text-xl font-bold font-mono">
+                        ₹{Math.round(finalPayablePaise / 100)}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Quantity Stepper & Price */}
-                  <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleQtyChange(line.productId, line.qty - 1)}
-                        disabled={isPending}
-                        className="w-8 h-8 rounded-lg border border-slate-300 hover:bg-slate-100 text-sm font-bold flex items-center justify-center transition-colors disabled:opacity-50"
-                      >
-                        -
-                      </button>
-                      <input
-                        type="number"
-                        min="1"
-                        value={line.qty}
-                        onChange={(e) =>
-                          handleQtyChange(line.productId, parseInt(e.target.value) || 1)
-                        }
-                        disabled={isPending}
-                        className="w-16 text-center font-bold text-sm font-mono border border-slate-300 rounded-lg py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                      <button
-                        onClick={() => handleQtyChange(line.productId, line.qty + 1)}
-                        disabled={isPending}
-                        className="w-8 h-8 rounded-lg border border-slate-300 hover:bg-slate-100 text-sm font-bold flex items-center justify-center transition-colors disabled:opacity-50"
-                      >
-                        +
-                      </button>
-                    </div>
+                  <Link
+                    href="/store/checkout"
+                    className="w-full py-3 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm text-center"
+                  >
+                    <span>Proceed to Checkout</span>
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </Link>
 
-                    <div className="text-right min-w-[90px]">
-                      <div className="text-base font-extrabold text-slate-900 font-mono">
-                        ₹{lineTotalRupees}
-                      </div>
-                      <div className="text-[11px] text-slate-500 font-mono">
-                        @ ₹{lineUnitRupees} / pc
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => handleRemove(line.productId)}
-                      disabled={isPending}
-                      className="text-slate-400 hover:text-rose-600 transition-colors p-1"
-                      title="Remove from cart"
-                    >
-                      ✕
-                    </button>
+                  <div className="flex items-center justify-center gap-3 text-[11px] text-outline pt-1">
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">bolt</span> 30 Mins Saharsa
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">receipt_long</span> GST ITC Ready
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+          )}
         </div>
+      </main>
 
-        {/* Right: Order Summary Card */}
-        <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 sticky top-24">
-            <h3 className="text-base font-bold text-slate-900 pb-3 border-b border-slate-100">
-              Price & Tax Breakdown
-            </h3>
-
-            {/* Delivery Destination Zone Selector */}
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-700">Delivery Destination</span>
-                <span className="text-[11px] text-blue-600 font-medium">
-                  {selectedZone.estimatedDeliveryHours ? `~${selectedZone.estimatedDeliveryHours}h dispatch` : "Van delivery"}
-                </span>
-              </div>
-              <select
-                value={selectedZoneCode}
-                onChange={(e) => setSelectedZoneCode(e.target.value)}
-                className="w-full text-xs font-semibold px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-900 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {deliveryZones.map((z) => (
-                  <option key={z.code} value={z.code}>
-                    {z.name} (Free above ₹{(z.freeDeliveryThresholdPaise / 100).toFixed(0)})
-                  </option>
-                ))}
-              </select>
-
-              {/* Free delivery deficit banner */}
-              {isDeliveryFree ? (
-                <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-                  <span>🎉</span>
-                  <span>FREE Delivery Unlocked for {selectedZone.name}!</span>
-                </div>
-              ) : (
-                <div className="text-[11px] text-amber-800 bg-amber-50 px-2.5 py-1.5 rounded-md border border-amber-200 leading-tight">
-                  <span className="font-bold">Add ₹{(deficitToFreeDeliveryPaise / 100).toFixed(2)} more</span> of items for FREE delivery to {selectedZone.name} (Standard fee: ₹{(selectedZone.deliveryChargePaise / 100).toFixed(0)}).
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between text-slate-600">
-                <span>Retail MRP Total:</span>
-                <span className="font-mono font-medium">₹{mrpTotalRupees}</span>
-              </div>
-
-              {cart.lineDiscountPaise > 0 && (
-                <div className="flex justify-between text-emerald-600 font-semibold">
-                  <span>Dynamic Slab Discount:</span>
-                  <span className="font-mono">- ₹{discountRupees}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between text-slate-600 pt-2 border-t border-slate-100">
-                <span>Taxable Amount:</span>
-                <span className="font-mono font-medium">₹{taxableRupees}</span>
-              </div>
-
-              <div className="flex justify-between text-slate-600">
-                <span>GST (CGST + SGST split):</span>
-                <span className="font-mono font-medium">₹{taxRupees}</span>
-              </div>
-
-              {cart.roundOffPaise !== 0 && (
-                <div className="flex justify-between text-slate-500">
-                  <span>Round-off:</span>
-                  <span className="font-mono">
-                    {cart.roundOffPaise > 0 ? "+" : ""}
-                    ₹{(cart.roundOffPaise / 100).toFixed(2)}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex justify-between text-slate-600 pt-2 border-t border-slate-100">
-                <span>Items Subtotal:</span>
-                <span className="font-mono font-medium">₹{itemsTotalRupees}</span>
-              </div>
-
-              <div className="flex justify-between items-center text-slate-700">
-                <span>Delivery Charges ({selectedZone.code}):</span>
-                <span className={`font-mono font-semibold ${isDeliveryFree ? "text-emerald-600" : "text-slate-900"}`}>
-                  {isDeliveryFree ? "FREE" : `+ ₹${deliveryFeeRupees}`}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-baseline pt-3 border-t border-slate-200 text-slate-900">
-                <span className="text-sm font-bold">Estimated Payable:</span>
-                <span className="text-2xl font-black font-mono text-blue-600">
-                  ₹{finalPayableRupees}
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <Link
-                href="/store/checkout"
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-sm transition-colors text-center block"
-              >
-                Proceed to Checkout →
-              </Link>
-            </div>
-
-            <div className="pt-2 text-center">
-              <Link
-                href="/store"
-                className="text-xs text-blue-600 hover:text-blue-700 font-semibold hover:underline"
-              >
-                ← Continue Adding FMCG Products
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Footer */}
+      <StoreFooter />
     </div>
   );
 }

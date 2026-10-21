@@ -94,3 +94,37 @@ pnpm db:validate-backup
 | **"Forbidden: Access Denied" (403)** | Current browser session has a non-admin role (Shop/Van/Delivery) while accessing `/admin/*`. | Click [http://localhost:3000/logout](http://localhost:3000/logout) to clear session, then log in with Owner phone `9876543210`. |
 | **Bluetooth Printer not connecting on phone** | Chrome requires secure origin (HTTPS or localhost) for Web Bluetooth. | Use `pnpm dev:lan` for HTTPS on LAN IP, or install root CA on Android test device. |
 | **Van bill draft not syncing** | Device still in offline airplane mode. | Turn on cellular/Wi-Fi. The Van PWA automatically detects reconnect and syncs queued IndexedDB drafts with idempotency keys. |
+
+---
+
+## 6. Google Cloud Production Operations (Live Environment)
+
+### Domains & Production URLs
+* **Public Storefront:** `https://jmdcart.com`
+* **Staff Management Portal:** `https://management.jmdcart.com`
+* **Apex Redirect:** `https://www.jmdcart.com` → 301 redirect to `https://jmdcart.com`
+* **Static Load Balancer IP:** `136.81.89.67`
+* **GCP Project:** `jmd-cart` | **Region:** `asia-south1` (Mumbai)
+
+### Deploying Updates to Production
+```powershell
+# 1. Build and push new container image
+gcloud builds submit . --tag=asia-south1-docker.pkg.dev/jmd-cart/jmd-cart/jmd-cart:latest --project=jmd-cart
+
+# 2. Deploy revision to Cloud Run
+gcloud run deploy jmd-cart --image=asia-south1-docker.pkg.dev/jmd-cart/jmd-cart/jmd-cart:latest --region=asia-south1 --project=jmd-cart --quiet
+
+# 3. Verify deployment with smoke tests
+pnpm smoke
+```
+
+### Checking Production Logs
+```powershell
+# Read live logs from Cloud Run
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="jmd-cart"' --limit=20 --project=jmd-cart --format="value(textPayload)"
+```
+
+### Checking Managed SSL Certificate
+```powershell
+gcloud compute ssl-certificates describe jmd-cart-cert --global --format="yaml(managed.status,managed.domainStatus)"
+```

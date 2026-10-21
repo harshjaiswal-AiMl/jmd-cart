@@ -419,7 +419,7 @@ export function OrderTrackingClient({
               </div>
 
               <p className="text-xs text-slate-500">
-                Official GST tax invoice issued by Sachin Prakash FMCG Distributor, Saharsa.
+                Official GST tax invoice issued by JMD Cart, Saharsa.
               </p>
 
               <div className="pt-2 flex flex-col gap-2">

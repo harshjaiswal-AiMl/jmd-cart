@@ -5,15 +5,9 @@ import Link from "next/link";
 import { importPartiesFromTallyAction } from "../actions";
 import { TallyPartyImportResult } from "@/modules/party/party.types";
 
-const SAMPLE_TALLY_CSV = `name,parent,phone,gstin,address,creditEnabled,creditLimit,creditDays,openingBalance,tallyRef
-Maa Sharda Kirana Store,Sundry Debtors,9876500001,10ABCDE1234F1Z5,Bazar Saharsa,Yes,50000,15,12500.00 Dr,TALLY-DEBT-01
-Kisan Traders,Sundry Debtors,9876500002,,Main Road Saharsa,Yes,25000,7,2500.00 Cr,TALLY-DEBT-02
-Rupesh Wholesale Bazar,Sundry Debtors,9876500004,10ABCPD9999K1Z2,Station Road Saharsa,Yes,100000,30,45000.00,TALLY-DEBT-03
-Britannia Industries Ltd,Sundry Creditors,9876500003,10AAACB1234P1Z1,Industrial Area Patna,No,0,0,85000.00,TALLY-CRED-01`;
-
 export function PartyImportClient() {
   const [tab, setTab] = useState<"upload" | "paste">("paste");
-  const [rawText, setRawText] = useState(SAMPLE_TALLY_CSV);
+  const [rawText, setRawText] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TallyPartyImportResult | null>(null);

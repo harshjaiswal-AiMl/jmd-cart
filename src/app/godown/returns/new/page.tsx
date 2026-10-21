@@ -63,13 +63,18 @@ export default async function NewReturnPage() {
     }),
   ]);
 
+  const normalizedProducts = products.map((p) => ({
+    ...p,
+    mrpPaise: p.mrpPaise ?? p.priceCPaise ?? 0,
+  }));
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-8">
       <div className="max-w-5xl mx-auto">
         <ReturnForm
           suppliers={suppliers}
           locations={locations}
-          products={products}
+          products={normalizedProducts}
         />
       </div>
     </div>

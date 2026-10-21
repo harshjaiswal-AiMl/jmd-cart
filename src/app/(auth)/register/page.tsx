@@ -146,7 +146,7 @@ export default function RegisterPage() {
               type="tel"
               required
               pattern="[6-9][0-9]{9}"
-              placeholder="9876543210"
+              placeholder="Enter 10-digit mobile number"
               className="mt-1 block w-full px-3 py-2 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] text-xs text-[#2A1010] font-mono"
             />
           </div>

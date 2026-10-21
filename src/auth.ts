@@ -5,7 +5,7 @@ import { authConfig } from "./auth.config";
 import { authService } from "@/modules/auth/auth.service";
 
 const loginSchema = z.object({
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
+  phone: z.string().min(3, "Mobile number or email is required"),
   password: z.string().min(1, "Password is required"),
 });
 

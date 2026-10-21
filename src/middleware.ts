@@ -2,39 +2,58 @@ import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
 import { NextResponse } from "next/server";
 import { canAccessRoute, getDefaultDashboard } from "@/modules/auth/permissions";
+import {
+  evaluateHostRouting,
+  isStaticOrPublicAsset,
+  STAFF_ROUTES,
+  normalizeHost,
+  isStaffRoute,
+} from "@/lib/host-routing";
 
 const { auth } = NextAuth(authConfig);
 
-export { getDefaultDashboard };
+export {
+  getDefaultDashboard,
+  STAFF_ROUTES,
+  normalizeHost,
+  isStaffRoute,
+  evaluateHostRouting,
+  isStaticOrPublicAsset,
+};
 
 export default auth((req) => {
-  const { pathname } = req.nextUrl;
+  const { pathname, search } = req.nextUrl;
+  const host = req.headers.get("host") || "";
   const isLoggedIn = !!req.auth;
   const user = req.auth?.user;
 
-  // Static files, PWA assets and internal routes
+  // Static files, PWA assets and internal health/auth endpoints bypass restrictions
+  if (isStaticOrPublicAsset(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Host-based routing evaluation
+  const decision = evaluateHostRouting(host, pathname, search);
+  if (decision.type === "404") {
+    return new NextResponse("Not Found", { status: 404 });
+  }
+  if (decision.type === "redirect" && decision.destination) {
+    return NextResponse.redirect(new URL(decision.destination, req.url));
+  }
+
+  // Public storefront catalogue & cart browsing, and management hub
+  if (pathname.startsWith("/store") || pathname === "/management") {
+    return NextResponse.next();
+  }
+
+  // Public landing, setup, login, register, and phone verification pages
   if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api/health") ||
-    pathname.startsWith("/api/auth") ||
-    pathname === "/favicon.ico" ||
-    pathname === "/sw.js" ||
-    pathname === "/manifest.webmanifest" ||
-    pathname === "/manifest.json" ||
-    pathname === "/offline" ||
-    pathname === "/logout" ||
-    pathname.startsWith("/icons/")
+    pathname === "/" ||
+    pathname === "/setup" ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/verify-phone"
   ) {
-    return NextResponse.next();
-  }
-
-  // Public storefront catalogue & cart browsing
-  if (pathname.startsWith("/store")) {
-    return NextResponse.next();
-  }
-
-  // Public landing, login, register, and phone verification pages
-  if (pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/verify-phone") {
     if (isLoggedIn && user?.role && pathname === "/register") {
       return NextResponse.redirect(new URL(getDefaultDashboard(user.role), req.url));
     }

@@ -13,10 +13,16 @@ import {
   PaymentModeSettings,
   eInvoiceSettingsSchema,
   EInvoiceSettings,
+  pricingSettingsSchema,
+  PricingSettings,
   AllSettings,
 } from "./settings.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
+
+export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
+  enableQuantityTierPricing: false,
+};
 
 export const DEFAULT_EINVOICE_SETTINGS: EInvoiceSettings = {
   enabled: false,
@@ -39,24 +45,25 @@ export const DEFAULT_PAYMENT_MODE_SETTINGS: PaymentModeSettings = {
 };
 
 export const DEFAULT_BUSINESS_DETAILS: BusinessDetails = {
-  legalName: "JMD Cart Distributors",
-  tradeName: "JMD Cart",
-  gstin: "10AAAAA0000A1Z5",
-  fssai: "10421000000001",
-  address: "Station Road, Saharsa, Bihar - 852201",
-  phone: "9876543210",
-  email: "contact@jmdcart.local",
+  legalName: "",
+  tradeName: "",
+  gstin: "",
+  fssai: "",
+  address: "",
+  phone: "",
+  email: "",
   bankDetails: {
-    bankName: "State Bank of India",
-    accountNumber: "38920192831",
-    ifsc: "SBIN0000171",
-    branch: "Saharsa Main",
+    bankName: "",
+    accountNumber: "",
+    ifsc: "",
+    branch: "",
   },
-  upiId: "jmdcart@sbi",
+  upiId: "",
 };
 
 export const DEFAULT_DISCOUNT_LIMITS: RoleDiscountLimits = {
   SUPER_ADMIN: 10000,
+  ADMIN: 10000,
   SHOP: 500,
   SALESPERSON: 300,
   GODOWN: 0,
@@ -316,6 +323,36 @@ export class SettingsService {
     return parsed;
   }
 
+  async getPricingSettings(): Promise<PricingSettings> {
+    const data = await settingsRepository.getSetting<PricingSettings>("pricing_settings");
+    return data ? { ...DEFAULT_PRICING_SETTINGS, ...data } : DEFAULT_PRICING_SETTINGS;
+  }
+
+  async updatePricingSettings(
+    actorRole: UserRole,
+    actorId: string | null,
+    data: unknown,
+    ip?: string
+  ): Promise<PricingSettings> {
+    assertPermission(actorRole, Permission.MANAGE_SETTINGS);
+    const parsed = pricingSettingsSchema.parse(data);
+
+    const before = await this.getPricingSettings();
+    await settingsRepository.setSetting("pricing_settings", parsed);
+
+    await auditService.log({
+      actorId: actorId ?? null,
+      action: "SETTINGS_PRICING_UPDATED",
+      entity: "Setting",
+      entityId: "pricing_settings",
+      before,
+      after: parsed,
+      ip,
+    });
+
+    return parsed;
+  }
+
   async getAllSettings(): Promise<AllSettings> {
     const [
       businessDetails,
@@ -324,6 +361,7 @@ export class SettingsService {
       verificationSettings,
       paymentModeSettings,
       eInvoiceSettings,
+      pricingSettings,
     ] = await Promise.all([
       this.getBusinessDetails(),
       this.getRoleDiscountLimits(),
@@ -331,6 +369,7 @@ export class SettingsService {
       this.getVerificationSettings(),
       this.getPaymentModeSettings(),
       this.getEInvoiceSettings(),
+      this.getPricingSettings(),
     ]);
 
     return {
@@ -340,6 +379,7 @@ export class SettingsService {
       verificationSettings,
       paymentModeSettings,
       eInvoiceSettings,
+      pricingSettings,
     };
   }
 }

@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -9,12 +10,23 @@ datasource db {
 
 enum UserRole {
   SUPER_ADMIN
+  ADMIN
   GODOWN
   SHOP
   SALESPERSON
   DELIVERY
   ACCOUNTS
   CUSTOMER
+}
+
+enum ImportBatchType {
+  CATALOG
+  STOCK
+}
+
+enum ImportBatchStatus {
+  APPLIED
+  UNDONE
 }
 
 enum LocationType {
@@ -100,37 +112,40 @@ enum OrderStatus {
 
 
 model User {
-  id                 String    @id @default(cuid())
-  branchId           Int       @default(1) @map("branch_id")
+  id                 String     @id @default(cuid())
+  branchId           Int        @default(1) @map("branch_id")
   name               String
-  phone              String    @unique
-  email              String?   @unique
-  passwordHash       String    @map("password_hash")
+  phone              String     @unique
+  email              String?    @unique
+  passwordHash       String     @map("password_hash")
   role               UserRole
-  active             Boolean   @default(true)
-  mustChangePassword Boolean   @default(false) @map("must_change_password")
-  phoneVerifiedAt    DateTime? @map("phone_verified_at")
-  emailVerifiedAt    DateTime? @map("email_verified_at")
-  verificationMode   String?   @map("verification_mode") // "admin", "sms", "off"
-  partyId            String?   @map("party_id")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  active             Boolean    @default(true)
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  phoneVerifiedAt    DateTime?  @map("phone_verified_at")
+  emailVerifiedAt    DateTime?  @map("email_verified_at")
+  verificationMode   String?    @map("verification_mode") // "admin", "sms", "off"
+  partyId            String?    @map("party_id")
+  buyerType          PartyType? @default(CUSTOMER) @map("buyer_type")
+  buyerApproved      Boolean    @default(false) @map("buyer_approved")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
 
-  party              Party?    @relation("UserParty", fields: [partyId], references: [id], onDelete: SetNull)
-  assignedLocations Location[]
-  auditLogs         AuditLog[]
-  createdInvoices   Invoice[]
-  receivedPayments  Payment[]
-  createdPurchases  Purchase[]
+  party              Party?        @relation("UserParty", fields: [partyId], references: [id], onDelete: SetNull)
+  assignedLocations  Location[]
+  auditLogs          AuditLog[]
+  createdInvoices    Invoice[]
+  receivedPayments   Payment[]
+  createdPurchases   Purchase[]
   createdCreditNotes CreditNote[]
-  vanDays           VanDay[]
+  vanDays            VanDay[]
   creditOverrideInvoices Invoice[] @relation("CreditOverrideInvoices")
-  handoversGiven    CashHandover[] @relation("HandoverSalesperson")
-  handoversReceived CashHandover[] @relation("HandoverReceiver")
-  createdDebitNotes DebitNote[]
-  cart              Cart?
-  orders            Order[]        @relation("CustomerOrders")
-  assignedDeliveries Order[]       @relation("DeliveryStaffOrders")
+  handoversGiven     CashHandover[] @relation("HandoverSalesperson")
+  handoversReceived  CashHandover[] @relation("HandoverReceiver")
+  createdDebitNotes  DebitNote[]
+  cart               Cart?
+  orders             Order[]        @relation("CustomerOrders")
+  assignedDeliveries Order[]        @relation("DeliveryStaffOrders")
+  importBatches      ImportBatch[]
 
   @@map("users")
 }
@@ -155,6 +170,7 @@ model Location {
   vanDays        VanDay[]
   payments       Payment[]
   debitNotes     DebitNote[]
+  importBatches  ImportBatch[]
 
   @@map("locations")
 }
@@ -190,11 +206,15 @@ model Product {
   branchId     Int      @default(1) @map("branch_id")
   name         String
   shortCode    String   @unique @map("short_code")
+  weight       String?  @map("weight")
   companyId    String?  @map("company_id")
   categoryId   String?  @map("category_id")
-  hsn          String
+  hsn          String   @default("0000")
   gstRateBp    Int      @default(0) @map("gst_rate_bp")
-  mrpPaise     Int      @map("mrp_paise")
+  mrpPaise     Int?     @map("mrp_paise")
+  priceAPaise  Int?     @map("price_a_paise")
+  priceBPaise  Int?     @map("price_b_paise")
+  priceCPaise  Int?     @map("price_c_paise")
   packSize     Int      @default(1) @map("pack_size")
   packLabel    String   @default("Carton") @map("pack_label")
   reorderLevel Int      @default(0) @map("reorder_level")
@@ -245,20 +265,49 @@ model StockMovement {
   qty            Int
   referenceType  String?      @map("reference_type")
   referenceId    String?      @map("reference_id")
+  batchId        String?      @map("batch_id")
   reason         String?
   meta           Json?
   idempotencyKey String       @unique @map("idempotency_key")
   createdBy      String?      @map("created_by")
   createdAt      DateTime     @default(now()) @map("created_at")
 
-  product      Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
-  fromLocation Location? @relation("FromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
-  toLocation   Location? @relation("ToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  fromLocation Location?    @relation("FromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation   Location?    @relation("ToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+  batch        ImportBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
 
   @@index([productId, createdAt])
   @@index([fromLocationId, createdAt])
   @@index([toLocationId, createdAt])
+  @@index([batchId])
   @@map("stock_movements")
+}
+
+model ImportBatch {
+  id          String            @id @default(cuid())
+  branchId    Int               @default(1) @map("branch_id")
+  type        ImportBatchType
+  filename    String
+  userId      String            @map("user_id")
+  locationId  String?           @map("location_id")
+  mode        String
+  rowsTotal   Int               @default(0) @map("rows_total")
+  rowsApplied Int               @default(0) @map("rows_applied")
+  rowsSkipped Int               @default(0) @map("rows_skipped")
+  status      ImportBatchStatus @default(APPLIED)
+  summary     Json?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  undoneAt    DateTime?         @map("undone_at")
+  undoneBy    String?           @map("undone_by")
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  location    Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  movements   StockMovement[]
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@map("import_batches")
 }
 
 model Sequence {

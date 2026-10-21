@@ -1,18 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import {
+  manualConvertGodownAction,
+  reverseConversionAction,
   transferStockAction,
   cartonBreakAction,
   recordDamageAction,
   adjustStockAction,
   OperationActionResult,
 } from "./actions";
+import type { DailyAutoConvertSummary } from "@/modules/godown/auto-convert.service";
 
 interface OperationsClientProps {
   locations: { id: string; name: string }[];
   products: { id: string; name: string; shortCode: string; packSize: number; packLabel: string }[];
+  autoConvertSummary: DailyAutoConvertSummary;
 }
 
 function ActionButton({ label }: { label: string }) {
@@ -21,15 +26,31 @@ function ActionButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+      className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors cursor-pointer"
     >
       {pending ? "Executing..." : label}
     </button>
   );
 }
 
-export function OperationsClient({ locations, products }: OperationsClientProps) {
-  const [activeTab, setActiveTab] = useState<"transfer" | "break" | "damage" | "adjust">("transfer");
+export function OperationsClient({
+  locations,
+  products,
+  autoConvertSummary,
+}: OperationsClientProps) {
+  const router = useRouter();
+  const [isPendingReverse, startReverseTransition] = useTransition();
+  const [reverseMessage, setReverseMessage] = useState<string | null>(null);
+  const [reverseError, setReverseError] = useState<string | null>(null);
+
+  const [activeTab, setActiveTab] = useState<
+    "autoconvert" | "transfer" | "break" | "damage" | "adjust"
+  >("autoconvert");
+
+  const [manualConvertState, manualConvertFormAction] = useFormState<
+    OperationActionResult | undefined,
+    FormData
+  >(manualConvertGodownAction, undefined);
 
   const [transferState, transferFormAction] = useFormState<OperationActionResult | undefined, FormData>(
     transferStockAction,
@@ -51,18 +72,75 @@ export function OperationsClient({ locations, products }: OperationsClientProps)
   const godownLoc = locations.find((l) => l.name.toLowerCase().includes("godown")) || locations[0];
   const shopLoc = locations.find((l) => l.name.toLowerCase().includes("shop")) || locations[1];
 
+  const [manualProdId, setManualProdId] = useState(products[0]?.id || "");
+  const [manualCartons, setManualCartons] = useState(1);
+  const selectedManualProd = products.find((p) => p.id === manualProdId) || products[0];
+
   const [breakProdId, setBreakProdId] = useState(products[0]?.id || "");
   const [cartons, setCartons] = useState(5);
   const selectedBreakProd = products.find((p) => p.id === breakProdId) || products[0];
 
+  const handleReverse = (auditLogId: string) => {
+    setReverseMessage(null);
+    setReverseError(null);
+    startReverseTransition(async () => {
+      const res = await reverseConversionAction(auditLogId);
+      if (res.error) {
+        setReverseError(res.error);
+      } else {
+        setReverseMessage(res.message || "Conversion reversed successfully.");
+        router.refresh();
+      }
+    });
+  };
+
   return (
     <div className="space-y-6">
+      {/* SAFEGUARD #1: Godown Keeper Notification Banner */}
+      <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">📦</span>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-black uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded">
+                Safeguard #1 • Live Notification
+              </span>
+              <span className="text-sm font-black text-slate-900">
+                Aaj {autoConvertSummary.totalCartonsOpenedToday} carton auto-open hue (+
+                {autoConvertSummary.totalLooseGeneratedToday} loose pieces)
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Jab online order, van issue ya shop transfer me loose pieces chahiye aur Godown me loose kam ho, to system sirf zaroori cartons khud khol deta hai (`carton -N, loose +N×packSize`).
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setActiveTab("autoconvert")}
+          className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition cursor-pointer"
+        >
+          Daily Report &amp; Reverse ({autoConvertSummary.entries.length})
+        </button>
+      </div>
+
       {/* Tab Navigation */}
       <div className="bg-white rounded-xl border border-gray-200 p-2 flex gap-2 overflow-x-auto shadow-sm">
         <button
           type="button"
+          onClick={() => setActiveTab("autoconvert")}
+          className={`py-2 px-4 rounded-lg text-sm font-bold transition-colors cursor-pointer ${
+            activeTab === "autoconvert"
+              ? "bg-amber-50 text-amber-800 border border-amber-300"
+              : "text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          📦 Carton Kholo → Loose &amp; Daily Auto-Convert Report
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab("transfer")}
-          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
             activeTab === "transfer"
               ? "bg-blue-50 text-blue-700 border border-blue-200"
               : "text-gray-600 hover:bg-gray-50"
@@ -73,7 +151,7 @@ export function OperationsClient({ locations, products }: OperationsClientProps)
         <button
           type="button"
           onClick={() => setActiveTab("break")}
-          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
             activeTab === "break"
               ? "bg-blue-50 text-blue-700 border border-blue-200"
               : "text-gray-600 hover:bg-gray-50"
@@ -84,7 +162,7 @@ export function OperationsClient({ locations, products }: OperationsClientProps)
         <button
           type="button"
           onClick={() => setActiveTab("damage")}
-          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
             activeTab === "damage"
               ? "bg-blue-50 text-blue-700 border border-blue-200"
               : "text-gray-600 hover:bg-gray-50"
@@ -95,7 +173,7 @@ export function OperationsClient({ locations, products }: OperationsClientProps)
         <button
           type="button"
           onClick={() => setActiveTab("adjust")}
-          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
+          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
             activeTab === "adjust"
               ? "bg-blue-50 text-blue-700 border border-blue-200"
               : "text-gray-600 hover:bg-gray-50"
@@ -104,6 +182,196 @@ export function OperationsClient({ locations, products }: OperationsClientProps)
           Manual Adjustment
         </button>
       </div>
+
+      {/* Tab 0: Manual Carton Kholo -> Loose + Safeguard #2 Daily Auto-Converted Cartons Report + Safeguard #3 Reverse */}
+      {activeTab === "autoconvert" && (
+        <div className="space-y-6">
+          {/* Manual Carton Kholo -> Loose me Convert Karo (Godown) */}
+          <form
+            action={manualConvertFormAction}
+            className="bg-white p-6 rounded-xl border border-amber-200 shadow-sm space-y-5"
+          >
+            <div className="border-b border-gray-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Carton Kholo → Loose me Convert Karo (Godown Stock)
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Godown ke andar hi carton khol kar loose pieces me convert karein (1 carton = N pieces pack size se auto-calculate). Stock log me entry banegi: <code className="bg-gray-100 px-1 py-0.5 rounded font-mono">carton -N, loose +N×packSize</code>.
+                </p>
+              </div>
+              <span className="text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full">
+                Auto-Convert is ALSO Active on Orders / Van / Transfers
+              </span>
+            </div>
+
+            {manualConvertState?.error && (
+              <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">
+                {manualConvertState.error}
+              </div>
+            )}
+            {manualConvertState?.success && (
+              <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm font-medium">
+                ✓ {manualConvertState.message || "Carton converted to loose in Godown!"}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                  Select Product in Godown
+                </label>
+                <select
+                  name="productId"
+                  value={manualProdId}
+                  onChange={(e) => setManualProdId(e.target.value)}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} (1 Carton = {p.packSize} pcs)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                  Cartons to Open (N)
+                </label>
+                <input
+                  type="number"
+                  name="cartonsToOpen"
+                  min="1"
+                  value={manualCartons}
+                  onChange={(e) => setManualCartons(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                />
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-amber-800 block uppercase font-bold">
+                    Conversion Preview
+                  </span>
+                  <span className="text-sm font-black text-amber-950 font-mono">
+                    carton -{manualCartons}, loose +
+                    {manualCartons * (selectedManualProd?.packSize || 1)}
+                  </span>
+                </div>
+                <ActionButton label="Carton Kholo → Loose" />
+              </div>
+            </div>
+          </form>
+
+          {/* SAFEGUARD #2 & #3: Daily "Auto-Converted Cartons" Report + Reverse Option */}
+          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Safeguard #2 &amp; #3: Daily &ldquo;Auto-Converted Cartons&rdquo; Report
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Har conversion ki poori detail: kitne carton khule, kitne loose bane, kitne order/van me gaye, aur kitne loose Godown me bache. Agar galti se conversion hua ho to Admin/Godown reverse kar sakta hai.
+                </p>
+              </div>
+              <span className="text-xs font-mono bg-slate-100 text-slate-700 px-3 py-1 rounded-lg">
+                Today: {autoConvertSummary.totalCartonsOpenedToday} Cartons → +
+                {autoConvertSummary.totalLooseGeneratedToday} Loose Pcs
+              </span>
+            </div>
+
+            {reverseMessage && (
+              <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold">
+                ✓ {reverseMessage}
+              </div>
+            )}
+            {reverseError && (
+              <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-bold">
+                ✕ {reverseError}
+              </div>
+            )}
+
+            {autoConvertSummary.entries.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500">
+                Aaj abhi tak koi carton auto-convert nahi hua hai. Jab kisi Online Order, Van Issue ya Transfer me Godown loose stock se zyada loose pieces maange jayenge, to system khud carton khol kar yahan entry dikhayega.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50 text-gray-600 uppercase font-bold text-[11px]">
+                      <th className="py-2.5 px-3">Time</th>
+                      <th className="py-2.5 px-3">Product</th>
+                      <th className="py-2.5 px-3">Stock Log Entry</th>
+                      <th className="py-2.5 px-3">Used in Order/Van</th>
+                      <th className="py-2.5 px-3">Loose Left in Godown</th>
+                      <th className="py-2.5 px-3">Reason &amp; Reference</th>
+                      <th className="py-2.5 px-3 text-right">Safeguard #3 Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {autoConvertSummary.entries.map((entry) => (
+                      <tr
+                        key={entry.id}
+                        className={entry.reversed ? "bg-gray-50 opacity-60" : "hover:bg-amber-50/30"}
+                      >
+                        <td className="py-2.5 px-3 font-mono text-gray-500">
+                          {new Date(entry.createdAt).toLocaleTimeString("en-IN", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </td>
+                        <td className="py-2.5 px-3 font-bold text-gray-900">
+                          {entry.productName}
+                          <span className="block text-[10px] font-normal text-gray-500">
+                            1 Carton = {entry.packSize} pcs
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="font-mono font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded">
+                            {entry.logText}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-gray-700">
+                          {entry.looseUsed} pcs
+                        </td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-emerald-700">
+                          {entry.looseRemaining} loose pcs
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className="font-semibold text-gray-800">{entry.reason}</span>
+                          <span className="block text-[10px] font-mono text-gray-500">
+                            {entry.referenceType}: {entry.referenceNumber}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          {entry.reversed ? (
+                            <span className="inline-block px-2 py-0.5 bg-gray-200 text-gray-600 rounded font-bold text-[10px]">
+                              Reversed
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isPendingReverse}
+                              onClick={() => handleReverse(entry.id)}
+                              className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded font-bold text-[11px] transition cursor-pointer disabled:opacity-50"
+                            >
+                              ↩ Reverse
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tab 1: Inter-Location Transfer */}
       {activeTab === "transfer" && (

@@ -213,6 +213,118 @@ export class CatalogService {
 
     return created;
   }
+
+  /**
+   * Inline update of MRP / Price A / Price B / Price C / Pack Size for a single product.
+   */
+  async updateProductPrices(
+    actorRole: UserRole,
+    actorId: string,
+    id: string,
+    prices: {
+      mrpPaise?: number | null;
+      priceAPaise?: number | null;
+      priceBPaise?: number | null;
+      priceCPaise?: number | null;
+      packSize?: number;
+    },
+    ip?: string
+  ): Promise<ProductWithDetails> {
+    assertPermission(actorRole, Permission.MANAGE_PRODUCTS);
+    const before = await catalogRepository.findProductById(id);
+    if (!before) {
+      throw new ProductNotFoundError(id);
+    }
+
+    const updated = await catalogRepository.updateProduct(id, prices);
+
+    await auditService.log({
+      actorId,
+      action: "PRODUCT_PRICES_UPDATED",
+      entity: "Product",
+      entityId: id,
+      before: {
+        mrpPaise: before.mrpPaise,
+        priceAPaise: before.priceAPaise,
+        priceBPaise: before.priceBPaise,
+        priceCPaise: before.priceCPaise,
+        packSize: before.packSize,
+      },
+      after: {
+        mrpPaise: updated.mrpPaise,
+        priceAPaise: updated.priceAPaise,
+        priceBPaise: updated.priceBPaise,
+        priceCPaise: updated.priceCPaise,
+        packSize: updated.packSize,
+      },
+      ip,
+    });
+
+    return updated;
+  }
+
+  /**
+   * Bulk set Price A, B, and C as % off MRP for selected product IDs.
+   */
+  async bulkSetPricesPercentOffMrp(
+    actorRole: UserRole,
+    actorId: string,
+    input: {
+      productIds: string[];
+      pctA: number;
+      pctB: number;
+      pctC: number;
+    },
+    ip?: string
+  ): Promise<{ updatedCount: number; skippedMissingMrp: number }> {
+    assertPermission(actorRole, Permission.MANAGE_PRODUCTS);
+    const { productIds, pctA, pctB, pctC } = input;
+    if (!productIds || productIds.length === 0) {
+      return { updatedCount: 0, skippedMissingMrp: 0 };
+    }
+
+    let updatedCount = 0;
+    let skippedMissingMrp = 0;
+
+    for (const id of productIds) {
+      const product = await catalogRepository.findProductById(id);
+      if (!product) continue;
+      if (product.mrpPaise == null || product.mrpPaise <= 0) {
+        skippedMissingMrp++;
+        continue;
+      }
+
+      const mrp = product.mrpPaise;
+      const priceAPaise = Math.round((mrp * (100 - pctA)) / 100);
+      const priceBPaise = Math.round((mrp * (100 - pctB)) / 100);
+      const priceCPaise = Math.round((mrp * (100 - pctC)) / 100);
+
+      await catalogRepository.updateProduct(id, {
+        priceAPaise,
+        priceBPaise,
+        priceCPaise,
+      });
+      updatedCount++;
+    }
+
+    await auditService.log({
+      actorId,
+      action: "PRODUCT_BULK_PERCENT_OFF_MRP",
+      entity: "Product",
+      entityId: "bulk",
+      after: {
+        productIds,
+        pctA,
+        pctB,
+        pctC,
+        updatedCount,
+        skippedMissingMrp,
+      },
+      ip,
+    });
+
+    return { updatedCount, skippedMissingMrp };
+  }
 }
 
 export const catalogService = new CatalogService();

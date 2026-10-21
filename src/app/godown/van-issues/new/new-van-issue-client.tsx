@@ -76,7 +76,7 @@ export function NewVanIssueClient({ vanLocations, godownProducts }: NewVanIssueC
       const linePieces = counts.cartons * product.packSize + counts.pieces;
       totalCartons += counts.cartons;
       totalPieces += linePieces;
-      totalValuationPaise += linePieces * product.mrpPaise;
+      totalValuationPaise += linePieces * (product.mrpPaise ?? 0);
 
       itemsToSubmit.push({
         productId,
@@ -294,7 +294,7 @@ export function NewVanIssueClient({ vanLocations, godownProducts }: NewVanIssueC
                       </td>
 
                       <td className="px-3 py-2 text-right text-gray-700 font-mono">
-                        ₹{(p.mrpPaise / 100).toFixed(2)}
+                        ₹{((p.mrpPaise ?? 0) / 100).toFixed(2)}
                       </td>
                     </tr>
                   );

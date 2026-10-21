@@ -17,7 +17,7 @@ describe("Task 2.4: Van Billing, Offline Drafts & Idempotent Finalize", () => {
   let godownLoc: { id: string; name: string };
   let vanLoc: { id: string; name: string };
   let salesUser: { id: string; name: string; role: UserRole };
-  let testProduct: { id: string; name: string; mrpPaise: number; packSize: number };
+  let testProduct: { id: string; name: string; mrpPaise: number | null; packSize: number };
   let creditParty: { id: string; name: string; creditLimitPaise: number };
 
   beforeEach(async () => {

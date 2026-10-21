@@ -116,7 +116,6 @@ export class ReportsService {
     filters: PartyAgeingFilter = {}
   ): Promise<PartyAgeingReport> {
     if (
-      !hasPermission(role, Permission.REPORTS_VIEW) &&
       !hasPermission(role, Permission.ACCOUNTS_VIEW) &&
       role !== UserRole.SUPER_ADMIN
     ) {

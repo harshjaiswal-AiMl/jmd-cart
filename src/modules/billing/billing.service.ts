@@ -53,7 +53,8 @@ export class BillingService {
     if (
       !hasPermission(role, Permission.POS_BILL) &&
       !hasPermission(role, Permission.VAN_BILL) &&
-      role !== UserRole.SUPER_ADMIN
+      role !== UserRole.SUPER_ADMIN &&
+      role !== UserRole.ADMIN
     ) {
       throw new ForbiddenError("Not authorized to finalize invoices");
     }
@@ -102,9 +103,10 @@ export class BillingService {
     });
     const hsnMap = new Map(products.map((p) => [p.id, p.hsn]));
 
-    // 3. Compute dynamic order pricing with quantity slabs & order discounts
+    // 3. Compute dynamic order pricing with A/B/C price lists, quantity slabs & order discounts
     const orderPricing = await pricingService.calculateOrderPricing({
       items: validated.items,
+      partyId: validated.partyId ?? null,
       orderDiscountBp: validated.orderDiscountBp,
       isInterState: validated.isInterState,
       userRole: role,

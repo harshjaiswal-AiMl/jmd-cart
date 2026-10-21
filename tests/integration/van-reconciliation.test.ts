@@ -22,8 +22,8 @@ describe("Task 2.8 Integration Tests: Van Evening Return, Reconciliation & Varia
   let shopUser: { id: string; role: UserRole; name: string };
   let centralGodown: { id: string; name: string };
   let testVan: { id: string; name: string };
-  let testProduct1: { id: string; name: string; mrpPaise: number; packSize: number };
-  let testProduct2: { id: string; name: string; mrpPaise: number; packSize: number };
+  let testProduct1: { id: string; name: string; mrpPaise: number | null; packSize: number };
+  let testProduct2: { id: string; name: string; mrpPaise: number | null; packSize: number };
 
   const cleanup = async () => {
     // 1. Clean up payments & invoices on test van

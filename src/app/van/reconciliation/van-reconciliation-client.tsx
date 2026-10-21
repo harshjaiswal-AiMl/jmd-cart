@@ -551,7 +551,7 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                       Cash Handover Confirmed — Day Officially Closed
                     </h3>
                     <p className="text-xs text-slate-400">
-                      Received by <span className="text-white font-medium">{handover?.receivedBy?.name || "Sachin Prakash (Owner)"}</span> • {handover?.confirmedAt ? new Date(handover.confirmedAt).toLocaleDateString("en-IN") : "Today"}
+                      Received by <span className="text-white font-medium">{handover?.receivedBy?.name || "Owner / Accounts"}</span> • {handover?.confirmedAt ? new Date(handover.confirmedAt).toLocaleDateString("en-IN") : "Today"}
                     </p>
                   </div>
                 </div>
@@ -666,7 +666,7 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                     type="text"
                     value={handoverNotes}
                     onChange={(e) => setHandoverNotes(e.target.value)}
-                    placeholder="e.g. Counted in safe room, verified by Sachin Prakash"
+                    placeholder="Enter handover verification remarks"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -711,7 +711,7 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                 Awaiting Owner Cash Handover Confirmation
               </div>
               <p className="text-xs text-slate-300">
-                Unsold stock is reconciled. Please present <strong className="text-emerald-400 font-mono">₹{(financials.totalCashInHandPaise / 100).toFixed(2)}</strong> in cash to Sachin Prakash (Owner) or the accounts manager to officially close this van day.
+                Unsold stock is reconciled. Please present <strong className="text-emerald-400 font-mono">₹{(financials.totalCashInHandPaise / 100).toFixed(2)}</strong> in cash to the Owner or the accounts manager to officially close this van day.
               </p>
             </div>
           )}

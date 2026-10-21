@@ -11,11 +11,19 @@ export default async function NewPurchasePage() {
     redirect("/login");
   }
 
-  if (session.user.role !== UserRole.SUPER_ADMIN && session.user.role !== UserRole.GODOWN) {
+  if (
+    session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.ADMIN &&
+    session.user.role !== UserRole.GODOWN
+  ) {
     redirect("/login");
   }
 
   const { suppliers, locations, products } = await purchaseService.getFormData(session.user.role);
+  const normalizedProducts = products.map((p) => ({
+    ...p,
+    mrpPaise: p.mrpPaise ?? 0,
+  }));
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8">
@@ -23,7 +31,7 @@ export default async function NewPurchasePage() {
         <PurchaseForm
           suppliers={suppliers}
           locations={locations}
-          products={products}
+          products={normalizedProducts}
         />
       </div>
     </div>

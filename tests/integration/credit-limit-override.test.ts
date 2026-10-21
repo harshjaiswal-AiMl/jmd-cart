@@ -19,7 +19,7 @@ describe("Task 2.7 Integration Tests: Credit Limit Enforcement & Owner Override"
   let salesUser: { id: string; role: UserRole; name: string };
   let godownUser: { id: string; role: UserRole; name: string };
   let shopLocation: { id: string; name: string };
-  let testProduct: { id: string; name: string; mrpPaise: number };
+  let testProduct: { id: string; name: string; mrpPaise: number | null };
 
   const cleanup = async () => {
     const parties = await prisma.party.findMany({

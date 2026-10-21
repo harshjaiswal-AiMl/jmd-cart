@@ -71,7 +71,7 @@ export default async function ShopPosPage() {
     categoryName: p.category?.name ?? null,
     hsn: p.hsn,
     gstRateBp: p.gstRateBp,
-    mrpPaise: p.mrpPaise,
+    mrpPaise: p.mrpPaise ?? p.priceCPaise ?? 0,
     packSize: p.packSize,
     packLabel: p.packLabel,
     reorderLevel: p.reorderLevel,

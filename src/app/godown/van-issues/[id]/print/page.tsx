@@ -44,10 +44,9 @@ export default async function PrintVanIssuePage({
 
   vanDay.lines.forEach((line) => {
     const cartons = Math.floor(line.issuedQty / line.product.packSize);
-    const loose = line.issuedQty % line.product.packSize;
     totalCartons += cartons;
     totalPieces += line.issuedQty;
-    totalValuationPaise += line.issuedQty * line.product.mrpPaise;
+    totalValuationPaise += line.issuedQty * (line.product.mrpPaise ?? line.product.priceCPaise ?? 0);
   });
 
   return (
@@ -143,7 +142,8 @@ export default async function PrintVanIssuePage({
                 {vanDay.lines.map((line, idx) => {
                   const cartons = Math.floor(line.issuedQty / line.product.packSize);
                   const loose = line.issuedQty % line.product.packSize;
-                  const lineValuationPaise = line.issuedQty * line.product.mrpPaise;
+                  const lineMrp = line.product.mrpPaise ?? line.product.priceCPaise ?? 0;
+                  const lineValuationPaise = line.issuedQty * lineMrp;
 
                   return (
                     <tr key={line.id} className="hover:bg-gray-50">
@@ -167,7 +167,7 @@ export default async function PrintVanIssuePage({
                         {line.issuedQty}
                       </td>
                       <td className="py-2 px-2 text-right font-mono text-gray-700">
-                        {(line.product.mrpPaise / 100).toFixed(2)}
+                        {(lineMrp / 100).toFixed(2)}
                       </td>
                       <td className="py-2 px-3 text-right font-mono font-medium text-gray-900">
                         {(lineValuationPaise / 100).toFixed(2)}

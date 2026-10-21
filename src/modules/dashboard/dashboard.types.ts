@@ -50,9 +50,21 @@ export interface RecentActivityItem {
   amountPaise?: number;
 }
 
+export interface GettingStartedStep {
+  id: string;
+  title: string;
+  description: string;
+  done: boolean;
+  actionLabel: string;
+  actionHref: string;
+  secondaryLabel?: string;
+  secondaryHref?: string;
+}
+
 export interface OwnerDashboardData {
   asOfDate: string; // IST YYYY-MM-DD
   metrics: DashboardMetricSummary;
+  gettingStartedSteps: GettingStartedStep[];
   channelBreakdown: ChannelSalesBreakdown[];
   topSellingProducts: {
     productId: string;

@@ -29,7 +29,7 @@ export class ConsoleSmsProvider implements SmsProvider {
     const entry = { ...params, timestamp: new Date(), id };
     ConsoleSmsProvider.sentLog.push(entry);
 
-    if (process.env.NODE_ENV !== "test") {
+    if (process.env.NODE_ENV !== "test" && process.env.NODE_ENV !== "production") {
       console.log(`[SMS:ConsoleProvider] To: ${params.toPhone} | Msg: ${params.message}`);
     }
 

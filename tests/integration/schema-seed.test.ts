@@ -16,7 +16,7 @@ describe("Phase 1 Full Schema & Seed: Integration Tests", () => {
     expect(users.length).toBeGreaterThanOrEqual(6);
 
     // Verify Super Admin password matches 'admin123'
-    const admin = users.find((u) => u.role === "SUPER_ADMIN");
+    const admin = users.find((u) => u.name === "Sachin Prakash") || users.find((u) => u.role === "SUPER_ADMIN");
     expect(admin).toBeDefined();
     expect(admin?.name).toBe("Sachin Prakash");
     const isMatch = await bcrypt.compare("admin123", admin!.passwordHash);

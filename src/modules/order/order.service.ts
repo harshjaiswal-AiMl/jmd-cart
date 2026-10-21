@@ -18,6 +18,7 @@ import { assertPermission, hasPermission, Permission, ForbiddenError } from "@/m
 import { getEInvoiceProvider } from "@/lib/e-invoice";
 import { settingsService } from "@/modules/settings/settings.service";
 import { billingRepository } from "@/modules/billing/billing.repository";
+import { autoConvertService } from "@/modules/godown/auto-convert.service";
 import {
   CreateOrderInput,
   createOrderInputSchema,
@@ -466,7 +467,7 @@ export class OrderService {
       where: { type: LocationType.GODOWN, active: true },
     });
 
-    const defaultInvoiceLocationId = shopLocation?.id || godownLocation?.id || "loc-shop-main";
+    const defaultInvoiceLocationId = godownLocation?.id || shopLocation?.id || "loc-godown-main";
 
     const invoice = await prisma.$transaction(async (tx) => {
       // 1. Assign gapless sequence number: INV/26-27/XXXXXX
@@ -476,7 +477,7 @@ export class OrderService {
       const productIds = order.items.map((i) => i.productId);
       const products = await tx.product.findMany({
         where: { id: { in: productIds } },
-        select: { id: true, hsn: true, packSize: true },
+        select: { id: true, name: true, shortCode: true, hsn: true, packSize: true },
       });
       const prodMap = new Map(products.map((p) => [p.id, p]));
 
@@ -522,8 +523,9 @@ export class OrderService {
         },
       });
 
-      // 4. Stock deduction (MovementType.SALE) per PRD Rule:
-      // Orders fulfil from shop (loose pieces) and godown (unopened cartons)
+      // 4. Stock deduction (MovementType.SALE):
+      // Online orders fulfil BOTH cartons and loose pieces from Godown (with auto carton -> loose conversion).
+      // (Falls back to Shop only if Godown has insufficient stock in test fixtures).
       for (const item of order.items) {
         const prod = prodMap.get(item.productId);
         const packSize = prod?.packSize || 1;
@@ -548,7 +550,7 @@ export class OrderService {
               fromLocId = shopLocation?.id || fromLocId;
             }
           } else {
-            fromLocId = shopLocation?.id || "loc-shop-main";
+            fromLocId = shopLocation?.id || "loc-godown-main";
           }
 
           await stockService.postMovement(
@@ -560,7 +562,7 @@ export class OrderService {
               qty: cartonPcs,
               referenceType: "INVOICE",
               referenceId: inv.id,
-              reason: `Order #${order.orderNumber} (Packs) / Invoice #${invoiceNumber}`,
+              reason: `Order #${order.orderNumber} (Cartons) / Invoice #${invoiceNumber}`,
               idempotencyKey: `ord_${order.id}_sale_pack_${item.productId}`,
               actorId,
             },
@@ -568,13 +570,14 @@ export class OrderService {
           );
         }
 
-        // B. Loose pieces: Deduct from Shop (or Godown fallback)
+        // B. Loose pieces: Deduct from Godown first (auto-converting carton -> loose if needed)
         const looseQty = packSize === 1 ? item.qty : loosePieces;
         if (looseQty > 0) {
-          let fromLocId = shopLocation?.id;
+          let fromLocId = godownLocation?.id;
+          let godownQtyBeforeLoose = 0;
 
           if (fromLocId) {
-            const shopBal = await tx.stockBalance.findUnique({
+            const godownBal = await tx.stockBalance.findUnique({
               where: {
                 productId_locationId: {
                   productId: item.productId,
@@ -582,11 +585,30 @@ export class OrderService {
                 },
               },
             });
-            if (!shopBal || shopBal.qty < looseQty) {
-              fromLocId = godownLocation?.id || fromLocId;
+            godownQtyBeforeLoose = godownBal?.qty ?? 0;
+
+            if (!godownBal || godownBal.qty < looseQty) {
+              fromLocId = shopLocation?.id || fromLocId;
             }
           } else {
-            fromLocId = godownLocation?.id || "loc-godown-main";
+            fromLocId = shopLocation?.id || "loc-godown-main";
+          }
+
+          // If fulfilled from Godown and product has packSize > 1, auto-convert carton to loose if loose balance is short
+          if (fromLocId === godownLocation?.id && packSize > 1 && prod) {
+            await autoConvertService.checkAndRecordAutoConvertInTx(tx, {
+              productId: item.productId,
+              productName: prod.name,
+              shortCode: prod.shortCode,
+              packSize,
+              godownLocationId: fromLocId,
+              godownBalanceBefore: godownQtyBeforeLoose,
+              requestedLoosePieces: looseQty,
+              referenceType: "ORDER",
+              referenceId: order.id,
+              referenceNumber: order.orderNumber,
+              actorId,
+            });
           }
 
           await stockService.postMovement(
@@ -598,7 +620,7 @@ export class OrderService {
               qty: looseQty,
               referenceType: "INVOICE",
               referenceId: inv.id,
-              reason: `Order #${order.orderNumber} (Loose) / Invoice #${invoiceNumber}`,
+              reason: `Order #${order.orderNumber} (Godown Loose) / Invoice #${invoiceNumber}`,
               idempotencyKey: `ord_${order.id}_sale_loose_${item.productId}`,
               actorId,
             },

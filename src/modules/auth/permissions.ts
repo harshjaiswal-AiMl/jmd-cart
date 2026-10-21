@@ -67,6 +67,7 @@ export class ForbiddenError extends Error {
  */
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   SUPER_ADMIN: Object.values(Permission),
+  ADMIN: Object.values(Permission),
 
   GODOWN: [
     Permission.VIEW_PRODUCTS,
@@ -81,6 +82,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RETURN_TO_COMPANY,
     Permission.VIEW_ORDERS,
     Permission.MANAGE_ORDERS,
+    Permission.REPORTS_VIEW,
   ],
 
   SHOP: [
@@ -132,11 +134,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
  */
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   SUPER_ADMIN: ["/admin", "/godown", "/shop", "/van", "/delivery", "/accounts", "/reports"],
-  GODOWN: ["/godown"],
-  SHOP: ["/shop"],
+  ADMIN: ["/admin", "/godown", "/shop", "/van", "/delivery", "/accounts", "/reports"],
+  GODOWN: ["/godown", "/admin/catalog", "/admin/reports", "/reports"],
+  SHOP: ["/shop", "/admin/parties"],
   SALESPERSON: ["/van"],
   DELIVERY: ["/delivery"],
-  ACCOUNTS: ["/accounts", "/admin/reports", "/godown/returns"],
+  ACCOUNTS: ["/accounts", "/admin/reports", "/admin/parties", "/godown/returns", "/reports"],
   CUSTOMER: ["/store"],
 };
 
@@ -163,8 +166,17 @@ export function assertPermission(role: UserRole, permission: Permission): void {
  * Check if a role can navigate to a given route pathname.
  */
 export function canAccessRoute(role: UserRole, pathname: string): boolean {
-  if (role === UserRole.SUPER_ADMIN) {
+  if (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN) {
     return true;
+  }
+
+  // GODOWN cannot access /admin/catalog/import or /admin/catalog/price-lists
+  if (
+    role === UserRole.GODOWN &&
+    (pathname.startsWith("/admin/catalog/import") ||
+      pathname.startsWith("/admin/catalog/price-lists"))
+  ) {
+    return false;
   }
 
   const allowedPrefixes = ROLE_ALLOWED_ROUTES[role] ?? [];
@@ -177,6 +189,7 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
 export function getDefaultDashboard(role?: UserRole): string {
   switch (role) {
     case UserRole.SUPER_ADMIN:
+    case UserRole.ADMIN:
       return "/admin";
     case UserRole.GODOWN:
       return "/godown";

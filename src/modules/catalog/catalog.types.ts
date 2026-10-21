@@ -9,17 +9,25 @@ export const createProductSchema = z.object({
   shortCode: z
     .string()
     .min(2, "Short code must be at least 2 characters")
-    .max(30)
+    .max(60)
     .regex(/^[A-Za-z0-9\-_.]+$/, "Short code may only contain letters, numbers, hyphens, underscores and dots")
     .transform((val) => val.toUpperCase()),
+  weight: z.string().max(40).nullable().optional(),
   companyId: z.string().cuid().nullable().optional(),
   categoryId: z.string().cuid().nullable().optional(),
-  hsn: z.string().regex(hsnRegex, "HSN must be 4 to 8 numeric digits"),
-  gstRateBp: z.number().int().refine((val) => ALLOWED_GST_RATES_BP.includes(val as any), {
-    message: "GST rate must be standard Indian GST slab (0, 500, 1200, 1800, or 2800 bp)",
-  }),
-  mrpPaise: z.number().int().positive("MRP must be greater than zero"),
-  packSize: z.number().int().min(1, "Pack size must be at least 1 piece"),
+  hsn: z.string().regex(hsnRegex, "HSN must be 4 to 8 numeric digits").default("0000"),
+  gstRateBp: z
+    .number()
+    .int()
+    .refine((val) => ALLOWED_GST_RATES_BP.includes(val as any), {
+      message: "GST rate must be standard Indian GST slab (0, 500, 1200, 1800, or 2800 bp)",
+    })
+    .default(0),
+  mrpPaise: z.number().int().positive("MRP must be greater than zero").nullable().optional(),
+  priceAPaise: z.number().int().nonnegative().nullable().optional(),
+  priceBPaise: z.number().int().nonnegative().nullable().optional(),
+  priceCPaise: z.number().int().nonnegative().nullable().optional(),
+  packSize: z.number().int().min(1, "Pack size must be at least 1 piece").default(1),
   packLabel: z.string().min(1).default("Carton"),
   reorderLevel: z.number().int().min(0).default(0),
   imageUrl: z.string().url().nullable().optional(),

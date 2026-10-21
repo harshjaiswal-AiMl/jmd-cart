@@ -59,7 +59,7 @@ export default async function StorePage({
   }
 
   return (
-    <div className="min-h-screen bg-[#FEFDF7] text-[#2A1010] font-sans antialiased">
+    <div className="min-h-screen bg-surface text-on-surface font-body antialiased">
       {/* Verification Notice Banner if logged in and pending verification */}
       {user && !user.phoneVerifiedAt && (
         <div className="bg-[#FFF1D6] border-b border-[#FDAF18]/50 py-2.5 px-4 text-xs">

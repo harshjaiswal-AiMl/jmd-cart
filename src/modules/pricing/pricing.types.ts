@@ -65,8 +65,46 @@ export interface ResolvedLinePrice {
   tier: BuyerTier;
 }
 
+export type PriceListCode = "A" | "B" | "C" | "MRP";
+
+export interface ProductPricingFields {
+  id?: string;
+  mrpPaise: number | null;
+  priceAPaise?: number | null;
+  priceBPaise?: number | null;
+  priceCPaise?: number | null;
+}
+
+export interface ResolvePriceOptions {
+  /** If true, and quantitySlabPricePaise is provided, takes Math.min(partyListPrice, quantitySlabPrice) */
+  enableQuantityTierPricing?: boolean;
+  /** Optional quantity slab price in paise */
+  quantitySlabPricePaise?: number | null;
+  /** Optional quantity slab tier */
+  quantitySlabTier?: BuyerTier | null;
+  /** Whether the user is an approved buyer (only needed on storefront; staff POS/Van always trust party type) */
+  buyerApproved?: boolean;
+}
+
+export interface ResolvedPriceResult {
+  unitPricePaise: number;
+  mrpPaise: number;
+  listUsed: PriceListCode;
+  effectiveBuyerTier: BuyerTier;
+  discountFromMrpPaise: number;
+  discountFromMrpBp: number;
+}
+
+export interface PriceOrderingWarning {
+  code: "A_GT_B" | "B_GT_C" | "C_GT_MRP" | "A_GT_C" | "A_GT_MRP" | "B_GT_MRP";
+  message: string;
+}
+
 export interface CalculateOrderPriceInput {
-  items: Array<{ productId: string; qty: number }>;
+  items: Array<{ productId: string; qty: number; unitPriceOverridePaise?: number }>;
+  partyId?: string | null;
+  buyerType?: BuyerTier | "SUPPLIER" | null;
+  buyerApproved?: boolean;
   orderDiscountBp?: number;
   isInterState?: boolean;
   userRole?: UserRole;
@@ -101,3 +139,4 @@ export interface OrderPriceResult {
   requiresDiscountApproval: boolean;
   discountApprovalReason?: string;
 }
+

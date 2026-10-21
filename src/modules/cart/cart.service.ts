@@ -158,18 +158,24 @@ export class CartService {
   async getCartSummary(userId: string): Promise<CartSummary> {
     const cart = await this.getOrCreateCart(userId);
 
-    const cartItems = await prisma.cartItem.findMany({
-      where: { cartId: cart.id },
-      include: {
-        product: {
-          include: {
-            company: true,
-            category: true,
+    const [cartItems, user] = await Promise.all([
+      prisma.cartItem.findMany({
+        where: { cartId: cart.id },
+        include: {
+          product: {
+            include: {
+              company: true,
+              category: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: "asc" },
-    });
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        include: { party: true },
+      }),
+    ]);
 
     if (cartItems.length === 0) {
       return {
@@ -194,8 +200,18 @@ export class CartService {
       qty: item.qty,
     }));
 
+    const userBuyerType = (user?.party?.type ?? user?.buyerType ?? "CUSTOMER") as BuyerTier;
+    const isApprovedBuyer = Boolean(
+      user?.buyerApproved ||
+      user?.phoneVerifiedAt ||
+      (user?.role && user.role !== "CUSTOMER")
+    );
+
     const orderPricing = await pricingService.calculateOrderPricing({
       items: pricingItems,
+      partyId: user?.partyId ?? null,
+      buyerType: userBuyerType,
+      buyerApproved: isApprovedBuyer,
     });
 
     // Map calculated lines back to cart items with product metadata
@@ -205,6 +221,12 @@ export class CartService {
       const linePricing = lineMap.get(item.productId)!;
       const cartonsCount = Math.floor(item.qty / item.product.packSize);
       const looseCount = item.qty % item.product.packSize;
+      const effectiveMrp =
+        item.product.mrpPaise ??
+        item.product.priceCPaise ??
+        item.product.priceBPaise ??
+        item.product.priceAPaise ??
+        0;
 
       return {
         id: item.id,
@@ -219,7 +241,7 @@ export class CartService {
         cartonsCount,
         looseCount,
         qty: item.qty,
-        mrpPaise: item.product.mrpPaise,
+        mrpPaise: effectiveMrp,
         gstRateBp: item.product.gstRateBp,
         pricing: linePricing,
       };

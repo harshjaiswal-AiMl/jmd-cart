@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { OwnerDashboardData } from "@/modules/dashboard/dashboard.types";
 import {
@@ -25,7 +26,27 @@ interface OwnerDashboardClientProps {
 }
 
 export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
-  const { metrics, channelBreakdown, topSellingProducts, criticalAlerts, recentActivities } = data;
+  const {
+    metrics,
+    gettingStartedSteps = [],
+    channelBreakdown,
+    topSellingProducts,
+    criticalAlerts,
+    recentActivities,
+  } = data;
+
+  const [checklistDismissed, setChecklistDismissed] = useState(false);
+  const completedStepsCount = gettingStartedSteps.filter((s) => s.done).length;
+  const allStepsComplete =
+    gettingStartedSteps.length > 0 && completedStepsCount === gettingStartedSteps.length;
+
+  const quickActionsBar = [
+    { label: "+ Product", href: "/admin/catalog", primary: true },
+    { label: "Import products", href: "/admin/catalog/import", primary: false },
+    { label: "Update stock", href: "/godown/stock/update", primary: true },
+    { label: "+ GRN (purchase)", href: "/godown/purchases/new", primary: false },
+    { label: "+ Party", href: "/admin/parties", primary: false },
+  ];
 
   const quickLinks = [
     { title: "Shop POS", desc: "Counter billing", href: "/shop/pos", icon: Store, color: "text-amber-600 bg-amber-50" },
@@ -38,6 +59,108 @@ export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
 
   return (
     <div className="space-y-6">
+      {/* 0a. Always-Visible Quick Actions Bar (per design.md section 10 & architecture.md section 15) */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs font-black uppercase tracking-wider text-slate-600">
+          Quick Actions
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {quickActionsBar.map((action) => (
+            <Link
+              key={action.label}
+              href={action.href}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-2xs ${
+                action.primary
+                  ? "bg-[#790E11] hover:bg-[#5E0A0D] text-white"
+                  : "bg-[#FFF4E3] hover:bg-[#FDAF18]/40 text-[#2A1010] border border-[#EAD9CC]"
+              }`}
+            >
+              {action.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* 0b. Getting Started Checklist (driven by real DB data; dismissible only when all 7 steps are done) */}
+      {gettingStartedSteps.length > 0 && !checklistDismissed && (
+        <div className="bg-white p-6 rounded-2xl border-2 border-[#EAD9CC] shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-black text-[#2A1010]">Getting Started Checklist</h2>
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#FFF1D6] text-[#790E11]">
+                  {completedStepsCount} / {gettingStartedSteps.length} completed
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Set up your catalogue, opening stock, credit parties, and staff accounts from real data.
+              </p>
+            </div>
+            {allStepsComplete && (
+              <button
+                type="button"
+                onClick={() => setChecklistDismissed(true)}
+                className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer"
+              >
+                Dismiss checklist
+              </button>
+            )}
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {gettingStartedSteps.map((step) => (
+              <div
+                key={step.id}
+                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 mt-0.5 ${
+                      step.done
+                        ? "bg-[#E3F3E6] text-[#075828]"
+                        : "bg-slate-100 text-slate-400 border border-slate-300"
+                    }`}
+                  >
+                    {step.done ? <CheckCircle2 className="w-4 h-4" /> : "○"}
+                  </div>
+                  <div>
+                    <div
+                      className={`text-xs font-bold ${
+                        step.done ? "text-slate-600 line-through" : "text-slate-900"
+                      }`}
+                    >
+                      {step.title}
+                    </div>
+                    <div className="text-[11px] text-slate-500">{step.description}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  {step.secondaryHref && step.secondaryLabel && (
+                    <Link
+                      href={step.secondaryHref}
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition"
+                    >
+                      {step.secondaryLabel}
+                    </Link>
+                  )}
+                  <Link
+                    href={step.actionHref}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      step.done
+                        ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                        : "bg-[#790E11] hover:bg-[#5E0A0D] text-white"
+                    }`}
+                  >
+                    {step.actionLabel} →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 1. Critical Actionable Alerts Banner */}
       {criticalAlerts.length > 0 && (
         <div className="space-y-2">

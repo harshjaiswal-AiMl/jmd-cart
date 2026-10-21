@@ -17,7 +17,7 @@ describe("Task 2.5: Van Bluetooth ESC/POS Print Integration", () => {
   let vanLoc: { id: string; name: string };
   let godownLoc: { id: string; name: string };
   let salesUser: { id: string; name: string; role: UserRole };
-  let testProduct: { id: string; name: string; mrpPaise: number; packSize: number };
+  let testProduct: { id: string; name: string; mrpPaise: number | null; packSize: number };
   let testParty: { id: string; name: string };
 
   beforeEach(async () => {

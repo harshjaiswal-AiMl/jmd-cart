@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, Location, LocationType, MovementType, Product, User, VanDayStatus } from "@prisma/client";
 import { stockService } from "@/modules/stock/stock.service";
+import { autoConvertService } from "@/modules/godown/auto-convert.service";
 import { getNextSequenceNumber } from "@/lib/invoice-number";
 import {
   CreateVanIssueSheetInput,
@@ -246,6 +247,35 @@ export class VanRepository {
         const totalPieces = (item.cartons ?? 0) * product.packSize + (item.pieces ?? 0);
         if (totalPieces <= 0) continue;
 
+        // Check if loose pieces are needed and trigger auto carton -> loose conversion in Godown if required
+        const requestedLoose = (item.pieces ?? 0) > 0 ? (item.pieces ?? 0) : totalPieces % product.packSize;
+        if (requestedLoose > 0 && product.packSize > 1) {
+          const godownBal = await tx.stockBalance.findUnique({
+            where: {
+              productId_locationId: {
+                productId: product.id,
+                locationId: godown.id,
+              },
+            },
+          });
+          const godownQtyBefore = godownBal?.qty ?? 0;
+          if (godownQtyBefore >= totalPieces) {
+            await autoConvertService.checkAndRecordAutoConvertInTx(tx, {
+              productId: product.id,
+              productName: product.name,
+              shortCode: product.shortCode,
+              packSize: product.packSize,
+              godownLocationId: godown.id,
+              godownBalanceBefore: godownQtyBefore,
+              requestedLoosePieces: requestedLoose,
+              referenceType: "VAN_ISSUE",
+              referenceId: vanDay.id,
+              referenceNumber: issueSheetNo,
+              actorId,
+            });
+          }
+        }
+
         // Create line
         await tx.vanDayLine.create({
           data: {
@@ -328,13 +358,14 @@ export class VanRepository {
     const inventory: VanStockItem[] = balances.map((b) => {
       const cartons = Math.floor(b.qty / b.product.packSize);
       const loosePieces = b.qty % b.product.packSize;
-      const valuationPaise = b.qty * b.product.mrpPaise;
+      const effectiveMrp = b.product.mrpPaise ?? b.product.priceCPaise ?? 0;
+      const valuationPaise = b.qty * effectiveMrp;
 
       totalPieces += b.qty;
       totalValuationPaise += valuationPaise;
 
       return {
-        product: b.product,
+        product: { ...b.product, mrpPaise: effectiveMrp },
         qty: b.qty,
         cartons,
         loosePieces,
@@ -473,14 +504,15 @@ export class VanRepository {
       const shortageQty = Math.max(0, expectedQty - returnedQty);
       const excessQty = Math.max(0, returnedQty - expectedQty);
 
-      const shortageValuationPaise = shortageQty * line.product.mrpPaise;
-      const excessValuationPaise = excessQty * line.product.mrpPaise;
+      const lineMrp = line.product.mrpPaise ?? line.product.priceCPaise ?? 0;
+      const shortageValuationPaise = shortageQty * lineMrp;
+      const excessValuationPaise = excessQty * lineMrp;
       const netDiscrepancyPaise = excessValuationPaise - shortageValuationPaise;
 
-      totalIssuedValuationPaise += line.issuedQty * line.product.mrpPaise;
-      totalSoldValuationPaise += soldQty * line.product.mrpPaise;
-      totalExpectedValuationPaise += expectedQty * line.product.mrpPaise;
-      totalReturnedValuationPaise += returnedQty * line.product.mrpPaise;
+      totalIssuedValuationPaise += line.issuedQty * lineMrp;
+      totalSoldValuationPaise += soldQty * lineMrp;
+      totalExpectedValuationPaise += expectedQty * lineMrp;
+      totalReturnedValuationPaise += returnedQty * lineMrp;
       totalShortageValuationPaise += shortageValuationPaise;
       totalExcessValuationPaise += excessValuationPaise;
 
@@ -489,7 +521,7 @@ export class VanRepository {
         productName: line.product.name,
         shortCode: line.product.shortCode,
         packSize: line.product.packSize,
-        mrpPaise: line.product.mrpPaise,
+        mrpPaise: lineMrp,
         issuedQty: line.issuedQty,
         soldQty,
         expectedQty,
@@ -511,10 +543,11 @@ export class VanRepository {
       const returnedQty = currentCounts?.get(extraId) ?? 0;
       const shortageQty = 0;
       const excessQty = returnedQty;
-      const excessValuationPaise = excessQty * product.mrpPaise;
+      const extraMrp = product.mrpPaise ?? product.priceCPaise ?? 0;
+      const excessValuationPaise = excessQty * extraMrp;
 
-      totalSoldValuationPaise += soldQty * product.mrpPaise;
-      totalReturnedValuationPaise += returnedQty * product.mrpPaise;
+      totalSoldValuationPaise += soldQty * extraMrp;
+      totalReturnedValuationPaise += returnedQty * extraMrp;
       totalExcessValuationPaise += excessValuationPaise;
 
       lines.push({
@@ -522,7 +555,7 @@ export class VanRepository {
         productName: product.name,
         shortCode: product.shortCode,
         packSize: product.packSize,
-        mrpPaise: product.mrpPaise,
+        mrpPaise: extraMrp,
         issuedQty: 0,
         soldQty,
         expectedQty: 0,

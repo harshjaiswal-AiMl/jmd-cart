@@ -87,6 +87,12 @@ export const eInvoiceSettingsSchema = z.object({
 
 export type EInvoiceSettings = z.infer<typeof eInvoiceSettingsSchema>;
 
+export const pricingSettingsSchema = z.object({
+  enableQuantityTierPricing: z.boolean().default(false),
+});
+
+export type PricingSettings = z.infer<typeof pricingSettingsSchema>;
+
 export interface AllSettings {
   businessDetails: BusinessDetails;
   roleDiscountLimits: RoleDiscountLimits;
@@ -94,4 +100,6 @@ export interface AllSettings {
   verificationSettings: VerificationSettings;
   paymentModeSettings: PaymentModeSettings;
   eInvoiceSettings: EInvoiceSettings;
+  pricingSettings?: PricingSettings;
 }
+

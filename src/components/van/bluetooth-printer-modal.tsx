@@ -87,13 +87,13 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
         ? bizRes.business
         : {
             tradeName: "JMD CART",
-            legalName: "JMD CART FMCG DISTRIBUTOR",
-            gstin: "10ABCDE1234F1Z5",
-            fssai: "10422000000123",
-            address: "Saharsa, Bihar - 852201",
-            phone: "9876543210",
-            email: "billing@jmdcart.com",
-            upiId: "jmdcart@upi",
+            legalName: "",
+            gstin: "",
+            fssai: "",
+            address: "",
+            phone: "",
+            email: "",
+            upiId: "",
           };
 
       const testBytes = formatTestPrintEscPos(business, {
