@@ -49,6 +49,37 @@ export interface HostRoutingDecision {
   status?: number;
 }
 
+export function isStorefrontPublicPath(pathname: string): boolean {
+  return (
+    pathname === "/categories" ||
+    pathname.startsWith("/categories/") ||
+    pathname.startsWith("/category/") ||
+    pathname === "/brands" ||
+    pathname.startsWith("/brands/") ||
+    pathname.startsWith("/brand/") ||
+    pathname.startsWith("/product/") ||
+    pathname === "/search" ||
+    pathname === "/wholesale" ||
+    pathname === "/cart" ||
+    pathname === "/checkout" ||
+    pathname === "/order-success" ||
+    pathname === "/wishlist" ||
+    pathname === "/account" ||
+    pathname.startsWith("/account/") ||
+    pathname === "/orders" ||
+    pathname.startsWith("/orders/") ||
+    pathname.startsWith("/page/") ||
+    pathname === "/about" ||
+    pathname === "/contact" ||
+    pathname === "/faqs" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/shipping-policy" ||
+    pathname === "/serviceability" ||
+    pathname === "/wholesale-enquiry"
+  );
+}
+
 export function evaluateHostRouting(
   hostHeader: string | null | undefined,
   pathname: string,
@@ -83,7 +114,10 @@ export function evaluateHostRouting(
     if (pathname === "/") {
       return { type: "redirect", destination: "/login" };
     }
-    if (pathname.startsWith("/store")) {
+    if (isStaffRoute(pathname)) {
+      return { type: "next" };
+    }
+    if (pathname.startsWith("/store") || isStorefrontPublicPath(pathname)) {
       let targetUrl: string;
       try {
         const url = new URL(pathname + search, appUrl);

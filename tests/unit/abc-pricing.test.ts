@@ -114,7 +114,8 @@ describe("Part 1 — A / B / C Price Lists & Resolution Engine", () => {
     expect(exceedMrpWarnings.some((w) => w.code === "C_GT_MRP")).toBe(true);
   });
 
-  describe("Database & Storefront Privacy Integration", () => {
+  const isDbAvailable = process.env.TEST_DB_AVAILABLE === "1";
+  describe.skipIf(!isDbAvailable)("Database & Storefront Privacy Integration", () => {
     const testSku = "TEST_ABC_PRIVACY_SKU";
 
     beforeEach(async () => {

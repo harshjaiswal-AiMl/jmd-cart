@@ -15,10 +15,16 @@ export default function OfflinePage() {
 
       <div className="space-y-3 w-full max-w-xs">
         <Link
-          href="/van"
-          className="block w-full py-3 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors"
+          href="/"
+          className="block w-full py-3 px-4 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm transition-colors"
         >
-          Return to Van Workspace
+          Return to Storefront
+        </Link>
+        <Link
+          href="/van"
+          className="block w-full py-2.5 px-4 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-semibold text-sm transition-colors"
+        >
+          Van Workspace
         </Link>
         <button
           onClick={() => {

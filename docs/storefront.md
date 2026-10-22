@@ -126,3 +126,38 @@ What the five screenshots show and what we do with it. Layout reference only; no
 | Both | Heavy promotional banners; product catalogue is the real content | Keep banners minimal; products and search first |
 Gaps in those stores that we fill for wholesale: quantity slab table, carton/piece switch, quick order and CSV, saved lists, credit statement, GST invoice, minimum order and free-delivery progress.
 Full Stitch prompts are in `docs/storefront-stitch-prompts.md`; build prompt in `docs/prompts/03a-storefront-from-stitch.md`.
+
+## 9. Stitch Design Rebuild & Dynamic Storefront Architecture (Prompt #08)
+The customer storefront at `jmdcart.com` has been completely rebuilt from the exported Stitch reference designs (`design/stitch-export/ecommerce/`). All mock content has been completely replaced with live database and backend API queries.
+
+### Architecture & Dynamic APIs (`/api/store/v1/*`)
+- `GET /api/store/v1/settings` - Public store metadata (business name, support phone/WhatsApp, free delivery threshold, announcement text).
+- `GET /api/store/v1/home-sections` - Dynamic home layout sections (Hero banners, categories, brands, featured products).
+- `GET /api/store/v1/catalog` - Dynamic product listing with multi-attribute filtering (category, brand, price range, in-stock only), sorting, and pagination.
+- `GET /api/store/v1/products/[slug]` - Complete product detail including volume price slabs, pack conversions, real-time Godown availability, and specifications.
+- `GET /api/store/v1/categories` & `GET /api/store/v1/categories/[slug]` - Category directory and category-filtered product catalog.
+- `GET /api/store/v1/brands` & `GET /api/store/v1/brands/[slug]` - Brand directory and brand catalog.
+- `GET /api/store/v1/search` - Multi-token fuzzy search with dynamic filter options.
+- `GET /api/store/v1/serviceability` - Instant pincode check against active delivery zones.
+- `GET /api/store/v1/cart` & `POST /api/store/v1/cart` - Live shopping cart with volume slab rate calculation.
+- `POST /api/store/v1/checkout` - Checkout processing with stock reservation, address validation, delivery slot, and optional commercial GST ITC invoice.
+- `GET /api/store/v1/wishlist` & `POST /api/store/v1/wishlist` - Customer saved items.
+- `GET /api/store/v1/addresses` & `POST /api/store/v1/addresses` - Saved delivery addresses with default selection.
+- `POST /api/store/v1/contact` - Customer enquiries stored securely in database for admin review.
+- `GET /api/store/v1/faqs` - Dynamic categorized FAQs.
+- `GET /api/store/v1/pages/[slug]` - CMS store pages (About, Terms, Privacy, Shipping/Returns).
+
+### SEO & Structured Data (JSON-LD)
+- `Organization` + `WebSite` schemas emitted on Homepage with SearchAction.
+- `ItemList` schema on Category, Brand, and Search result listings.
+- `Product` + `Offer` schema on Product detail pages with accurate availability (`InStock` / `OutOfStock`), price, currency, and HSN/SKU.
+- `FAQPage` schema on `/faqs`.
+- Dynamic `sitemap.xml` listing all canonical URLs (products, categories, brands, content pages) with proper `lastmod` timestamps.
+- Host-aware `robots.txt` allowing public indexing of `jmdcart.com` while strictly disallowing indexing of `management.jmdcart.com`.
+
+### Zero Third-Party CDN Guarantee
+- Google Fonts removed: Epilogue and Inter bundled via `next/font`.
+- External icon font links removed: Material Symbols Outlined subset vendored locally at `/public/fonts/material-symbols-outlined.woff2`.
+- Zero external trackers or analytics scripts at runtime.
+
+

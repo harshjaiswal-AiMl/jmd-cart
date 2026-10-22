@@ -8,7 +8,9 @@ import {
   STAFF_ROUTES,
   normalizeHost,
   isStaffRoute,
+  isStorefrontPublicPath,
 } from "@/lib/host-routing";
+import { resolveStorefrontRedirect } from "@/lib/store-redirects";
 
 const { auth } = NextAuth(authConfig);
 
@@ -41,8 +43,17 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(decision.destination, req.url));
   }
 
-  // Public storefront catalogue & cart browsing, and management hub
-  if (pathname.startsWith("/store") || pathname === "/management") {
+  // 301-redirect legacy /store URLs to clean canonical URLs
+  if (pathname.startsWith("/store")) {
+    const redirect = resolveStorefrontRedirect(pathname, req.nextUrl.searchParams);
+    if (redirect) {
+      return NextResponse.redirect(new URL(redirect.destination, req.url), 301);
+    }
+    return NextResponse.next();
+  }
+
+  // Public storefront customer browsing, cart, checkout, CMS pages, and management hub
+  if (isStorefrontPublicPath(pathname) || pathname === "/management" || pathname.startsWith("/api/store")) {
     return NextResponse.next();
   }
 

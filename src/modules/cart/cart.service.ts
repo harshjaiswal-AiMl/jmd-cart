@@ -264,6 +264,120 @@ export class CartService {
       lines,
     };
   }
+
+  /**
+   * Calculate cart summary for guest users without saving to DB.
+   * Anonymous visitors always resolve to CUSTOMER tier (Price C).
+   */
+  async getGuestCartSummary(rawItems: Array<{ productId: string; qty: number }>): Promise<CartSummary> {
+    if (!rawItems || rawItems.length === 0) {
+      return {
+        id: "guest",
+        userId: "guest",
+        totalPieces: 0,
+        itemsCount: 0,
+        buyerTag: BuyerTier.CUSTOMER,
+        subtotalPaise: 0,
+        lineDiscountPaise: 0,
+        taxablePaise: 0,
+        totalTaxPaise: 0,
+        roundOffPaise: 0,
+        totalPaise: 0,
+        lines: [],
+      };
+    }
+
+    const productIds = rawItems.map((i) => i.productId);
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds }, active: true },
+      include: { company: true, category: true },
+    });
+
+    const prodMap = new Map(products.map((p) => [p.id, p]));
+    const validItems = rawItems
+      .filter((i) => prodMap.has(i.productId) && i.qty > 0)
+      .map((i) => ({ productId: i.productId, qty: i.qty }));
+
+    if (validItems.length === 0) {
+      return {
+        id: "guest",
+        userId: "guest",
+        totalPieces: 0,
+        itemsCount: 0,
+        buyerTag: BuyerTier.CUSTOMER,
+        subtotalPaise: 0,
+        lineDiscountPaise: 0,
+        taxablePaise: 0,
+        totalTaxPaise: 0,
+        roundOffPaise: 0,
+        totalPaise: 0,
+        lines: [],
+      };
+    }
+
+    const orderPricing = await pricingService.calculateOrderPricing({
+      items: validItems,
+      partyId: null,
+      buyerType: BuyerTier.CUSTOMER,
+      buyerApproved: false,
+    });
+
+    const lineMap = new Map(orderPricing.lines.map((l) => [l.productId, l]));
+
+    const lines: CartLineDetail[] = validItems.map((item) => {
+      const p = prodMap.get(item.productId)!;
+      const pricing = lineMap.get(item.productId)!;
+      const packSize = Math.max(1, p.packSize);
+      const cartonsCount = Math.floor(item.qty / packSize);
+      const looseCount = item.qty % packSize;
+
+      return {
+        id: `guest_${item.productId}`,
+        productId: p.id,
+        productName: p.name,
+        shortCode: p.shortCode,
+        companyName: p.company?.name ?? null,
+        categoryName: p.category?.name ?? null,
+        imageUrl: p.imageUrl,
+        packSize,
+        packLabel: p.packLabel,
+        cartonsCount,
+        looseCount,
+        qty: item.qty,
+        mrpPaise: p.mrpPaise ?? pricing.mrpPaise,
+        gstRateBp: p.gstRateBp,
+        pricing,
+      };
+    });
+
+    const totalPieces = validItems.reduce((sum, item) => sum + item.qty, 0);
+
+    return {
+      id: "guest",
+      userId: "guest",
+      totalPieces,
+      itemsCount: lines.length,
+      buyerTag: BuyerTier.CUSTOMER,
+      subtotalPaise: orderPricing.subtotalPaise,
+      lineDiscountPaise: orderPricing.lineDiscountPaise,
+      taxablePaise: orderPricing.taxablePaise,
+      totalTaxPaise: orderPricing.totalTaxPaise,
+      roundOffPaise: orderPricing.roundOffPaise,
+      totalPaise: orderPricing.totalPaise,
+      lines,
+    };
+  }
+
+  /**
+   * Merge guest cart items into authenticated user's cart on login.
+   */
+  async mergeGuestCart(userId: string, guestItems: Array<{ productId: string; qty: number }>) {
+    for (const item of guestItems) {
+      if (item.productId && item.qty > 0) {
+        await this.addToCart(userId, item.productId, item.qty);
+      }
+    }
+  }
 }
 
 export const cartService = new CartService();
