@@ -67,6 +67,7 @@ export function ProductDetailClient({ product }: ProductDetailClientProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           productId: product.id,
+          qty,
           quantity: qty,
         }),
       });

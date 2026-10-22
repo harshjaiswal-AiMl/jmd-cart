@@ -1,0 +1,340 @@
+{
+  "screenshot": {
+    "name": "projects/10838018168887602617/screens/00c9d533749c48caa9ef42876f1bc587/fileEntries/screenshot",
+    "downloadUrl": "https://lh3.googleusercontent.com/aida/AEtjO1X4xJyeL0JWajZpsNMWxz3MtcGfGEqEZ6MNM8N2C5POl6JZG0Je_lV3vdrcE4apSpD5P51u4r1wbfiLesLBHYEsaqFStRqTimU4rauuSWuPAVBykuaHHUd5Ys5shVEAUr4xjKW6y5psypttplLzGDIPRMezdKQGSTpRqfABhUT9DYDK77DYi6Gz0aHckZrEQZz4eyuS7ZZNhFGyyXphUgRauE6LvDjeyQQf3jN4bruGglEuPPDh9lRtH9M"
+  },
+  "htmlCode": {
+    "name": "projects/10838018168887602617/screens/00c9d533749c48caa9ef42876f1bc587/fileEntries/html",
+    "downloadUrl": "https://contribution.usercontent.google.com/download?c=CgthaWRhX2NvZGVmeBJ7Eh1hcHBfY29tcGFuaW9uX2dlbmVyYXRlZF9maWxlcxpaCiVodG1sXzAwMDY1ZTZmNzllMzM2MWMwNTRjZmMyN2VhMDViMDIwEgsSBxDH1MWnsBcYAZIBIwoKcHJvamVjdF9pZBIVQhMyNTE2MDM0MzI1MDg1ODA0MTg4&filename=&opi=89354086",
+    "mimeType": "text/html"
+  },
+  "id": "00c9d533749c48caa9ef42876f1bc587",
+  "generatedBy": "figaro_agent",
+  "width": "2560",
+  "height": "4778",
+  "title": "JMD Cart - Fortune Kachi Ghani Mustard Oil Product Detail Page",
+  "prompt": "Create a premium, modern, fully responsive Single Product Detail Page (PDP) for JMD Cart (jmdcart.com) in Saharsa, Bihar.\n\nFocus Product: \"Fortune Kachi Ghani Pure Mustard Oil (कच्ची घानी सरसों तेल)\"\nBrand: Fortune (Adani Wilmar)\nPackaging / Unit: 1 Litre Pouch / 15L Tin / Carton of 16 Pouches\nCategory path: Home > Oil & Ghee > Mustard Oil > Fortune Kachi Ghani Mustard Oil 1L Pouch\n\nDesign Specifications & Sections:\n1. Two-Column Hero Product Showcase:\n   Left Column - Gallery:\n   - Large hero image container featuring Fortune Kachi Ghani 1L Pouch with crisp studio lighting, clear product label, badge \"100% Cold Pressed Mustard Purity\", and a subtle zoom trigger icon.\n   - Live availability badge: \"● In Stock at Purab Bazar Central Godown (Ready for 30-min dispatch)\".\n   - Gallery thumbnail rail with 4 distinct angles/variants:\n     1) Front 1L Pouch view (active)\n     2) Back nutrition facts & AGMARK grade certification\n     3) Outer Wholesale Master Carton (16 x 1L pouches)\n     4) 15L Bulk Mandi Tin variant\n   - Quick Trust Badges below gallery: \"Verified AGMARK Grade 1\", \"Direct Mill Mandi Sourced\", \"Free Replacement in Saharsa Town\".\n\n   Right Column - Product Details & Dynamic Pricing:\n   - Breadcrumb navigation: Home / Oil & Ghee / Mustard Oil / Fortune Kachi Ghani\n   - Brand link: Fortune • Adani Wilmar FMCG\n   - Title: \"Fortune Kachi Ghani Pure Mustard Oil Pouch\"\n   - Subtitle: \"Cold-pressed traditional mustard oil with pungent natural aroma (Jhaanjh) for authentic regional cooking.\"\n   - Pack Size / Packaging Unit Selector Tabs:\n     * [1L Pouch - Retail Unit] (Active)\n     * [Carton (16 x 1L Pouches) - Kirana Box] (Saves 4.5%)\n     * [15L Master Tin - Bulk / Commercial] (Saves 11%)\n   - Pack conversion note: \"ℹ️ 1 Master Carton = 16 individual 1L pouches. Pre-sealed tamper-proof packaging.\"\n   - Price Display:\n     * Current Selling Price: ₹138 per pouch\n     * Standard MRP: ₹165 (Strikethrough)\n     * Discount Badge: \"16% OFF\" (Save ₹27/unit)\n     * Tax notice: \"Inclusive of all taxes (GST 5% included • ITC claimable for retailers)\"\n   - Wholesale & Retail Quantity Slab Table (Dynamic & Interactive styling):\n     * Tier 1: 1 – 5 Pouches | ₹138 / pouch | Standard Retail Price (Current Tier)\n     * Tier 2: 6 – 15 Pouches | ₹132 / pouch | Semi-Bulk Kirana Tier (Save ₹6/pouch)\n     * Tier 3: 16+ Pouches (1+ Carton) | ₹126 / pouch | Mandi Wholesale Tier (Save ₹12/pouch • 24% off MRP)\n     * Live subtotal calculation display showing real-time savings based on chosen quantity.\n   - Quantity Selector & Primary Actions:\n     * Interactive Quantity Stepper with minus, input field (e.g., \"1\"), and plus button.\n     * Large High-contrast \"Add to Cart\" button in Primary Maroon (#7A2433) with cart icon and \"₹138 • 1 Item\".\n     * Secondary \"Buy Wholesale Carton\" button with orange accent (#F28C28) for 1-click 16-pack ordering.\n     * WhatsApp Inquire for Bulk Traders button (\"Got 10+ Cartons requirement? Chat with Saharsa Desk\").\n   - Saharsa Fulfillment & Delivery Promise Box:\n     * Location: \"Delivering to Saharsa Town (Ward 1-20, D.B. Road, Purab Bazar)\"\n     * Earliest Delivery: \"Today by 6:00 PM (Express Slot Available)\"\n     * Threshold: \"Free tempo delivery on orders above ₹2,000\"\n\n2. Detailed Product Tabs & Specifications (Tabbed / Segmented UI):\n   - Tab 1: Product Description & Key Benefits (High natural pungency, 0% adulteration, omega-3 rich, traditional kachi ghani aroma).\n   - Tab 2: Wholesale Specifications & Packaging (HSN Code: 1514, GST: 5%, Carton dimensions, net weight 14.5 kg per carton, batch packed within 14 days).\n   - Tab 3: Saharsa Mandi Pricing & Khata Policy (15-day interest-free merchant credit for verified kiranas, return window on sealed cartons).\n   - Tab 4: Manufacturer & Licensing Details (Adani Wilmar Ltd, FSSAI Lic. No., AGMARK certification details).\n\n3. \"You May Also Like\" (Frequently Bought Together / Related Essentials):\n   - Horizontal carousel of 5 complementary essentials with realistic grocery images, prices, discount badges, and 1-tap \"ADD\" buttons:\n     1) Aashirvaad Shudh Chakki Atta (10kg Bag) - ₹430 (MRP ₹495)\n     2) MDH Deggi Mirch (500g Pack) - ₹345 (MRP ₹430)\n     3) Tata Sampann Unpolished Toor Dal (1kg) - ₹165 (MRP ₹185)\n     4) India Gate Feast Rozzana Basmati Rice (5kg Bag) - ₹399 (MRP ₹450)\n     5) Tata Salt Vacuum Evaporated (1kg) - ₹26 (MRP ₹28)\n\n4. Sticky Mobile / Bottom Floating Action Bar:\n   - Subtle persistent bar on bottom with thumbnail, product name, live calculated price, and 1-tap Add to Cart / Stepper.\n\n5. Design System Strict Adherence:\n   - Primary: Deep maroon (#7A2433)\n   - Accent: Warm orange (#F28C28)\n   - Background: Warm cream (#FFF9F1)\n   - Card surfaces: Crisp white (#FFFFFF) with 12px rounded corners and refined borders (#EAE3DC).\n   - Indian rupee (₹) currency everywhere. No Zepto purple or Blinkit neon green. Consistent with JMD Cart Shell #3/5/7/9.",
+  "name": "projects/2516034325085804188/screens/00c9d533749c48caa9ef42876f1bc587",
+  "theme": {
+    "colorMode": "LIGHT",
+    "font": "EPILOGUE",
+    "roundness": "ROUND_EIGHT",
+    "customColor": "#7a2433",
+    "headlineFont": "EPILOGUE",
+    "bodyFont": "INTER",
+    "labelFont": "INTER",
+    "namedColors": {
+      "on_secondary_container": "#663500",
+      "outline_variant": "#dbc0c1",
+      "on_surface": "#1b1c1c",
+      "on_primary": "#ffffff",
+      "on_error_container": "#93000a",
+      "on_primary_fixed": "#40000f",
+      "on_tertiary_fixed": "#002108",
+      "primary": "#5c0c1e",
+      "tertiary": "#003612",
+      "tertiary_fixed": "#9cf7a7",
+      "on_surface_variant": "#554243",
+      "error_container": "#ffdad6",
+      "on_tertiary_container": "#6bc379",
+      "surface": "#fcf9f8",
+      "surface_container_low": "#f6f3f2",
+      "surface_container_high": "#eae7e7",
+      "primary_fixed_dim": "#ffb2b9",
+      "primary_container": "#7a2433",
+      "secondary": "#914d00",
+      "on_primary_container": "#ff909c",
+      "primary_fixed": "#ffdadc",
+      "on_tertiary_fixed_variant": "#005320",
+      "tertiary_fixed_dim": "#81da8d",
+      "inverse_surface": "#303030",
+      "secondary_fixed": "#ffdcc3",
+      "on_error": "#ffffff",
+      "inverse_on_surface": "#f3f0ef",
+      "secondary_container": "#fc9430",
+      "surface_tint": "#9d3f4d",
+      "tertiary_container": "#004f1e",
+      "on_tertiary": "#ffffff",
+      "on_background": "#1b1c1c",
+      "secondary_fixed_dim": "#ffb77d",
+      "on_primary_fixed_variant": "#7f2836",
+      "surface_container": "#f0eded",
+      "surface_bright": "#fcf9f8",
+      "error": "#ba1a1a",
+      "surface_variant": "#e4e2e1",
+      "on_secondary_fixed_variant": "#6e3900",
+      "surface_container_highest": "#e4e2e1",
+      "inverse_primary": "#ffb2b9",
+      "on_secondary": "#ffffff",
+      "outline": "#887273",
+      "surface_dim": "#dcd9d9",
+      "background": "#fcf9f8",
+      "on_secondary_fixed": "#2f1500",
+      "surface_container_lowest": "#ffffff"
+    },
+    "colorVariant": "FIDELITY",
+    "overridePrimaryColor": "#7a2433",
+    "overrideSecondaryColor": "#f28c28",
+    "overrideTertiaryColor": "#1b7837",
+    "overrideNeutralColor": "#252525",
+    "spacingScale": 2,
+    "typography": {
+      "headline-md": {
+        "fontFamily": "Epilogue",
+        "fontSize": "20px",
+        "fontWeight": "600",
+        "lineHeight": "28px"
+      },
+      "headline-lg-mobile": {
+        "fontFamily": "Epilogue",
+        "fontSize": "24px",
+        "fontWeight": "700",
+        "lineHeight": "32px"
+      },
+      "label-lg": {
+        "fontFamily": "Inter",
+        "fontSize": "14px",
+        "fontWeight": "600",
+        "lineHeight": "18px"
+      },
+      "label-sm": {
+        "fontFamily": "Inter",
+        "fontSize": "11px",
+        "fontWeight": "700",
+        "lineHeight": "14px",
+        "letterSpacing": "0.02em"
+      },
+      "price-md": {
+        "fontFamily": "Inter",
+        "fontSize": "15px",
+        "fontWeight": "700",
+        "lineHeight": "18px"
+      },
+      "price-lg": {
+        "fontFamily": "Inter",
+        "fontSize": "18px",
+        "fontWeight": "700",
+        "lineHeight": "22px"
+      },
+      "body-md": {
+        "fontFamily": "Inter",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "lineHeight": "20px"
+      },
+      "body-lg": {
+        "fontFamily": "Inter",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "lineHeight": "24px"
+      },
+      "headline-lg": {
+        "fontFamily": "Epilogue",
+        "fontSize": "32px",
+        "fontWeight": "700",
+        "lineHeight": "40px"
+      },
+      "body-sm": {
+        "fontFamily": "Inter",
+        "fontSize": "12px",
+        "fontWeight": "400",
+        "lineHeight": "16px"
+      },
+      "label-md": {
+        "fontFamily": "Inter",
+        "fontSize": "12px",
+        "fontWeight": "600",
+        "lineHeight": "16px"
+      },
+      "headline-sm": {
+        "fontFamily": "Epilogue",
+        "fontSize": "16px",
+        "fontWeight": "600",
+        "lineHeight": "22px"
+      }
+    },
+    "spacing": {
+      "space-md": "0.75rem",
+      "space-xl": "1.5rem",
+      "gutter": "0.75rem",
+      "space-sm": "0.5rem",
+      "space-xs": "0.25rem",
+      "margin": "1rem",
+      "gutter-desktop": "1.25rem",
+      "margin-desktop": "2rem",
+      "space-lg": "1rem"
+    },
+    "headlineFontFamily": "Epilogue",
+    "bodyFontFamily": "Inter",
+    "labelFontFamily": "Inter"
+  },
+  "deviceType": "DESKTOP",
+  "screenType": "DESIGN",
+  "screenMetadata": {
+    "agentType": "PRO_AGENT",
+    "isRemixed": true,
+    "status": "COMPLETE"
+  },
+  "designSystem": {
+    "name": "assets/d32435c9136649b884879a04061535de",
+    "designSystem": {
+      "displayName": "JMD Cart",
+      "styleGuidelines": "## Brand & Style\n\nThe design system is engineered specifically for hyper-local quick commerce and bulk wholesale grocery operations in Tier-2/Tier-3 regional hubs like Saharsa, Bihar. The aesthetic moves deliberately away from the neon-soaked, hypersaturated palettes of metropolitan quick-delivery services (such as Blinkit or Zepto), establishing instead a grounded, trustworthy, and culturally rooted identity.\n\nThe visual tone marries **authoritative regional trust** with **high-density commercial efficiency**. It reflects the warmth and dependability of a longstanding traditional merchant alongside the rapid-discovery dynamics of digital retail.\n\n### Core Stylistic Attributes\n- **High-Density Utility:** Information-dense layouts that prioritize immediate product visibility, dynamic wholesale pricing tiers, regional grain/spice specifications, and unit price transparency over decorative whitespace.\n- **Warm Commercial Tactility:** Surfaces rely on subtle warm-tinted cream backgrounds, structured crisp white cards, hairline borders, and targeted micro-elevations to provide clear physical separation between items.\n- **Dual-Audience Architecture:** Seamlessly accommodates both single-household instant essentials (B2C) and small business/kirana bulk volume orders (B2B) through visible quantity steppers, slab-saving badges, and GST-ready invoice badges.\n\n## Layout & Spacing\n\nThe layout is built on a responsive fluid-grid structure optimized for high catalog throughput.\n\n- **Mobile Viewport (up to 640px):** 2-column or 3-column micro-grid with `0.75rem` (12px) gutters and `1rem` (16px) canvas side margins. Product cards utilize tight vertical padding (`space-sm`) to maximize visible catalog units above the fold.\n- **Tablet / Large Mobile (641px - 1024px):** 4-column reflow with persistent bottom navigation and category drawer.\n- **Desktop / B2B Portal (1025px+):** Fixed 12-column layout (max-width `1280px`) with `1.25rem` (20px) gutters and `2rem` (32px) margins, allocating 3 columns for category/wholesaler navigation and 9 columns for catalog and live cart summary.\n- **Rhythm Rules:** Spacing inside product cards never exceeds `space-md` (12px). Section groupings (e.g., 'Atta & Dals', 'Wholesale Bulk Sacks') use `space-xl` (24px) vertical separation.\n\n## Elevation & Depth\n\nVisual hierarchy uses crisp hairline borders paired with warm, low-opacity ambient shadows to preserve clarity under harsh outdoor glare.\n\n- **Level 0 (Flat Canvas):** `#FFF9F1` base canvas with zero elevation.\n- **Level 1 (Surface Cards & Grids):** Pure `#FFFFFF` surface bounded by a continuous 1px `#EAE3DC` border. Shadow: `0 1px 3px rgba(122, 36, 51, 0.04)`.\n- **Level 2 (Active Cards, Modals & Dropdowns):** Subtle warm maroon ambient lift: `0 4px 12px rgba(122, 36, 51, 0.08)`, border switches to `#DDD3CA`.\n- **Level 3 (Floating Elements & Sticky Bottom Cart Bar):** Elevated checkout bar and active wholesale calculators: `0 -4px 16px rgba(37, 37, 37, 0.08)`, 1px top border of `#EAE3DC`.\n- **Hover/Interactive State:** Scale transforms are restricted; interaction feedback is expressed via border color transitions from `#EAE3DC` to `#F28C28` or `#7A2433`.\n\n## Components\n\n### Buttons\n- **Primary Cart CTA:** `#F28C28` background with `#FFFFFF` label, height `40px` (mobile) or `44px` (desktop), `roundedness: 2` (8px). Text in `label-lg`.\n- **Wholesale / Bulk Action:** Outline or solid `#7A2433` button with crisp 1.5px border, designed for high-value tier confirmation.\n- **Quantity Stepper:** Compact inline pill/box (`#FFFFFF` background, `#EAE3DC` border). Minus/plus triggers in `#7A2433` or `#F28C28` with bold tabular numeric counter at center.\n\n### Product Card\n- **Structure:** Solid `#FFFFFF` surface with 1px `#EAE3DC` border and 12px radius.\n- **Media Box:** 1:1 aspect ratio with clean `#FDFBF7` background for product packshots.\n- **Header Badges:** Absolute positioned top-left for Wholesale Slabs (`#1B7837` green badge: \"Buy 12+ Save 5%\"); top-right for Delivery Speed (`#FFF9F1` background with `#7A2433` text: \"30 Mins\").\n- **Price Block:** Prominent display of selling price, crossed-out MRP, and per-kg/per-unit calculation (e.g., \"₹42/kg\").\n\n### Badges & Wholesale Slabs\n- **Tiered Pricing Strip:** In-card strip featuring light green fill (`rgba(27, 120, 55, 0.08)`) with `#1B7837` text displaying dynamic tier progression.\n- **B2B / GST Cue:** Pill chip indicating \"GST Invoice Available\" in `#7A2433` text over `rgba(122, 36, 51, 0.06)` background.\n\n### Input Fields & Search\n- **Global Search:** `#FFFFFF` background with 1.5px `#EAE3DC` border, height `48px`, pre-filled with regional micro-prompts (\"Search 'Mustard Oil', 'Basmati', or 'Chana Dal'\").\n- **Focus State:** 2px solid `#7A2433` outline with faint secondary glow.\n\n### Checkboxes & Radio Controls\n- **Form Selectors:** Square-rounded 4px checkbox for wholesale pack selection; active state filled with `#7A2433` and white tick.",
+      "theme": {
+        "colorMode": "LIGHT",
+        "font": "EPILOGUE",
+        "roundness": "ROUND_EIGHT",
+        "customColor": "#7a2433",
+        "headlineFont": "EPILOGUE",
+        "bodyFont": "INTER",
+        "labelFont": "INTER",
+        "namedColors": {
+          "on_secondary_fixed_variant": "#6e3900",
+          "secondary": "#914d00",
+          "on_secondary": "#ffffff",
+          "secondary_fixed": "#ffdcc3",
+          "on_secondary_fixed": "#2f1500",
+          "primary_fixed": "#ffdadc",
+          "on_tertiary": "#ffffff",
+          "inverse_surface": "#303030",
+          "on_primary_container": "#ff909c",
+          "primary": "#5c0c1e",
+          "on_error": "#ffffff",
+          "surface_dim": "#dcd9d9",
+          "surface_container": "#f0eded",
+          "inverse_primary": "#ffb2b9",
+          "surface_bright": "#fcf9f8",
+          "tertiary_container": "#004f1e",
+          "surface": "#fcf9f8",
+          "surface_variant": "#e4e2e1",
+          "error": "#ba1a1a",
+          "on_primary_fixed": "#40000f",
+          "on_primary": "#ffffff",
+          "inverse_on_surface": "#f3f0ef",
+          "on_surface": "#1b1c1c",
+          "tertiary_fixed_dim": "#81da8d",
+          "surface_tint": "#9d3f4d",
+          "on_tertiary_container": "#6bc379",
+          "background": "#fcf9f8",
+          "surface_container_low": "#f6f3f2",
+          "outline_variant": "#dbc0c1",
+          "surface_container_high": "#eae7e7",
+          "error_container": "#ffdad6",
+          "primary_fixed_dim": "#ffb2b9",
+          "on_tertiary_fixed_variant": "#005320",
+          "primary_container": "#7a2433",
+          "surface_container_lowest": "#ffffff",
+          "secondary_fixed_dim": "#ffb77d",
+          "on_surface_variant": "#554243",
+          "on_error_container": "#93000a",
+          "secondary_container": "#fc9430",
+          "on_secondary_container": "#663500",
+          "tertiary_fixed": "#9cf7a7",
+          "on_background": "#1b1c1c",
+          "on_tertiary_fixed": "#002108",
+          "on_primary_fixed_variant": "#7f2836",
+          "surface_container_highest": "#e4e2e1",
+          "tertiary": "#003612",
+          "outline": "#887273"
+        },
+        "designMd": "---\nname: JMD Cart\ncolors:\n  surface: '#fcf9f8'\n  surface-dim: '#dcd9d9'\n  surface-bright: '#fcf9f8'\n  surface-container-lowest: '#ffffff'\n  surface-container-low: '#f6f3f2'\n  surface-container: '#f0eded'\n  surface-container-high: '#eae7e7'\n  surface-container-highest: '#e4e2e1'\n  on-surface: '#1b1c1c'\n  on-surface-variant: '#554243'\n  inverse-surface: '#303030'\n  inverse-on-surface: '#f3f0ef'\n  outline: '#887273'\n  outline-variant: '#dbc0c1'\n  surface-tint: '#9d3f4d'\n  primary: '#5c0c1e'\n  on-primary: '#ffffff'\n  primary-container: '#7a2433'\n  on-primary-container: '#ff909c'\n  inverse-primary: '#ffb2b9'\n  secondary: '#914d00'\n  on-secondary: '#ffffff'\n  secondary-container: '#fc9430'\n  on-secondary-container: '#663500'\n  tertiary: '#003612'\n  on-tertiary: '#ffffff'\n  tertiary-container: '#004f1e'\n  on-tertiary-container: '#6bc379'\n  error: '#ba1a1a'\n  on-error: '#ffffff'\n  error-container: '#ffdad6'\n  on-error-container: '#93000a'\n  primary-fixed: '#ffdadc'\n  primary-fixed-dim: '#ffb2b9'\n  on-primary-fixed: '#40000f'\n  on-primary-fixed-variant: '#7f2836'\n  secondary-fixed: '#ffdcc3'\n  secondary-fixed-dim: '#ffb77d'\n  on-secondary-fixed: '#2f1500'\n  on-secondary-fixed-variant: '#6e3900'\n  tertiary-fixed: '#9cf7a7'\n  tertiary-fixed-dim: '#81da8d'\n  on-tertiary-fixed: '#002108'\n  on-tertiary-fixed-variant: '#005320'\n  background: '#fcf9f8'\n  on-background: '#1b1c1c'\n  surface-variant: '#e4e2e1'\ntypography:\n  headline-lg:\n    fontFamily: Epilogue\n    fontSize: 32px\n    fontWeight: '700'\n    lineHeight: 40px\n  headline-lg-mobile:\n    fontFamily: Epilogue\n    fontSize: 24px\n    fontWeight: '700'\n    lineHeight: 32px\n  headline-md:\n    fontFamily: Epilogue\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: 28px\n  headline-sm:\n    fontFamily: Epilogue\n    fontSize: 16px\n    fontWeight: '600'\n    lineHeight: 22px\n  body-lg:\n    fontFamily: Inter\n    fontSize: 16px\n    fontWeight: '400'\n    lineHeight: 24px\n  body-md:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: 20px\n  body-sm:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: 16px\n  label-lg:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '600'\n    lineHeight: 18px\n  label-md:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '600'\n    lineHeight: 16px\n  label-sm:\n    fontFamily: Inter\n    fontSize: 11px\n    fontWeight: '700'\n    lineHeight: 14px\n    letterSpacing: 0.02em\n  price-lg:\n    fontFamily: Inter\n    fontSize: 18px\n    fontWeight: '700'\n    lineHeight: 22px\n  price-md:\n    fontFamily: Inter\n    fontSize: 15px\n    fontWeight: '700'\n    lineHeight: 18px\nrounded:\n  sm: 0.25rem\n  DEFAULT: 0.5rem\n  md: 0.75rem\n  lg: 1rem\n  xl: 1.5rem\n  full: 9999px\nspacing:\n  gutter: 0.75rem\n  gutter-desktop: 1.25rem\n  margin: 1rem\n  margin-desktop: 2rem\n  space-xs: 0.25rem\n  space-sm: 0.5rem\n  space-md: 0.75rem\n  space-lg: 1rem\n  space-xl: 1.5rem\n---\n\n## Brand & Style\n\nThe design system is engineered specifically for hyper-local quick commerce and bulk wholesale grocery operations in Tier-2/Tier-3 regional hubs like Saharsa, Bihar. The aesthetic moves deliberately away from the neon-soaked, hypersaturated palettes of metropolitan quick-delivery services (such as Blinkit or Zepto), establishing instead a grounded, trustworthy, and culturally rooted identity.\n\nThe visual tone marries **authoritative regional trust** with **high-density commercial efficiency**. It reflects the warmth and dependability of a longstanding traditional merchant alongside the rapid-discovery dynamics of digital retail.\n\n### Core Stylistic Attributes\n- **High-Density Utility:** Information-dense layouts that prioritize immediate product visibility, dynamic wholesale pricing tiers, regional grain/spice specifications, and unit price transparency over decorative whitespace.\n- **Warm Commercial Tactility:** Surfaces rely on subtle warm-tinted cream backgrounds, structured crisp white cards, hairline borders, and targeted micro-elevations to provide clear physical separation between items.\n- **Dual-Audience Architecture:** Seamlessly accommodates both single-household instant essentials (B2C) and small business/kirana bulk volume orders (B2B) through visible quantity steppers, slab-saving badges, and GST-ready invoice badges.\n\n## Colors\n\nThe palette is tuned for high-contrast sunlight readability on mid-tier mobile displays while honoring the visual heritage of Indian grocery commerce.\n\n- **Primary (`#7A2433` - Deep Maroon):** Used for navigation headers, primary order confirmation actions, brand headers, category anchors, and wholesale commitment states. Conveys stability, authority, and longevity.\n- **Secondary (`#F28C28` - Warm Orange):** Deployed for immediate quick-commerce triggers: 'Add to Cart' CTAs, flash-delivery callouts, lightning deals, and active stepper controls.\n- **Tertiary / Success (`#1B7837` - Forest Green):** Reserved for financial value signifiers: wholesale savings tags (\"Save ₹45\"), verified stock badges, bulk tier unlocks, and successful order timestamps.\n- **Neutral Core (`#252525` - Dark Charcoal):** Used for primary product titles, prices, and SKU codes to ensure maximum legibility against light backgrounds.\n- **Neutral Secondary (`#707070` - Muted Slate Grey):** Applied to pack sizes, unit weights, MRP cross-outs, and secondary metadata.\n- **Surface Background (`#FFF9F1` - Warm Cream):** Soft, low-fatigue base canvas that anchors the application and differentiates it from stark cold-white interfaces.\n- **Card Surface (`#FFFFFF` - Crisp White):** Dedicated to product cards, modal sheets, and checkout modules.\n- **Borders & Dividers (`#EAE3DC` - Soft Warm Grey):** 1px structural framing used across card containers, quantity steppers, and pricing slab tables.\n- **System Feedback:** `#DC2626` (Red) for out-of-stock states and validation errors; `#D97706` (Amber) for low-stock thresholds and delayed delivery advisories.\n\n## Typography\n\nThe type scale leverages **Epilogue** for display headers and section anchors to inject geometric warmth and editorial weight, while **Inter** commands all functional UI, micro-copy, tabular data, bilingual item descriptions, and pricing indicators.\n\n- **Numerics & Currency:** Inter is configured with tabular figures (`tnum`) for price tags, cart counters, unit measures (e.g., \"500g\", \"10kg bag\"), and wholesale tiered slabs, preventing visual jitter during quantity stepper updates.\n- **Regional Legibility:** Font sizes below 11px are strictly prohibited to ensure clarity for regional script integration and high-density product cards on compact Android screens.\n- **Price Stacking:** Current selling price must always be rendered in `price-lg` or `price-md` in bold `#252525`, with strikethrough MRP positioned adjacent in `body-sm` `#707070`.\n\n## Layout & Spacing\n\nThe layout is built on a responsive fluid-grid structure optimized for high catalog throughput.\n\n- **Mobile Viewport (up to 640px):** 2-column or 3-column micro-grid with `0.75rem` (12px) gutters and `1rem` (16px) canvas side margins. Product cards utilize tight vertical padding (`space-sm`) to maximize visible catalog units above the fold.\n- **Tablet / Large Mobile (641px - 1024px):** 4-column reflow with persistent bottom navigation and category drawer.\n- **Desktop / B2B Portal (1025px+):** Fixed 12-column layout (max-width `1280px`) with `1.25rem` (20px) gutters and `2rem` (32px) margins, allocating 3 columns for category/wholesaler navigation and 9 columns for catalog and live cart summary.\n- **Rhythm Rules:** Spacing inside product cards never exceeds `space-md` (12px). Section groupings (e.g., 'Atta & Dals', 'Wholesale Bulk Sacks') use `space-xl` (24px) vertical separation.\n\n## Elevation & Depth\n\nVisual hierarchy uses crisp hairline borders paired with warm, low-opacity ambient shadows to preserve clarity under harsh outdoor glare.\n\n- **Level 0 (Flat Canvas):** `#FFF9F1` base canvas with zero elevation.\n- **Level 1 (Surface Cards & Grids):** Pure `#FFFFFF` surface bounded by a continuous 1px `#EAE3DC` border. Shadow: `0 1px 3px rgba(122, 36, 51, 0.04)`.\n- **Level 2 (Active Cards, Modals & Dropdowns):** Subtle warm maroon ambient lift: `0 4px 12px rgba(122, 36, 51, 0.08)`, border switches to `#DDD3CA`.\n- **Level 3 (Floating Elements & Sticky Bottom Cart Bar):** Elevated checkout bar and active wholesale calculators: `0 -4px 16px rgba(37, 37, 37, 0.08)`, 1px top border of `#EAE3DC`.\n- **Hover/Interactive State:** Scale transforms are restricted; interaction feedback is expressed via border color transitions from `#EAE3DC` to `#F28C28` or `#7A2433`.\n\n## Shapes\n\nThe design system standardizes on a rounded geometry (Level 2), providing a modern, approachable feel while retaining the structural precision required for data-heavy product grids.\n\n- **Product Cards & Modal Containers:** 12px corner radius (`rounded-lg` / `0.75rem` equivalent) creating clean containment without wasting corner space.\n- **Quantity Steppers & Buttons:** 8px corner radius (`0.5rem`) for compact hand-held tap accuracy.\n- **Badges, Wholesale Slabs & Delivery Chips:** Pill-shaped or 6px rounded rectangles depending on hierarchy—wholesale tier badges use 4px-6px radii to read as structured tags, while status chips use full rounded pills.\n\n## Components\n\n### Buttons\n- **Primary Cart CTA:** `#F28C28` background with `#FFFFFF` label, height `40px` (mobile) or `44px` (desktop), `roundedness: 2` (8px). Text in `label-lg`.\n- **Wholesale / Bulk Action:** Outline or solid `#7A2433` button with crisp 1.5px border, designed for high-value tier confirmation.\n- **Quantity Stepper:** Compact inline pill/box (`#FFFFFF` background, `#EAE3DC` border). Minus/plus triggers in `#7A2433` or `#F28C28` with bold tabular numeric counter at center.\n\n### Product Card\n- **Structure:** Solid `#FFFFFF` surface with 1px `#EAE3DC` border and 12px radius.\n- **Media Box:** 1:1 aspect ratio with clean `#FDFBF7` background for product packshots.\n- **Header Badges:** Absolute positioned top-left for Wholesale Slabs (`#1B7837` green badge: \"Buy 12+ Save 5%\"); top-right for Delivery Speed (`#FFF9F1` background with `#7A2433` text: \"30 Mins\").\n- **Price Block:** Prominent display of selling price, crossed-out MRP, and per-kg/per-unit calculation (e.g., \"₹42/kg\").\n\n### Badges & Wholesale Slabs\n- **Tiered Pricing Strip:** In-card strip featuring light green fill (`rgba(27, 120, 55, 0.08)`) with `#1B7837` text displaying dynamic tier progression.\n- **B2B / GST Cue:** Pill chip indicating \"GST Invoice Available\" in `#7A2433` text over `rgba(122, 36, 51, 0.06)` background.\n\n### Input Fields & Search\n- **Global Search:** `#FFFFFF` background with 1.5px `#EAE3DC` border, height `48px`, pre-filled with regional micro-prompts (\"Search 'Mustard Oil', 'Basmati', or 'Chana Dal'\").\n- **Focus State:** 2px solid `#7A2433` outline with faint secondary glow.\n\n### Checkboxes & Radio Controls\n- **Form Selectors:** Square-rounded 4px checkbox for wholesale pack selection; active state filled with `#7A2433` and white tick.",
+        "colorVariant": "FIDELITY",
+        "overridePrimaryColor": "#7a2433",
+        "overrideSecondaryColor": "#f28c28",
+        "overrideTertiaryColor": "#1b7837",
+        "overrideNeutralColor": "#252525",
+        "spacingScale": 2,
+        "typography": {
+          "price-lg": {
+            "fontFamily": "Inter",
+            "fontSize": "18px",
+            "fontWeight": "700",
+            "lineHeight": "22px"
+          },
+          "price-md": {
+            "fontFamily": "Inter",
+            "fontSize": "15px",
+            "fontWeight": "700",
+            "lineHeight": "18px"
+          },
+          "headline-sm": {
+            "fontFamily": "Epilogue",
+            "fontSize": "16px",
+            "fontWeight": "600",
+            "lineHeight": "22px"
+          },
+          "label-sm": {
+            "fontFamily": "Inter",
+            "fontSize": "11px",
+            "fontWeight": "700",
+            "lineHeight": "14px",
+            "letterSpacing": "0.02em"
+          },
+          "label-lg": {
+            "fontFamily": "Inter",
+            "fontSize": "14px",
+            "fontWeight": "600",
+            "lineHeight": "18px"
+          },
+          "headline-lg": {
+            "fontFamily": "Epilogue",
+            "fontSize": "32px",
+            "fontWeight": "700",
+            "lineHeight": "40px"
+          },
+          "body-sm": {
+            "fontFamily": "Inter",
+            "fontSize": "12px",
+            "fontWeight": "400",
+            "lineHeight": "16px"
+          },
+          "body-lg": {
+            "fontFamily": "Inter",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "lineHeight": "24px"
+          },
+          "body-md": {
+            "fontFamily": "Inter",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "lineHeight": "20px"
+          },
+          "label-md": {
+            "fontFamily": "Inter",
+            "fontSize": "12px",
+            "fontWeight": "600",
+            "lineHeight": "16px"
+          },
+          "headline-md": {
+            "fontFamily": "Epilogue",
+            "fontSize": "20px",
+            "fontWeight": "600",
+            "lineHeight": "28px"
+          },
+          "headline-lg-mobile": {
+            "fontFamily": "Epilogue",
+            "fontSize": "24px",
+            "fontWeight": "700",
+            "lineHeight": "32px"
+          }
+        },
+        "spacing": {
+          "space-lg": "1rem",
+          "gutter": "0.75rem",
+          "margin": "1rem",
+          "space-md": "0.75rem",
+          "margin-desktop": "2rem",
+          "space-xl": "1.5rem",
+          "gutter-desktop": "1.25rem",
+          "space-sm": "0.5rem",
+          "space-xs": "0.25rem"
+        },
+        "headlineFontFamily": "Epilogue",
+        "bodyFontFamily": "Inter",
+        "labelFontFamily": "Inter"
+      }
+    },
+    "version": "1"
+  }
+}

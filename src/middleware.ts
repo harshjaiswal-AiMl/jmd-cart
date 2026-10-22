@@ -137,5 +137,7 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api/health|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/((?!api/health|_next/static|_next/image|favicon.ico|fonts/|.*\\.(?:woff|woff2|png|jpg|jpeg|gif|svg|webp|ico)).*)",
+  ],
 };

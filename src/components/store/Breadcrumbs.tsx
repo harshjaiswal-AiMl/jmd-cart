@@ -10,10 +10,15 @@ interface BreadcrumbsProps {
 }
 
 export function Breadcrumbs({ items }: BreadcrumbsProps) {
+  const nonHomeItems = items.filter(
+    (item) => item.href !== "/" && item.label.toLowerCase() !== "home"
+  );
+  const allItems = [{ label: "Home", href: "/" }, ...nonHomeItems];
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: items.map((item, index) => ({
+    itemListElement: allItems.map((item, index) => ({
       "@type": "ListItem",
       position: index + 1,
       name: item.label,
@@ -35,8 +40,8 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
               <span>Home</span>
             </Link>
           </li>
-          {items.map((item, idx) => {
-            const isLast = idx === items.length - 1;
+          {nonHomeItems.map((item, idx) => {
+            const isLast = idx === nonHomeItems.length - 1;
             return (
               <li key={idx} className="flex items-center gap-1.5">
                 <span className="text-outline/60 text-[10px]">/</span>

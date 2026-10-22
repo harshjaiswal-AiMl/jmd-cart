@@ -460,7 +460,7 @@ export class StoreService {
     try {
       const product = await prisma.product.findFirst({
         where: {
-          OR: [{ slug: slugOrId }, { id: slugOrId }],
+          OR: [{ slug: slugOrId }, { id: slugOrId }, { shortCode: slugOrId }],
           active: true,
         },
         include: {

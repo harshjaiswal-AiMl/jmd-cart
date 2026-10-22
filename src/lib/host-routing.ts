@@ -38,8 +38,11 @@ export function isStaticOrPublicAsset(pathname: string): boolean {
     pathname === "/manifest.json" ||
     pathname === "/offline" ||
     pathname === "/logout" ||
+    pathname.startsWith("/fonts/") ||
     pathname.startsWith("/icons/") ||
-    pathname.startsWith("/brand/")
+    pathname.startsWith("/brand/") ||
+    pathname.startsWith("/uploads/") ||
+    /\.(?:woff|woff2|eot|ttf|otf|png|jpg|jpeg|gif|svg|webp|ico|css|js|map)$/i.test(pathname)
   );
 }
 

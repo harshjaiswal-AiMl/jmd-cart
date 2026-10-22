@@ -4,10 +4,16 @@ import { cartService } from "@/modules/cart/cart.service";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { auth } from "@/auth";
 
-const cartItemSchema = z.object({
-  productId: z.string().min(1, "Product ID is required"),
-  qty: z.number().int(),
-});
+const cartItemSchema = z
+  .object({
+    productId: z.string().min(1, "Product ID is required"),
+    qty: z.number().int().optional(),
+    quantity: z.number().int().optional(),
+  })
+  .transform((val) => ({
+    productId: val.productId,
+    qty: val.qty ?? val.quantity ?? 1,
+  }));
 
 function getGuestCartFromCookies(req: NextRequest): Array<{ productId: string; qty: number }> {
   const cookie = req.cookies.get("jmd_guest_cart")?.value;
@@ -30,6 +36,31 @@ function setGuestCartCookie(res: NextResponse, items: Array<{ productId: string;
   });
 }
 
+function formatCartResponse(summary: any) {
+  const items = (summary.lines || []).map((line: any) => ({
+    id: line.id,
+    productId: line.productId,
+    name: line.productName,
+    shortCode: line.shortCode,
+    imageUrl: line.imageUrl,
+    weight: line.weight || null,
+    packSize: line.packSize || 1,
+    packLabel: line.packLabel || "1 pc",
+    quantity: line.qty,
+    qty: line.qty,
+    mrpPaise: line.mrpPaise,
+    unitPricePaise: line.pricing?.unitPricePaise ?? line.mrpPaise,
+    gstRateBp: line.gstRateBp || 0,
+    lineTotalPaise: line.pricing?.netPaise ?? line.mrpPaise * line.qty,
+    totalAvailableQty: line.totalAvailableQty || 999,
+  }));
+
+  return {
+    ...summary,
+    items,
+  };
+}
+
 // GET: retrieve current cart summary
 export async function GET(req: NextRequest) {
   try {
@@ -43,7 +74,7 @@ export async function GET(req: NextRequest) {
         await cartService.mergeGuestCart(userId, guestItems);
       }
       const summary = await cartService.getCartSummary(userId);
-      const res = apiSuccess(summary);
+      const res = apiSuccess(formatCartResponse(summary));
       if (guestItems.length > 0) {
         res.cookies.delete("jmd_guest_cart");
       }
@@ -52,7 +83,7 @@ export async function GET(req: NextRequest) {
 
     const guestItems = getGuestCartFromCookies(req);
     const summary = await cartService.getGuestCartSummary(guestItems);
-    return apiSuccess(summary);
+    return apiSuccess(formatCartResponse(summary));
   } catch (err: any) {
     return apiError(err.message || "Failed to get cart", 500, "SERVER_ERROR");
   }
@@ -75,7 +106,7 @@ export async function POST(req: NextRequest) {
     if (userId) {
       await cartService.addToCart(userId, productId, qty);
       const summary = await cartService.getCartSummary(userId);
-      return apiSuccess(summary);
+      return apiSuccess(formatCartResponse(summary));
     }
 
     // Guest cart cookie
@@ -88,7 +119,7 @@ export async function POST(req: NextRequest) {
     }
 
     const summary = await cartService.getGuestCartSummary(guestItems);
-    const res = apiSuccess(summary);
+    const res = apiSuccess(formatCartResponse(summary));
     setGuestCartCookie(res, guestItems);
     return res;
   } catch (err: any) {
@@ -113,7 +144,7 @@ export async function PATCH(req: NextRequest) {
     if (userId) {
       await cartService.updateQuantity(userId, productId, qty);
       const summary = await cartService.getCartSummary(userId);
-      return apiSuccess(summary);
+      return apiSuccess(formatCartResponse(summary));
     }
 
     let guestItems = getGuestCartFromCookies(req);
@@ -129,7 +160,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const summary = await cartService.getGuestCartSummary(guestItems);
-    const res = apiSuccess(summary);
+    const res = apiSuccess(formatCartResponse(summary));
     setGuestCartCookie(res, guestItems);
     return res;
   } catch (err: any) {
@@ -152,7 +183,7 @@ export async function DELETE(req: NextRequest) {
         await cartService.clearCart(userId);
       }
       const summary = await cartService.getCartSummary(userId);
-      return apiSuccess(summary);
+      return apiSuccess(formatCartResponse(summary));
     }
 
     let guestItems = getGuestCartFromCookies(req);
@@ -163,7 +194,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const summary = await cartService.getGuestCartSummary(guestItems);
-    const res = apiSuccess(summary);
+    const res = apiSuccess(formatCartResponse(summary));
     setGuestCartCookie(res, guestItems);
     return res;
   } catch (err: any) {

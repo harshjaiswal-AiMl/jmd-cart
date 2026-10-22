@@ -21,7 +21,7 @@ body {
 }
 
 .material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
+  font-family: 'Material Symbols Outlined' !important;
   font-weight: normal;
   font-style: normal;
   font-size: 24px;
@@ -33,6 +33,7 @@ body {
   word-wrap: normal;
   direction: ltr;
   -webkit-font-feature-settings: 'liga';
+  font-feature-settings: 'liga';
   -webkit-font-smoothing: antialiased;
 }
 
