@@ -2,8 +2,26 @@
 /**
  * Stitch MCP Server Bridge
  * Connects directly to Google Stitch via @_davideast/stitch-mcp
+ * Supports STITCH_API_KEY (direct from env/.env) or gcloud OAuth access token.
  */
 const { spawn, execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+// Try loading from .env if not present in process.env
+if (!process.env.STITCH_API_KEY) {
+  const envPath = path.resolve(__dirname, '../.env');
+  if (fs.existsSync(envPath)) {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('STITCH_API_KEY=')) {
+        process.env.STITCH_API_KEY = trimmed.slice('STITCH_API_KEY='.length).replace(/^["']|["']$/g, '');
+        break;
+      }
+    }
+  }
+}
 
 function getAccessToken() {
   try {
@@ -15,25 +33,26 @@ function getAccessToken() {
       return token;
     }
   } catch (e) {
-    console.error('[stitch-mcp-server] Failed to fetch token via gcloud:', e.message);
+    // ignore
   }
   return null;
 }
 
-const token = process.env.STITCH_ACCESS_TOKEN || getAccessToken();
-const project = process.env.GOOGLE_CLOUD_PROJECT || process.env.STITCH_PROJECT_ID || 'jmd-cart';
+const env = { ...process.env };
 
-if (!token) {
-  console.error('[stitch-mcp-server] Error: Unable to obtain Google Cloud access token.');
-  process.exit(1);
+if (process.env.STITCH_API_KEY) {
+  env.STITCH_API_KEY = process.env.STITCH_API_KEY;
+} else {
+  const token = process.env.STITCH_ACCESS_TOKEN || getAccessToken();
+  const project = process.env.GOOGLE_CLOUD_PROJECT || process.env.STITCH_PROJECT_ID || 'jmd-cart';
+  if (!token) {
+    console.error('[stitch-mcp-server] Error: Unable to authenticate (no API key or OAuth token).');
+    process.exit(1);
+  }
+  env.STITCH_ACCESS_TOKEN = token;
+  env.GOOGLE_CLOUD_PROJECT = project;
+  env.STITCH_PROJECT_ID = project;
 }
-
-const env = {
-  ...process.env,
-  STITCH_ACCESS_TOKEN: token,
-  GOOGLE_CLOUD_PROJECT: project,
-  STITCH_PROJECT_ID: project
-};
 
 const child = spawn('stitch-mcp.cmd', ['proxy'], {
   shell: true,
