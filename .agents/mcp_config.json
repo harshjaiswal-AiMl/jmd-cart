@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "stitch": {
+      "command": "node",
+      "args": [
+        "./scripts/stitch-mcp-server.js"
+      ]
+    }
+  }
+}
