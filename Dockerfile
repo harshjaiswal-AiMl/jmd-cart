@@ -35,9 +35,12 @@ RUN pnpm prisma generate
 # Compile seed script for standalone execution (no tsx in production)
 RUN pnpm exec tsc prisma/seed.ts --target es2022 --module CommonJS --moduleResolution node --outDir prisma/dist
 
-# Ensure Prisma CLI and engines are self-contained real directories with no broken symlinks
-RUN cp -rL /app/node_modules/.pnpm/@prisma+engines@*/node_modules/@prisma/engines /app/node_modules/@prisma/engines \
+# Ensure Prisma CLI and all @prisma modules are self-contained real directories with no broken symlinks
+RUN cp -rL /app/node_modules/.pnpm/node_modules/@prisma/* /app/node_modules/@prisma/ \
     && cp -rL /app/node_modules/.pnpm/prisma@*/node_modules/prisma /app/prisma-cli
+
+# Verify prisma migration CLI works inside builder stage before Next.js build
+RUN node /app/prisma-cli/build/index.js migrate --help > /dev/null
 
 # Build Next.js standalone
 ENV NODE_ENV=production

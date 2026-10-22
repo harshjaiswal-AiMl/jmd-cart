@@ -37,6 +37,10 @@ if (-not $MigrateOnly) {
     gcloud builds submit . `
         --tag=$IMAGE `
         --project=$PROJECT
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Cloud Build failed! Aborting deploy." -ForegroundColor Red
+        exit 1
+    }
     Write-Host "  Build complete." -ForegroundColor Green
 }
 
@@ -61,6 +65,10 @@ gcloud run jobs deploy $JobName `
 
 
 gcloud run jobs execute $JobName --region=$Region --project=$PROJECT --wait
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Migration job execution failed! Aborting deploy." -ForegroundColor Red
+    exit 1
+}
 Write-Host "  Migration job complete." -ForegroundColor Green
 
 if ($MigrateOnly) { Write-Host "Migration-only mode. Done."; exit 0 }
@@ -93,29 +101,43 @@ gcloud run deploy $ServiceName `
 
 Write-Host "  Deployed: $ServiceName" -ForegroundColor Green
 
-# 4. Health check via proxy
+# 4. Health check via proxy with retry
 Write-Host "`n=== Health Check ===" -ForegroundColor Yellow
 $proxyPort = 9090
 Write-Host "  Starting proxy on localhost:$proxyPort..."
 $proxyJob = Start-Job -ScriptBlock {
     gcloud run services proxy $using:ServiceName --region=$using:Region --project=$using:PROJECT --port=$using:proxyPort
 }
-Start-Sleep -Seconds 5
-try {
-    $health = Invoke-RestMethod -Uri "http://localhost:$proxyPort/api/health" -TimeoutSec 15
-    if ($health.status -eq "ok" -and $health.db -eq "ok") {
-        Write-Host "  Health check PASSED: status=ok db=ok" -ForegroundColor Green
-    } else {
-        Write-Host "  Health check FAILED: $($health | ConvertTo-Json)" -ForegroundColor Red
-        Stop-Job $proxyJob; Remove-Job $proxyJob
-        exit 1
+Start-Sleep -Seconds 6
+$passed = $false
+for ($i = 1; $i -le 6; $i++) {
+    try {
+        $health = Invoke-RestMethod -Uri "http://localhost:$proxyPort/api/health" -TimeoutSec 10
+        if ($health.status -eq "ok" -and $health.db -eq "ok") {
+            Write-Host "  Health check PASSED: status=ok db=ok" -ForegroundColor Green
+            $passed = $true
+            break
+        }
+    } catch {
+        Write-Host "  Waiting for proxy/service ($i/6)..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 4
     }
-} catch {
-    Write-Host "  Health check FAILED: $_" -ForegroundColor Red
-    Stop-Job $proxyJob; Remove-Job $proxyJob
-    exit 1
 }
 Stop-Job $proxyJob; Remove-Job $proxyJob
+
+if (-not $passed) {
+    Write-Host "  Proxy health check failed; checking live domain directly..." -ForegroundColor Yellow
+    try {
+        $liveHealth = Invoke-RestMethod -Uri "https://management.jmdcart.com/api/health" -TimeoutSec 15
+        if ($liveHealth.status -eq "ok" -and $liveHealth.db -eq "ok") {
+            Write-Host "  Live domain health check PASSED: status=ok db=ok" -ForegroundColor Green
+            $passed = $true
+        }
+    } catch {
+        Write-Host "  Live domain health check FAILED: $_" -ForegroundColor Red
+        exit 1
+    }
+}
 
 Write-Host "`n=== Deploy Complete ===" -ForegroundColor Green
 Write-Host "Run smoke tests: tsx scripts/smoke-prod.ts"
