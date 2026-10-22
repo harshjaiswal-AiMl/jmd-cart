@@ -77,8 +77,8 @@ gcloud run deploy $ServiceName `
     --set-env-vars="STOREFRONT_HOST=jmdcart.com,MANAGEMENT_HOST=management.jmdcart.com" `
     --set-env-vars="APP_URL=https://jmdcart.com,MANAGEMENT_URL=https://management.jmdcart.com" `
     --set-env-vars="UPLOAD_DIR=/uploads" `
-    --add-volume=name=uploads,type=cloud-storage,bucket=$PROJECT-uploads `
-    --add-volume-mount=volume=uploads,mount-path=/uploads `
+    "--add-volume=name=uploads,type=cloud-storage,bucket=$PROJECT-uploads" `
+    "--add-volume-mount=volume=uploads,mount-path=/uploads" `
     --min-instances=1 `
     --max-instances=10 `
     --memory=1Gi `
