@@ -17,10 +17,10 @@ export function getStorage(): StorageAdapter {
   const isProd = process.env.NODE_ENV === "production";
 
   if (driver === "r2" || isProd) {
-    const accountId = process.env.R2_ACCOUNT_ID;
-    const bucket = process.env.R2_BUCKET;
-    const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+    const accountId = process.env.R2_ACCOUNT_ID?.trim();
+    const bucket = process.env.R2_BUCKET?.trim();
+    const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
+    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
 
     if (!accountId || !bucket || !accessKeyId || !secretAccessKey) {
       if (isProd) {

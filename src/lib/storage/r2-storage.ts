@@ -26,10 +26,10 @@ export class R2Storage implements StorageAdapter {
         "R2Storage requires accountId, bucket, accessKeyId, and secretAccessKey"
       );
     }
-    this.accountId = config.accountId;
-    this.bucket = config.bucket;
-    this.accessKeyId = config.accessKeyId;
-    this.secretAccessKey = config.secretAccessKey;
+    this.accountId = config.accountId.trim();
+    this.bucket = config.bucket.trim();
+    this.accessKeyId = config.accessKeyId.trim();
+    this.secretAccessKey = config.secretAccessKey.trim();
     this.host = `${this.accountId}.r2.cloudflarestorage.com`;
   }
 
