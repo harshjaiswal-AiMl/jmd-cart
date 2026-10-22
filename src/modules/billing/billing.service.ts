@@ -95,13 +95,14 @@ export class BillingService {
       }
     }
 
-    // 2. Fetch products metadata for HSN mapping
+    // 2. Fetch products metadata for HSN mapping and pack sizes
     const productIds = validated.items.map((i) => i.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, hsn: true },
+      select: { id: true, hsn: true, packSize: true, name: true, shortCode: true },
     });
     const hsnMap = new Map(products.map((p) => [p.id, p.hsn]));
+    const prodMap = new Map(products.map((p) => [p.id, p]));
 
     // 3. Compute dynamic order pricing with A/B/C price lists, quantity slabs & order discounts
     const orderPricing = await pricingService.calculateOrderPricing({
@@ -258,23 +259,135 @@ export class BillingService {
         });
 
         // D. Post SALE stock movements for each item
+        const invoiceLocation = await tx.location.findUnique({
+          where: { id: validated.locationId },
+        });
+        const isShopLocation = invoiceLocation?.type === "SHOP";
+        const godownLocation = isShopLocation
+          ? await tx.location.findFirst({
+              where: { type: "GODOWN", active: true },
+            })
+          : null;
+
         for (const line of orderPricing.lines) {
-          await stockService.postMovement(
-            {
-              type: MovementType.SALE,
-              productId: line.productId,
-              fromLocationId: validated.locationId,
-              toLocationId: null,
-              qty: line.qty,
-              referenceType: "INVOICE",
-              referenceId: invoice.id,
-              reason: `Invoice #${invoiceNumber}`,
-              idempotencyKey: `${validated.idempotencyKey}_sale_${line.productId}`,
-              actorId,
-            },
-            tx
-          );
+          const prod = prodMap.get(line.productId);
+          const packSize = prod?.packSize || 1;
+
+          if (isShopLocation && packSize > 1 && godownLocation) {
+            const cartons = Math.floor(line.qty / packSize);
+            const cartonPcs = cartons * packSize;
+            const loosePcs = line.qty % packSize;
+
+            // 1. Full cartons: Deduct from Godown (or fallback to Shop if shop has enough carton stock and godown does not)
+            if (cartonPcs > 0) {
+              const godownBal = await tx.stockBalance.findUnique({
+                where: {
+                  productId_locationId: {
+                    productId: line.productId,
+                    locationId: godownLocation.id,
+                  },
+                },
+              });
+              const godownQty = godownBal?.qty ?? 0;
+              const cartonSourceLocId =
+                godownQty >= cartonPcs ? godownLocation.id : validated.locationId;
+
+              await stockService.postMovement(
+                {
+                  type: MovementType.SALE,
+                  productId: line.productId,
+                  fromLocationId: cartonSourceLocId,
+                  toLocationId: null,
+                  qty: cartonPcs,
+                  referenceType: "INVOICE",
+                  referenceId: invoice.id,
+                  reason: `Invoice #${invoiceNumber} (Cartons from ${
+                    cartonSourceLocId === godownLocation.id ? "Godown" : "Shop"
+                  })`,
+                  idempotencyKey: `${validated.idempotencyKey}_sale_ctn_${line.productId}`,
+                  actorId,
+                },
+                tx
+              );
+            }
+
+            // 2. Loose pieces: Deduct from Shop (auto-open shop cartons if loose on shelf is insufficient)
+            if (loosePcs > 0) {
+              const shopBal = await tx.stockBalance.findUnique({
+                where: {
+                  productId_locationId: {
+                    productId: line.productId,
+                    locationId: validated.locationId,
+                  },
+                },
+              });
+              const shopQtyBefore = shopBal?.qty ?? 0;
+              const shopLooseBefore = shopQtyBefore % packSize;
+
+              if (shopQtyBefore >= loosePcs && shopLooseBefore < loosePcs) {
+                const deficit = loosePcs - shopLooseBefore;
+                const cartonsOpened = Math.ceil(deficit / packSize);
+                await tx.auditLog.create({
+                  data: {
+                    actorId: actorId || null,
+                    action: "CARTON_AUTO_CONVERT",
+                    entity: "CartonConversion",
+                    entityId: line.productId,
+                    before: {
+                      cartonsAvailable: Math.floor(shopQtyBefore / packSize),
+                      looseAvailable: shopLooseBefore,
+                    },
+                    after: {
+                      productId: line.productId,
+                      locationId: validated.locationId,
+                      cartonsOpened,
+                      looseGenerated: cartonsOpened * packSize,
+                      looseUsed: loosePcs,
+                      reason: "auto-convert",
+                      referenceType: "INVOICE",
+                      referenceId: invoice.id,
+                      referenceNumber: invoiceNumber,
+                    },
+                  },
+                });
+              }
+
+              await stockService.postMovement(
+                {
+                  type: MovementType.SALE,
+                  productId: line.productId,
+                  fromLocationId: validated.locationId,
+                  toLocationId: null,
+                  qty: loosePcs,
+                  referenceType: "INVOICE",
+                  referenceId: invoice.id,
+                  reason: `Invoice #${invoiceNumber} (Loose from Shop)`,
+                  idempotencyKey: `${validated.idempotencyKey}_sale_loose_${line.productId}`,
+                  actorId,
+                },
+                tx
+              );
+            }
+          } else {
+            // Standard single-location deduction (e.g. VAN sale or loose packSize=1)
+            await stockService.postMovement(
+              {
+                type: MovementType.SALE,
+                productId: line.productId,
+                fromLocationId: validated.locationId,
+                toLocationId: null,
+                qty: line.qty,
+                referenceType: "INVOICE",
+                referenceId: invoice.id,
+                reason: `Invoice #${invoiceNumber}`,
+                idempotencyKey: `${validated.idempotencyKey}_sale_${line.productId}`,
+                actorId,
+              },
+              tx
+            );
+          }
         }
+
 
         // E. Record Payments
         for (const payment of validated.payments) {

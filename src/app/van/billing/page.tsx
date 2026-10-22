@@ -88,18 +88,26 @@ export default async function VanBillingPage() {
   });
   const companyMap = new Map(productsWithCompany.map((p) => [p.id, p.company?.name || "General"]));
 
-  const billingProducts = stockSummary.inventory.map((item) => ({
-    id: item.product.id,
-    name: item.product.name,
-    shortCode: item.product.shortCode,
-    packSize: item.product.packSize,
-    packLabel: item.product.packLabel,
-    mrpPaise: item.product.mrpPaise ?? item.product.priceCPaise ?? 0,
-    availablePieces: item.qty,
-    cartons: item.cartons,
-    loosePieces: item.loosePieces,
-    companyName: companyMap.get(item.product.id) || "General",
-  }));
+  const billingProducts = stockSummary.inventory
+    .map((item) => ({
+      id: item.product.id,
+      name: item.product.name,
+      shortCode: item.product.shortCode,
+      packSize: item.product.packSize,
+      packLabel: item.product.packLabel,
+      mrpPaise: item.product.mrpPaise ?? item.product.priceCPaise ?? 0,
+      availablePieces: item.qty,
+      cartons: item.cartons,
+      loosePieces: item.loosePieces,
+      companyName: companyMap.get(item.product.id) || "General",
+    }))
+    .sort((a, b) => {
+      const aIn = a.availablePieces > 0 ? 1 : 0;
+      const bIn = b.availablePieces > 0 ? 1 : 0;
+      if (aIn !== bIn) return bIn - aIn;
+      return a.name.localeCompare(b.name);
+    });
+
 
   // Fetch active customer parties and their live balances
   const parties = await prisma.party.findMany({

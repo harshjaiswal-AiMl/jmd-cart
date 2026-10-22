@@ -285,6 +285,15 @@ export class PartyImportService {
         if (!existing) {
           existing = await partyRepository.findPartyByNameAndPhone(name, phone);
         }
+        if (!existing && type === PartyType.SUPPLIER) {
+          const { prisma } = await import("@/lib/prisma");
+          existing = await prisma.party.findFirst({
+            where: {
+              type: PartyType.SUPPLIER,
+              name: { equals: name.trim(), mode: "insensitive" },
+            },
+          });
+        }
 
         if (existing) {
           await partyRepository.updateParty({

@@ -145,11 +145,21 @@ export class PurchaseService {
       purchaseRepository.listLocations(),
       prisma.product.findMany({
         where: { active: true },
-        select: { id: true, name: true, shortCode: true, gstRateBp: true, mrpPaise: true, packSize: true },
+        select: {
+          id: true,
+          name: true,
+          shortCode: true,
+          companyId: true,
+          company: { select: { id: true, name: true } },
+          gstRateBp: true,
+          mrpPaise: true,
+          packSize: true,
+        },
         orderBy: { name: "asc" },
       }),
     ]);
     return { suppliers, locations, products };
+
   }
 }
 

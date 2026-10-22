@@ -2,6 +2,7 @@ import { ImportBatchStatus, ImportBatchType, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
+import { ensureSupplierParty } from "@/modules/party/party.service";
 import {
   readWorkbookFromBuffer,
   writeWorkbookToBuffer,
@@ -752,6 +753,7 @@ export class BrandSheetImportService {
           const createdComp = await tx.company.create({
             data: { name: brandUpper, active: true },
           });
+          await ensureSupplierParty(createdComp, tx);
           companyId = createdComp.id;
           companyCache.set(brandUpper, companyId);
           companiesCreated++;

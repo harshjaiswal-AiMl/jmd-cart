@@ -72,7 +72,7 @@ gcloud run deploy $ServiceName `
     --region=$Region `
     --service-account=$SA_EMAIL `
     --set-cloudsql-instances=$SQL_CONN `
-    --set-secrets="DATABASE_URL=DATABASE_URL:latest,AUTH_SECRET=AUTH_SECRET:latest,SETUP_TOKEN=SETUP_TOKEN:latest" `
+    --set-secrets="DATABASE_URL=DATABASE_URL:latest,AUTH_SECRET=AUTH_SECRET:latest,SETUP_TOKEN=SETUP_TOKEN:latest,R2_ACCOUNT_ID=R2_ACCOUNT_ID:latest,R2_ACCESS_KEY_ID=R2_ACCESS_KEY_ID:latest,R2_SECRET_ACCESS_KEY=R2_SECRET_ACCESS_KEY:latest,R2_BUCKET=R2_BUCKET:latest" `
     --set-env-vars="NODE_ENV=production,TZ=Asia/Kolkata,DEFAULT_BRANCH_ID=1" `
     --set-env-vars="STOREFRONT_HOST=jmdcart.com,MANAGEMENT_HOST=management.jmdcart.com" `
     --set-env-vars="APP_URL=https://jmdcart.com,MANAGEMENT_URL=https://management.jmdcart.com" `

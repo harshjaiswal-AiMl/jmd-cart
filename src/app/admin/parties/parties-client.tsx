@@ -253,15 +253,26 @@ export function PartiesClient({ initialParties, totalCount }: PartiesClientProps
                     </td>
 
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          p.type === PartyType.CUSTOMER
-                            ? "bg-blue-50 text-blue-700 border border-blue-200"
-                            : "bg-purple-50 text-purple-700 border border-purple-200"
-                        }`}
-                      >
-                        {p.type === PartyType.CUSTOMER ? "Customer" : "Supplier"}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            p.type === PartyType.CUSTOMER
+                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                              : "bg-purple-50 text-purple-700 border border-purple-200"
+                          }`}
+                        >
+                          {p.type === PartyType.CUSTOMER ? "Customer" : "Supplier"}
+                        </span>
+                        {p.type === PartyType.SUPPLIER && p.companyId && (
+                          <Link
+                            href={`/admin/catalog?companyId=${p.companyId}`}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors"
+                            title="View brand products in catalog"
+                          >
+                            🏷️ Brand
+                          </Link>
+                        )}
+                      </div>
                     </td>
 
                     <td className="px-4 py-3 text-xs text-gray-600">

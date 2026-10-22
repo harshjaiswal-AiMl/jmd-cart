@@ -11,12 +11,46 @@ import {
 export class CatalogRepository {
   /**
    * Search products with multi-token fuzzy/prefix search across name, shortCode, and company name.
+   * Ranks in-stock products (total across active locations > 0) before out-of-stock products in the database.
    */
   async searchProducts(query: ProductSearchQuery): Promise<ProductWithDetails[]> {
-    const where = this.buildSearchWhere(query);
+    const { queryRankedProductIds } = await import("@/modules/stock/availability");
+    const whereParts: Prisma.Sql[] = [];
 
-    return prisma.product.findMany({
-      where,
+    if (query.activeOnly !== false) {
+      whereParts.push(Prisma.sql`p.active = true`);
+    }
+    if (query.companyId) {
+      whereParts.push(Prisma.sql`p.company_id = ${query.companyId}`);
+    }
+    if (query.categoryId) {
+      whereParts.push(Prisma.sql`p.category_id = ${query.categoryId}`);
+    }
+    if (query.q && query.q.trim().length > 0) {
+      const pattern = `%${query.q.trim()}%`;
+      whereParts.push(Prisma.sql`(
+        p.short_code ILIKE ${pattern}
+        OR p.name ILIKE ${pattern}
+        OR EXISTS (
+          SELECT 1 FROM companies c WHERE c.id = p.company_id AND c.name ILIKE ${pattern}
+        )
+      )`);
+    }
+
+    const whereSql = whereParts.length > 0 ? Prisma.join(whereParts, " AND ") : undefined;
+
+    const { productIds } = await queryRankedProductIds("ADMIN", {
+      whereSql,
+      limit: query.limit ?? 50,
+      offset: query.offset ?? 0,
+    });
+
+    if (productIds.length === 0) {
+      return [];
+    }
+
+    const productsRaw = await prisma.product.findMany({
+      where: { id: { in: productIds } },
       include: {
         company: true,
         category: true,
@@ -26,11 +60,14 @@ export class CatalogRepository {
           },
         },
       },
-      orderBy: { name: "asc" },
-      take: query.limit ?? 50,
-      skip: query.offset ?? 0,
     });
+
+    const map = new Map(productsRaw.map((p) => [p.id, p]));
+    return productIds
+      .map((id) => map.get(id))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p));
   }
+
 
   async countProducts(query: ProductSearchQuery): Promise<number> {
     const where = this.buildSearchWhere(query);

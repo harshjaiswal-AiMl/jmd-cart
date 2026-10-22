@@ -185,7 +185,8 @@ model Company {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
-  products  Product[]
+  products      Product[]
+  supplierParty Party?    @relation("CompanySupplier")
 
   @@map("companies")
 }
@@ -363,10 +364,12 @@ model Party {
   creditLimitPaise Int         @default(0) @map("credit_limit_paise")
   creditDays       Int         @default(0) @map("credit_days")
   tallyRef         String?     @map("tally_ref")
+  companyId        String?     @unique @map("company_id")
   active           Boolean     @default(true)
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
 
+  company          Company?    @relation("CompanySupplier", fields: [companyId], references: [id], onDelete: SetNull)
   invoices         Invoice[]
   purchases        Purchase[]
   ledgerEntries    LedgerEntry[]

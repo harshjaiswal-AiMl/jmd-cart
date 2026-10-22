@@ -172,6 +172,8 @@ export class CatalogService {
     const parsed = createCompanySchema.parse(data);
 
     const created = await catalogRepository.createCompany(parsed);
+    const { ensureSupplierParty } = await import("@/modules/party/party.service");
+    await ensureSupplierParty(created);
 
     await auditService.log({
       actorId,

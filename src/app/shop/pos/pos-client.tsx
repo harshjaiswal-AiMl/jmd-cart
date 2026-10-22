@@ -4,12 +4,15 @@ import { useState, useTransition, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { PaymentMode } from "@prisma/client";
 import { OrderPriceResult } from "@/modules/pricing/pricing.types";
+import { resolvePrice } from "@/modules/pricing/resolve-price";
 import {
   calculateOrderPricingAction,
   finalizeBillAction,
   checkPartyCreditStatusAction,
+  setAdminManualRateAction,
 } from "./actions";
 import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
+import { ProductImage } from "@/components/common/ProductImage";
 
 interface ProductCatalogItem {
   id: string;
@@ -21,11 +24,18 @@ interface ProductCatalogItem {
   categoryName: string | null;
   hsn: string;
   gstRateBp: number;
-  mrpPaise: number;
+  mrpPaise: number | null;
+  priceAPaise: number | null;
+  priceBPaise: number | null;
+  priceCPaise: number | null;
   packSize: number;
   packLabel: string;
   reorderLevel: number;
+  imageUrl?: string | null;
   shopStockQty: number;
+  godownStockQty: number;
+  godownCartons: number;
+  godownLoose: number;
 }
 
 interface CompanyItem {
@@ -36,6 +46,7 @@ interface CompanyItem {
 interface PartyItem {
   id: string;
   name: string;
+  type: string;
   phone: string | null;
   creditEnabled: boolean;
   creditLimitPaise: number;
@@ -60,6 +71,7 @@ interface HeldBill {
 interface PosClientProps {
   locationId: string;
   locationName: string;
+  godownLocationId?: string | null;
   cashierName: string;
   cashierRole: string;
   cashierId?: string;
@@ -69,9 +81,11 @@ interface PosClientProps {
   parties: PartyItem[];
 }
 
+
 export function PosClient({
   locationId,
   locationName,
+  godownLocationId,
   cashierName,
   cashierRole,
   cashierId,
@@ -84,6 +98,19 @@ export function PosClient({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Manual Rate state for unpriced items (Admin / Super Admin)
+  const [manualRateModalOpen, setManualRateModalOpen] = useState(false);
+  const [manualRateProduct, setManualRateProduct] = useState<ProductCatalogItem | null>(null);
+  const [manualRateRupees, setManualRateRupees] = useState("");
+  const [manualRateReason, setManualRateReason] = useState("");
+  const [isSavingManualRate, setIsSavingManualRate] = useState(false);
+  const [productsList, setProductsList] = useState<ProductCatalogItem[]>(products);
+
+  // Update productsList if parent props change
+  useEffect(() => {
+    setProductsList(products);
+  }, [products]);
 
   // Cart / Bill state
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -127,9 +154,12 @@ export function PosClient({
     searchInputRef.current?.focus();
   }, []);
 
-  // Filter catalog products
+  const selectedParty = parties.find((p) => p.id === selectedPartyId);
+
+  // Filter & sort catalog products:
+  // Part B Rule: Out-of-stock items sort AFTER all in-stock items, keeping existing name order within each group.
   const filteredProducts = useMemo(() => {
-    let list = products;
+    let list = productsList;
     if (selectedCompanyId) {
       list = list.filter((p) => p.companyId === selectedCompanyId);
     }
@@ -142,10 +172,19 @@ export function PosClient({
           (p.companyName && p.companyName.toLowerCase().includes(term))
       );
     }
-    return list;
-  }, [products, selectedCompanyId, searchTerm]);
 
-  // Recalculate dynamic pricing whenever cart or discount changes
+    return [...list].sort((a, b) => {
+      // In POS context: in-stock if shop pieces > 0 or godown has at least 1 carton
+      const aInStock = (a.shopStockQty > 0 || a.godownCartons > 0) ? 1 : 0;
+      const bInStock = (b.shopStockQty > 0 || b.godownCartons > 0) ? 1 : 0;
+      if (aInStock !== bInStock) {
+        return bInStock - aInStock; // In-stock (1) comes before Out-of-stock (0)
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [productsList, selectedCompanyId, searchTerm]);
+
+  // Recalculate dynamic pricing whenever cart, discount, or selected party changes
   useEffect(() => {
     if (cart.length === 0) {
       setPricingResult(null);
@@ -159,28 +198,95 @@ export function PosClient({
       try {
         const result = await calculateOrderPricingAction(
           cart.map((c) => ({ productId: c.productId, qty: c.qty })),
-          orderDiscountBp
+          orderDiscountBp,
+          false,
+          selectedPartyId || null
         );
         setPricingResult(result);
       } catch (err) {
         console.error("Pricing preview error:", err);
       }
     });
-  }, [cart, orderDiscountPercent]);
+  }, [cart, orderDiscountPercent, selectedPartyId]);
 
   // Cart operations
-  const addToCart = (product: ProductCatalogItem) => {
+  const addToCart = (product: ProductCatalogItem, qtyToAdd: number = 1) => {
+    // Check price resolution
+    const resolved = resolvePrice(
+      {
+        mrpPaise: product.mrpPaise,
+        priceAPaise: product.priceAPaise,
+        priceBPaise: product.priceBPaise,
+        priceCPaise: product.priceCPaise,
+      },
+      selectedParty?.type ?? "CUSTOMER"
+    );
+
+    if (resolved.isUnpriced || resolved.unitPricePaise <= 0) {
+      setErrorMessage(`Cannot add "${product.name}": Price is not set. Admin must enter a manual rate first.`);
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find((item) => item.productId === product.id);
       if (existing) {
         return prev.map((item) =>
-          item.productId === product.id ? { ...item, qty: item.qty + 1 } : item
+          item.productId === product.id ? { ...item, qty: item.qty + qtyToAdd } : item
         );
       }
-      return [...prev, { productId: product.id, product, qty: 1 }];
+      return [...prev, { productId: product.id, product, qty: qtyToAdd }];
     });
     setErrorMessage(null);
   };
+
+  const handleOpenManualRateModal = (product: ProductCatalogItem) => {
+    setManualRateProduct(product);
+    setManualRateRupees(product.priceCPaise ? (product.priceCPaise / 100).toFixed(2) : "");
+    setManualRateReason("POS walk-in unpriced item authorization");
+    setManualRateModalOpen(true);
+  };
+
+  const handleSaveManualRate = async () => {
+    if (!manualRateProduct) return;
+    const rateNum = parseFloat(manualRateRupees);
+    if (isNaN(rateNum) || rateNum <= 0) {
+      setErrorMessage("Please enter a valid rate in Rupees greater than 0.");
+      return;
+    }
+
+    try {
+      setIsSavingManualRate(true);
+      const ratePaise = Math.round(rateNum * 100);
+      await setAdminManualRateAction({
+        productId: manualRateProduct.id,
+        ratePaise,
+        reason: manualRateReason || "POS cashier unpriced item rate setting",
+      });
+
+      // Update local product list
+      setProductsList((prev) =>
+        prev.map((p) =>
+          p.id === manualRateProduct.id
+            ? { ...p, priceCPaise: ratePaise, mrpPaise: p.mrpPaise || ratePaise }
+            : p
+        )
+      );
+
+      // Add to cart with newly set rate
+      addToCart(
+        { ...manualRateProduct, priceCPaise: ratePaise, mrpPaise: manualRateProduct.mrpPaise || ratePaise },
+        1
+      );
+
+      setManualRateModalOpen(false);
+      setManualRateProduct(null);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Failed to set manual rate");
+    } finally {
+      setIsSavingManualRate(false);
+    }
+  };
+
 
   const updateQty = (productId: string, newQty: number) => {
     if (newQty <= 0) {
@@ -340,7 +446,6 @@ export function PosClient({
     }
   };
 
-  const selectedParty = parties.find((p) => p.id === selectedPartyId);
   const totalAmount = pricingResult ? pricingResult.totalPaise : 0;
   const changeDuePaise = cashTenderedPaise > totalAmount ? cashTenderedPaise - totalAmount : 0;
 
@@ -353,7 +458,12 @@ export function PosClient({
             J
           </div>
           <div>
-            <h1 className="text-base font-bold tracking-tight">Shop POS Counter</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-base font-bold tracking-tight">Shop POS Counter</h1>
+              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                Billing from: Retail Shop
+              </span>
+            </div>
             <div className="text-[11px] text-blue-200">
               {locationName} • Cashier: <span className="font-semibold text-white">{cashierName}</span>
             </div>
@@ -443,63 +553,217 @@ export function PosClient({
           </div>
 
           {/* Product Cards Grid */}
-          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 lg:grid-cols-3 gap-3 auto-rows-max">
+          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 auto-rows-max">
             {filteredProducts.map((p) => {
-              const inStock = p.shopStockQty > 0;
-              const isLow = p.shopStockQty > 0 && p.shopStockQty <= p.reorderLevel;
+              const hasShopStock = p.shopStockQty > 0;
+              const hasGodownStock = p.godownStockQty > 0;
+              const hasGodownCartons = p.godownCartons > 0;
+              const isOutEverywhere = !hasShopStock && !hasGodownStock;
+              const isLowShopStock = hasShopStock && p.shopStockQty <= p.reorderLevel;
+
+              // Price resolution per selected buyer type
+              const buyerType = selectedParty?.type ?? "CUSTOMER";
+              const resolved = resolvePrice(
+                {
+                  mrpPaise: p.mrpPaise,
+                  priceAPaise: p.priceAPaise,
+                  priceBPaise: p.priceBPaise,
+                  priceCPaise: p.priceCPaise,
+                },
+                buyerType
+              );
+
+              const isUnpriced = resolved.isUnpriced || resolved.unitPricePaise <= 0;
+              const canEditRate = cashierRole === "SUPER_ADMIN" || cashierRole === "ADMIN";
 
               return (
-                <button
+                <div
                   key={p.id}
-                  type="button"
-                  disabled={!inStock}
-                  onClick={() => addToCart(p)}
-                  className={`p-3 rounded-lg border text-left flex flex-col justify-between transition-all shadow-sm ${
-                    !inStock
-                      ? "opacity-50 bg-gray-100 border-gray-200 cursor-not-allowed"
-                      : "bg-white border-gray-200 hover:border-[#12355B] hover:shadow-md active:scale-[0.98]"
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all shadow-sm ${
+                    isOutEverywhere
+                      ? "bg-gray-50/80 border-gray-200 opacity-60"
+                      : "bg-white border-gray-200 hover:border-[#12355B] hover:shadow-md"
                   }`}
                 >
                   <div>
-                    <div className="flex items-start justify-between gap-1">
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-semibold">
+                    {/* Header: Short Code & Status Badges */}
+                    <div className="flex items-start justify-between gap-1 mb-2">
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 font-bold">
                         {p.shortCode}
                       </span>
-                      <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                          !inStock
-                            ? "bg-red-100 text-red-800"
-                            : isLow
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-emerald-100 text-emerald-800"
+
+                      {/* Stock Badges */}
+                      <div className="flex flex-col items-end gap-0.5">
+                        {hasShopStock ? (
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              isLowShopStock
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-emerald-100 text-emerald-800"
+                            }`}
+                          >
+                            Shop: {p.shopStockQty} pcs
+                          </span>
+                        ) : hasGodownStock ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                            Godown only
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                            0 pcs
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Image & Product Info */}
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-12 h-12 bg-gray-50 rounded-lg overflow-hidden border border-gray-200 shrink-0 flex items-center justify-center p-0.5">
+                        <ProductImage
+                          src={p.imageUrl}
+                          alt={p.name}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-xs text-gray-900 line-clamp-2 leading-snug">
+                          {p.name}
+                        </div>
+                        <div className="text-[11px] text-gray-500 mt-0.5 truncate">
+                          {p.companyName || "Generic"} • {p.packSize} pcs/{p.packLabel}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stock Counts Detail (Both Shop & Godown) */}
+                    <div className="mt-2.5 pt-2 border-t border-gray-100 text-[11px] space-y-0.5 bg-gray-50/60 p-1.5 rounded-lg">
+                      <div className="flex justify-between items-center text-gray-700">
+                        <span>Shop stock:</span>
+                        <span className={`font-bold ${p.shopStockQty > 0 ? "text-emerald-700" : "text-gray-400"}`}>
+                          {p.shopStockQty} pcs
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-gray-700">
+                        <span>Godown stock:</span>
+                        <span className={`font-bold ${p.godownStockQty > 0 ? "text-blue-900" : "text-gray-400"}`}>
+                          {p.godownStockQty} pcs ({p.godownCartons} ctn)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Godown-only warning & Transfer link if Shop is 0 but Godown has stock */}
+                    {!hasShopStock && hasGodownStock && (
+                      <div className="mt-2 p-1.5 rounded bg-amber-50 border border-amber-200 text-[10px] space-y-1">
+                        <div className="text-amber-800 font-medium">
+                          Godown has {p.godownStockQty} pcs ({p.godownCartons} ctn)
+                        </div>
+                        {canEditRate ? (
+                          <Link
+                            href={`/godown/operations?from=${godownLocationId || ""}&to=${locationId}&product=${p.id}&cartons=1`}
+                            target="_blank"
+                            className="inline-flex items-center text-blue-700 hover:text-blue-900 font-bold underline"
+                          >
+                            Transfer godown → shop
+                          </Link>
+                        ) : (
+                          <div className="text-amber-700 font-medium italic">
+                            Ask the godown keeper to transfer stock
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Price & Action Buttons */}
+                  <div className="mt-3 pt-2 border-t border-gray-100">
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      {isUnpriced ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
+                            Price not set
+                          </span>
+                          {canEditRate && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenManualRateModal(p)}
+                              className="text-[10px] bg-red-600 text-white font-bold px-1.5 py-0.5 rounded hover:bg-red-700"
+                            >
+                              Set Rate
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-sm font-black text-[#12355B]">
+                            ₹{(resolved.unitPricePaise / 100).toFixed(2)}
+                          </span>
+                          {resolved.listUsed && resolved.listUsed !== "MRP" && (
+                            <span className="text-[10px] font-bold px-1 rounded bg-teal-100 text-teal-800">
+                              List {resolved.listUsed}
+                            </span>
+                          )}
+                          {p.mrpPaise && p.mrpPaise > resolved.unitPricePaise && (
+                            <span className="text-[10px] text-gray-400 line-through">
+                              ₹{(p.mrpPaise / 100).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions: Loose vs Carton */}
+                    <div className="flex items-center gap-1.5">
+                      {/* Add Loose (from Shop) */}
+                      <button
+                        type="button"
+                        disabled={!hasShopStock || isUnpriced}
+                        onClick={() => addToCart(p, 1)}
+                        className={`flex-1 py-1.5 px-2 rounded text-xs font-bold transition-all text-center ${
+                          !hasShopStock || isUnpriced
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                            : "bg-[#12355B] hover:bg-[#1a4a7f] text-white active:scale-95 shadow-sm"
                         }`}
+                        title={
+                          !hasShopStock
+                            ? "Shop has 0 pcs. Cannot sell loose from shop."
+                            : isUnpriced
+                            ? "Price not set. Enter manual rate first."
+                            : "Add loose piece from shop"
+                        }
                       >
-                        {p.shopStockQty} pcs
-                      </span>
-                    </div>
+                        + Add Loose
+                      </button>
 
-                    <div className="font-semibold text-xs text-gray-900 mt-1.5 line-clamp-2">
-                      {p.name}
-                    </div>
-
-                    <div className="text-[11px] text-gray-500 mt-0.5">
-                      {p.companyName || "Generic"} • {p.packSize} pcs/{p.packLabel}
+                      {/* Add Carton (from Godown) */}
+                      {p.packSize > 1 && (
+                        <button
+                          type="button"
+                          disabled={!hasGodownCartons || isUnpriced}
+                          onClick={() => addToCart(p, p.packSize)}
+                          className={`py-1.5 px-2 rounded text-xs font-bold transition-all text-center whitespace-nowrap ${
+                            !hasGodownCartons || isUnpriced
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                              : "bg-[#1B998B] hover:bg-[#167d71] text-white active:scale-95 shadow-sm"
+                          }`}
+                          title={
+                            !hasGodownCartons
+                              ? "Godown has no complete cartons."
+                              : isUnpriced
+                              ? "Price not set."
+                              : `Sell 1 whole carton (${p.packSize} pcs) from Godown`
+                          }
+                        >
+                          + 1 Ctn
+                        </button>
+                      )}
                     </div>
                   </div>
-
-                  <div className="mt-2 pt-2 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-sm font-extrabold text-[#12355B]">
-                      ₹{(p.mrpPaise / 100).toFixed(2)}
-                    </span>
-                    <span className="text-[11px] font-semibold text-[#1B998B] hover:underline">
-                      + Add
-                    </span>
-                  </div>
-                </button>
+                </div>
               );
             })}
           </div>
         </section>
+
 
         {/* Right Pane (40%): Bill, Line Items, Totals & Finalize */}
         <section className="w-5/12 flex flex-col bg-[#F8FAFC] overflow-hidden">
@@ -567,7 +831,7 @@ export function PosClient({
                         {item.product.name}
                       </div>
                       <div className="text-[11px] text-gray-500 font-mono mt-0.5">
-                        {item.product.shortCode} • MRP ₹{(item.product.mrpPaise / 100).toFixed(2)}
+                        {item.product.shortCode} • MRP ₹{item.product.mrpPaise != null ? (item.product.mrpPaise / 100).toFixed(2) : "N/A"}
                         {pricedLine && pricedLine.slabDiscountBp > 0 && (
                           <span className="ml-1 text-[#1B998B] font-bold">
                             (-{(pricedLine.slabDiscountBp / 100).toFixed(0)}% slab)
@@ -613,7 +877,7 @@ export function PosClient({
                         ₹
                         {pricedLine
                           ? (pricedLine.lineTotalPaise / 100).toFixed(2)
-                          : ((item.product.mrpPaise * item.qty) / 100).toFixed(2)}
+                          : ((((item.product.mrpPaise ?? item.product.priceCPaise ?? 0) * item.qty)) / 100).toFixed(2)}
                       </div>
                       <button
                         type="button"
@@ -911,6 +1175,79 @@ export function PosClient({
           handleFinalizeBill(override);
         }}
       />
+
+      {/* Admin Manual Rate Modal for Unpriced Items */}
+      {manualRateModalOpen && manualRateProduct && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-800 uppercase tracking-wider">
+                Admin Authorization
+              </span>
+              <h2 className="text-lg font-bold text-gray-900 mt-1">
+                Set Manual Selling Rate
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Product: <span className="font-semibold text-gray-800">{manualRateProduct.name}</span> ({manualRateProduct.shortCode})
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-700">
+                  Rate per Piece (₹)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={manualRateRupees}
+                  onChange={(e) => setManualRateRupees(e.target.value)}
+                  placeholder="e.g. 45.00"
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-bold focus:ring-[#12355B] focus:border-[#12355B]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-700">
+                  Reason / Audit Note
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={manualRateReason}
+                  onChange={(e) => setManualRateReason(e.target.value)}
+                  placeholder="Reason for manual rate..."
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setManualRateModalOpen(false);
+                  setManualRateProduct(null);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isSavingManualRate}
+                onClick={handleSaveManualRate}
+                className="px-4 py-2 rounded-lg bg-[#12355B] hover:bg-blue-900 text-white text-xs font-bold disabled:opacity-50"
+              >
+                {isSavingManualRate ? "Saving..." : "Authorize & Add to Bill"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+
 }

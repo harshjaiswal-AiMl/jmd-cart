@@ -39,6 +39,7 @@ export function isStaticOrPublicAsset(pathname: string): boolean {
     pathname === "/offline" ||
     pathname === "/logout" ||
     pathname.startsWith("/uploads/") ||
+    pathname.startsWith("/media/") ||
     pathname.startsWith("/icons/") ||
     pathname.startsWith("/brand/")
   );

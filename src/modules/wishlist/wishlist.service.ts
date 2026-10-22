@@ -59,12 +59,19 @@ export class WishlistService {
           discountPercent,
           packSize: prod.packSize || 1,
           packLabel: prod.packLabel || "Carton",
-          inStock: totalStock > 0,
           stockQty: totalStock,
           addedAt: item.createdAt,
+          inStock: totalStock > 0,
         };
+      })
+      .sort((a, b) => {
+        if (a.inStock !== b.inStock) {
+          return a.inStock ? -1 : 1;
+        }
+        return b.addedAt.getTime() - a.addedAt.getTime();
       });
   }
+
 
   async getWishlistProductIds(userId: string): Promise<string[]> {
     if (!prisma.wishlistItem) {

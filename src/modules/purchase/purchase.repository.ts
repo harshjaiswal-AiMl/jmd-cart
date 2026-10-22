@@ -65,9 +65,13 @@ export class PurchaseRepository {
         type: PartyType.SUPPLIER,
         active: true,
       },
+      include: {
+        company: { select: { id: true, name: true } },
+      },
       orderBy: { name: "asc" },
     });
   }
+
 
   async listLocations() {
     return prisma.location.findMany({

@@ -4,6 +4,7 @@ import { parseCsv } from "./csv-parser";
 import { ImportResult, RowError, ParsedCatalogRow } from "./import.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
+import { ensureSupplierParty } from "@/modules/party/party.service";
 import { ALLOWED_GST_RATES_BP } from "../catalog.types";
 
 export class CatalogImportService {
@@ -187,6 +188,7 @@ export class CatalogImportService {
             update: {},
             create: { name: item.parsed.companyName },
           });
+          await ensureSupplierParty(comp);
           companyMap.set(norm, comp.id);
         }
       }

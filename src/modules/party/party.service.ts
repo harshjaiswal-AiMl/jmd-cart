@@ -172,6 +172,80 @@ export class PartyService {
     assertPermission(role, Permission.VIEW_PARTIES);
     return partyRepository.checkPartyCreditStatus(partyId, additionalDebitPaise);
   }
+
+  async ensureSupplierParty(
+    company: { id: string; name: string; active?: boolean },
+    tx?: import("@prisma/client").Prisma.TransactionClient,
+    options?: { oldName?: string }
+  ) {
+    return ensureSupplierParty(company, tx, options);
+  }
+}
+
+export async function ensureSupplierParty(
+  company: { id: string; name: string; active?: boolean },
+  tx?: import("@prisma/client").Prisma.TransactionClient,
+  options?: { oldName?: string }
+) {
+  const { prisma } = await import("@/lib/prisma");
+  const { PartyType } = await import("@prisma/client");
+  const db = tx ?? prisma;
+  const normName = company.name.trim().toUpperCase();
+
+  let party = await db.party.findUnique({
+    where: { companyId: company.id },
+  });
+
+  if (party) {
+    if (options?.oldName && party.name.trim().toUpperCase() === options.oldName.trim().toUpperCase()) {
+      party = await db.party.update({
+        where: { id: party.id },
+        data: {
+          name: company.name.trim(),
+          ...(company.active !== undefined ? { active: company.active } : {}),
+        },
+      });
+    } else if (company.active !== undefined && party.active !== company.active) {
+      party = await db.party.update({
+        where: { id: party.id },
+        data: { active: company.active },
+      });
+    }
+    return party;
+  }
+
+  const existingSuppliers = await db.party.findMany({
+    where: {
+      type: PartyType.SUPPLIER,
+      companyId: null,
+    },
+  });
+
+  const matching = existingSuppliers.find(
+    (s) => s.name.trim().toUpperCase() === normName
+  );
+
+  if (matching) {
+    return db.party.update({
+      where: { id: matching.id },
+      data: {
+        companyId: company.id,
+        ...(company.active !== undefined ? { active: company.active } : {}),
+      },
+    });
+  }
+
+  return db.party.create({
+    data: {
+      name: company.name.trim(),
+      type: PartyType.SUPPLIER,
+      companyId: company.id,
+      active: company.active !== undefined ? company.active : true,
+      creditEnabled: false,
+      creditLimitPaise: 0,
+      creditDays: 0,
+    },
+  });
 }
 
 export const partyService = new PartyService();

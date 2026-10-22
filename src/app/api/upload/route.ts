@@ -1,17 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import fs from "node:fs/promises";
-import path from "node:path";
+import crypto from "node:crypto";
+import { getStorage } from "@/lib/storage";
+import { mediaUrl } from "@/lib/media";
 
-const ALLOWED_MIME_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/svg+xml",
-  "image/gif",
-]);
+// Max file size: 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_DIMENSION = 8000;
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+// In-memory rate limiting per user: max 30 uploads per 60 seconds
+const uploadRateLimit = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const entry = uploadRateLimit.get(userId);
+  if (!entry || now > entry.resetAt) {
+    uploadRateLimit.set(userId, { count: 1, resetAt: now + 60000 });
+    return true;
+  }
+  if (entry.count >= 30) {
+    return false;
+  }
+  entry.count++;
+  return true;
+}
+
+import { detectImageType, imageTypeToExt } from "@/lib/storage/image-validation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,7 +36,17 @@ export async function POST(req: NextRequest) {
 
     const role = session.user.role;
     if (role !== "SUPER_ADMIN" && role !== "ADMIN" && role !== "GODOWN") {
-      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Forbidden: insufficient permissions to upload media" },
+        { status: 403 }
+      );
+    }
+
+    if (!checkRateLimit(session.user.id)) {
+      return NextResponse.json(
+        { error: "Too many uploads. Please wait a moment before uploading again." },
+        { status: 429 }
+      );
     }
 
     const formData = await req.formData();
@@ -30,13 +54,6 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    if (!ALLOWED_MIME_TYPES.has(file.type)) {
-      return NextResponse.json(
-        { error: "Invalid file type. Only JPG, PNG, WEBP, and SVG are supported." },
-        { status: 400 }
-      );
     }
 
     if (file.size > MAX_FILE_SIZE) {
@@ -49,24 +66,36 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "products");
-    await fs.mkdir(uploadDir, { recursive: true });
+    // 1. Validate magic bytes
+    const detectedType = detectImageType(buffer);
+    if (!detectedType) {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid file format. Only JPEG, PNG, WebP, and GIF images are accepted. SVG and scriptable formats are strictly blocked for security.",
+        },
+        { status: 400 }
+      );
+    }
 
-    // Clean filename
-    const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
-    const extension = path.extname(originalName) || ".webp";
-    const baseName = path.basename(originalName, extension);
-    const uniqueFileName = `${Date.now()}_${baseName.slice(0, 30)}${extension}`;
-    const destinationPath = path.join(uploadDir, uniqueFileName);
+    const storage = getStorage();
+    const hash = crypto.createHash("sha256").update(buffer).digest("hex").slice(0, 16);
 
-    await fs.writeFile(destinationPath, buffer);
+    const ext = imageTypeToExt(detectedType);
+    const mime = `image/${detectedType === "jpeg" ? "jpeg" : detectedType}`;
+    const primaryKey = `products/${hash}/original.${ext}`;
+    await storage.put(primaryKey, buffer, {
+      contentType: mime,
+      cacheControl: "public, max-age=31536000, immutable",
+    });
+    const variants: string[] = [primaryKey];
+    const publicUrl = mediaUrl(primaryKey);
 
-    const publicUrl = `/uploads/products/${uniqueFileName}`;
     return NextResponse.json({
       success: true,
+      key: primaryKey,
       url: publicUrl,
-      fileName: uniqueFileName,
+      variants,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Failed to upload file";

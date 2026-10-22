@@ -16,17 +16,28 @@ export default async function ShopPosPage() {
     redirect("/login");
   }
 
-  // 1. Find main Shop location
-  const shopLocation = await prisma.location.findFirst({
-    where: { type: LocationType.SHOP, active: true },
-    orderBy: { name: "asc" },
-  });
+  // 1. Find main Shop location and main Godown location
+  const [shopLocation, godownLocation] = await Promise.all([
+    prisma.location.findFirst({
+      where: { type: LocationType.SHOP, active: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.location.findFirst({
+      where: { type: LocationType.GODOWN, active: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!shopLocation) {
     throw new Error("No active Shop location found. Please contact Administrator.");
   }
 
-  // 2. Fetch products with their Shop stock balances
+  // 2. Fetch products with their Shop and Godown stock balances
+  const relevantLocationIds = [
+    shopLocation.id,
+    ...(godownLocation ? [godownLocation.id] : []),
+  ];
+
   const [productsRaw, companies, partiesRaw, roleLimits] = await Promise.all([
     prisma.product.findMany({
       where: { active: true },
@@ -34,7 +45,7 @@ export default async function ShopPosPage() {
         company: true,
         category: true,
         stockBalances: {
-          where: { locationId: shopLocation.id },
+          where: { locationId: { in: relevantLocationIds } },
         },
       },
       orderBy: { name: "asc" },
@@ -45,10 +56,11 @@ export default async function ShopPosPage() {
       orderBy: { name: "asc" },
     }),
     prisma.party.findMany({
-      where: { type: { not: PartyType.SUPPLIER } },
+      where: { type: { not: PartyType.SUPPLIER }, active: true },
       select: {
         id: true,
         name: true,
+        type: true,
         phone: true,
         creditEnabled: true,
         creditLimitPaise: true,
@@ -61,22 +73,39 @@ export default async function ShopPosPage() {
     settingsService.getRoleDiscountLimits(),
   ]);
 
-  const products = productsRaw.map((p) => ({
-    id: p.id,
-    name: p.name,
-    shortCode: p.shortCode,
-    companyId: p.companyId,
-    companyName: p.company?.name ?? null,
-    categoryId: p.categoryId,
-    categoryName: p.category?.name ?? null,
-    hsn: p.hsn,
-    gstRateBp: p.gstRateBp,
-    mrpPaise: p.mrpPaise ?? p.priceCPaise ?? 0,
-    packSize: p.packSize,
-    packLabel: p.packLabel,
-    reorderLevel: p.reorderLevel,
-    shopStockQty: p.stockBalances[0]?.qty ?? 0,
-  }));
+  const products = productsRaw.map((p) => {
+    const shopBal = p.stockBalances.find((b) => b.locationId === shopLocation.id)?.qty ?? 0;
+    const godownBal = godownLocation
+      ? (p.stockBalances.find((b) => b.locationId === godownLocation.id)?.qty ?? 0)
+      : 0;
+    const packSize = Math.max(1, p.packSize);
+    const godownCartons = Math.floor(godownBal / packSize);
+    const godownLoose = godownBal % packSize;
+
+    return {
+      id: p.id,
+      name: p.name,
+      shortCode: p.shortCode,
+      companyId: p.companyId,
+      companyName: p.company?.name ?? null,
+      categoryId: p.categoryId,
+      categoryName: p.category?.name ?? null,
+      hsn: p.hsn,
+      gstRateBp: p.gstRateBp,
+      mrpPaise: p.mrpPaise,
+      priceAPaise: p.priceAPaise,
+      priceBPaise: p.priceBPaise,
+      priceCPaise: p.priceCPaise,
+      packSize: p.packSize,
+      packLabel: p.packLabel,
+      reorderLevel: p.reorderLevel,
+      imageUrl: p.imageUrl,
+      shopStockQty: shopBal,
+      godownStockQty: godownBal,
+      godownCartons,
+      godownLoose,
+    };
+  });
 
   const parties = partiesRaw.map((party) => {
     const totalDebit = party.ledgerEntries.reduce((sum, e) => sum + e.debitPaise, 0);
@@ -86,6 +115,7 @@ export default async function ShopPosPage() {
     return {
       id: party.id,
       name: party.name,
+      type: party.type,
       phone: party.phone,
       creditEnabled: party.creditEnabled,
       creditLimitPaise: party.creditLimitPaise,
@@ -102,6 +132,7 @@ export default async function ShopPosPage() {
     <PosClient
       locationId={shopLocation.id}
       locationName={shopLocation.name}
+      godownLocationId={godownLocation?.id || null}
       cashierName={session.user.name || "Cashier"}
       cashierRole={session.user.role}
       cashierId={session.user.id}
@@ -111,4 +142,5 @@ export default async function ShopPosPage() {
       parties={parties}
     />
   );
+
 }

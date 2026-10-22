@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
 import { stockRepository } from "@/modules/stock/stock.repository";
+import { ensureSupplierParty } from "@/modules/party/party.service";
 import { CRUD_ENTITIES, CrudEntityKey } from "./crud.registry";
 
 export interface CrudListOptions {
@@ -672,6 +673,7 @@ export class CrudService {
             active: data.active !== undefined ? Boolean(data.active) : true,
           },
         });
+        await ensureSupplierParty(created);
         if (gstin || contactPhone) {
           await saveCompanyContact(created.id, created.name, gstin, contactPhone);
         }
@@ -992,6 +994,7 @@ export class CrudService {
             ...(data.active !== undefined ? { active: Boolean(data.active) } : {}),
           },
         });
+        await ensureSupplierParty(updated, undefined, { oldName: before?.name });
         if (data.gstin !== undefined || data.contactPhone !== undefined) {
           await saveCompanyContact(
             updated.id,
@@ -1354,9 +1357,11 @@ export class CrudService {
             where: { id },
             data: { active: false },
           });
+          await ensureSupplierParty({ id, name: company.name, active: false });
           actionTaken = "ARCHIVED";
         } else {
           await prisma.company.delete({ where: { id } });
+          await ensureSupplierParty({ id, name: company.name, active: false });
           actionTaken = "DELETED";
         }
         break;
@@ -1714,9 +1719,11 @@ export class CrudService {
       case "locations":
         await prisma.location.update({ where: { id }, data: { active: true } });
         break;
-      case "companies":
-        await prisma.company.update({ where: { id }, data: { active: true } });
+      case "companies": {
+        const restored = await prisma.company.update({ where: { id }, data: { active: true } });
+        await ensureSupplierParty(restored);
         break;
+      }
       case "categories":
         await prisma.category.update({ where: { id }, data: { active: true } });
         break;

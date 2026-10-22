@@ -109,6 +109,44 @@ export async function seedReferenceData(client: PrismaClient = prisma) {
     },
   });
 
+  // 5. Ensure Brand Supplier Parties (idempotent backfill for Prompt 09)
+  const companies = await client.company.findMany();
+  for (const company of companies) {
+    const existingLinked = await client.party.findUnique({
+      where: { companyId: company.id },
+    });
+    if (existingLinked) continue;
+
+    const normName = company.name.trim().toUpperCase();
+    const existingSuppliers = await client.party.findMany({
+      where: {
+        type: "SUPPLIER",
+        companyId: null,
+      },
+    });
+    const match = existingSuppliers.find(
+      (s) => s.name.trim().toUpperCase() === normName
+    );
+    if (match) {
+      await client.party.update({
+        where: { id: match.id },
+        data: { companyId: company.id, active: company.active },
+      });
+    } else {
+      await client.party.create({
+        data: {
+          name: company.name.trim(),
+          type: "SUPPLIER",
+          companyId: company.id,
+          active: company.active,
+          creditEnabled: false,
+          creditLimitPaise: 0,
+          creditDays: 0,
+        },
+      });
+    }
+  }
+
   console.log("Reference seed completed (0 business rows created).");
 }
 
