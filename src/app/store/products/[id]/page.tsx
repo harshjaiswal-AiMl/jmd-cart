@@ -4,6 +4,7 @@ import { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { storeService } from "@/modules/store/store.service";
 import { cartService } from "@/modules/cart/cart.service";
+import { wishlistService } from "@/modules/wishlist/wishlist.service";
 import { ProductDetailClient } from "./product-detail-client";
 
 interface PageProps {
@@ -76,7 +77,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
       })
     : null;
 
-  const [product, relatedProducts, filterOptions, cartData] = await Promise.all([
+  const [product, relatedProducts, filterOptions, cartData, userWishlistIds, wishlistCount] = await Promise.all([
     storeService.getProductDetail(params.id),
     storeService.getRelatedProducts(params.id, null, 4),
     storeService.getFilterOptions(),
@@ -96,6 +97,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
           totalPaise: 0,
           lines: [],
         }),
+    session?.user?.id
+      ? wishlistService.getWishlistProductIds(session.user.id)
+      : Promise.resolve([]),
+    session?.user?.id
+      ? wishlistService.getWishlistCount(session.user.id)
+      : Promise.resolve(0),
   ]);
 
   if (!product) {
@@ -194,6 +201,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
         categories={filterOptions.categories}
         isLoggedIn={!!user}
         userName={user?.party?.name || user?.name || ""}
+        initialInWishlist={userWishlistIds.includes(product.id)}
+        wishlistCount={wishlistCount}
         cartSummary={{
           totalPieces: cartData.totalPieces,
           itemsCount: cartData.itemsCount,

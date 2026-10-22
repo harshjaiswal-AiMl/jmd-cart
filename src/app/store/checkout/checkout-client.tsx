@@ -6,8 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CartSummary } from "@/modules/cart/cart.service";
 import { DeliveryZone } from "@/modules/delivery/delivery.types";
+import { SavedAddressDto, UserAddressType } from "@/modules/address/address.types";
 import { checkoutCartAction, CheckoutActionResult } from "./actions";
 import { updateCartQtyAction, removeFromCartAction } from "@/app/store/cart/actions";
+import { saveUserAddressAction, deleteUserAddressAction } from "./address-actions";
 import { PaymentModeSettings } from "@/modules/settings/settings.types";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
@@ -17,6 +19,7 @@ interface CheckoutClientProps {
   deliveryZones: DeliveryZone[];
   paymentSettings: PaymentModeSettings;
   categories?: Array<{ id: string; name: string }>;
+  savedAddresses?: SavedAddressDto[];
   isCreditParty?: boolean;
   creditPartyName?: string;
   userPhone?: string;
@@ -56,6 +59,7 @@ export function CheckoutClient({
   deliveryZones,
   paymentSettings,
   categories = [],
+  savedAddresses = [],
   isCreditParty = false,
   creditPartyName = "",
   userPhone = "",
@@ -66,18 +70,97 @@ export function CheckoutClient({
   const router = useRouter();
   const [, startTransition] = useTransition();
 
+  // Saved Addresses State
+  const [addresses, setAddresses] = useState<SavedAddressDto[]>(savedAddresses);
+  const initialSelected = savedAddresses.find((a) => a.isDefault) || savedAddresses[0];
+  const [selectedAddressId, setSelectedAddressId] = useState<string>(initialSelected?.id || "custom");
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [addressSaveError, setAddressSaveError] = useState<string | null>(null);
+
+  // New Address Form State
+  const [newAddress, setNewAddress] = useState({
+    name: userName || "",
+    phone: userPhone || "",
+    addressLine: "",
+    area: "Purab Bazar",
+    city: "Saharsa",
+    state: "Bihar",
+    pincode: "852201",
+    type: "SHOP" as UserAddressType,
+    isDefault: false,
+  });
+
   const [selectedZoneCode, setSelectedZoneCode] = useState<string>(
     deliveryZones.length > 0 ? deliveryZones[0].code : "TOWN"
   );
   const [selectedSlot, setSelectedSlot] = useState<"evening" | "morning">("evening");
   const [gstEnabled, setGstEnabled] = useState<boolean>(!!userGstin);
   const [gstinValue, setGstinValue] = useState<string>(userGstin || "10AAECJ3829K1ZT");
-  const [contactPhone, setContactPhone] = useState<string>(userPhone);
+
+  const [contactPhone, setContactPhone] = useState<string>(
+    initialSelected?.phone || userPhone
+  );
   const [addressValue, setAddressValue] = useState<string>(
-    userAddress || "Shop No. 4, D.B. Road, Near Shankar Chowk, Saharsa, Bihar - 852201"
+    initialSelected?.formattedAddress ||
+      userAddress ||
+      "D.B. Road, Purab Bazar, Saharsa, Bihar - 852201"
   );
   const [customerNotes, setCustomerNotes] = useState<string>("");
   const [cartLines, setCartLines] = useState(cart.lines);
+
+  // When selected address changes, sync addressValue and contactPhone
+  const handleSelectAddress = (addr: SavedAddressDto) => {
+    setSelectedAddressId(addr.id);
+    setAddressValue(addr.formattedAddress);
+    setContactPhone(addr.phone);
+  };
+
+  // Handle Save New Address
+  const handleSaveNewAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingAddress(true);
+    setAddressSaveError(null);
+    try {
+      const res = await saveUserAddressAction(newAddress);
+      if (!res.success || !res.address) {
+        throw new Error(res.error || "Failed to save delivery address");
+      }
+      const updatedList = [res.address, ...addresses.filter((a) => a.id !== res.address!.id)];
+      setAddresses(updatedList);
+      handleSelectAddress(res.address);
+      setShowNewAddressForm(false);
+      // Reset form
+      setNewAddress({
+        name: userName || "",
+        phone: userPhone || "",
+        addressLine: "",
+        area: "Purab Bazar",
+        city: "Saharsa",
+        state: "Bihar",
+        pincode: "852201",
+        type: "SHOP",
+        isDefault: false,
+      });
+    } catch (err: any) {
+      setAddressSaveError(err.message || "Failed to save address");
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
+  const handleDeleteAddress = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Remove this saved delivery address?")) return;
+    const res = await deleteUserAddressAction(id);
+    if (res.success) {
+      const remaining = addresses.filter((a) => a.id !== id);
+      setAddresses(remaining);
+      if (selectedAddressId === id && remaining.length > 0) {
+        handleSelectAddress(remaining[0]);
+      }
+    }
+  };
 
   const defaultMode = paymentSettings.codEnabled
     ? "COD"
@@ -167,7 +250,7 @@ export function CheckoutClient({
         categories={categories}
       />
 
-      <main className="flex-1 w-full pt-36 bg-surface">
+      <main className="flex-1 w-full pt-[168px] md:pt-36 pb-20 md:pb-8 bg-surface">
         <div className="w-full max-w-[1280px] mx-auto px-4 lg:px-8 py-6 space-y-6">
           {/* Stepper Context Header */}
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -290,17 +373,38 @@ export function CheckoutClient({
                           key={line.productId}
                           className="bg-surface-container-low p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between border border-surface-container-high"
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-14 h-14 rounded-lg bg-surface-container flex items-center justify-center flex-shrink-0 text-primary">
-                              <span className="material-symbols-outlined text-[24px]">inventory_2</span>
-                            </div>
+                          <div className="flex items-center gap-3.5">
+                            <Link
+                              href={`/store/products/${line.productId}`}
+                              className="w-14 h-14 rounded-xl bg-white border border-surface-container-high p-1 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-2xs group"
+                            >
+                              {line.imageUrl ? (
+                                <img
+                                  src={line.imageUrl}
+                                  alt={line.productName}
+                                  className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                                />
+                              ) : (
+                                <span className="material-symbols-outlined text-[22px] text-outline">inventory_2</span>
+                              )}
+                            </Link>
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {line.companyName && (
+                                  <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">
+                                    {line.companyName}
+                                  </span>
+                                )}
+                                {line.weight && (
+                                  <span className="text-[10px] bg-surface-container-high text-on-surface-variant font-semibold px-1.5 py-0.2 rounded">
+                                    {line.weight}
+                                  </span>
+                                )}
                                 <span className="text-[10px] bg-tertiary-fixed text-on-tertiary-fixed px-1.5 py-0.2 rounded font-bold">
                                   {line.pricing.tier || "CUSTOMER"} Slab
                                 </span>
                               </div>
-                              <h3 className="text-xs font-bold text-on-surface mt-0.5">
+                              <h3 className="text-xs sm:text-sm font-bold text-on-surface mt-1">
                                 <Link
                                   href={`/store/products/${line.productId}`}
                                   className="hover:text-primary transition-colors line-clamp-1"
@@ -375,56 +479,285 @@ export function CheckoutClient({
                   </div>
                 </div>
 
-                {/* Delivery Address Card */}
+                {/* Delivery Address Card with Multiple Saved Addresses */}
                 <div className="bg-surface-container-lowest p-5 rounded-xl shadow-sm border border-surface-container-high flex flex-col gap-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-secondary text-[22px]">pin_drop</span>
-                      <h2 className="text-sm font-bold text-on-surface font-headline">Delivery Address (Saharsa Hub)</h2>
+                      <div>
+                        <h2 className="text-sm font-bold text-on-surface font-headline">
+                          Delivery Address (Select or Add New)
+                        </h2>
+                        <p className="text-[11px] text-on-surface-variant">
+                          Orders are dispatched via Saharsa Express Tempo / E-Rickshaw directly to this address.
+                        </p>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewAddressForm(!showNewAddressForm)}
+                      className="px-3 py-1.5 rounded-lg bg-primary-fixed text-on-primary-fixed hover:bg-primary hover:text-white text-xs font-bold transition-all flex items-center gap-1 shadow-2xs"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        {showNewAddressForm ? "close" : "add_location_alt"}
+                      </span>
+                      <span>{showNewAddressForm ? "Cancel" : "+ Add New Address"}</span>
+                    </button>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="bg-surface-container-low p-4 rounded-xl border border-surface-container-high">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs font-bold text-on-surface">{userName || "Customer / Kirana Partner"}</span>
-                        <span className="text-[10px] bg-secondary-fixed text-on-secondary-fixed px-2 py-0.2 rounded font-bold">
-                          Saharsa Ward Delivery
+                  {/* Add New Address Form Modal / Inline Collapsible */}
+                  {showNewAddressForm && (
+                    <div className="bg-surface-container-low p-4 rounded-xl border-2 border-primary/40 space-y-3 animate-fade-in">
+                      <div className="flex items-center justify-between border-b border-surface-container-high pb-2">
+                        <span className="text-xs font-bold text-primary flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[18px]">add_home</span>
+                          Add New Delivery Address
                         </span>
+                        <span className="text-[10px] text-outline">Saharsa Ward 1 to 20</span>
                       </div>
-                      <div className="space-y-2">
+
+                      {addressSaveError && (
+                        <div className="bg-error-container text-on-error-container text-xs p-2.5 rounded-lg border border-error">
+                          {addressSaveError}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                         <div>
-                          <label className="text-[11px] text-outline uppercase font-bold block mb-1">
-                            Unloading Shop / Godown Address
+                          <label className="block text-[11px] font-bold text-on-surface mb-1">
+                            Contact Person Name *
                           </label>
-                          <textarea
-                            rows={2}
-                            value={addressValue}
-                            onChange={(e) => setAddressValue(e.target.value)}
+                          <input
+                            type="text"
                             required
-                            className="w-full bg-surface-container-lowest p-2 rounded-lg text-xs text-on-surface border border-outline-variant/40 focus:outline-none focus:ring-1 focus:ring-primary"
+                            value={newAddress.name}
+                            onChange={(e) => setNewAddress({ ...newAddress, name: e.target.value })}
+                            placeholder="e.g. Ramesh Kumar / Shop In-Charge"
+                            className="w-full bg-white px-3 py-2 rounded-lg border border-outline-variant/60 text-xs text-on-surface focus:outline-none focus:border-primary"
                           />
                         </div>
+
                         <div>
-                          <label className="text-[11px] text-outline uppercase font-bold block mb-1">
-                            Contact Phone (For Tempo Pilot)
+                          <label className="block text-[11px] font-bold text-on-surface mb-1">
+                            10-Digit Mobile Number *
                           </label>
                           <input
                             type="tel"
-                            value={contactPhone}
-                            onChange={(e) => setContactPhone(e.target.value)}
                             required
+                            pattern="[6-9][0-9]{9}"
+                            maxLength={10}
+                            value={newAddress.phone}
+                            onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
                             placeholder="e.g. 94314XXXXX"
-                            className="w-full sm:w-64 bg-surface-container-lowest p-2 rounded-lg text-xs text-on-surface border border-outline-variant/40 focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                            className="w-full bg-white px-3 py-2 rounded-lg border border-outline-variant/60 text-xs text-on-surface font-mono focus:outline-none focus:border-primary"
                           />
                         </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-on-surface mb-1">
+                            Flat / House No. / Shop No. &amp; Street *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={newAddress.addressLine}
+                            onChange={(e) => setNewAddress({ ...newAddress, addressLine: e.target.value })}
+                            placeholder="e.g. Shop No. 12, Station Road, Near Shankar Chowk"
+                            className="w-full bg-white px-3 py-2 rounded-lg border border-outline-variant/60 text-xs text-on-surface focus:outline-none focus:border-primary"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-on-surface mb-1">
+                            Market / Area / Ward *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={newAddress.area}
+                            onChange={(e) => setNewAddress({ ...newAddress, area: e.target.value })}
+                            placeholder="e.g. Purab Bazar, Naya Bazar, Bariyahi"
+                            className="w-full bg-white px-3 py-2 rounded-lg border border-outline-variant/60 text-xs text-on-surface focus:outline-none focus:border-primary"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[11px] font-bold text-on-surface mb-1">City</label>
+                            <input
+                              type="text"
+                              disabled
+                              value="Saharsa"
+                              className="w-full bg-surface-container px-3 py-2 rounded-lg border border-outline-variant/30 text-xs text-on-surface-variant font-semibold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-bold text-on-surface mb-1">Pincode</label>
+                            <input
+                              type="text"
+                              value={newAddress.pincode}
+                              onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })}
+                              className="w-full bg-white px-3 py-2 rounded-lg border border-outline-variant/60 text-xs text-on-surface font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-on-surface mb-1.5">
+                            Address Category Tag
+                          </label>
+                          <div className="grid grid-cols-4 gap-2">
+                            {(["SHOP", "HOME", "WORK", "OTHER"] as UserAddressType[]).map((t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                onClick={() => setNewAddress({ ...newAddress, type: t })}
+                                className={`py-1.5 px-2 rounded-lg font-bold text-xs border transition-all ${
+                                  newAddress.type === t
+                                    ? "bg-primary text-white border-primary shadow-2xs"
+                                    : "bg-white text-on-surface border-outline-variant/60 hover:bg-surface-container"
+                                }`}
+                              >
+                                {t === "SHOP" && "🏪 Shop"}
+                                {t === "HOME" && "🏠 Home"}
+                                {t === "WORK" && "🏢 Work"}
+                                {t === "OTHER" && "📍 Other"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-2 flex items-center gap-2 pt-1">
+                          <input
+                            type="checkbox"
+                            id="makeDefault"
+                            checked={newAddress.isDefault}
+                            onChange={(e) => setNewAddress({ ...newAddress, isDefault: e.target.checked })}
+                            className="w-4 h-4 text-primary rounded border-outline-variant/60 focus:ring-primary"
+                          />
+                          <label htmlFor="makeDefault" className="text-xs text-on-surface font-medium cursor-pointer">
+                            Make this my default delivery address
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-surface-container-high">
+                        <button
+                          type="button"
+                          onClick={() => setShowNewAddressForm(false)}
+                          className="px-3 py-1.5 text-xs text-on-surface-variant hover:text-on-surface"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveNewAddress}
+                          disabled={isSavingAddress || !newAddress.name || !newAddress.phone || !newAddress.addressLine}
+                          className="px-4 py-2 bg-primary hover:bg-primary-container text-white rounded-lg text-xs font-bold transition-all shadow-xs disabled:opacity-50"
+                        >
+                          {isSavingAddress ? "Saving..." : "Save & Deliver Here"}
+                        </button>
                       </div>
                     </div>
+                  )}
+
+                  {/* Saved Addresses List / Radio Cards */}
+                  <div className="space-y-3">
+                    {addresses.length === 0 ? (
+                      <div className="p-4 bg-surface-container-low rounded-xl border border-surface-container-high text-center">
+                        <p className="text-xs font-semibold text-on-surface-variant">
+                          No saved addresses found. Please click &quot;+ Add New Address&quot; above to add your shop or home.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-2.5">
+                        {addresses.map((addr) => {
+                          const isSelected = selectedAddressId === addr.id;
+                          return (
+                            <div
+                              key={addr.id}
+                              onClick={() => handleSelectAddress(addr)}
+                              className={`p-3.5 rounded-xl cursor-pointer transition-all border flex items-start justify-between gap-3 ${
+                                isSelected
+                                  ? "bg-primary-fixed/20 border-primary shadow-xs ring-1 ring-primary/40"
+                                  : "bg-surface-container-low border-surface-container-high hover:border-outline-variant"
+                              }`}
+                            >
+                              <div className="flex items-start gap-3 min-w-0">
+                                <div className="pt-0.5 shrink-0">
+                                  <div
+                                    className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                      isSelected
+                                        ? "border-primary bg-primary"
+                                        : "border-outline bg-white"
+                                    }`}
+                                  >
+                                    {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                  </div>
+                                </div>
+                                <div className="min-w-0 space-y-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs font-bold text-on-surface">{addr.name}</span>
+                                    <span className="text-[10px] font-mono text-outline font-semibold">
+                                      {addr.phone}
+                                    </span>
+                                    <span className="text-[10px] bg-secondary-fixed text-on-secondary-fixed font-bold px-2 py-0.2 rounded-full uppercase">
+                                      {addr.type === "SHOP" && "🏪 Kirana Shop"}
+                                      {addr.type === "HOME" && "🏠 Home"}
+                                      {addr.type === "WORK" && "🏢 Work / Godown"}
+                                      {addr.type === "OTHER" && "📍 Other"}
+                                    </span>
+                                    {addr.isDefault && (
+                                      <span className="text-[10px] bg-tertiary-fixed text-on-tertiary-fixed font-bold px-1.5 py-0.2 rounded">
+                                        ★ Default
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-on-surface-variant leading-relaxed line-clamp-2">
+                                    {addr.formattedAddress}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                                {isSelected ? (
+                                  <span className="text-[11px] font-bold text-primary flex items-center gap-0.5 bg-primary/10 px-2 py-0.5 rounded-full">
+                                    <span className="material-symbols-outlined text-[14px]">check</span>
+                                    Delivering Here
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSelectAddress(addr);
+                                    }}
+                                    className="text-xs font-bold text-primary hover:underline px-2 py-0.5"
+                                  >
+                                    Select
+                                  </button>
+                                )}
+                                {addresses.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteAddress(addr.id, e)}
+                                    className="text-outline hover:text-error p-1 rounded transition-colors"
+                                    title="Delete address"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {/* Zone Selector */}
-                    <div>
+                    <div className="pt-2 border-t border-surface-container-high">
                       <label className="text-[11px] text-outline uppercase font-bold block mb-1">
-                        Select Saharsa Delivery Zone
+                        Select Saharsa Delivery Hub &amp; Speed
                       </label>
                       <select
                         value={selectedZoneCode}

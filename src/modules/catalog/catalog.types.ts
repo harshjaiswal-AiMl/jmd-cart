@@ -30,7 +30,15 @@ export const createProductSchema = z.object({
   packSize: z.number().int().min(1, "Pack size must be at least 1 piece").default(1),
   packLabel: z.string().min(1).default("Carton"),
   reorderLevel: z.number().int().min(0).default(0),
-  imageUrl: z.string().url().nullable().optional(),
+  imageUrl: z
+    .string()
+    .trim()
+    .refine(
+      (val) => !val || val.startsWith("/") || val.startsWith("http://") || val.startsWith("https://") || val.startsWith("data:"),
+      { message: "Image must be a valid web URL, local upload path, or data URI" }
+    )
+    .nullable()
+    .optional(),
   active: z.boolean().default(true),
 });
 

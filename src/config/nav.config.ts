@@ -244,6 +244,14 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/admin/catalog/import",
     roles: [...ADMIN_ROLES],
   },
+  {
+    id: "cat-banners",
+    group: "Catalog",
+    label: "Storefront Banners",
+    icon: "Layers",
+    href: "/admin/banners",
+    roles: [...ADMIN_ROLES],
+  },
 
   // 6. Parties
   {

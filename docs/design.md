@@ -88,25 +88,4 @@ The system ships with **zero products, zero stock, zero parties, zero bills**. E
 - **Reusable CRUD DataTable (`src/components/crud/crud-data-table.tsx`)**:
   - Unified toolbar with instant search, "Show Archived / Voided" filter toggle, column visibility pills, sortable headers, multi-select checkboxes, CSV export, slide-over Create/Edit Drawer, and safe Delete/Archive/Void confirmation modal with mandatory audit reason for accounting records.
 
-## 12. Stitch Storefront Design System (`jmdcart.com` Rebuild - Prompt #08)
-- **Token Decisions & Fidelity**:
-  - Storefront uses the exact Stitch design export tokens (`design/stitch-export/ecommerce/`):
-    - `primary`: `#5c0c1e` (deep brand maroon)
-    - `primary-container`: `#7a2433` (card accents and header strip)
-    - `secondary-container`: `#fc9430` (warm CTA orange)
-    - `on-secondary-container`: `#663500` (deep contrast text for WCAG AA compliance)
-    - `surface`: `#fff8f6`, `surface-container`: `#faecea` (soft warm cream backgrounds)
-    - `outline`: `#857372`, `outline-variant`: `#d7c1bf`
-  - Radii: `rounded`: `0.25rem`, `rounded-lg`: `0.5rem`, `rounded-xl`: `0.75rem`.
-- **Typography & Icons**:
-  - Epilogue (display/headings) and Inter (UI/body) self-hosted via `next/font/google`.
-  - Tabular figures on all prices, weights, quantities, and GST numbers.
-  - Icons: Material Symbols Outlined self-hosted and vendored at `/public/fonts/material-symbols-outlined.woff2`. Zero runtime external Google Fonts / CDN calls.
-- **Accessibility & Contrast Audit**:
-  - Fixed WCAG AA contrast on CTA buttons: replaced pure white text on `#fc9430` with `text-on-secondary-container` (`#663500`), achieving > 4.5:1 contrast ratio.
-  - Form controls include explicit `<label>` and `aria-label` tags. Touch targets exceed 44px on mobile viewports.
-- **Staff Boundary Invariance**:
-  - `management.jmdcart.com` and all staff screens (`/admin`, `/godown`, `/shop`, `/van`, `/delivery`, `/reports`, `/setup`, `/management`) remain untouched visually and functionally.
-
-
 

@@ -109,7 +109,7 @@ export function CartViewClient({
         categories={categories}
       />
 
-      <main className="flex-1 w-full pt-36 bg-surface">
+      <main className="flex-1 w-full pt-[168px] md:pt-36 pb-20 md:pb-8 bg-surface">
         <div className="max-w-[1280px] mx-auto px-4 lg:px-8 py-6 space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -196,15 +196,38 @@ export function CartViewClient({
                         key={line.productId}
                         className="bg-surface-container-low p-4 rounded-xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between border border-surface-container-high"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-14 h-14 rounded-lg bg-surface-container flex items-center justify-center text-primary shrink-0">
-                            <span className="material-symbols-outlined text-[24px]">inventory_2</span>
-                          </div>
+                        <div className="flex items-center gap-3.5">
+                          <Link
+                            href={`/store/products/${line.productId}`}
+                            className="w-16 h-16 rounded-xl bg-white border border-surface-container-high p-1.5 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs group"
+                          >
+                            {line.imageUrl ? (
+                              <img
+                                src={line.imageUrl}
+                                alt={line.productName}
+                                className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                              />
+                            ) : (
+                              <span className="material-symbols-outlined text-[24px] text-outline">inventory_2</span>
+                            )}
+                          </Link>
                           <div>
-                            <span className="text-[10px] bg-tertiary-fixed text-on-tertiary-fixed px-1.5 py-0.2 rounded font-bold">
-                              {line.pricing.tier || "CUSTOMER"} Slab
-                            </span>
-                            <h3 className="text-xs font-bold text-on-surface mt-0.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {line.companyName && (
+                                <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">
+                                  {line.companyName}
+                                </span>
+                              )}
+                              {line.weight && (
+                                <span className="text-[10px] bg-surface-container-high text-on-surface-variant font-semibold px-1.5 py-0.2 rounded">
+                                  {line.weight}
+                                </span>
+                              )}
+                              <span className="text-[10px] bg-tertiary-fixed text-on-tertiary-fixed px-1.5 py-0.2 rounded font-bold">
+                                {line.pricing.tier || "CUSTOMER"} Slab
+                              </span>
+                            </div>
+                            <h3 className="text-xs sm:text-sm font-bold text-on-surface mt-1">
                               <Link
                                 href={`/store/products/${line.productId}`}
                                 className="hover:text-primary transition-colors line-clamp-1"
@@ -213,11 +236,13 @@ export function CartViewClient({
                               </Link>
                             </h3>
                             <div className="flex items-baseline gap-2 mt-1">
-                              <span className="text-xs font-bold text-primary font-mono">₹{linePrice}</span>
+                              <span className="text-xs sm:text-sm font-bold text-primary font-mono">₹{linePrice}</span>
                               {unitSavings > 0 && (
                                 <>
                                   <span className="text-[11px] text-outline line-through">MRP ₹{lineMrp}</span>
-                                  <span className="text-[10px] text-tertiary font-bold">Save ₹{unitSavings}/pc</span>
+                                  <span className="text-[10px] text-tertiary font-bold bg-tertiary/10 px-1.5 py-0.2 rounded">
+                                    Save ₹{unitSavings}/pc
+                                  </span>
                                 </>
                               )}
                             </div>

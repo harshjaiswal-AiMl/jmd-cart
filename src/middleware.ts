@@ -8,9 +8,7 @@ import {
   STAFF_ROUTES,
   normalizeHost,
   isStaffRoute,
-  isStorefrontPublicPath,
 } from "@/lib/host-routing";
-import { resolveStorefrontRedirect } from "@/lib/store-redirects";
 
 const { auth } = NextAuth(authConfig);
 
@@ -43,17 +41,12 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(decision.destination, req.url));
   }
 
-  // 301-redirect legacy /store URLs to clean canonical URLs
-  if (pathname.startsWith("/store")) {
-    const redirect = resolveStorefrontRedirect(pathname, req.nextUrl.searchParams);
-    if (redirect) {
-      return NextResponse.redirect(new URL(redirect.destination, req.url), 301);
-    }
-    return NextResponse.next();
-  }
-
-  // Public storefront customer browsing, cart, checkout, CMS pages, and management hub
-  if (isStorefrontPublicPath(pathname) || pathname === "/management" || pathname.startsWith("/api/store")) {
+  // Public storefront catalogue & cart browsing, management hub, and public storefront APIs
+  if (
+    pathname.startsWith("/store") ||
+    pathname === "/management" ||
+    pathname.startsWith("/api/store")
+  ) {
     return NextResponse.next();
   }
 
@@ -137,7 +130,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: [
-    "/((?!api/health|_next/static|_next/image|favicon.ico|fonts/|.*\\.(?:woff|woff2|png|jpg|jpeg|gif|svg|webp|ico)).*)",
-  ],
+  matcher: ["/((?!api/health|_next/static|_next/image|favicon.ico).*)"],
 };

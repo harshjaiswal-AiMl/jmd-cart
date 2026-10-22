@@ -8,7 +8,7 @@ export function TrustRegionalStrip() {
           </span>
           <div className="min-w-0">
             <p className="font-bold text-xs truncate">Free Delivery &gt; ₹2,000</p>
-            <p className="text-[11px] text-on-surface-variant truncate">All 40 Wards in Saharsa Town</p>
+            <p className="text-[11px] text-on-surface-variant truncate">Direct Godown Delivery</p>
           </div>
         </div>
 

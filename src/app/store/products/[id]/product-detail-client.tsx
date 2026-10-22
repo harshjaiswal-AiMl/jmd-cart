@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StoreProductItem } from "@/modules/store/store.service";
 import { addToCartAction } from "@/app/store/cart/actions";
+import { toggleWishlistAction } from "@/app/store/wishlist/actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
 import { FloatingCartBar } from "@/components/store/FloatingCartBar";
@@ -15,6 +16,8 @@ interface ProductDetailClientProps {
   categories: Array<{ id: string; name: string }>;
   isLoggedIn?: boolean;
   userName?: string;
+  initialInWishlist?: boolean;
+  wishlistCount?: number;
   cartSummary?: {
     totalPieces: number;
     itemsCount: number;
@@ -28,6 +31,8 @@ export function ProductDetailClient({
   categories = [],
   isLoggedIn = false,
   userName = "",
+  initialInWishlist = false,
+  wishlistCount = 0,
   cartSummary = { totalPieces: 0, itemsCount: 0, totalPaise: 0 },
 }: ProductDetailClientProps) {
   const router = useRouter();
@@ -36,6 +41,32 @@ export function ProductDetailClient({
   const [activeTab, setActiveTab] = useState<number>(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [cartState, setCartState] = useState(cartSummary);
+  const [inWishlist, setInWishlist] = useState<boolean>(initialInWishlist);
+  const [headerWishlistCount, setHeaderWishlistCount] = useState<number>(wishlistCount);
+
+  const handleToggleWishlist = () => {
+    if (!isLoggedIn) {
+      router.push(`/login?callbackUrl=/store/products/${product.id}`);
+      return;
+    }
+
+    const wasIn = inWishlist;
+    setInWishlist(!wasIn);
+    setHeaderWishlistCount((prev) => (wasIn ? Math.max(0, prev - 1) : prev + 1));
+    setToastMessage(wasIn ? "Removed from Wishlist" : "Saved to Wishlist ❤️");
+    setTimeout(() => setToastMessage(null), 3000);
+
+    startTransition(async () => {
+      try {
+        const res = await toggleWishlistAction(product.id);
+        if (res.success) {
+          setHeaderWishlistCount(res.count);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  };
 
   const packSize = Math.max(1, product.packSize);
   const mrpRupees = (product.mrpPaise / 100).toFixed(0);
@@ -64,45 +95,70 @@ export function ProductDetailClient({
   const s3Rate = Math.round((product.mrpPaise * (10000 - slab3DiscountBp)) / 10000 / 100);
 
   const handleAddToCart = (qtyToAdd: number) => {
-    if (!isLoggedIn) {
-      router.push(`/login?callbackUrl=/store/products/${product.id}`);
-      return;
+    if (typeof window !== "undefined") {
+      try {
+        const saved = window.localStorage.getItem("jmd_local_cart");
+        const parsed = saved ? JSON.parse(saved) : {};
+        parsed[product.id] = (parsed[product.id] || 0) + qtyToAdd;
+        window.localStorage.setItem("jmd_local_cart", JSON.stringify(parsed));
+      } catch (e) {
+        // ignore
+      }
     }
 
-    startTransition(async () => {
-      const res = await addToCartAction(product.id, qtyToAdd);
-      if (res.success) {
-        setCartState((prev) => ({
-          totalPieces: prev.totalPieces + qtyToAdd,
-          itemsCount: prev.itemsCount + 1,
-          totalPaise: prev.totalPaise + unitSellingPaise * qtyToAdd,
-        }));
-        setToastMessage(`✓ Added ${qtyToAdd}x ${product.name} to wholesale cart!`);
-        setTimeout(() => setToastMessage(null), 3000);
-      } else {
-        alert(res.error || "Failed to add to cart");
-      }
-    });
+    setCartState((prev) => ({
+      totalPieces: prev.totalPieces + qtyToAdd,
+      itemsCount: prev.itemsCount + 1,
+      totalPaise: prev.totalPaise + unitSellingPaise * qtyToAdd,
+    }));
+    setToastMessage(`✓ Added ${qtyToAdd}x ${product.name} to wholesale cart!`);
+    setTimeout(() => setToastMessage(null), 3000);
+
+    if (isLoggedIn) {
+      startTransition(async () => {
+        try {
+          await addToCartAction(product.id, qtyToAdd);
+        } catch (e) {
+          // ignore
+        }
+      });
+    }
+  };
+
+  const handleBuyNow = (qtyToAdd: number) => {
+    handleAddToCart(qtyToAdd);
+    router.push("/store/checkout");
   };
 
   const handleRelatedQuickAdd = (p: StoreProductItem) => {
-    if (!isLoggedIn) {
-      router.push(`/login?callbackUrl=/store/products/${product.id}`);
-      return;
+    if (typeof window !== "undefined") {
+      try {
+        const saved = window.localStorage.getItem("jmd_local_cart");
+        const parsed = saved ? JSON.parse(saved) : {};
+        parsed[p.id] = (parsed[p.id] || 0) + 1;
+        window.localStorage.setItem("jmd_local_cart", JSON.stringify(parsed));
+      } catch (e) {
+        // ignore
+      }
     }
 
-    startTransition(async () => {
-      const res = await addToCartAction(p.id, 1);
-      if (res.success) {
-        setCartState((prev) => ({
-          totalPieces: prev.totalPieces + 1,
-          itemsCount: prev.itemsCount + 1,
-          totalPaise: prev.totalPaise + (p.unitPricePaise || p.mrpPaise),
-        }));
-        setToastMessage(`✓ Added ${p.name} to cart!`);
-        setTimeout(() => setToastMessage(null), 3000);
-      }
-    });
+    setCartState((prev) => ({
+      totalPieces: prev.totalPieces + 1,
+      itemsCount: prev.itemsCount + 1,
+      totalPaise: prev.totalPaise + (p.unitPricePaise || p.mrpPaise),
+    }));
+    setToastMessage(`✓ Added ${p.name} to cart!`);
+    setTimeout(() => setToastMessage(null), 3000);
+
+    if (isLoggedIn) {
+      startTransition(async () => {
+        try {
+          await addToCartAction(p.id, 1);
+        } catch (e) {
+          // ignore
+        }
+      });
+    }
   };
 
   return (
@@ -119,13 +175,14 @@ export function ProductDetailClient({
       <StoreHeader
         cartCount={cartState.itemsCount}
         cartTotalRupees={Math.round(cartState.totalPaise / 100)}
+        wishlistCount={headerWishlistCount}
         userName={userName}
         isLoggedIn={isLoggedIn}
         categories={categories}
         activeCategory={product.categoryId || ""}
       />
 
-      <main className="flex-1 w-full pt-36 bg-surface">
+      <main className="flex-1 w-full pt-[168px] md:pt-36 pb-24 md:pb-8 bg-surface">
         {/* Dynamic Saharsa Mandi Notification Strip */}
         <div className="w-full bg-secondary-fixed/40 border-b border-secondary-fixed/60 text-on-secondary-fixed px-4 py-2 text-center">
           <div className="max-w-[1280px] mx-auto flex items-center justify-center gap-2 text-xs md:text-sm font-semibold">
@@ -185,6 +242,25 @@ export function ProductDetailClient({
 
                 {/* Main Hero Packshot Container */}
                 <div className="relative w-full aspect-square bg-surface-container-low rounded-lg overflow-hidden flex items-center justify-center p-6 group">
+                  {/* Heart Wishlist Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={handleToggleWishlist}
+                    className="absolute top-3 right-3 z-20 w-10 h-10 rounded-full bg-surface-container-lowest/90 backdrop-blur-xs flex items-center justify-center border border-outline-variant/40 shadow-sm hover:scale-110 active:scale-95 transition-all pointer-events-auto"
+                    title={inWishlist ? "Saved in Wishlist" : "Save to Wishlist"}
+                  >
+                    <span
+                      className={`material-symbols-outlined text-[24px] ${
+                        inWishlist ? "text-red-500 fill-1" : "text-outline hover:text-red-500"
+                      }`}
+                      style={{
+                        fontVariationSettings: inWishlist ? "'FILL' 1" : "'FILL' 0",
+                      }}
+                    >
+                      favorite
+                    </span>
+                  </button>
+
                   {product.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -514,12 +590,21 @@ export function ProductDetailClient({
                     type="button"
                     disabled={isPending || !product.isAvailable}
                     onClick={() => handleAddToCart(selectedQty)}
-                    className="flex-1 bg-primary hover:bg-primary-container text-on-primary font-bold text-sm py-3 px-5 rounded-lg flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99] disabled:opacity-50"
+                    className="flex-1 bg-surface-container hover:bg-surface-container-high text-primary font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-all active:scale-[0.99] disabled:opacity-50 border border-outline-variant/60"
                   >
-                    <span className="material-symbols-outlined text-[20px]">
-                      {isPending ? "hourglass_top" : "shopping_cart"}
-                    </span>
-                    <span>{isPending ? "Adding..." : "Add to Cart"}</span>
+                    <span className="material-symbols-outlined text-[18px]">shopping_cart</span>
+                    <span>Add to Cart</span>
+                  </button>
+
+                  {/* Buy Now Direct Button */}
+                  <button
+                    type="button"
+                    disabled={isPending || !product.isAvailable}
+                    onClick={() => handleBuyNow(selectedQty)}
+                    className="flex-1 bg-primary hover:bg-primary-container text-on-primary font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-[0.99] disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">bolt</span>
+                    <span>Buy Now</span>
                     <span className="text-primary-fixed opacity-70">•</span>
                     <span className="font-mono">₹{totalAmountRupees}</span>
                   </button>
@@ -817,6 +902,31 @@ export function ProductDetailClient({
           )}
         </div>
       </main>
+
+      {/* Mobile Sticky Quick Buy Bar */}
+      <div className="md:hidden fixed bottom-14 inset-x-0 z-30 bg-surface-container-lowest/95 backdrop-blur-md border-t border-surface-container-high px-3 py-2 flex items-center justify-between gap-2 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
+        <div>
+          <div className="text-[10px] text-on-surface-variant font-medium">Saharsa Rate</div>
+          <div className="font-headline text-base font-bold text-primary">₹{unitSellingRupees}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleAddToCart(selectedQty)}
+            className="px-3.5 py-2 bg-surface-container hover:bg-surface-container-high text-primary font-bold text-xs rounded-xl shadow-2xs active:scale-95"
+          >
+            + Add
+          </button>
+          <button
+            type="button"
+            onClick={() => handleBuyNow(selectedQty)}
+            className="px-4 py-2 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs rounded-xl shadow-sm flex items-center gap-1 active:scale-95"
+          >
+            <span>Buy Now</span>
+            <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+          </button>
+        </div>
+      </div>
 
       {/* Floating Cart Bar (Appears when items are in cart) */}
       <FloatingCartBar

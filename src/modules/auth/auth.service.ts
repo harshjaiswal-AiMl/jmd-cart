@@ -306,6 +306,24 @@ export class AuthService {
       },
     });
 
+    // Auto-create initial saved address for 1-click checkout
+    if (data.address?.trim()) {
+      await prisma.userAddress.create({
+        data: {
+          userId: user.id,
+          name: data.name.trim(),
+          phone: cleanPhone,
+          addressLine: data.address.trim(),
+          area: "Purab Bazar",
+          city: "Saharsa",
+          state: "Bihar",
+          pincode: "852201",
+          type: "SHOP",
+          isDefault: true,
+        },
+      });
+    }
+
     await auditService.log({
       actorId: user.id,
       action: "BUYER_REGISTERED",

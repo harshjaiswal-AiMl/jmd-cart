@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380">
+  <defs>
+    <linearGradient id="bgGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5c0c1e" />
+      <stop offset="50%" stop-color="#420815" />
+      <stop offset="100%" stop-color="#22030a" />
+    </linearGradient>
+    <linearGradient id="goldGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+    <filter id="shadow1" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="380" rx="20" fill="url(#bgGrad1)" />
+
+  <!-- Decorative circles -->
+  <circle cx="1080" cy="190" r="180" fill="#ffffff" fill-opacity="0.04" />
+  <circle cx="1000" cy="120" r="120" fill="#fbbf24" fill-opacity="0.06" />
+
+  <!-- Content Left -->
+  <g transform="translate(60, 60)">
+    <!-- Badge -->
+    <rect x="0" y="0" width="260" height="32" rx="16" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.2" />
+    <text x="130" y="21" fill="#fbbf24" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" letter-spacing="1.5" text-anchor="middle">★ DIRECT GODOWN PRICING</text>
+
+    <!-- Main Headline -->
+    <text x="0" y="85" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="900" letter-spacing="-0.5">Stock Up for Shop &amp; Kitchen</text>
+
+    <!-- Subtitle -->
+    <text x="0" y="125" fill="#ffffff" fill-opacity="0.85" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="400">Pure Mustard Oils • Chakki Atta • Certified Pulses • Commercial Cartons</text>
+
+    <!-- Offer Pill -->
+    <g transform="translate(0, 160)">
+      <rect x="0" y="0" width="180" height="52" rx="12" fill="url(#goldGrad1)" filter="url(#shadow1)" />
+      <text x="90" y="32" fill="#5c0c1e" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="800" text-anchor="middle">SHOP NOW →</text>
+    </g>
+
+    <text x="210" y="192" fill="#ffffff" fill-opacity="0.8" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="600">Free Town Delivery &gt; ₹2,000</text>
+  </g>
+
+  <!-- Right Visual Graphics: Illustrated Product Mockup Badge -->
+  <g transform="translate(860, 60)" filter="url(#shadow1)">
+    <rect x="0" y="0" width="260" height="260" rx="24" fill="#ffffff" fill-opacity="0.08" stroke="#ffffff" stroke-opacity="0.18" />
+    <circle cx="130" cy="110" r="70" fill="#ffffff" fill-opacity="0.95" />
+    <text x="130" y="120" font-size="64" text-anchor="middle">📦</text>
+    <rect x="30" y="200" width="200" height="36" rx="8" fill="#fbbf24" />
+    <text x="130" y="224" fill="#5c0c1e" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="800" text-anchor="middle">UP TO 25% OFF MRP</text>
+  </g>
+</svg>

@@ -50,6 +50,7 @@ export async function createProductAction(
       packSize: Number(formData.get("packSize") || 1),
       packLabel: (formData.get("packLabel") as string) || "Carton",
       reorderLevel: Number(formData.get("reorderLevel") || 0),
+      imageUrl: (formData.get("imageUrl") as string)?.trim() || null,
       active: formData.get("active") === "true" || formData.get("active") === "on",
     };
 
@@ -99,6 +100,7 @@ export async function updateProductAction(
       packSize: Number(formData.get("packSize")),
       packLabel: formData.get("packLabel") as string,
       reorderLevel: Number(formData.get("reorderLevel")),
+      imageUrl: (formData.get("imageUrl") as string)?.trim() || null,
       active: formData.get("active") === "true",
     };
 
@@ -115,6 +117,32 @@ export async function updateProductAction(
     return { success: true, productId: id };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to update product";
+    return { error: message };
+  }
+}
+
+export async function updateProductImageAction(
+  id: string,
+  imageUrl: string | null
+): Promise<CatalogActionResult> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    await catalogService.updateProduct(
+      session.user.role,
+      session.user.id,
+      id,
+      { imageUrl: imageUrl ? imageUrl.trim() : null }
+    );
+
+    revalidatePath("/admin/catalog");
+    revalidatePath("/store");
+    return { success: true, productId: id };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update image";
     return { error: message };
   }
 }

@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { UserRole } from "@prisma/client";
+import { UserRole, OrderStatus } from "@prisma/client";
 import { orderService } from "@/modules/order/order.service";
 import { DeliveryClient } from "./delivery-client";
 

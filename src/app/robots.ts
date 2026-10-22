@@ -20,7 +20,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/api/", "/admin", "/godown", "/shop", "/van"],
+        disallow: ["/api/", "/admin", "/godown", "/shop", "/van", "/delivery"],
       },
     ],
     sitemap: `${process.env.APP_URL || "https://jmdcart.com"}/sitemap.xml`,

@@ -1,24 +1,36 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StoreProductItem } from "@/modules/store/store.service";
+import { StoreBanner } from "@/modules/banners/banner.types";
 import { addToCartAction, updateCartQtyAction, removeFromCartAction } from "@/app/store/cart/actions";
+import { toggleWishlistAction } from "@/app/store/wishlist/actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
 import { TrustRegionalStrip } from "@/components/store/TrustRegionalStrip";
 import { FloatingCartBar } from "@/components/store/FloatingCartBar";
+import { StoreBannerCarousel } from "@/components/store/StoreBannerCarousel";
 
 interface CatalogueClientProps {
   initialProducts: StoreProductItem[];
   companies: Array<{ id: string; name: string }>;
   categories: Array<{ id: string; name: string }>;
+  banners?: StoreBanner[];
   currentSearch?: string;
   currentCompanyId?: string;
   currentCategoryId?: string;
   currentInStockOnly?: boolean;
   initialCartQuantities?: Record<string, number>;
+  initialWishlistProductIds?: string[];
+  initialWishlistCount?: number;
+  pagination?: {
+    currentPage: number;
+    totalPages: number;
+    totalProducts: number;
+    pageSize: number;
+  };
   isLoggedIn?: boolean;
   userName?: string;
   userRole?: string;
@@ -34,17 +46,26 @@ export function CatalogueClient({
   initialProducts,
   companies,
   categories,
+  banners = [],
   currentSearch = "",
   currentCompanyId = "",
   currentCategoryId = "",
   currentInStockOnly = false,
   initialCartQuantities = {},
+  initialWishlistProductIds = [],
+  initialWishlistCount = 0,
+  pagination = {
+    currentPage: 1,
+    totalPages: 1,
+    totalProducts: initialProducts.length,
+    pageSize: 32,
+  },
   isLoggedIn = false,
   userName = "",
   cartSummary = { totalPieces: 0, itemsCount: 0, totalPaise: 0, savingsPaise: 0 },
 }: CatalogueClientProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   // Filter States
   const [selectedCompany, setSelectedCompany] = useState(currentCompanyId);
@@ -52,53 +73,143 @@ export function CatalogueClient({
   const [inStockOnly, setInStockOnly] = useState(currentInStockOnly);
   const [sortBy, setSortBy] = useState<"name" | "price-asc" | "price-desc">("name");
 
-  // Cart Optimistic State
+  // Cart Optimistic State (supports local guest storage + DB sync)
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>(initialCartQuantities);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // Wishlist Optimistic State
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(
+    () => new Set(initialWishlistProductIds)
+  );
+  const [wishlistCount, setWishlistCount] = useState<number>(initialWishlistCount);
+
+  const handleToggleWishlist = (productId: string, productName: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isLoggedIn) {
+      router.push("/login?callbackUrl=/store");
+      return;
+    }
+
+    const wasIn = wishlistIds.has(productId);
+    setWishlistIds((prev) => {
+      const next = new Set(prev);
+      if (wasIn) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+    setWishlistCount((prev) => (wasIn ? Math.max(0, prev - 1) : prev + 1));
+    setToastMessage(wasIn ? `Removed from Wishlist` : `Saved to Wishlist ❤️`);
+    setTimeout(() => setToastMessage(null), 3000);
+
+    startTransition(async () => {
+      try {
+        const res = await toggleWishlistAction(productId);
+        if (res.success) {
+          setWishlistCount(res.count);
+        }
+      } catch (err) {
+        console.error("Wishlist error:", err);
+      }
+    });
+  };
+
+  // Sync with localStorage on client mount if guest
+  useEffect(() => {
+    if (!isLoggedIn && typeof window !== "undefined") {
+      try {
+        const saved = window.localStorage.getItem("jmd_local_cart");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === "object") {
+            setCartQuantities((prev) => ({ ...parsed, ...prev }));
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [isLoggedIn]);
+
+  const saveLocalCart = (nextCart: Record<string, number>) => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("jmd_local_cart", JSON.stringify(nextCart));
+      } catch (e) {
+        // ignore
+      }
+    }
+  };
+
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((current) => (current === msg ? null : current));
+    }, 2800);
+  };
+
   // Apply filters via URL
-  const applyFilters = (companyId: string, categoryId: string, inStock: boolean) => {
+  const applyFilters = (
+    companyId: string,
+    categoryId: string,
+    inStock: boolean,
+    page: number = 1
+  ) => {
     const params = new URLSearchParams();
     if (currentSearch) params.set("q", currentSearch);
     if (companyId) params.set("companyId", companyId);
     if (categoryId) params.set("categoryId", categoryId);
     if (inStock) params.set("inStockOnly", "true");
+    if (page > 1) params.set("page", page.toString());
 
     startTransition(() => {
-      router.push(`/store?${params.toString()}`);
+      router.push(`/store?${params.toString()}#products-grid`);
     });
   };
 
   const handleCompanyChange = (companyId: string) => {
     setSelectedCompany(companyId);
-    applyFilters(companyId, selectedCategory, inStockOnly);
+    applyFilters(companyId, selectedCategory, inStockOnly, 1);
   };
 
   const handleCategorySelect = (categoryId: string) => {
     const nextCat = selectedCategory === categoryId ? "" : categoryId;
     setSelectedCategory(nextCat);
-    applyFilters(selectedCompany, nextCat, inStockOnly);
+    applyFilters(selectedCompany, nextCat, inStockOnly, 1);
   };
 
   const handleInStockToggle = (checked: boolean) => {
     setInStockOnly(checked);
-    applyFilters(selectedCompany, selectedCategory, checked);
+    applyFilters(selectedCompany, selectedCategory, checked, 1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    applyFilters(selectedCompany, selectedCategory, inStockOnly, newPage);
   };
 
   // Cart Handlers
   const handleAddToCart = async (product: StoreProductItem) => {
     setUpdatingId(product.id);
     const newQty = (cartQuantities[product.id] || 0) + 1;
-    setCartQuantities((prev) => ({ ...prev, [product.id]: newQty }));
+    const next = { ...cartQuantities, [product.id]: newQty };
+    setCartQuantities(next);
+    saveLocalCart(next);
+    triggerToast(`✓ Added ${product.name} to cart`);
 
-    try {
-      const res = await addToCartAction(product.id, 1);
-      if (!res.success) {
-        setCartQuantities((prev) => ({ ...prev, [product.id]: prev[product.id] - 1 }));
+    if (isLoggedIn) {
+      try {
+        const res = await addToCartAction(product.id, 1);
+        if (!res.success) {
+          // If server rejects, keep local optimistic or revert
+        }
+      } catch {
+        // keep local state
+      } finally {
+        setUpdatingId(null);
       }
-    } catch {
-      setCartQuantities((prev) => ({ ...prev, [product.id]: (prev[product.id] || 1) - 1 }));
-    } finally {
+    } else {
       setUpdatingId(null);
     }
   };
@@ -108,30 +219,50 @@ export function CatalogueClient({
     const nextQty = Math.max(0, currentQty + delta);
 
     setUpdatingId(productId);
-    setCartQuantities((prev) => {
-      const copy = { ...prev };
-      if (nextQty === 0) delete copy[productId];
-      else copy[productId] = nextQty;
-      return copy;
-    });
+    const next = { ...cartQuantities };
+    if (nextQty === 0) {
+      delete next[productId];
+    } else {
+      next[productId] = nextQty;
+    }
+    setCartQuantities(next);
+    saveLocalCart(next);
 
-    try {
-      if (nextQty === 0) {
-        await removeFromCartAction(productId);
-      } else {
-        await updateCartQtyAction(productId, nextQty);
+    if (isLoggedIn) {
+      try {
+        if (nextQty === 0) {
+          await removeFromCartAction(productId);
+        } else {
+          await updateCartQtyAction(productId, nextQty);
+        }
+      } catch {
+        // keep local state
+      } finally {
+        setUpdatingId(null);
       }
-    } catch {
-      setCartQuantities((prev) => ({ ...prev, [productId]: currentQty }));
-    } finally {
+    } else {
       setUpdatingId(null);
     }
   };
 
   // Calculate dynamic cart totals
   const totalCartCount = Object.values(cartQuantities).reduce((a, b) => a + b, 0);
-  const totalCartRupees = Math.round(cartSummary.totalPaise / 100);
-  const totalSavingsRupees = Math.round(cartSummary.savingsPaise / 100);
+
+  // Compute total rupees and savings dynamically from active products
+  let calculatedRupees = 0;
+  let calculatedSavings = 0;
+  for (const [pId, qty] of Object.entries(cartQuantities)) {
+    const p = initialProducts.find((item) => item.id === pId);
+    if (p && qty > 0) {
+      const mrp = Math.round(p.mrpPaise / 100);
+      const rate = p.slabs[0] ? Math.round(p.slabs[0].unitPricePaise / 100) : mrp;
+      calculatedRupees += rate * qty;
+      calculatedSavings += Math.max(0, mrp - rate) * qty;
+    }
+  }
+
+  const totalCartRupees = calculatedRupees > 0 ? calculatedRupees : Math.round(cartSummary.totalPaise / 100);
+  const totalSavingsRupees = calculatedSavings > 0 ? calculatedSavings : Math.round(cartSummary.savingsPaise / 100);
 
   // Sorting products
   const sortedProducts = [...initialProducts].sort((a, b) => {
@@ -148,12 +279,16 @@ export function CatalogueClient({
     return a.name.localeCompare(b.name);
   });
 
+  // Reorder picks (Top 6 staples)
+  const reorderPicks = sortedProducts.slice(0, 6);
+
   return (
     <div className="min-h-screen bg-surface flex flex-col justify-between">
-      {/* 1. Master Header with Theme */}
+      {/* 1. Master Header with Full Responsive Navigation */}
       <StoreHeader
         cartCount={totalCartCount}
         cartTotalRupees={totalCartRupees}
+        wishlistCount={wishlistCount}
         currentSearch={currentSearch}
         activeCategory={selectedCategory}
         categories={categories}
@@ -161,151 +296,81 @@ export function CatalogueClient({
         isLoggedIn={isLoggedIn}
       />
 
-      <main className="w-full pt-36 bg-surface flex-1">
-        {/* 2. Regional Guarantee Strip */}
-        <TrustRegionalStrip />
+      {/* Toast Notification Popup */}
+      {toastMessage && (
+        <div className="fixed top-24 md:top-28 right-4 z-50 animate-slide-in pointer-events-none">
+          <div className="bg-primary text-on-primary px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 text-xs sm:text-sm font-semibold border border-primary-container">
+            <span className="material-symbols-outlined text-[18px] text-secondary-fixed">check_circle</span>
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
 
-        {/* 3. Hero Section with Commercial Split Bento (when not searching) */}
+      {/* Main Content Area */}
+      <main className="w-full pt-[168px] md:pt-36 pb-20 md:pb-8 bg-surface flex-1">
+        {/* 2. Sliding Promotional Hero Carousel (Loaded from Backend Banners) */}
         {!currentSearch && !selectedCategory && !selectedCompany && (
-          <section className="max-w-[1280px] mx-auto w-full px-4 lg:px-8 pt-6 pb-2">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-              {/* Main Commercial Billboard */}
-              <div className="lg:col-span-8 bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/30 p-6 lg:p-10 flex flex-col justify-between relative overflow-hidden">
-                <div className="absolute -right-12 -top-12 w-64 h-64 bg-primary-container/10 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="relative z-10 max-w-xl">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary-fixed text-on-primary-fixed rounded-full text-xs font-bold uppercase tracking-wider mb-4 shadow-2xs">
-                    <span className="material-symbols-outlined text-[15px]">storefront</span>
-                    B2B Wholesale & Retail Portal • Saharsa Hub
-                  </div>
-                  <h1 className="font-headline text-3xl sm:text-4xl text-primary font-bold tracking-tight mb-3 leading-tight">
-                    Stock Up for Your Shop & Kitchen
-                  </h1>
-                  <p className="text-sm sm:text-base text-on-surface-variant mb-6 leading-relaxed">
-                    Direct distributor prices on daily essentials, verified regional pulses, mustard oils, and commercial master cartons. Rapid delivery across Saharsa town.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <a
-                      href="#products-grid"
-                      className="bg-primary hover:bg-primary-container text-on-primary font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-sm transition-all flex items-center gap-2"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">shopping_cart</span>
-                      Shop Groceries
-                    </a>
-                    <Link
-                      href="/store/wholesale"
-                      className="bg-surface-container-low hover:bg-secondary-fixed text-secondary font-bold text-xs sm:text-sm px-6 py-3 rounded-xl shadow-2xs transition-all flex items-center gap-2"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">warehouse</span>
-                      Explore Wholesale Slabs
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Metric highlights */}
-                <div className="relative z-10 pt-8 mt-6 grid grid-cols-3 gap-3 border-t border-surface-container-high/60">
-                  <div className="bg-surface-container-low/70 p-3 rounded-xl">
-                    <span className="font-headline text-lg sm:text-xl text-primary font-bold block">930+</span>
-                    <span className="text-[11px] text-on-surface-variant font-medium">Active SKUs in Godown</span>
-                  </div>
-                  <div className="bg-surface-container-low/70 p-3 rounded-xl">
-                    <span className="font-headline text-lg sm:text-xl text-secondary font-bold block">₹38/pack</span>
-                    <span className="text-[11px] text-on-surface-variant font-medium">Mustard Oil Starting</span>
-                  </div>
-                  <div className="bg-surface-container-low/70 p-3 rounded-xl">
-                    <span className="font-headline text-lg sm:text-xl text-tertiary font-bold block">30 Mins</span>
-                    <span className="text-[11px] text-on-surface-variant font-medium">Ward 1 to 20 Express</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Secondary Promo Bento Cards */}
-              <div className="lg:col-span-4 flex flex-col gap-4">
-                {/* Daily Mandi Rates Box */}
-                <div className="bg-surface-container-lowest rounded-2xl p-5 shadow-sm border border-outline-variant/30 flex flex-col justify-between flex-1 relative overflow-hidden">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-tertiary text-[20px]">trending_down</span>
-                      <span className="font-bold text-xs text-on-surface">Today&apos;s Mandi Price Slabs</span>
-                    </div>
-                    <span className="px-2 py-0.5 bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-bold rounded">Live Rates</span>
-                  </div>
-                  <div className="space-y-2.5">
-                    <div className="flex justify-between items-center bg-surface-container-low px-3 py-2 rounded-lg text-xs">
-                      <span className="font-medium text-on-surface">MDH Garam Masala 100g</span>
-                      <span className="font-bold text-primary">₹78 <span className="text-[10px] text-outline line-through">₹118</span></span>
-                    </div>
-                    <div className="flex justify-between items-center bg-surface-container-low px-3 py-2 rounded-lg text-xs">
-                      <span className="font-medium text-on-surface">Dawat Biryani Basmati 1kg</span>
-                      <span className="font-bold text-primary">₹188 <span className="text-[10px] text-outline line-through">₹260</span></span>
-                    </div>
-                    <div className="flex justify-between items-center bg-surface-container-low px-3 py-2 rounded-lg text-xs">
-                      <span className="font-medium text-on-surface">Saloni Mustard Oil 1L Pouch</span>
-                      <span className="font-bold text-primary">₹142 <span className="text-[10px] text-outline line-through">₹175</span></span>
-                    </div>
-                  </div>
-                  <Link
-                    href="/store/wholesale"
-                    className="mt-3 inline-flex items-center justify-center gap-1.5 w-full py-2 bg-surface-container text-primary font-bold text-xs rounded-lg hover:bg-primary hover:text-on-primary transition-colors"
-                  >
-                    View All Wholesale Slabs
-                    <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-                  </Link>
-                </div>
-
-                {/* Quick Logistics Banner */}
-                <div className="bg-primary-container text-on-primary rounded-2xl p-5 shadow-sm flex items-center justify-between">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-primary-fixed-dim uppercase tracking-wider block font-bold">Commercial Bulk Logistics</span>
-                    <h4 className="font-headline text-sm font-bold">Pick-Up or E-Rickshaw Drop</h4>
-                    <p className="text-[11px] text-primary-fixed opacity-90">Free town loading at Station Road Hub</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-on-primary flex-shrink-0 shadow-inner">
-                    <span className="material-symbols-outlined text-[24px]">electric_rickshaw</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
+          <StoreBannerCarousel banners={banners} />
         )}
 
-        {/* 4. Category Filter Chips Carousel */}
-        <section className="max-w-[1280px] mx-auto px-4 lg:px-8 pt-6 pb-2">
+        {/* 3. Regional Guarantee Strip */}
+        <TrustRegionalStrip />
+
+        {/* 4. Shop by Category (Placed Up Front for Fast Discovery) */}
+        <section id="categories" className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 pt-4 pb-2">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-headline text-lg font-bold text-on-surface">Shop by Category</h2>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-[22px]">category</span>
+              <h2 className="font-headline text-base sm:text-lg font-bold text-on-surface">Shop by Category</h2>
+            </div>
             {selectedCategory && (
               <button
                 onClick={() => handleCategorySelect("")}
                 className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
               >
-                <span>Clear Category</span>
+                <span>Clear Filter</span>
                 <span className="material-symbols-outlined text-[14px]">close</span>
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none">
+          <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto pb-2 scrollbar-none">
             <button
               onClick={() => handleCategorySelect("")}
-              className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 border ${
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 border shadow-2xs ${
                 !selectedCategory
                   ? "bg-primary text-on-primary border-primary shadow-xs"
                   : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low"
               }`}
             >
-              <span>All Items</span>
-              <span className="text-[10px] opacity-75">({sortedProducts.length})</span>
+              <span>🛒 All Staples</span>
+              <span className="text-[10px] opacity-80">({sortedProducts.length})</span>
             </button>
             {categories.map((cat) => {
               const isSelected = selectedCategory === cat.id;
+              // Clean icon mapping for staples categories
+              const icon = cat.name.toLowerCase().includes("atta") || cat.name.toLowerCase().includes("staple")
+                ? "🌾"
+                : cat.name.toLowerCase().includes("oil") || cat.name.toLowerCase().includes("ghee")
+                ? "🛢️"
+                : cat.name.toLowerCase().includes("spice") || cat.name.toLowerCase().includes("masala")
+                ? "🌶️"
+                : cat.name.toLowerCase().includes("biscuit") || cat.name.toLowerCase().includes("snack")
+                ? "🍪"
+                : cat.name.toLowerCase().includes("tea") || cat.name.toLowerCase().includes("beverage")
+                ? "☕"
+                : "📦";
+
               return (
                 <button
                   key={cat.id}
                   onClick={() => handleCategorySelect(cat.id)}
-                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 border ${
+                  className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 border shadow-2xs ${
                     isSelected
                       ? "bg-primary text-on-primary border-primary shadow-xs"
                       : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:bg-surface-container-low"
                   }`}
                 >
+                  <span>{icon}</span>
                   <span>{cat.name}</span>
                 </button>
               );
@@ -313,11 +378,124 @@ export function CatalogueClient({
           </div>
         </section>
 
-        {/* 5. Main Catalog & Products Grid */}
-        <section id="products-grid" className="max-w-[1280px] mx-auto px-4 lg:px-8 py-4">
+        {/* 5. Quick Reorder / Frequent Kirana Restock Strip (Placed Below Categories) */}
+        {!currentSearch && !selectedCategory && reorderPicks.length > 0 && (
+          <section className="max-w-[1280px] mx-auto w-full px-3 sm:px-4 lg:px-8 py-3 sm:py-4">
+            <div className="bg-surface-container-low rounded-2xl p-4 sm:p-5 shadow-sm border border-outline-variant/30">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-secondary text-[22px]">history</span>
+                  <h3 className="font-headline text-sm sm:text-base font-bold text-on-surface">
+                    Order Again • Frequent Saharsa Kirana Picks
+                  </h3>
+                </div>
+                <span className="text-[11px] text-on-surface-variant font-medium hidden sm:inline">
+                  ⚡ 1-Tap Fast Restock
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3">
+                {reorderPicks.map((pick) => {
+                  const mrp = Math.round(pick.mrpPaise / 100);
+                  const price = pick.slabs[0] ? Math.round(pick.slabs[0].unitPricePaise / 100) : mrp;
+                  const inCartQty = cartQuantities[pick.id] || 0;
+
+                  return (
+                    <div
+                      key={pick.id}
+                      className="bg-surface-container-lowest p-2.5 sm:p-3 rounded-xl shadow-2xs flex flex-col justify-between border border-outline-variant/30 hover:border-primary/40 transition-colors"
+                    >
+                      <div className="relative w-full aspect-square bg-surface-container-low rounded-lg mb-2 overflow-hidden flex items-center justify-center p-2 group">
+                        <Link
+                          href={`/store/products/${pick.id}`}
+                          className="w-full h-full flex items-center justify-center"
+                        >
+                          {pick.imageUrl ? (
+                            <img
+                              src={pick.imageUrl}
+                              alt={pick.name}
+                              className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <span className="material-symbols-outlined text-[28px] text-outline">inventory_2</span>
+                          )}
+                        </Link>
+                        {/* Wishlist Heart Icon */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleWishlist(pick.id, pick.name, e)}
+                          title={wishlistIds.has(pick.id) ? "Saved in Wishlist" : "Add to Wishlist"}
+                          aria-label={wishlistIds.has(pick.id) ? "Remove from Wishlist" : "Add to Wishlist"}
+                          className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-full bg-surface-container-lowest/90 backdrop-blur-xs flex items-center justify-center border border-outline-variant/40 shadow-xs hover:scale-110 active:scale-90 transition-all pointer-events-auto"
+                        >
+                          <span
+                            className={`material-symbols-outlined text-[15px] transition-colors ${
+                              wishlistIds.has(pick.id) ? "text-red-500" : "text-outline hover:text-red-500"
+                            }`}
+                            style={{
+                              fontVariationSettings: wishlistIds.has(pick.id) ? "'FILL' 1" : "'FILL' 0",
+                            }}
+                          >
+                            favorite
+                          </span>
+                        </button>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-secondary font-bold truncate block">
+                          {pick.companyName || "JMD"} • {pick.weight || ""}
+                        </span>
+                        <Link
+                          href={`/store/products/${pick.id}`}
+                          className="font-bold text-xs text-on-surface hover:text-primary transition-colors line-clamp-1 block mt-0.5"
+                          title={pick.name}
+                        >
+                          {pick.name}
+                        </Link>
+                        <div className="flex items-baseline justify-between mt-1 mb-2">
+                          <span className="font-headline text-xs sm:text-sm font-bold text-primary">₹{price}</span>
+                          {mrp > price && (
+                            <span className="text-[10px] text-outline line-through">₹{mrp}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {inCartQty === 0 ? (
+                        <button
+                          onClick={() => handleAddToCart(pick)}
+                          className="w-full py-1.5 bg-secondary-fixed text-on-secondary-fixed hover:bg-secondary hover:text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 shadow-2xs active:scale-95"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">add</span> Add
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-between bg-primary text-on-primary rounded-lg p-0.5">
+                          <button
+                            onClick={() => handleUpdateQty(pick.id, -1)}
+                            className="w-6 h-6 flex items-center justify-center hover:bg-primary-container rounded"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">remove</span>
+                          </button>
+                          <span className="text-xs font-bold">{inCartQty}</span>
+                          <button
+                            onClick={() => handleUpdateQty(pick.id, 1)}
+                            className="w-6 h-6 flex items-center justify-center hover:bg-primary-container rounded"
+                          >
+                            <span className="material-symbols-outlined text-[13px]">add</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* 6. Main Catalog & Products Grid */}
+        <section id="products-grid" className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 py-3 sm:py-4">
           {/* Active Filter Bar & Controls */}
-          <div className="bg-surface-container-lowest rounded-xl p-3 sm:p-4 mb-6 border border-outline-variant/40 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="bg-surface-container-lowest rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 border border-outline-variant/40 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
               {/* Brand Filter */}
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-on-surface-variant font-medium">Brand:</span>
@@ -326,7 +504,7 @@ export function CatalogueClient({
                   onChange={(e) => handleCompanyChange(e.target.value)}
                   className="bg-surface-container-low border border-outline-variant/60 rounded-lg px-2.5 py-1.5 font-bold text-xs text-on-surface focus:outline-none focus:border-primary"
                 >
-                  <option value="">All Brands (26)</option>
+                  <option value="">All Brands</option>
                   {companies.map((comp) => (
                     <option key={comp.id} value={comp.id}>
                       {comp.name}
@@ -336,7 +514,7 @@ export function CatalogueClient({
               </div>
 
               {/* In-Stock Toggle */}
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-on-surface">
+              <label className="flex items-center gap-1.5 sm:gap-2 cursor-pointer text-xs font-semibold text-on-surface">
                 <input
                   type="checkbox"
                   checked={inStockOnly}
@@ -382,7 +560,7 @@ export function CatalogueClient({
 
           {/* Product Cards Grid */}
           {sortedProducts.length === 0 ? (
-            <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-12 text-center space-y-3">
+            <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-10 sm:p-12 text-center space-y-3">
               <span className="text-4xl block">📦</span>
               <h3 className="font-headline text-lg font-bold text-on-surface">No products found</h3>
               <p className="text-xs text-on-surface-variant max-w-md mx-auto">
@@ -401,7 +579,7 @@ export function CatalogueClient({
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
               {sortedProducts.map((product) => {
                 const mrpRupees = Math.round(product.mrpPaise / 100);
                 const bestSlab = product.slabs[0];
@@ -415,13 +593,13 @@ export function CatalogueClient({
                 return (
                   <div
                     key={product.id}
-                    className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-3 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
+                    className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-2.5 sm:p-3 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group"
                   >
                     <div>
-                      {/* Product Image / Brand Visual Tile */}
+                      {/* Product Image Tile */}
                       <Link
                         href={`/store/products/${product.id}`}
-                        className="block h-36 sm:h-40 bg-surface-container-low rounded-xl border border-outline-variant/30 relative p-3 overflow-hidden group-hover:border-primary/40 transition-colors"
+                        className="block aspect-square bg-surface-container-low rounded-xl border border-outline-variant/30 relative p-2 sm:p-3 overflow-hidden group-hover:border-primary/40 transition-colors"
                       >
                         {product.imageUrl ? (
                           <img
@@ -437,24 +615,46 @@ export function CatalogueClient({
                           </div>
                         )}
 
-                        {/* Top Badges */}
-                        <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
-                          {savingsRupees > 0 && (
-                            <span className="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-black uppercase tracking-tight">
+                        {/* Savings Badge */}
+                        {savingsRupees > 0 && (
+                          <div className="absolute top-2 left-2">
+                            <span className="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-black uppercase tracking-tight shadow-2xs">
                               Save ₹{savingsRupees}
                             </span>
-                          )}
-                        </div>
+                          </div>
+                        )}
 
-                        {/* Stock status indicator */}
+                        {/* Wishlist Heart Toggle Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleWishlist(product.id, product.name, e)}
+                          title={wishlistIds.has(product.id) ? "Saved in Wishlist" : "Add to Wishlist"}
+                          aria-label={wishlistIds.has(product.id) ? "Remove from Wishlist" : "Add to Wishlist"}
+                          className="absolute top-2 right-2 z-10 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-surface-container-lowest/90 backdrop-blur-xs flex items-center justify-center border border-outline-variant/40 shadow-xs hover:scale-110 active:scale-90 transition-all pointer-events-auto"
+                        >
+                          <span
+                            className={`material-symbols-outlined text-[17px] sm:text-[19px] transition-colors ${
+                              wishlistIds.has(product.id)
+                                ? "text-red-500"
+                                : "text-outline hover:text-red-500"
+                            }`}
+                            style={{
+                              fontVariationSettings: wishlistIds.has(product.id) ? "'FILL' 1" : "'FILL' 0",
+                            }}
+                          >
+                            favorite
+                          </span>
+                        </button>
+
+                        {/* Stock Status Indicator */}
                         <div className="absolute bottom-2 left-2">
                           {product.isAvailable ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-tertiary bg-surface-container-lowest/90 px-1.5 py-0.5 rounded-full shadow-2xs">
+                            <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-tertiary bg-surface-container-lowest/90 backdrop-blur-xs px-1.5 py-0.5 rounded-full shadow-2xs">
                               <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
                               In stock
                             </span>
                           ) : (
-                            <span className="text-[10px] font-bold text-outline bg-surface-container-lowest/90 px-1.5 py-0.5 rounded-full">
+                            <span className="text-[9px] sm:text-[10px] font-bold text-outline bg-surface-container-lowest/90 px-1.5 py-0.5 rounded-full">
                               Out of stock
                             </span>
                           )}
@@ -462,8 +662,8 @@ export function CatalogueClient({
                       </Link>
 
                       {/* Product Metadata */}
-                      <div className="mt-2.5 space-y-1">
-                        <div className="flex items-center justify-between text-[11px] text-on-surface-variant">
+                      <div className="mt-2 sm:mt-2.5 space-y-1">
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-on-surface-variant">
                           <span className="font-bold text-secondary truncate">{product.companyName || "JMD"}</span>
                           {product.weight && <span className="text-outline font-medium">{product.weight}</span>}
                         </div>
@@ -479,21 +679,21 @@ export function CatalogueClient({
                     </div>
 
                     {/* Pricing & Add Stepper */}
-                    <div className="mt-3 pt-2.5 border-t border-surface-container-high/60 flex items-center justify-between gap-2">
+                    <div className="mt-3 pt-2 sm:pt-2.5 border-t border-surface-container-high/60 flex items-center justify-between gap-1 sm:gap-2">
                       <div>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="font-headline text-sm font-bold text-primary">
+                        <div className="flex items-baseline gap-1 sm:gap-1.5">
+                          <span className="font-headline text-xs sm:text-base font-bold text-primary">
                             ₹{effectiveRateRupees}
                           </span>
                           {mrpRupees > effectiveRateRupees && (
-                            <span className="text-[10px] text-outline line-through">
+                            <span className="text-[9px] sm:text-[10px] text-outline line-through">
                               ₹{mrpRupees}
                             </span>
                           )}
                         </div>
                         {product.packSize > 1 && (
-                          <div className="text-[9px] text-on-surface-variant">
-                            {product.packSize} pcs / carton
+                          <div className="text-[9px] text-on-surface-variant truncate">
+                            {product.packSize} pcs/ctn
                           </div>
                         )}
                       </div>
@@ -502,7 +702,7 @@ export function CatalogueClient({
                       {!product.isAvailable ? (
                         <button
                           disabled
-                          className="px-2.5 py-1 bg-surface-container text-outline text-[11px] font-bold rounded-lg cursor-not-allowed"
+                          className="px-2 py-1 bg-surface-container text-outline text-[10px] font-bold rounded-lg cursor-not-allowed"
                         >
                           Sold
                         </button>
@@ -510,7 +710,7 @@ export function CatalogueClient({
                         <button
                           onClick={() => handleAddToCart(product)}
                           disabled={isUpdating}
-                          className="px-3 py-1.5 bg-primary hover:bg-primary-container text-on-primary text-xs font-bold rounded-lg shadow-2xs transition-all active:scale-95 flex items-center gap-1"
+                          className="px-2.5 sm:px-3 py-1.5 bg-primary hover:bg-primary-container text-on-primary text-xs font-bold rounded-lg shadow-2xs transition-all active:scale-95 flex items-center gap-1"
                         >
                           <span className="material-symbols-outlined text-[14px]">add</span>
                           <span>ADD</span>
@@ -520,17 +720,17 @@ export function CatalogueClient({
                           <button
                             onClick={() => handleUpdateQty(product.id, -1)}
                             disabled={isUpdating}
-                            className="w-6 h-6 flex items-center justify-center hover:bg-primary-container rounded font-bold"
+                            className="w-5 sm:w-6 h-5 sm:h-6 flex items-center justify-center hover:bg-primary-container rounded font-bold"
                           >
-                            <span className="material-symbols-outlined text-[14px]">remove</span>
+                            <span className="material-symbols-outlined text-[13px]">remove</span>
                           </button>
-                          <span className="w-6 text-center text-xs font-bold">{qty}</span>
+                          <span className="w-5 sm:w-6 text-center text-xs font-bold">{qty}</span>
                           <button
                             onClick={() => handleUpdateQty(product.id, 1)}
                             disabled={isUpdating}
-                            className="w-6 h-6 flex items-center justify-center hover:bg-primary-container rounded font-bold"
+                            className="w-5 sm:w-6 h-5 sm:h-6 flex items-center justify-center hover:bg-primary-container rounded font-bold"
                           >
-                            <span className="material-symbols-outlined text-[14px]">add</span>
+                            <span className="material-symbols-outlined text-[13px]">add</span>
                           </button>
                         </div>
                       )}
@@ -540,18 +740,112 @@ export function CatalogueClient({
               })}
             </div>
           )}
+
+          {/* 6. Production-Grade Pagination Strip */}
+          {pagination && (
+            <div className="mt-8 pt-6 border-t border-surface-container-high/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs text-on-surface-variant font-medium">
+                Showing{" "}
+                <span className="font-bold text-on-surface">
+                  {pagination.totalProducts === 0
+                    ? 0
+                    : (pagination.currentPage - 1) * pagination.pageSize + 1}
+                </span>{" "}
+                to{" "}
+                <span className="font-bold text-on-surface">
+                  {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalProducts)}
+                </span>{" "}
+                of{" "}
+                <span className="font-bold text-on-surface">
+                  {pagination.totalProducts.toLocaleString("en-IN")}
+                </span>{" "}
+                products
+                {selectedCategory && (
+                  <span className="text-primary font-semibold ml-1">
+                    in {categories.find((c) => c.id === selectedCategory)?.name || "Category"}
+                  </span>
+                )}
+                {currentSearch && (
+                  <span className="text-secondary font-semibold ml-1">
+                    matching &quot;{currentSearch}&quot;
+                  </span>
+                )}
+              </div>
+
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                  {/* Previous Button */}
+                  <button
+                    type="button"
+                    disabled={pagination.currentPage <= 1}
+                    onClick={() => handlePageChange(pagination.currentPage - 1)}
+                    className="px-3 py-1.5 rounded-lg border border-outline-variant/60 text-xs font-bold text-on-surface hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 shadow-2xs"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                    <span>Prev</span>
+                  </button>
+
+                  {/* Page Numbers */}
+                  {getPageNumbers(pagination.currentPage, pagination.totalPages).map((p, idx) =>
+                    typeof p === "number" ? (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => handlePageChange(p)}
+                        className={`min-w-[32px] h-8 px-2 rounded-lg text-xs font-bold transition-all shadow-2xs ${
+                          p === pagination.currentPage
+                            ? "bg-primary text-white shadow-xs"
+                            : "bg-surface-container-lowest border border-outline-variant/60 text-on-surface hover:bg-surface-container-low"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ) : (
+                      <span key={`dots-${idx}`} className="px-1 text-xs text-outline">
+                        ...
+                      </span>
+                    )
+                  )}
+
+                  {/* Next Button */}
+                  <button
+                    type="button"
+                    disabled={pagination.currentPage >= pagination.totalPages}
+                    onClick={() => handlePageChange(pagination.currentPage + 1)}
+                    className="px-3 py-1.5 rounded-lg border border-outline-variant/60 text-xs font-bold text-on-surface hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 shadow-2xs"
+                  >
+                    <span>Next</span>
+                    <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </section>
       </main>
 
-      {/* 6. Floating Cart Bar when items are selected */}
+      {/* 7. Floating Cart Bar when items are selected */}
       <FloatingCartBar
         totalPieces={totalCartCount}
         totalRupees={totalCartRupees}
         savingsRupees={totalSavingsRupees}
       />
 
-      {/* 7. Master Footer with Theme */}
+      {/* 8. Master Footer */}
       <StoreFooter />
     </div>
   );
+}
+
+function getPageNumbers(current: number, total: number): (number | string)[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, "...", total];
+  }
+  if (current >= total - 3) {
+    return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, "...", current - 1, current, current + 1, "...", total];
 }

@@ -5,6 +5,7 @@ import { cartService } from "@/modules/cart/cart.service";
 import { deliveryService } from "@/modules/delivery/delivery.service";
 import { settingsService } from "@/modules/settings/settings.service";
 import { storeService } from "@/modules/store/store.service";
+import { addressService } from "@/modules/address/address.service";
 import { CheckoutClient } from "./checkout-client";
 import { Metadata } from "next";
 
@@ -26,15 +27,33 @@ export default async function CheckoutPage() {
     include: { party: true },
   });
 
-  const [cart, deliveryZones, paymentSettings, filterOptions] = await Promise.all([
+  const [cart, deliveryZones, paymentSettings, filterOptions, initialAddresses] = await Promise.all([
     cartService.getCartSummary(session.user.id),
     deliveryService.getDeliveryZones(),
     settingsService.getPaymentModeSettings(),
     storeService.getFilterOptions(),
+    addressService.getUserAddresses(session.user.id),
   ]);
 
   if (!cart || cart.itemsCount === 0) {
     redirect("/store");
+  }
+
+  // Ensure customer has at least 1 saved address for 1-click checkout
+  let savedAddresses = initialAddresses;
+  if (savedAddresses.length === 0 && user) {
+    const defaultAddr = await addressService.saveAddress(user.id, {
+      name: user.party?.name || user.name || "Customer",
+      phone: user.phone || "9431400000",
+      addressLine: user.party?.address || "D.B. Road, Near Shankar Chowk",
+      area: "Purab Bazar",
+      city: "Saharsa",
+      state: "Bihar",
+      pincode: "852201",
+      type: "SHOP",
+      isDefault: true,
+    });
+    savedAddresses = [defaultAddr];
   }
 
   // Check if buyer has approved credit account with adequate limit
@@ -61,11 +80,12 @@ export default async function CheckoutPage() {
       deliveryZones={deliveryZones}
       paymentSettings={paymentSettings}
       categories={filterOptions.categories}
+      savedAddresses={savedAddresses}
       isCreditParty={isCreditParty}
       creditPartyName={creditPartyName}
       userPhone={user?.phone || ""}
       userName={user?.party?.name || user?.name || ""}
-      userAddress={user?.party?.address || "Shop No. 4, D.B. Road, Near Shankar Chowk, Saharsa, Bihar - 852201"}
+      userAddress={savedAddresses[0]?.formattedAddress || user?.party?.address || "D.B. Road, Purab Bazar, Saharsa, Bihar - 852201"}
       userGstin={user?.party?.gstin || ""}
     />
   );

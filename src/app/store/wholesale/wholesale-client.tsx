@@ -65,74 +65,98 @@ export function WholesaleClient({
   };
 
   const handleAddRowToCart = (p: StoreProductItem) => {
-    if (!isLoggedIn) {
-      router.push(`/login?callbackUrl=/store/wholesale`);
-      return;
+    const qty = getRowQty(p);
+    const unitPrice = p.unitPricePaise || p.mrpPaise;
+
+    if (typeof window !== "undefined") {
+      try {
+        const saved = window.localStorage.getItem("jmd_local_cart");
+        const parsed = saved ? JSON.parse(saved) : {};
+        parsed[p.id] = (parsed[p.id] || 0) + qty;
+        window.localStorage.setItem("jmd_local_cart", JSON.stringify(parsed));
+      } catch (e) {
+        // ignore
+      }
     }
 
-    const qty = getRowQty(p);
-    startTransition(async () => {
-      const res = await addToCartAction(p.id, qty);
-      const unitPrice = p.unitPricePaise || p.mrpPaise;
-      if (res.success) {
-        setCartState((prev) => ({
-          totalPieces: prev.totalPieces + qty,
-          itemsCount: prev.itemsCount + 1,
-          totalPaise: prev.totalPaise + unitPrice * qty,
-          savingsPaise: prev.savingsPaise + (p.mrpPaise - unitPrice) * qty,
-        }));
-        setToastMessage(`✓ Added ${qty}x ${p.name} to cart!`);
-        setTimeout(() => setToastMessage(null), 3000);
-      } else {
-        alert(res.error || "Failed to add to cart");
-      }
-    });
+    setCartState((prev) => ({
+      totalPieces: prev.totalPieces + qty,
+      itemsCount: prev.itemsCount + 1,
+      totalPaise: prev.totalPaise + unitPrice * qty,
+      savingsPaise: prev.savingsPaise + (p.mrpPaise - unitPrice) * qty,
+    }));
+    setToastMessage(`✓ Added ${qty}x ${p.name} to wholesale cart!`);
+    setTimeout(() => setToastMessage(null), 3000);
+
+    if (isLoggedIn) {
+      startTransition(async () => {
+        try {
+          await addToCartAction(p.id, qty);
+        } catch (e) {
+          // ignore
+        }
+      });
+    }
   };
 
   const handlePushMatrixToCart = () => {
-    if (!isLoggedIn) {
-      router.push(`/login?callbackUrl=/store/wholesale`);
-      return;
-    }
-
     const validSlots = matrixSlots.filter((s) => s.sku.trim() && s.qty > 0);
     if (validSlots.length === 0) {
       alert("Please enter at least one valid product SKU and quantity.");
       return;
     }
 
-    startTransition(async () => {
-      let addedCount = 0;
-      let totalQty = 0;
-      let totalAmountAddedPaise = 0;
+    let addedCount = 0;
+    let totalQty = 0;
+    let totalAmountAddedPaise = 0;
 
-      for (const slot of validSlots) {
-        const found = products.find(
-          (p) => p.shortCode.toLowerCase() === slot.sku.trim().toLowerCase()
-        );
-        if (found) {
-          const res = await addToCartAction(found.id, slot.qty);
-          if (res.success) {
-            addedCount++;
-            totalQty += slot.qty;
-            totalAmountAddedPaise += (found.unitPricePaise || found.mrpPaise) * slot.qty;
+    for (const slot of validSlots) {
+      const found = products.find(
+        (p) => p.shortCode.toLowerCase() === slot.sku.trim().toLowerCase()
+      );
+      if (found) {
+        addedCount++;
+        totalQty += slot.qty;
+        totalAmountAddedPaise += (found.unitPricePaise || found.mrpPaise) * slot.qty;
+
+        if (typeof window !== "undefined") {
+          try {
+            const saved = window.localStorage.getItem("jmd_local_cart");
+            const parsed = saved ? JSON.parse(saved) : {};
+            parsed[found.id] = (parsed[found.id] || 0) + slot.qty;
+            window.localStorage.setItem("jmd_local_cart", JSON.stringify(parsed));
+          } catch (e) {
+            // ignore
           }
         }
       }
+    }
 
-      if (addedCount > 0) {
-        setCartState((prev) => ({
-          totalPieces: prev.totalPieces + totalQty,
-          itemsCount: prev.itemsCount + addedCount,
-          totalPaise: prev.totalPaise + totalAmountAddedPaise,
-          savingsPaise: prev.savingsPaise + totalAmountAddedPaise * 0.15,
-        }));
-        setToastMessage(`✓ Added ${addedCount} SKU matrix items to wholesale cart!`);
-        setTimeout(() => setToastMessage(null), 3500);
-      } else {
-        alert("None of the specified SKUs were matched. Please verify the SKU codes.");
+    if (addedCount > 0) {
+      setCartState((prev) => ({
+        totalPieces: prev.totalPieces + totalQty,
+        itemsCount: prev.itemsCount + addedCount,
+        totalPaise: prev.totalPaise + totalAmountAddedPaise,
+        savingsPaise: prev.savingsPaise + totalAmountAddedPaise * 0.15,
+      }));
+      setToastMessage(`✓ Added ${addedCount} SKU matrix items to wholesale cart!`);
+      setTimeout(() => setToastMessage(null), 3500);
+
+      if (isLoggedIn) {
+        startTransition(async () => {
+          for (const slot of validSlots) {
+            const found = products.find(
+              (p) => p.shortCode.toLowerCase() === slot.sku.trim().toLowerCase()
+            );
+            if (found) {
+              await addToCartAction(found.id, slot.qty);
+            }
+          }
+        });
       }
-    });
+    } else {
+      alert("None of the specified SKUs were matched. Please verify the SKU codes.");
+    }
   };
 
   const handleApplyPreset = (presetName: string) => {
@@ -181,7 +205,7 @@ export function WholesaleClient({
         activeCategory="wholesale"
       />
 
-      <main className="flex-1 w-full pt-36 bg-surface">
+      <main className="flex-1 w-full pt-[168px] md:pt-36 pb-20 md:pb-8 bg-surface">
         {/* B2B Strategic Banner & Credential Strip */}
         <section className="w-full bg-surface-container-low py-6 px-4 lg:px-8 border-b border-surface-container-high">
           <div className="max-w-[1280px] mx-auto">

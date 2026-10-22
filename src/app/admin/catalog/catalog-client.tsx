@@ -4,8 +4,10 @@ import { useState, useTransition } from "react";
 import { ProductWithDetails } from "@/modules/catalog/catalog.types";
 import {
   createProductAction,
+  updateProductAction,
   updateProductPricesInlineAction,
   bulkSetPricesPercentOffMrpAction,
+  updateProductImageAction,
   CatalogActionResult,
 } from "./actions";
 import { useFormState, useFormStatus } from "react-dom";
@@ -83,6 +85,22 @@ export function CatalogClient({
   const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [isAddOpen, setIsAddOpen] = useState(false);
+
+  // Image handling state for new product modal
+  const [newProductImageUrl, setNewProductImageUrl] = useState("");
+  const [newImageUploading, setNewImageUploading] = useState(false);
+
+  // Quick image edit modal state
+  const [editingImageProduct, setEditingImageProduct] = useState<ProductWithDetails | null>(null);
+  const [editImageUrl, setEditImageUrl] = useState("");
+  const [editImageUploading, setEditImageUploading] = useState(false);
+  const [isSavingImage, setIsSavingImage] = useState(false);
+
+  // Full product edit modal state
+  const [editingProduct, setEditingProduct] = useState<ProductWithDetails | null>(null);
+  const [editProductImageUrl, setEditProductImageUrl] = useState("");
+  const [editProductImageUploading, setEditProductImageUploading] = useState(false);
+  const [updateProductPending, setUpdateProductPending] = useState(false);
 
   // Selection for bulk % off MRP
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -205,6 +223,89 @@ export function CatalogClient({
         setStatusMessage({ type: "ok", text: `Saved prices for ${p.name}` });
       }
     });
+  };
+
+  async function handleFileUpload(
+    file: File,
+    onSuccess: (url: string) => void,
+    setLoading: (b: boolean) => void
+  ) {
+    if (!file) return;
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Upload failed");
+      }
+      onSuccess(data.url);
+      setStatusMessage({ type: "ok", text: "Photo uploaded successfully!" });
+    } catch (err: any) {
+      setStatusMessage({ type: "err", text: err.message || "Failed to upload photo" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const openEditImageModal = (product: ProductWithDetails) => {
+    setEditingImageProduct(product);
+    setEditImageUrl(product.imageUrl || "");
+  };
+
+  const handleSaveProductImage = async () => {
+    if (!editingImageProduct) return;
+    setIsSavingImage(true);
+    try {
+      const res = await updateProductImageAction(editingImageProduct.id, editImageUrl || null);
+      if (res.error) {
+        setStatusMessage({ type: "err", text: res.error });
+      } else {
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id === editingImageProduct.id ? { ...p, imageUrl: editImageUrl ? editImageUrl.trim() : null } : p
+          )
+        );
+        setStatusMessage({ type: "ok", text: `Updated photo for ${editingImageProduct.name}` });
+        setEditingImageProduct(null);
+      }
+    } catch (err: any) {
+      setStatusMessage({ type: "err", text: err.message || "Failed to save photo" });
+    } finally {
+      setIsSavingImage(false);
+    }
+  };
+
+  const openEditProductModal = (product: ProductWithDetails) => {
+    setEditingProduct(product);
+    setEditProductImageUrl(product.imageUrl || "");
+  };
+
+  const handleUpdateProductSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    setUpdateProductPending(true);
+    try {
+      const formData = new FormData(e.currentTarget);
+      formData.set("id", editingProduct.id);
+      formData.set("imageUrl", editProductImageUrl);
+      const res = await updateProductAction(undefined, formData);
+      if (res.error) {
+        setStatusMessage({ type: "err", text: res.error });
+      } else {
+        setStatusMessage({ type: "ok", text: `Successfully updated ${editingProduct.name}` });
+        setEditingProduct(null);
+        window.location.reload();
+      }
+    } catch (err: any) {
+      setStatusMessage({ type: "err", text: err.message || "Failed to update product" });
+    } finally {
+      setUpdateProductPending(false);
+    }
   };
 
   const toggleSelectAll = () => {
@@ -626,6 +727,71 @@ export function CatalogClient({
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                 </div>
+
+                {/* Product Image Section */}
+                <div className="md:col-span-3 bg-gray-50/80 p-3.5 rounded-lg border border-dashed border-gray-300">
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className="w-20 h-20 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm relative group">
+                      {newProductImageUrl ? (
+                        <>
+                          <img
+                            src={newProductImageUrl}
+                            alt="Preview"
+                            className="w-full h-full object-contain p-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setNewProductImageUrl("")}
+                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-0.5 text-xs hover:bg-red-700 shadow"
+                            title="Remove image"
+                          >
+                            ✕
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-gray-400 text-xs text-center px-1">
+                          {newImageUploading ? "Uploading..." : "No Photo"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 w-full space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                          Product Photo (Packshot)
+                        </label>
+                        <span className="text-[11px] text-gray-500 font-medium">Square 1:1, White BG, &lt;200KB</span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-md text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm">
+                          <span>📁 Browse from Device</span>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                            className="hidden"
+                            disabled={newImageUploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleFileUpload(file, setNewProductImageUrl, setNewImageUploading);
+                              }
+                            }}
+                          />
+                        </label>
+                        <span className="text-xs text-gray-400">or enter URL:</span>
+                        <input
+                          type="text"
+                          name="imageUrl"
+                          value={newProductImageUrl}
+                          onChange={(e) => setNewProductImageUrl(e.target.value)}
+                          placeholder="https://... or /uploads/..."
+                          className="flex-1 min-w-[200px] px-2.5 py-1.5 border border-gray-300 rounded-md text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
@@ -702,6 +868,7 @@ export function CatalogClient({
                       />
                     </th>
                   )}
+                  <th className="px-3 py-3 w-14 text-center">Photo</th>
                   <th className="px-3 py-3">Item / SKU</th>
                   <th className="px-3 py-3">Brand</th>
                   <th className="px-3 py-3 text-center">Qty in Case (Pcs/Ctn)</th>
@@ -744,6 +911,43 @@ export function CatalogClient({
                           />
                         </td>
                       )}
+                      <td className="px-3 py-2.5 text-center">
+                        <div className="flex flex-col items-center justify-center gap-1">
+                          {p.imageUrl ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => openEditImageModal(p)}
+                                title="Click to view/re-upload photo"
+                                className="w-11 h-11 rounded-lg border border-gray-200 bg-white p-0.5 hover:border-[#790E11] transition-all shadow-sm flex items-center justify-center overflow-hidden"
+                              >
+                                <img
+                                  src={p.imageUrl}
+                                  alt={p.name}
+                                  className="w-full h-full object-contain"
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openEditImageModal(p)}
+                                className="text-[10px] font-semibold text-[#790E11] hover:text-[#5E0A0D] hover:underline flex items-center gap-0.5"
+                                title="Re-upload photo"
+                              >
+                                <span>🔄</span> Re-upload
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => openEditImageModal(p)}
+                              className="px-2 py-1 rounded-md border border-dashed border-gray-300 hover:border-[#790E11] hover:bg-red-50/50 flex items-center gap-1 text-gray-500 hover:text-[#790E11] text-[10px] font-semibold transition-all"
+                              title="Upload product photo"
+                            >
+                              <span>📷</span> +Upload
+                            </button>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-3 py-2.5 font-medium text-gray-900">
                         <div className="flex items-center gap-1.5">
                           <span>{p.name}</span>
@@ -882,19 +1086,27 @@ export function CatalogClient({
                       </td>
 
                       {!readOnly && (
-                        <td className="px-3 py-2.5 text-right">
-                          <button
-                            type="button"
-                            disabled={!row.dirty || isPending}
-                            onClick={() => handleSaveRow(p)}
-                            className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
-                              row.dirty
-                                ? "bg-[#790E11] text-white hover:bg-[#5E0A0D]"
-                                : "bg-gray-100 text-gray-400 cursor-default"
-                            }`}
-                          >
-                            Save
-                          </button>
+                        <td className="px-3 py-2.5 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openEditProductModal(p)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 transition-colors shadow-sm"
+                              title="Edit product details & prices"
+                            >
+                              <span>✏️</span> Edit
+                            </button>
+                            {row.dirty && (
+                              <button
+                                type="button"
+                                disabled={isPending}
+                                onClick={() => handleSaveRow(p)}
+                                className="px-2.5 py-1 rounded-md text-xs font-bold bg-[#790E11] text-white hover:bg-[#5E0A0D] transition-colors shadow-sm"
+                              >
+                                Save
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -905,6 +1117,453 @@ export function CatalogClient({
           </div>
         )}
       </div>
+
+      {/* Edit Product Image Modal */}
+      {editingImageProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-gray-200">
+            <div className="flex justify-between items-center pb-3 border-b border-gray-100">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Re-upload / Change Photo</h3>
+                <p className="text-xs text-gray-500 font-mono mt-0.5">
+                  {editingImageProduct.shortCode} • {editingImageProduct.name}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingImageProduct(null)}
+                className="text-gray-400 hover:text-gray-600 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {/* Preview Card */}
+              <div className="flex justify-center">
+                <div className="w-36 h-36 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center p-2 relative overflow-hidden shadow-inner">
+                  {editImageUrl ? (
+                    <img
+                      src={editImageUrl}
+                      alt="Product preview"
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-center text-gray-400">
+                      <span className="text-3xl block">📷</span>
+                      <span className="text-xs mt-1 block">No image set</span>
+                    </div>
+                  )}
+                  {editImageUploading && (
+                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center text-xs font-semibold text-[#790E11]">
+                      Uploading...
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Upload Button & URL */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Select New Photo from Device
+                  </label>
+                  <label className="cursor-pointer inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-300 rounded-lg text-xs font-bold text-gray-800 transition-colors shadow-sm">
+                    <span>🔄 Re-upload Photo from Device</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      disabled={editImageUploading || isSavingImage}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleFileUpload(file, setEditImageUrl, setEditImageUploading);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Or Web Image URL
+                  </label>
+                  <input
+                    type="text"
+                    value={editImageUrl}
+                    onChange={(e) => setEditImageUrl(e.target.value)}
+                    placeholder="https://... or /uploads/..."
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono"
+                  />
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200/60 rounded-lg p-2.5 text-[11px] text-amber-800">
+                  💡 <strong>Tip for best look:</strong> 1:1 Square (800×800), clean white or transparent background, &lt; 200KB.
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-between items-center pt-3 border-t border-gray-100">
+                {editingImageProduct.imageUrl ? (
+                  <button
+                    type="button"
+                    disabled={isSavingImage}
+                    onClick={() => setEditImageUrl("")}
+                    className="text-xs text-red-600 hover:text-red-700 font-semibold"
+                  >
+                    Clear Photo
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingImageProduct(null)}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingImage || editImageUploading}
+                    onClick={handleSaveProductImage}
+                    className="px-4 py-1.5 bg-[#790E11] text-white rounded-lg text-xs font-bold hover:bg-[#5E0A0D] disabled:opacity-50 transition-colors"
+                  >
+                    {isSavingImage ? "Saving..." : "Save Image"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full Edit Product Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full p-6 shadow-xl border border-gray-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Edit Product Master</h3>
+                <p className="text-xs text-gray-500 font-mono mt-0.5">
+                  SKU: {editingProduct.shortCode}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                className="text-gray-400 hover:text-gray-600 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateProductSubmit} className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Product Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    defaultValue={editingProduct.name}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Weight / Size
+                  </label>
+                  <input
+                    type="text"
+                    name="weight"
+                    defaultValue={editingProduct.weight || ""}
+                    placeholder="e.g. 1Ltr, 100g"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Short Code / SKU
+                  </label>
+                  <input
+                    type="text"
+                    name="shortCode"
+                    required
+                    defaultValue={editingProduct.shortCode}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm uppercase font-mono bg-gray-50"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Company / Brand
+                  </label>
+                  <select
+                    name="companyId"
+                    defaultValue={editingProduct.companyId || ""}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">-- Select Brand --</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Category
+                  </label>
+                  <select
+                    name="categoryId"
+                    defaultValue={editingProduct.categoryId || ""}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">-- Select Category --</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    MRP (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="mrpRupees"
+                    defaultValue={formatPaiseToInput(editingProduct.mrpPaise)}
+                    min="0"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                    Price A — Wholesaler (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="priceARupees"
+                    defaultValue={formatPaiseToInput(editingProduct.priceAPaise)}
+                    min="0"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-blue-700">
+                    Price B — Retailer (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="priceBRupees"
+                    defaultValue={formatPaiseToInput(editingProduct.priceBPaise)}
+                    min="0"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-amber-700">
+                    Price C — Customer (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="priceCRupees"
+                    defaultValue={formatPaiseToInput(editingProduct.priceCPaise)}
+                    min="0"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Qty in Case (Pcs / Ctn)
+                  </label>
+                  <input
+                    type="number"
+                    name="packSize"
+                    defaultValue={editingProduct.packSize}
+                    min={1}
+                    required
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    HSN Code
+                  </label>
+                  <input
+                    type="text"
+                    name="hsn"
+                    defaultValue={editingProduct.hsn}
+                    required
+                    maxLength={8}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    GST Slab
+                  </label>
+                  <select
+                    name="gstRateBp"
+                    defaultValue={editingProduct.gstRateBp}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value={0}>0% (Exempt)</option>
+                    <option value={500}>5%</option>
+                    <option value={1200}>12%</option>
+                    <option value={1800}>18%</option>
+                    <option value={2800}>28%</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Pack Label
+                  </label>
+                  <input
+                    type="text"
+                    name="packLabel"
+                    defaultValue={editingProduct.packLabel}
+                    required
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Reorder Level (Pcs)
+                  </label>
+                  <input
+                    type="number"
+                    name="reorderLevel"
+                    defaultValue={editingProduct.reorderLevel}
+                    min={0}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-5">
+                  <input
+                    type="checkbox"
+                    id="edit-active"
+                    name="active"
+                    value="true"
+                    defaultChecked={editingProduct.active}
+                    className="rounded border-gray-300 text-[#790E11] focus:ring-[#790E11]"
+                  />
+                  <label htmlFor="edit-active" className="text-xs font-semibold text-gray-700">
+                    Active (Visible in Store & Catalog)
+                  </label>
+                </div>
+
+                {/* Product Photo & Re-upload Section */}
+                <div className="md:col-span-3 bg-gray-50/90 p-4 rounded-xl border border-gray-200">
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className="w-24 h-24 bg-white border border-gray-200 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm relative group">
+                      {editProductImageUrl ? (
+                        <>
+                          <img
+                            src={editProductImageUrl}
+                            alt="Preview"
+                            className="w-full h-full object-contain p-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setEditProductImageUrl("")}
+                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 text-xs hover:bg-red-700 shadow"
+                            title="Remove image"
+                          >
+                            ✕
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-gray-400 text-xs text-center px-2">
+                          {editProductImageUploading ? "Uploading..." : "No Photo"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex-1 w-full space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-800">
+                          Product Photo
+                        </label>
+                        <span className="text-[11px] text-gray-500 font-medium">Square 1:1, White BG, &lt;200KB</span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 shadow-sm">
+                          <span>🔄 Re-upload Photo</span>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                            className="hidden"
+                            disabled={editProductImageUploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleFileUpload(file, setEditProductImageUrl, setEditProductImageUploading);
+                              }
+                            }}
+                          />
+                        </label>
+                        <span className="text-xs text-gray-400">or URL:</span>
+                        <input
+                          type="text"
+                          value={editProductImageUrl}
+                          onChange={(e) => setEditProductImageUrl(e.target.value)}
+                          placeholder="https://... or /uploads/..."
+                          className="flex-1 min-w-[200px] px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono bg-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateProductPending || editProductImageUploading}
+                  className="inline-flex justify-center py-2 px-5 border border-transparent shadow-sm text-sm font-bold rounded-lg text-white bg-[#790E11] hover:bg-[#5E0A0D] disabled:opacity-50 transition-colors"
+                >
+                  {updateProductPending ? "Saving..." : "Update Product"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

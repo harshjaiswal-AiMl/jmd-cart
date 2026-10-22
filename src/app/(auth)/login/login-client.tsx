@@ -141,6 +141,45 @@ export function LoginClient({
             <SubmitButton />
           </div>
 
+          {/* Quick Demo Test Access */}
+          <div className="p-3 bg-[#FFF9ED] rounded-xl border border-[#FDAF18]/40 space-y-2 text-xs">
+            <div className="font-bold text-[#790E11] flex items-center justify-between">
+              <span>⚡ Quick Test Credentials:</span>
+            </div>
+            <div className="flex flex-col gap-1.5 text-[11px] text-[#2A1010]">
+              <button
+                type="button"
+                onClick={() => {
+                  const phoneInput = document.getElementById("phone") as HTMLInputElement;
+                  const passInput = document.getElementById("password") as HTMLInputElement;
+                  if (phoneInput && passInput) {
+                    phoneInput.value = "9999999999";
+                    passInput.value = "Password@123";
+                  }
+                }}
+                className="text-left p-1.5 bg-white rounded-lg border border-[#EAD9CC] hover:border-[#790E11] transition-colors flex justify-between items-center"
+              >
+                <span><strong>Buyer:</strong> 9999999999 / Password@123</span>
+                <span className="text-[#790E11] font-bold">Auto-Fill</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const phoneInput = document.getElementById("phone") as HTMLInputElement;
+                  const passInput = document.getElementById("password") as HTMLInputElement;
+                  if (phoneInput && passInput) {
+                    phoneInput.value = "9876543210";
+                    passInput.value = "Password@123";
+                  }
+                }}
+                className="text-left p-1.5 bg-white rounded-lg border border-[#EAD9CC] hover:border-[#790E11] transition-colors flex justify-between items-center"
+              >
+                <span><strong>Admin:</strong> 9876543210 / Password@123</span>
+                <span className="text-[#790E11] font-bold">Auto-Fill</span>
+              </button>
+            </div>
+          </div>
+
           <div className="pt-3 text-center text-xs text-gray-600 border-t border-[#EAD9CC]">
             <span>New Retailer or Customer? </span>
             <Link

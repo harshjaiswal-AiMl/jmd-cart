@@ -38,11 +38,9 @@ export function isStaticOrPublicAsset(pathname: string): boolean {
     pathname === "/manifest.json" ||
     pathname === "/offline" ||
     pathname === "/logout" ||
-    pathname.startsWith("/fonts/") ||
-    pathname.startsWith("/icons/") ||
-    pathname.startsWith("/brand/") ||
     pathname.startsWith("/uploads/") ||
-    /\.(?:woff|woff2|eot|ttf|otf|png|jpg|jpeg|gif|svg|webp|ico|css|js|map)$/i.test(pathname)
+    pathname.startsWith("/icons/") ||
+    pathname.startsWith("/brand/")
   );
 }
 
@@ -50,37 +48,6 @@ export interface HostRoutingDecision {
   type: "next" | "404" | "redirect";
   destination?: string;
   status?: number;
-}
-
-export function isStorefrontPublicPath(pathname: string): boolean {
-  return (
-    pathname === "/categories" ||
-    pathname.startsWith("/categories/") ||
-    pathname.startsWith("/category/") ||
-    pathname === "/brands" ||
-    pathname.startsWith("/brands/") ||
-    pathname.startsWith("/brand/") ||
-    pathname.startsWith("/product/") ||
-    pathname === "/search" ||
-    pathname === "/wholesale" ||
-    pathname === "/cart" ||
-    pathname === "/checkout" ||
-    pathname === "/order-success" ||
-    pathname === "/wishlist" ||
-    pathname === "/account" ||
-    pathname.startsWith("/account/") ||
-    pathname === "/orders" ||
-    pathname.startsWith("/orders/") ||
-    pathname.startsWith("/page/") ||
-    pathname === "/about" ||
-    pathname === "/contact" ||
-    pathname === "/faqs" ||
-    pathname === "/privacy" ||
-    pathname === "/terms" ||
-    pathname === "/shipping-policy" ||
-    pathname === "/serviceability" ||
-    pathname === "/wholesale-enquiry"
-  );
 }
 
 export function evaluateHostRouting(
@@ -117,10 +84,7 @@ export function evaluateHostRouting(
     if (pathname === "/") {
       return { type: "redirect", destination: "/login" };
     }
-    if (isStaffRoute(pathname)) {
-      return { type: "next" };
-    }
-    if (pathname.startsWith("/store") || isStorefrontPublicPath(pathname)) {
+    if (pathname.startsWith("/store")) {
       let targetUrl: string;
       try {
         const url = new URL(pathname + search, appUrl);

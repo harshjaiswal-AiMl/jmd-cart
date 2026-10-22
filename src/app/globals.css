@@ -4,37 +4,22 @@
 
 :root {
   --font-inter: "Inter", system-ui, sans-serif;
+  --font-epilogue: "Epilogue", system-ui, sans-serif;
 }
 
 body {
-  color: #1F2933;
-  background-color: #EEF4F8;
+  color: #1b1c1c;
+  background-color: #fcf9f8;
   font-feature-settings: "tnum" 1;
 }
 
-@font-face {
-  font-family: 'Material Symbols Outlined';
-  font-style: normal;
-  font-weight: 100 700;
-  font-display: swap;
-  src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
+/* Hide scrollbar for category pills and carousels */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
-
-.material-symbols-outlined {
-  font-family: 'Material Symbols Outlined' !important;
-  font-weight: normal;
-  font-style: normal;
-  font-size: 24px;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  display: inline-block;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  -webkit-font-feature-settings: 'liga';
-  font-feature-settings: 'liga';
-  -webkit-font-smoothing: antialiased;
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 @media print {

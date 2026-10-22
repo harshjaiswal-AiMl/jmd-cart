@@ -33,41 +33,48 @@ export default async function OrderTrackingPage({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface font-body text-on-surface antialiased flex flex-col justify-between">
       {/* Top Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <header className="bg-surface-container-lowest border-b border-surface-container-high/80 sticky top-0 z-30 shadow-sm backdrop-blur-md">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href="/store"
-              className="text-2xl font-black text-blue-600 tracking-tight"
+              className="flex items-center gap-2 group"
             >
-              JMD CART
+              <img
+                src="/brand/jmd-cart-logo.png"
+                alt="JMD Cart Logo"
+                className="h-8 w-auto object-contain"
+              />
+              <span className="font-headline text-xl sm:text-2xl font-bold tracking-tight text-primary">
+                JMD<span className="text-secondary">Cart</span>
+              </span>
             </Link>
-            <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-semibold border border-blue-200">
+            <span className="text-xs bg-primary-fixed text-on-primary-fixed px-2.5 py-0.5 rounded-full font-bold">
               Order Tracking
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Link
-              href="/store/orders"
-              className="text-xs font-semibold px-3 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
+              href="/store/account?tab=orders"
+              className="text-xs font-bold px-3 py-1.5 border border-outline-variant/60 rounded-xl text-on-surface hover:bg-surface-container-low transition-colors"
             >
               ← All Orders
             </Link>
             <Link
-              href="/store/cart"
-              className="text-xs font-semibold px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              href="/store/checkout"
+              className="text-xs font-bold px-3.5 py-1.5 bg-primary hover:bg-primary-container text-on-primary rounded-xl transition-all shadow-xs"
             >
-              🛒 Cart
+              🛒 Checkout
             </Link>
           </div>
         </div>
       </header>
 
       {/* Main Tracking Content */}
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
         <OrderTrackingClient order={order} isOwnerOrAdmin={true} />
       </main>
     </div>
