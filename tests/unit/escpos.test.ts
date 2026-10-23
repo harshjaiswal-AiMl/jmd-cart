@@ -162,6 +162,7 @@ describe("Task 2.5: ESC/POS Command Encoder & Receipt Formatter", () => {
         type: "RETAILER",
         address: "Purab Bazar, Saharsa",
         gstin: null,
+        companyId: null,
         creditEnabled: true,
         creditLimitPaise: 100000,
         creditDays: 7,

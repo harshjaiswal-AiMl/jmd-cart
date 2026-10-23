@@ -300,4 +300,24 @@ describe("Task 1.9: Stock Views by Location & Product Movement History", () => {
       stockService.getStockKPIs(UserRole.DELIVERY)
     ).rejects.toThrow(ForbiddenError);
   });
+
+  it("supports pagination with limit and offset across products", async () => {
+    const page1 = await stockService.listStockBalances(UserRole.GODOWN, {
+      limit: 1,
+      offset: 0,
+    });
+    expect(page1.items.length).toBeLessThanOrEqual(1);
+    expect(page1.total).toBeGreaterThanOrEqual(2);
+
+    const page2 = await stockService.listStockBalances(UserRole.GODOWN, {
+      limit: 1,
+      offset: 1,
+    });
+    expect(page2.items.length).toBeLessThanOrEqual(1);
+    expect(page2.total).toBe(page1.total);
+
+    if (page1.items.length > 0 && page2.items.length > 0) {
+      expect(page1.items[0].productId).not.toBe(page2.items[0].productId);
+    }
+  });
 });

@@ -38,9 +38,21 @@ export function StockClient({
   const [companyId, setCompanyId] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [lowStockOnly, setLowStockOnly] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [isPending, startTransition] = useTransition();
 
-  const handleFilter = (newLocationId = locationId, newCompanyId = companyId, newSearch = search, newLowStock = lowStockOnly) => {
+  const pageSize = 100;
+  const totalPages = Math.max(1, Math.ceil(data.total / pageSize));
+  const startCount = data.total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endCount = Math.min(data.total, currentPage * pageSize);
+
+  const handleFilter = (
+    newLocationId = locationId,
+    newCompanyId = companyId,
+    newSearch = search,
+    newLowStock = lowStockOnly,
+    page = 1
+  ) => {
     startTransition(async () => {
       try {
         const result = await getStockBalancesAction({
@@ -48,17 +60,38 @@ export function StockClient({
           companyId: newCompanyId || undefined,
           search: newSearch || undefined,
           lowStockOnly: newLowStock,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
         });
         setData(result);
+        setCurrentPage(page);
       } catch (err) {
         console.error("Failed to filter stock:", err);
       }
     });
   };
 
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    handleFilter(locationId, companyId, search, lowStockOnly, newPage);
+  };
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, "...", totalPages];
+    }
+    if (currentPage >= totalPages - 3) {
+      return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleFilter();
+    handleFilter(locationId, companyId, search, lowStockOnly, 1);
   };
 
   const formatPaise = (paise: number) => {
@@ -211,7 +244,7 @@ export function StockClient({
           <span className="text-sm font-medium text-gray-700">
             Stock Inventory Items {isPending && <span className="text-xs text-blue-600 ml-2 animate-pulse">(Updating...)</span>}
           </span>
-          <span className="text-xs text-gray-500">{data.items.length} of {data.total} products</span>
+          <span className="text-xs text-gray-500">Page {currentPage} of {totalPages} ({data.total} total products)</span>
         </div>
 
         {data.items.length === 0 ? (
@@ -324,6 +357,63 @@ export function StockClient({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Bar */}
+        {data.total > 0 && (
+          <div className="p-4 border-t border-gray-200 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="text-sm text-gray-600">
+              Showing <span className="font-semibold text-gray-900">{startCount}</span> to{" "}
+              <span className="font-semibold text-gray-900">{endCount}</span> of{" "}
+              <span className="font-semibold text-gray-900">{data.total}</span> products (100 per page)
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                <button
+                  type="button"
+                  disabled={currentPage === 1 || isPending}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  ← Prev
+                </button>
+
+                <div className="flex items-center gap-1 flex-wrap">
+                  {getPageNumbers().map((p, idx) =>
+                    p === "..." ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-gray-400 font-semibold">
+                        ...
+                      </span>
+                    ) : (
+                      <button
+                        key={`page-${p}`}
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => handlePageChange(p as number)}
+                        className={`min-w-[32px] h-8 px-2 text-xs font-semibold rounded-lg transition-colors ${
+                          currentPage === p
+                            ? "bg-blue-600 text-white shadow-xs"
+                            : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages || isPending}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
