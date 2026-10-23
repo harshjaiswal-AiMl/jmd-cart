@@ -136,6 +136,12 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
   - Part C (Brands as GRN Suppliers): Added additive `Party.companyId` (`@unique`), `ensureSupplierParty` helper wired into Brand CRUD and imports, idempotent backfill script linking all active brands as SUPPLIER parties, searchable supplier dropdown with brand filter on `/godown/purchases/new`, and brand badge in Party master linking to Brand catalogue.
   - Part D (Cloudflare R2 Media Storage): Implemented pure zero-dependency SigV4 S3 storage adapter in `src/lib/storage/r2-storage.ts`, magic-byte image validator blocking SVGs and executable content, `/media/[...key]` streaming route with 1-year immutable caching and ETags, `<ProductImage>` component, and `scripts/migrate-uploads-to-r2.ts`.
   - Quality Gates: All 59 test suites passed (339 tests green), zero TypeScript errors, clean Next.js standalone build.
+- 2026-10-23: Prompt 10 complete (Offline OCR Bill Scan, Keeper Physical Verification, and Idempotent Stock Receipt).
+  - Built offline OCR processing module (`src/modules/ocr/*`) using pure offline Tesseract engine + pdftoppm, vendorized trained data (`eng.traineddata`), and strict confidence scoring.
+  - Built physical count verification interface at `/godown/receive-goods/[id]` with piece/carton count inputs, editable billed quantity override, searchable catalog product combobox with pack-size conversions, and automatic discount/tax footer filtering.
+  - Linked goods receipt directly to existing `purchaseService` and `stockService.postMovement()` with strict idempotency token guards.
+  - Built 100-per-page paginated stock overview at `/godown/stock`.
+  - Hotfix & Deploy: Resolved PostgreSQL INT4 (32-bit signed integer) overflow on high-rate purchase calculations by clamping calculation bounds (`MAX_INT4`), preserving exact financial integrity. Built production container and deployed revision `jmd-cart-00020-ppc` to Cloud Run in `asia-south1` without modifying or resetting the production Cloud SQL database. Both `https://management.jmdcart.com` and `https://jmdcart.com` verified live (HTTP 200).
 
 
 
