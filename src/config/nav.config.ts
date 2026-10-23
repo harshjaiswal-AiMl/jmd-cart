@@ -115,19 +115,11 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...GODOWN_AND_ADMIN],
   },
   {
-    id: "inv-transfers",
+    id: "inv-operations",
     group: "Inventory",
-    label: "Transfers",
+    label: "Operations & Transfers",
     icon: "ArrowLeftRight",
-    href: "/godown/operations?tab=transfer",
-    roles: [...GODOWN_AND_ADMIN],
-  },
-  {
-    id: "inv-conversions",
-    group: "Inventory",
-    label: "Carton↔Loose Conversions",
-    icon: "PackageOpen",
-    href: "/godown/operations?tab=convert",
+    href: "/godown/operations",
     roles: [...GODOWN_AND_ADMIN],
     badgeKey: "autoConverted",
   },
@@ -155,23 +147,6 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/godown/receive-goods",
     roles: [...GODOWN_AND_ADMIN],
   },
-  {
-    id: "inv-low-stock",
-    group: "Inventory",
-    label: "Low Stock",
-    icon: "AlertTriangle",
-    href: "/godown/stock?lowStockOnly=true",
-    roles: [...GODOWN_AND_ADMIN],
-    badgeKey: "lowStock",
-  },
-  {
-    id: "inv-wastage",
-    group: "Inventory",
-    label: "Wastage",
-    icon: "Trash2",
-    href: "/godown/operations?tab=wastage",
-    roles: [...GODOWN_AND_ADMIN],
-  },
 
   // 4. Dispatch
   {
@@ -189,30 +164,6 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "PlusCircle",
     href: "/godown/dispatch/new-order",
     roles: [...WAREHOUSE_ROLES],
-  },
-  {
-    id: "dispatch-runs",
-    group: "Dispatch",
-    label: "Delivery Runs",
-    icon: "Route",
-    href: "/godown/dispatch?tab=runs",
-    roles: [...GODOWN_AND_ADMIN],
-  },
-  {
-    id: "dispatch-shop-sales",
-    group: "Dispatch",
-    label: "Shop Sales Feed",
-    icon: "Receipt",
-    href: "/godown/dispatch?tab=shop-sales",
-    roles: [...WAREHOUSE_ROLES],
-  },
-  {
-    id: "dispatch-counter-pickups",
-    group: "Dispatch",
-    label: "Counter Pickups",
-    icon: "Store",
-    href: "/godown/dispatch?tab=counter-pickups",
-    roles: [...GODOWN_AND_ADMIN, UserRole.SHOP],
   },
 
   // 5. Van
@@ -483,7 +434,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Van Reports",
     icon: "Truck",
     href: "/reports?tab=van",
-    roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS],
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
   },
   {
     id: "rep-returns",
@@ -492,14 +443,6 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "RotateCcw",
     href: "/godown/returns",
     roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS],
-  },
-  {
-    id: "rep-conversions",
-    group: "Reports",
-    label: "Auto-converted Cartons",
-    icon: "PackageOpen",
-    href: "/reports?tab=conversions",
-    roles: [...GODOWN_AND_ADMIN],
   },
   {
     id: "rep-staff",

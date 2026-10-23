@@ -161,7 +161,30 @@ export async function seedReferenceData(client: PrismaClient = prisma) {
     });
   }
 
-  console.log("Reference seed completed (0 business rows created).");
+  // 7. Ensure Internal Shop Party for Godown -> Shop billing & dispatch
+  await client.party.upsert({
+    where: { id: "party-jmd-shop" },
+    update: {
+      name: "JMD Retail Shop",
+      type: "RETAILER",
+      creditEnabled: true,
+      creditLimitPaise: 1000000000,
+      active: true,
+    },
+    create: {
+      id: "party-jmd-shop",
+      name: "JMD Retail Shop",
+      type: "RETAILER",
+      phone: "9999999999",
+      address: "JMD Retail Shop, Saharsa",
+      creditEnabled: true,
+      creditLimitPaise: 1000000000,
+      creditDays: 365,
+      active: true,
+    },
+  });
+
+  console.log("Reference seed completed.");
 }
 
 if (process.argv[1]?.endsWith("seed.ts") || process.argv[1]?.endsWith("seed.js")) {

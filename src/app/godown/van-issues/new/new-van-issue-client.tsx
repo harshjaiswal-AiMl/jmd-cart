@@ -183,72 +183,172 @@ export function NewVanIssueClient({ vanLocations, godownProducts }: NewVanIssueC
         </div>
       </div>
 
-      {/* Product Selection Card */}
+      {/* Product Selection Card - Search and Add One-by-One */}
       <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-gray-900">2. Select Products to Issue</h2>
             <p className="text-xs text-gray-500">
-              Stock will be deducted from Central Godown and transferred directly to the Van ledger.
+              Search and add products to the van load sheet one by one. Stock will be transferred from Godown to Van.
             </p>
           </div>
-
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by product name or code..."
-            className="w-full md:w-72 px-3 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500"
-          />
+          {itemsToSubmit.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setLoadItems({})}
+              className="text-xs text-red-600 hover:text-red-800 font-medium self-start md:self-auto"
+            >
+              Clear All ({itemsToSubmit.length})
+            </button>
+          )}
         </div>
 
-        <div className="overflow-x-auto border border-gray-200 rounded-md">
-          <table className="min-w-full divide-y divide-gray-200 text-left text-xs">
-            <thead className="bg-gray-50 text-gray-700 font-semibold">
-              <tr>
-                <th className="px-3 py-2.5">Product & Short Code</th>
-                <th className="px-3 py-2.5">Pack Size</th>
-                <th className="px-3 py-2.5">Godown Available</th>
-                <th className="px-3 py-2.5 text-center">Cartons</th>
-                <th className="px-3 py-2.5 text-center">Loose Pcs</th>
-                <th className="px-3 py-2.5 text-right">Total Pcs</th>
-                <th className="px-3 py-2.5 text-right">MRP (₹)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+        {/* Product Search & Dropdown Picker */}
+        <div className="relative">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700 mb-1">
+            Search Product to Add (Name or Code)
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Type product name, e.g. 'Aashirvad', 'MDH', 'Salt'..."
+              className="w-full px-3.5 py-2.5 text-sm border-2 border-blue-200 rounded-lg focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition"
+            />
+            {search.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-2.5 text-xs text-gray-400 hover:text-gray-600"
+              >
+                ✕ Clear
+              </button>
+            )}
+          </div>
+
+          {/* Autocomplete Dropdown */}
+          {search.trim() && (
+            <div className="absolute z-20 left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl divide-y divide-gray-100">
               {filteredProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-gray-500">
-                    No products found matching &quot;{search}&quot;.
-                  </td>
-                </tr>
+                <div className="p-4 text-center text-xs text-gray-500">
+                  Koi product nahi mila &quot;{search}&quot; ke liye.
+                </div>
               ) : (
-                filteredProducts.map((p) => {
-                  const currentCartons = loadItems[p.id]?.cartons || 0;
-                  const currentPieces = loadItems[p.id]?.pieces || 0;
-                  const lineTotalPieces = currentCartons * p.packSize + currentPieces;
+                filteredProducts.slice(0, 15).map((p) => {
+                  const isAlreadyAdded = !!loadItems[p.id];
+                  const ctn = Math.floor(p.godownQty / p.packSize);
+                  const loose = p.godownQty % p.packSize;
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="p-3 hover:bg-blue-50/60 flex items-center justify-between gap-3 transition cursor-pointer"
+                      onClick={() => {
+                        if (!isAlreadyAdded) {
+                          handleCartonChange(p.id, p.godownQty >= p.packSize ? 1 : 0);
+                        }
+                        setSearch("");
+                      }}
+                    >
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-gray-900 truncate">
+                          {p.name}
+                        </div>
+                        <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
+                          <span className="font-mono text-gray-400">{p.shortCode}</span>
+                          <span>•</span>
+                          <span>{p.packSize} pcs / {p.packLabel}</span>
+                          <span>•</span>
+                          <span className="text-gray-700 font-mono font-medium">
+                            MRP ₹{((p.mrpPaise ?? 0) / 100).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded font-medium ${
+                            p.godownQty > 0
+                              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                              : "bg-red-50 text-red-600 border border-red-200"
+                          }`}
+                        >
+                          Stock: {p.godownQty} pcs ({ctn} ctn + {loose} loose)
+                        </span>
+
+                        <button
+                          type="button"
+                          className={`text-xs font-semibold px-3 py-1 rounded transition ${
+                            isAlreadyAdded
+                              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              : "bg-blue-600 text-white hover:bg-blue-700"
+                          }`}
+                        >
+                          {isAlreadyAdded ? "Added" : "+ Add"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Selected Products List */}
+        <div className="overflow-x-auto border border-gray-200 rounded-md">
+          {itemsToSubmit.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 bg-gray-50/50 space-y-1">
+              <div className="text-2xl">📦</div>
+              <p className="text-sm font-medium text-gray-700">Abhi koi product add nahi hua hai.</p>
+              <p className="text-xs text-gray-400">
+                Upar search box me product ka naam type karein aur &quot;+ Add&quot; dabayein.
+              </p>
+            </div>
+          ) : (
+            <table className="min-w-full divide-y divide-gray-200 text-left text-xs">
+              <thead className="bg-gray-50 text-gray-700 font-semibold">
+                <tr>
+                  <th className="px-3 py-2.5">Product & Short Code</th>
+                  <th className="px-3 py-2.5">Pack Size</th>
+                  <th className="px-3 py-2.5">Godown Available</th>
+                  <th className="px-3 py-2.5 text-center">Cartons</th>
+                  <th className="px-3 py-2.5 text-center">Loose Pcs</th>
+                  <th className="px-3 py-2.5 text-right">Total Pcs</th>
+                  <th className="px-3 py-2.5 text-right">MRP Total</th>
+                  <th className="px-3 py-2.5 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {itemsToSubmit.map((item) => {
+                  const p = godownProducts.find((gp) => gp.id === item.productId);
+                  if (!p) return null;
+
+                  const lineTotalPieces = item.cartons * p.packSize + item.pieces;
                   const isInsufficient = lineTotalPieces > p.godownQty;
+                  const lineMrpPaise = lineTotalPieces * (p.mrpPaise ?? 0);
 
                   return (
                     <tr
                       key={p.id}
                       className={`hover:bg-gray-50 transition-colors ${
-                        lineTotalPieces > 0 ? "bg-blue-50/40" : ""
+                        isInsufficient ? "bg-red-50/50" : "bg-blue-50/20"
                       }`}
                     >
-                      <td className="px-3 py-2">
-                        <div className="font-medium text-gray-900">{p.name}</div>
+                      <td className="px-3 py-2.5">
+                        <div className="font-semibold text-gray-900">{p.name}</div>
                         <div className="font-mono text-gray-400 text-[10px]">{p.shortCode}</div>
                       </td>
 
-                      <td className="px-3 py-2 text-gray-600">
+                      <td className="px-3 py-2.5 text-gray-600">
                         {p.packSize} pcs / {p.packLabel}
                       </td>
 
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2.5">
                         <span
-                          className={`font-medium ${
-                            p.godownQty > 0 ? "text-green-700" : "text-red-500"
+                          className={`font-semibold ${
+                            p.godownQty > 0 ? "text-emerald-700" : "text-red-500"
                           }`}
                         >
                           {p.godownQty} pcs
@@ -258,50 +358,67 @@ export function NewVanIssueClient({ vanLocations, godownProducts }: NewVanIssueC
                         </div>
                       </td>
 
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-3 py-2.5 text-center">
                         <input
                           type="number"
                           min="0"
-                          value={currentCartons || ""}
+                          value={item.cartons || ""}
                           onChange={(e) => handleCartonChange(p.id, parseInt(e.target.value, 10))}
                           placeholder="0"
-                          className="w-16 px-2 py-1 text-center border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-xs"
+                          className="w-16 px-2 py-1 text-center font-mono font-bold border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-xs bg-white"
                         />
                       </td>
 
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-3 py-2.5 text-center">
                         <input
                           type="number"
                           min="0"
-                          value={currentPieces || ""}
+                          value={item.pieces || ""}
                           onChange={(e) => handlePieceChange(p.id, parseInt(e.target.value, 10))}
                           placeholder="0"
-                          className="w-16 px-2 py-1 text-center border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-xs"
+                          className="w-16 px-2 py-1 text-center font-mono border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-xs bg-white"
                         />
                       </td>
 
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-3 py-2.5 text-right">
                         <span
-                          className={`font-semibold ${
-                            isInsufficient ? "text-red-600" : lineTotalPieces > 0 ? "text-blue-600" : "text-gray-400"
+                          className={`font-bold ${
+                            isInsufficient ? "text-red-600" : "text-blue-700"
                           }`}
                         >
                           {lineTotalPieces} pcs
                         </span>
                         {isInsufficient && (
-                          <div className="text-[10px] text-red-500 font-medium">Exceeds Godown!</div>
+                          <div className="text-[10px] text-red-500 font-bold">Stock se zyada!</div>
                         )}
                       </td>
 
-                      <td className="px-3 py-2 text-right text-gray-700 font-mono">
-                        ₹{((p.mrpPaise ?? 0) / 100).toFixed(2)}
+                      <td className="px-3 py-2.5 text-right text-gray-800 font-mono font-medium">
+                        ₹{(lineMrpPaise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+
+                      <td className="px-3 py-2.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLoadItems((prev) => {
+                              const copy = { ...prev };
+                              delete copy[p.id];
+                              return copy;
+                            });
+                          }}
+                          className="text-gray-400 hover:text-red-600 text-sm p-1 rounded transition"
+                          title="Remove item"
+                        >
+                          🗑️
+                        </button>
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

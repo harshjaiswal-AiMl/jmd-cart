@@ -102,6 +102,46 @@ export async function transferStockAction(
   }
 }
 
+export interface BatchTransferInput {
+  fromLocationId: string;
+  toLocationId: string;
+  reason?: string;
+  items: Array<{
+    productId: string;
+    qty: number;
+  }>;
+}
+
+export async function transferBatchStockAction(
+  input: BatchTransferInput
+): Promise<OperationActionResult & { count?: number }> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const res = await godownService.transferBatchStock(
+      session.user.role,
+      session.user.id,
+      input
+    );
+
+    revalidatePath("/godown");
+    revalidatePath("/godown/operations");
+    revalidatePath("/godown/stock");
+    revalidatePath("/management");
+    return {
+      success: true,
+      count: res.count,
+      message: `Successfully transferred ${res.count} product(s) to destination location.`,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to transfer batch stock";
+    return { error: message };
+  }
+}
+
 export async function cartonBreakAction(
   prevState: OperationActionResult | undefined,
   formData: FormData

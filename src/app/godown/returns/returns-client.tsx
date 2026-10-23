@@ -34,33 +34,36 @@ export function ReturnsClient({
   const [search, setSearch] = useState("");
   const [reasonFilter, setReasonFilter] = useState("ALL");
 
-  const totalValuePaise = debitNotes.reduce((sum, n) => sum + n.totalPaise, 0);
-  const totalUnits = debitNotes.reduce(
-    (sum, n) => sum + n.items.reduce((iSum, item) => iSum + item.qty, 0),
+  const safeNotes = debitNotes ?? [];
+  const safeStockReport = stockWiseReport ?? { rows: [], totalItemsReturned: 0, totalValuationPaise: 0, totalDebitNotesCount: 0 };
+
+  const totalValuePaise = safeNotes.reduce((sum, n) => sum + (n.totalPaise || 0), 0);
+  const totalUnits = safeNotes.reduce(
+    (sum, n) => sum + (n.items || []).reduce((iSum, item) => iSum + (item.qty || 0), 0),
     0
   );
 
   // Filter debit notes
-  const filteredNotes = debitNotes.filter((note) => {
+  const filteredNotes = safeNotes.filter((note) => {
     if (reasonFilter !== "ALL" && note.reason !== reasonFilter) {
       return false;
     }
     if (search.trim()) {
       const q = search.toLowerCase().trim();
-      const matchNum = note.number.toLowerCase().includes(q);
-      const matchSupp = note.supplier.name.toLowerCase().includes(q);
+      const matchNum = note.number?.toLowerCase().includes(q) ?? false;
+      const matchSupp = note.supplier?.name?.toLowerCase().includes(q) ?? false;
       if (!matchNum && !matchSupp) return false;
     }
     return true;
   });
 
   // Filter stock-wise report rows
-  const filteredStockRows = stockWiseReport.rows.filter((row) => {
+  const filteredStockRows = (safeStockReport.rows || []).filter((row) => {
     if (search.trim()) {
       const q = search.toLowerCase().trim();
-      const matchName = row.productName.toLowerCase().includes(q);
-      const matchCode = row.shortCode.toLowerCase().includes(q);
-      const matchComp = row.companyName.toLowerCase().includes(q);
+      const matchName = row.productName?.toLowerCase().includes(q) ?? false;
+      const matchCode = row.shortCode?.toLowerCase().includes(q) ?? false;
+      const matchComp = row.companyName?.toLowerCase().includes(q) ?? false;
       if (!matchName && !matchCode && !matchComp) return false;
     }
     return true;

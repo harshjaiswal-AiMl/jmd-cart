@@ -357,10 +357,10 @@ export class ReturnsRepository {
       } else {
         productMap.set(item.productId, {
           productId: item.productId,
-          productName: item.product.name,
-          shortCode: item.product.shortCode,
-          companyName: item.product.company?.name || "General",
-          hsn: item.product.hsn,
+          productName: item.product?.name || "Product",
+          shortCode: item.product?.shortCode || "N/A",
+          companyName: item.product?.company?.name || "General",
+          hsn: item.product?.hsn || "0000",
           totalQtyReturned: item.qty,
           totalTaxablePaise: item.taxablePaise,
           totalTaxPaise: item.taxPaise,

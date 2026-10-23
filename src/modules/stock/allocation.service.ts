@@ -293,23 +293,62 @@ export class AllocationService {
     actorId?: string,
     tx: Prisma.TransactionClient = prisma
   ): Promise<void> {
-    const reservations = await tx.stockReservation.findMany({
-      where: { orderId, active: true },
-    });
+    const [reservations, order] = await Promise.all([
+      tx.stockReservation.findMany({
+        where: { orderId, active: true },
+      }),
+      tx.order.findUnique({
+        where: { id: orderId },
+        include: { party: true },
+      }),
+    ]);
+
+    const isInternalShop = Boolean(
+      order?.party &&
+        (order.party.id === "party-jmd-shop" ||
+          order.party.name.trim().toLowerCase().includes("jmd retail") ||
+          order.party.name.trim().toLowerCase() === "jmd shop" ||
+          order.party.name.trim().toLowerCase() === "jmd")
+    );
+
+    let shopLocId: string | null = null;
+    if (isInternalShop) {
+      const shopLoc = await tx.location.findFirst({
+        where: { type: LocationType.SHOP, active: true },
+      });
+      shopLocId = shopLoc?.id ?? null;
+    }
 
     for (const res of reservations) {
-      await stockService.postMovement(
-        {
-          fromLocationId: res.locationId,
-          productId: res.productId,
-          qty: res.qty,
-          type: MovementType.SALE,
-          reason: `Online/Manual Order Handover Invoice #${invoiceId}`,
-          idempotencyKey: `sale-res-${res.id}-${orderId}`,
-          actorId,
-        },
-        tx
-      );
+      if (isInternalShop && shopLocId && res.locationId !== shopLocId) {
+        // Godown to Shop Transfer: auto-credit stock directly to the Shop
+        await stockService.postMovement(
+          {
+            fromLocationId: res.locationId,
+            toLocationId: shopLocId,
+            productId: res.productId,
+            qty: res.qty,
+            type: MovementType.TRANSFER,
+            reason: `Godown Dispatch to Shop for Order #${order?.orderNumber || orderId} (Customer: ${order?.party?.name})`,
+            idempotencyKey: `shop-xfer-res-${res.id}-${orderId}`,
+            actorId,
+          },
+          tx
+        );
+      } else {
+        await stockService.postMovement(
+          {
+            fromLocationId: res.locationId,
+            productId: res.productId,
+            qty: res.qty,
+            type: MovementType.SALE,
+            reason: `Online/Manual Order Handover Invoice #${invoiceId}`,
+            idempotencyKey: `sale-res-${res.id}-${orderId}`,
+            actorId,
+          },
+          tx
+        );
+      }
     }
 
     await tx.stockReservation.updateMany({

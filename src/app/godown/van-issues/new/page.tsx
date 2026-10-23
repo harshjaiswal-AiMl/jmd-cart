@@ -15,7 +15,12 @@ export default async function NewVanIssuePage() {
     redirect("/login");
   }
 
-  if (session.user.role !== UserRole.SUPER_ADMIN && session.user.role !== UserRole.GODOWN) {
+  if (
+    session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.ADMIN &&
+    session.user.role !== UserRole.WAREHOUSE_MANAGER &&
+    session.user.role !== UserRole.GODOWN
+  ) {
     redirect("/login");
   }
 

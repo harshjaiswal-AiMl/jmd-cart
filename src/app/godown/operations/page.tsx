@@ -15,7 +15,13 @@ export default async function GodownOperationsPage() {
     redirect("/login");
   }
 
-  if (session.user.role !== UserRole.SUPER_ADMIN && session.user.role !== UserRole.GODOWN) {
+  const allowedRoles: UserRole[] = [
+    UserRole.SUPER_ADMIN,
+    UserRole.ADMIN,
+    UserRole.GODOWN,
+    UserRole.WAREHOUSE_MANAGER,
+  ];
+  if (!allowedRoles.includes(session.user.role)) {
     redirect("/login");
   }
 
@@ -28,6 +34,20 @@ export default async function GodownOperationsPage() {
     }),
     autoConvertService.getDailyAutoConvertSummary(),
   ]);
+
+  const godownLocation = locations.find((l) => l.type === "GODOWN") || locations[0];
+  const balances = godownLocation
+    ? await prisma.stockBalance.findMany({
+        where: { locationId: godownLocation.id },
+        select: { productId: true, qty: true },
+      })
+    : [];
+
+  const balanceMap = new Map(balances.map((b) => [b.productId, b.qty]));
+  const productsWithStock = products.map((p) => ({
+    ...p,
+    godownQty: balanceMap.get(p.id) ?? 0,
+  }));
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8">
@@ -59,7 +79,7 @@ export default async function GodownOperationsPage() {
 
         <OperationsClient
           locations={locations}
-          products={products}
+          products={productsWithStock}
           autoConvertSummary={autoConvertSummary}
         />
       </div>

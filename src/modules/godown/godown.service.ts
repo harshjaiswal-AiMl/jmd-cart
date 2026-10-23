@@ -102,6 +102,135 @@ export class GodownService {
   }
 
   /**
+   * Transfer multiple stock products in a single operation (e.g. Godown -> Shop multi-product load).
+   */
+  async transferBatchStock(
+    actorRole: UserRole,
+    actorId: string,
+    data: {
+      fromLocationId: string;
+      toLocationId: string;
+      reason?: string;
+      items: Array<{
+        productId: string;
+        qty: number;
+      }>;
+    },
+    ip?: string
+  ) {
+    assertPermission(actorRole, Permission.STOCK_TRANSFER);
+    if (!data.items || data.items.length === 0) {
+      throw new Error("No products selected for transfer");
+    }
+    if (data.fromLocationId === data.toLocationId) {
+      throw new Error("Source and destination locations cannot be the same");
+    }
+
+    const fromLoc = await prisma.location.findUnique({ where: { id: data.fromLocationId } });
+    if (!fromLoc) {
+      throw new Error("Source location not found");
+    }
+
+    const toLoc = await prisma.location.findUnique({ where: { id: data.toLocationId } });
+    if (!toLoc) {
+      throw new Error("Destination location not found");
+    }
+
+    const productIds = data.items.map((i) => i.productId);
+    const [products, balances] = await Promise.all([
+      prisma.product.findMany({ where: { id: { in: productIds } } }),
+      prisma.stockBalance.findMany({
+        where: {
+          locationId: data.fromLocationId,
+          productId: { in: productIds },
+        },
+      }),
+    ]);
+
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    const balanceMap = new Map(balances.map((b) => [b.productId, b.qty]));
+
+    // Check stock sufficiency
+    for (const item of data.items) {
+      if (item.qty <= 0) {
+        throw new Error("Quantity must be greater than zero for all items");
+      }
+      const prod = productMap.get(item.productId);
+      const available = balanceMap.get(item.productId) ?? 0;
+      if (available < item.qty) {
+        throw new Error(
+          `Insufficient stock for '${prod?.name || item.productId}'. Available: ${available}, Requested: ${item.qty}`
+        );
+      }
+    }
+
+    const movements: any[] = [];
+    await prisma.$transaction(async (tx) => {
+      for (const item of data.items) {
+        const prod = productMap.get(item.productId);
+        const fromBalQty = balanceMap.get(item.productId) ?? 0;
+        const idempotencyKey = `xfer_batch_${Date.now()}_${item.productId}_${Math.random().toString(36).substring(2, 7)}`;
+
+        const movement = await stockService.postMovement(
+          {
+            type: MovementType.TRANSFER,
+            productId: item.productId,
+            fromLocationId: data.fromLocationId,
+            toLocationId: data.toLocationId,
+            qty: item.qty,
+            referenceType: "TRANSFER",
+            reason: data.reason || "Inter-location multi-product stock transfer",
+            idempotencyKey,
+            actorId,
+          },
+          tx
+        );
+
+        if (
+          fromLoc.type === LocationType.GODOWN &&
+          prod &&
+          prod.packSize > 1 &&
+          fromBalQty >= item.qty
+        ) {
+          const looseNeeded = item.qty % prod.packSize;
+          if (looseNeeded > 0) {
+            await autoConvertService.checkAndRecordAutoConvertInTx(tx, {
+              productId: prod.id,
+              productName: prod.name,
+              shortCode: prod.shortCode,
+              packSize: prod.packSize,
+              godownLocationId: fromLoc.id,
+              godownBalanceBefore: fromBalQty,
+              requestedLoosePieces: looseNeeded,
+              referenceType: "SHOP_TRANSFER",
+              referenceId: movement.id,
+              referenceNumber: `XFER-${movement.id.slice(-6).toUpperCase()}`,
+              actorId,
+            });
+          }
+        }
+
+        movements.push(movement);
+      }
+    });
+
+    await auditService.log({
+      actorId,
+      action: "STOCK_BATCH_TRANSFER",
+      entity: "StockMovement",
+      after: {
+        fromLocationId: data.fromLocationId,
+        toLocationId: data.toLocationId,
+        itemCount: data.items.length,
+        totalQty: data.items.reduce((s, i) => s + i.qty, 0),
+      },
+      ip,
+    });
+
+    return { success: true, count: movements.length, movements };
+  }
+
+  /**
    * Carton Break: converts specified number of cartons into loose pieces at destination (Shop).
    * Total pieces = cartons * product.packSize.
    */

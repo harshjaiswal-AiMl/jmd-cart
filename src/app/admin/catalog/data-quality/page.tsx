@@ -17,7 +17,8 @@ export default async function CatalogDataQualityPage() {
   if (
     session.user.role !== UserRole.SUPER_ADMIN &&
     session.user.role !== UserRole.ADMIN &&
-    session.user.role !== UserRole.GODOWN
+    session.user.role !== UserRole.GODOWN &&
+    session.user.role !== UserRole.WAREHOUSE_MANAGER
   ) {
     redirect("/login");
   }

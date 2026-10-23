@@ -7,16 +7,25 @@ import {
   manualConvertGodownAction,
   reverseConversionAction,
   transferStockAction,
+  transferBatchStockAction,
   cartonBreakAction,
   recordDamageAction,
   adjustStockAction,
   OperationActionResult,
 } from "./actions";
 import type { DailyAutoConvertSummary } from "@/modules/godown/auto-convert.service";
+import { Search, Plus, Trash2, ArrowRight, Package, AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface OperationsClientProps {
-  locations: { id: string; name: string }[];
-  products: { id: string; name: string; shortCode: string; packSize: number; packLabel: string }[];
+  locations: { id: string; name: string; type?: string }[];
+  products: {
+    id: string;
+    name: string;
+    shortCode: string;
+    packSize: number;
+    packLabel: string;
+    godownQty?: number;
+  }[];
   autoConvertSummary: DailyAutoConvertSummary;
 }
 
@@ -72,6 +81,16 @@ export function OperationsClient({
   const godownLoc = locations.find((l) => l.name.toLowerCase().includes("godown")) || locations[0];
   const shopLoc = locations.find((l) => l.name.toLowerCase().includes("shop")) || locations[1];
 
+  // Batch transfer state (multi-product transfer Godown -> Shop)
+  const [fromLocId, setFromLocId] = useState(godownLoc?.id || locations[0]?.id || "");
+  const [toLocId, setToLocId] = useState(shopLoc?.id || locations[1]?.id || "");
+  const [transferReason, setTransferReason] = useState("");
+  const [transferSearch, setTransferSearch] = useState("");
+  const [transferItems, setTransferItems] = useState<Record<string, { cartons: number; loose: number }>>({});
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [batchTransferMessage, setBatchTransferMessage] = useState<string | null>(null);
+  const [batchTransferError, setBatchTransferError] = useState<string | null>(null);
+
   const [manualProdId, setManualProdId] = useState(products[0]?.id || "");
   const [manualCartons, setManualCartons] = useState(1);
   const selectedManualProd = products.find((p) => p.id === manualProdId) || products[0];
@@ -92,6 +111,115 @@ export function OperationsClient({
         router.refresh();
       }
     });
+  };
+
+  const addProductToTransfer = (prodId: string) => {
+    setTransferItems((prev) => ({
+      ...prev,
+      [prodId]: prev[prodId] || { cartons: 1, loose: 0 },
+    }));
+    setTransferSearch("");
+  };
+
+  const removeProductFromTransfer = (prodId: string) => {
+    setTransferItems((prev) => {
+      const next = { ...prev };
+      delete next[prodId];
+      return next;
+    });
+  };
+
+  const handleTransferCartonChange = (prodId: string, val: number) => {
+    const safe = Math.max(0, val || 0);
+    setTransferItems((prev) => ({
+      ...prev,
+      [prodId]: {
+        cartons: safe,
+        loose: prev[prodId]?.loose || 0,
+      },
+    }));
+  };
+
+  const handleTransferLooseChange = (prodId: string, val: number) => {
+    const safe = Math.max(0, val || 0);
+    setTransferItems((prev) => ({
+      ...prev,
+      [prodId]: {
+        cartons: prev[prodId]?.cartons || 0,
+        loose: safe,
+      },
+    }));
+  };
+
+  const handleBatchTransferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBatchTransferError(null);
+    setBatchTransferMessage(null);
+
+    if (fromLocId === toLocId) {
+      setBatchTransferError("Source (From) and Destination (To) locations cannot be the same.");
+      return;
+    }
+
+    const itemsToSubmit = Object.entries(transferItems)
+      .map(([productId, counts]) => {
+        const prod = products.find((p) => p.id === productId);
+        const packSize = Math.max(1, prod?.packSize || 1);
+        const totalPieces = counts.cartons * packSize + counts.loose;
+        return {
+          productId,
+          qty: totalPieces,
+          cartons: counts.cartons,
+          loose: counts.loose,
+          prod,
+        };
+      })
+      .filter((i) => i.qty > 0);
+
+    if (itemsToSubmit.length === 0) {
+      setBatchTransferError("Please add at least one product with quantity > 0 to transfer.");
+      return;
+    }
+
+    const sourceLoc = locations.find((l) => l.id === fromLocId);
+    const isFromGodown =
+      sourceLoc?.type === "GODOWN" || sourceLoc?.name.toLowerCase().includes("godown");
+
+    if (isFromGodown) {
+      for (const item of itemsToSubmit) {
+        if (item.prod && item.prod.godownQty !== undefined && item.qty > item.prod.godownQty) {
+          setBatchTransferError(
+            `Insufficient stock for '${item.prod.name}'. Godown balance: ${item.prod.godownQty} pcs, Transfer requested: ${item.qty} pcs.`
+          );
+          return;
+        }
+      }
+    }
+
+    setTransferSubmitting(true);
+    try {
+      const res = await transferBatchStockAction({
+        fromLocationId: fromLocId,
+        toLocationId: toLocId,
+        reason: transferReason || "Godown to Shop stock restocking",
+        items: itemsToSubmit.map((i) => ({ productId: i.productId, qty: i.qty })),
+      });
+
+      if (res.error) {
+        setBatchTransferError(res.error);
+      } else {
+        setBatchTransferMessage(
+          res.message || `Successfully transferred ${itemsToSubmit.length} product(s)!`
+        );
+        setTransferItems({});
+        setTransferReason("");
+        router.refresh();
+      }
+    } catch (err: any) {
+      setBatchTransferError(err?.message || "Transfer failed");
+    } finally {
+      setTransferSubmitting(false);
+    }
   };
 
   return (
@@ -373,64 +501,336 @@ export function OperationsClient({
         </div>
       )}
 
-      {/* Tab 1: Inter-Location Transfer */}
+      {/* Tab 1: Multi-Product Inter-Location Transfer */}
       {activeTab === "transfer" && (
-        <form action={transferFormAction} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-6">
-          <div className="border-b border-gray-100 pb-4">
-            <h3 className="text-lg font-bold text-gray-900">Transfer Stock Between Locations</h3>
-            <p className="text-sm text-gray-500">Move inventory between Godown, Shop, or Sales Vans in pieces.</p>
+        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm space-y-6">
+          <div className="border-b border-gray-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">
+                Multi-Product Stock Transfer (Godown → Shop / Locations)
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Godown se Shop ya dusre location me ek sath multiple products transfer karein. Cartons aur loose pieces dono enter kar sakte hain.
+              </p>
+            </div>
+            <span className="text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200 px-3 py-1 rounded-full">
+              Multi-Product Batch Mode
+            </span>
           </div>
 
-          {transferState?.error && (
-            <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">{transferState.error}</div>
+          {batchTransferError && (
+            <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+              <span>{batchTransferError}</span>
+            </div>
           )}
-          {transferState?.success && (
-            <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm">Stock transferred successfully!</div>
+          {batchTransferMessage && (
+            <div className="p-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm font-medium flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-green-600" />
+              <span>{batchTransferMessage}</span>
+            </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">Product</label>
-              <select name="productId" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.shortCode})</option>
-                ))}
-              </select>
-            </div>
-
+          {/* Locations & Reason bar */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">Source Location (From)</label>
-              <select name="fromLocationId" defaultValue={godownLoc?.id} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                Source Location (From)
+              </label>
+              <select
+                value={fromLocId}
+                onChange={(e) => setFromLocId(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+              >
                 {locations.map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">Destination Location (To)</label>
-              <select name="toLocationId" defaultValue={shopLoc?.id} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                Destination Location (To)
+              </label>
+              <select
+                value={toLocId}
+                onChange={(e) => setToLocId(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+              >
                 {locations.map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">Quantity (Pieces)</label>
-              <input type="number" name="qty" min="1" defaultValue={10} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">Reason / Reference Note</label>
-              <input type="text" name="reason" placeholder="e.g. Regular shop restocking" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                Transfer Reason / Note
+              </label>
+              <input
+                type="text"
+                value={transferReason}
+                onChange={(e) => setTransferReason(e.target.value)}
+                placeholder="e.g. Regular shop restocking"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+              />
             </div>
           </div>
 
-          <div className="flex justify-end pt-4 border-t border-gray-100">
-            <ActionButton label="Transfer Stock" />
+          {/* Search & Add Products */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <Search className="w-4 h-4 text-blue-600" />
+                Search &amp; Add Products to Transfer List
+              </label>
+              <span className="text-xs text-slate-500">
+                Type name or shortcode to add
+              </span>
+            </div>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={transferSearch}
+                onChange={(e) => setTransferSearch(e.target.value)}
+                placeholder="Search product by name or shortcode (e.g. MDH, Besan, Oil...)"
+                className="w-full px-4 py-2.5 pl-10 border border-slate-300 rounded-xl text-sm bg-white shadow-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+            </div>
+
+            {/* Filtered suggestions list */}
+            {transferSearch.trim().length > 0 && (
+              <div className="bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto divide-y divide-slate-100 z-10">
+                {products
+                  .filter(
+                    (p) =>
+                      p.name.toLowerCase().includes(transferSearch.toLowerCase()) ||
+                      p.shortCode.toLowerCase().includes(transferSearch.toLowerCase())
+                  )
+                  .slice(0, 15)
+                  .map((p) => {
+                    const isAdded = Boolean(transferItems[p.id]);
+                    return (
+                      <div
+                        key={p.id}
+                        className="p-3 flex items-center justify-between hover:bg-blue-50/50 transition cursor-pointer"
+                        onClick={() => addProductToTransfer(p.id)}
+                      >
+                        <div>
+                          <div className="text-sm font-semibold text-slate-900">{p.name}</div>
+                          <div className="text-xs text-slate-500 flex items-center gap-3">
+                            <span className="font-mono">{p.shortCode}</span>
+                            <span>•</span>
+                            <span>1 Carton = {p.packSize} pcs</span>
+                            {p.godownQty !== undefined && (
+                              <>
+                                <span>•</span>
+                                <span className="font-medium text-emerald-700">
+                                  Godown Stock: {p.godownQty} pcs ({Math.floor(p.godownQty / (p.packSize || 1))} ctns)
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addProductToTransfer(p.id);
+                          }}
+                          className={`text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                            isAdded
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-blue-600 hover:bg-blue-700 text-white"
+                          }`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          {isAdded ? "Added (Add more)" : "Add Product"}
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
           </div>
-        </form>
+
+          {/* Selected Products Table */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-slate-900">
+                Selected Products for Transfer ({Object.keys(transferItems).length})
+              </h4>
+              {Object.keys(transferItems).length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setTransferItems({})}
+                  className="text-xs text-rose-600 hover:underline"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            {Object.keys(transferItems).length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl space-y-2">
+                <Package className="w-8 h-8 text-slate-400 mx-auto" />
+                <p className="text-sm font-medium text-slate-700">Koi product select nahi kiya hai</p>
+                <p className="text-xs text-slate-500">
+                  Upar search box me product ka naam search karke add karein, fir cartons ya loose pieces set karein.
+                </p>
+              </div>
+            ) : (
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                <table className="w-full text-left text-sm divide-y divide-slate-200">
+                  <thead className="bg-slate-100 text-slate-700 text-xs uppercase font-bold tracking-wider">
+                    <tr>
+                      <th className="px-4 py-3">Product</th>
+                      <th className="px-4 py-3 text-center">Available Stock</th>
+                      <th className="px-4 py-3 text-center w-28">Cartons</th>
+                      <th className="px-4 py-3 text-center w-28">Loose (Pcs)</th>
+                      <th className="px-4 py-3 text-center w-32">Total Pieces</th>
+                      <th className="px-4 py-3 text-right">Remove</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-100">
+                    {Object.entries(transferItems).map(([prodId, counts]) => {
+                      const prod = products.find((p) => p.id === prodId);
+                      if (!prod) return null;
+                      const packSize = Math.max(1, prod.packSize || 1);
+                      const totalPieces = counts.cartons * packSize + counts.loose;
+                      const isOverStock = prod.godownQty !== undefined && totalPieces > prod.godownQty;
+
+                      return (
+                        <tr key={prodId} className={isOverStock ? "bg-rose-50/50" : undefined}>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-slate-900">{prod.name}</div>
+                            <div className="text-xs text-slate-500 font-mono">
+                              {prod.shortCode} • 1 Ctn = {packSize} pcs
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center text-xs">
+                            {prod.godownQty !== undefined ? (
+                              <span className="font-bold text-slate-700 font-mono">
+                                {prod.godownQty} pcs
+                              </span>
+                            ) : (
+                              "—"
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              value={counts.cartons}
+                              onChange={(e) =>
+                                handleTransferCartonChange(prodId, parseInt(e.target.value, 10) || 0)
+                              }
+                              className="w-20 px-2 py-1 border border-slate-300 rounded text-center font-mono text-sm focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              value={counts.loose}
+                              onChange={(e) =>
+                                handleTransferLooseChange(prodId, parseInt(e.target.value, 10) || 0)
+                              }
+                              className="w-20 px-2 py-1 border border-slate-300 rounded text-center font-mono text-sm focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`inline-block px-2.5 py-1 rounded font-mono font-bold text-xs ${
+                                isOverStock
+                                  ? "bg-rose-100 text-rose-800"
+                                  : "bg-blue-100 text-blue-900"
+                              }`}
+                            >
+                              {totalPieces} pcs
+                            </span>
+                            {isOverStock && (
+                              <span className="block text-[10px] text-rose-600 font-bold mt-0.5">
+                                Stock se zyada!
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => removeProductFromTransfer(prodId)}
+                              className="text-slate-400 hover:text-rose-600 p-1.5 transition rounded-lg hover:bg-rose-50 cursor-pointer"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Action Bar */}
+          {Object.keys(transferItems).length > 0 && (
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-6 text-sm">
+                <div>
+                  <span className="text-xs text-slate-500 uppercase font-bold block">
+                    Products
+                  </span>
+                  <span className="text-base font-black text-slate-900 font-mono">
+                    {Object.keys(transferItems).length}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 uppercase font-bold block">
+                    Total Cartons
+                  </span>
+                  <span className="text-base font-black text-slate-900 font-mono">
+                    {Object.values(transferItems).reduce((sum, c) => sum + (c.cartons || 0), 0)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xs text-slate-500 uppercase font-bold block">
+                    Total Pieces
+                  </span>
+                  <span className="text-base font-black text-blue-700 font-mono">
+                    {Object.entries(transferItems).reduce((sum, [pid, c]) => {
+                      const prod = products.find((p) => p.id === pid);
+                      return sum + (c.cartons || 0) * (prod?.packSize || 1) + (c.loose || 0);
+                    }, 0)}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleBatchTransferSubmit}
+                disabled={transferSubmitting}
+                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm disabled:opacity-50 transition cursor-pointer"
+              >
+                {transferSubmitting ? (
+                  "Transferring..."
+                ) : (
+                  <>
+                    <span>Transfer Stock to Destination</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Tab 2: Carton Break */}
