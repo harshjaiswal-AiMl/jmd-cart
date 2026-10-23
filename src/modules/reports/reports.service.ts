@@ -117,7 +117,10 @@ export class ReportsService {
   ): Promise<PartyAgeingReport> {
     if (
       !hasPermission(role, Permission.ACCOUNTS_VIEW) &&
-      role !== UserRole.SUPER_ADMIN
+      !hasPermission(role, Permission.REPORTS_VIEW) &&
+      role !== UserRole.SUPER_ADMIN &&
+      role !== UserRole.GODOWN &&
+      role !== UserRole.WAREHOUSE_MANAGER
     ) {
       throw new ForbiddenError("Not authorized to view accounts ageing report");
     }

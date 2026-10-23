@@ -166,6 +166,7 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   ADMIN: ["/admin", "/godown", "/shop", "/van", "/delivery", "/accounts", "/reports"],
   WAREHOUSE_MANAGER: [
     "/godown",
+    "/van",
     "/admin/catalog",
     "/admin/crud/companies",
     "/admin/crud/categories",
@@ -177,6 +178,7 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   ],
   GODOWN: [
     "/godown",
+    "/van",
     "/admin/catalog",
     "/admin/crud/companies",
     "/admin/crud/categories",

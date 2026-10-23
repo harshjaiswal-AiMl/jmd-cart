@@ -256,3 +256,43 @@ export async function downloadCurrentStockExcelAction(locationId: string) {
   }
 }
 
+export async function bulkUpdateStockAction(data: {
+  locationId: string;
+  mode: "OPENING" | "COUNT" | "ADJUST";
+  reason: string;
+  adjustDirection?: "add" | "subtract";
+  items: Array<{
+    productId: string;
+    qty: number;
+  }>;
+}) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !session.user.role) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const res = await godownService.bulkUpdateStock(
+      session.user.role,
+      session.user.id,
+      data
+    );
+
+    revalidatePath("/godown/stock");
+    revalidatePath("/godown/stock/update");
+    revalidatePath("/admin");
+    revalidatePath("/store");
+    revalidatePath("/");
+
+    return {
+      success: true,
+      count: res.count,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to bulk update stock",
+    };
+  }
+}
+

@@ -10,15 +10,30 @@ interface StockProduct extends Product {
   godownQty: number;
 }
 
+interface SalespersonItem {
+  id: string;
+  name: string;
+  phone: string | null;
+  role: string;
+}
+
 interface NewVanIssueClientProps {
   vanLocations: (Location & { assignedUser: User | null })[];
   godownProducts: StockProduct[];
+  salespersons?: SalespersonItem[];
 }
 
-export function NewVanIssueClient({ vanLocations, godownProducts }: NewVanIssueClientProps) {
+export function NewVanIssueClient({
+  vanLocations,
+  godownProducts,
+  salespersons = [],
+}: NewVanIssueClientProps) {
   const router = useRouter();
   const [selectedVanId, setSelectedVanId] = useState<string>(
     vanLocations.length > 0 ? vanLocations[0].id : ""
+  );
+  const [selectedSalespersonId, setSelectedSalespersonId] = useState<string>(
+    vanLocations[0]?.assignedUserId || salespersons[0]?.id || ""
   );
   const [notes, setNotes] = useState("");
   const [search, setSearch] = useState("");
@@ -29,6 +44,14 @@ export function NewVanIssueClient({ vanLocations, godownProducts }: NewVanIssueC
   const [loadItems, setLoadItems] = useState<Record<string, { cartons: number; pieces: number }>>({});
 
   const selectedVan = vanLocations.find((v) => v.id === selectedVanId);
+
+  const handleVanChange = (vanId: string) => {
+    setSelectedVanId(vanId);
+    const v = vanLocations.find((loc) => loc.id === vanId);
+    if (v?.assignedUserId) {
+      setSelectedSalespersonId(v.assignedUserId);
+    }
+  };
 
   const handleCartonChange = (productId: string, val: number) => {
     const safeVal = Math.max(0, val || 0);
@@ -112,11 +135,17 @@ export function NewVanIssueClient({ vanLocations, godownProducts }: NewVanIssueC
       }
     }
 
+    if (!selectedSalespersonId) {
+      setError("Please select a route driver / salesperson for this van dispatch.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     const res = await createVanIssueSheetAction({
       vanLocationId: selectedVanId,
+      salespersonId: selectedSalespersonId,
       notes: notes || undefined,
       items: itemsToSubmit,
     });
@@ -142,12 +171,12 @@ export function NewVanIssueClient({ vanLocations, godownProducts }: NewVanIssueC
             </label>
             <select
               value={selectedVanId}
-              onChange={(e) => setSelectedVanId(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500"
+              onChange={(e) => handleVanChange(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500 font-medium"
             >
               {vanLocations.map((van) => (
                 <option key={van.id} value={van.id}>
-                  {van.name} ({van.assignedUser ? `Salesperson: ${van.assignedUser.name}` : "Unassigned"})
+                  {van.name} ({van.assignedUser ? `Default: ${van.assignedUser.name}` : "Unassigned"})
                 </option>
               ))}
             </select>
@@ -155,17 +184,26 @@ export function NewVanIssueClient({ vanLocations, godownProducts }: NewVanIssueC
 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              Assigned Route Driver / Salesperson
+              Assigned Route Driver / Salesperson <span className="text-red-500">*</span>
             </label>
-            <div className="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-md text-gray-800">
-              {selectedVan?.assignedUser ? (
-                <span>
-                  👤 <strong>{selectedVan.assignedUser.name}</strong> (📞 {selectedVan.assignedUser.phone})
-                </span>
-              ) : (
-                <span className="text-red-600 font-medium">⚠️ No salesperson assigned to this van</span>
-              )}
-            </div>
+            <select
+              value={selectedSalespersonId}
+              onChange={(e) => setSelectedSalespersonId(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500 font-medium"
+              required
+            >
+              <option value="">-- Select Route Driver / Salesperson --</option>
+              {salespersons.map((sp) => (
+                <option key={sp.id} value={sp.id}>
+                  👤 {sp.name} {sp.phone ? `(📞 ${sp.phone})` : ""} [{sp.role}]
+                </option>
+              ))}
+            </select>
+            {!selectedSalespersonId && (
+              <p className="text-[11px] text-amber-600 mt-1">
+                ⚠️ Please select the salesperson driving this route today.
+              </p>
+            )}
           </div>
         </div>
 

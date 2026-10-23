@@ -52,6 +52,16 @@ export default async function NewVanIssuePage() {
     godownQty: balanceMap.get(p.id) || 0,
   }));
 
+  // 4. Fetch Salespersons / Drivers available for dispatch
+  const salespersons = await prisma.user.findMany({
+    where: {
+      role: { in: [UserRole.SALESPERSON, UserRole.DELIVERY, UserRole.ADMIN, UserRole.SUPER_ADMIN] },
+      active: true,
+    },
+    select: { id: true, name: true, phone: true, role: true },
+    orderBy: { name: "asc" },
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -73,7 +83,11 @@ export default async function NewVanIssuePage() {
           </p>
         </div>
 
-        <NewVanIssueClient vanLocations={vanLocations} godownProducts={godownProducts} />
+        <NewVanIssueClient
+          vanLocations={vanLocations}
+          godownProducts={godownProducts}
+          salespersons={salespersons}
+        />
       </div>
     </div>
   );

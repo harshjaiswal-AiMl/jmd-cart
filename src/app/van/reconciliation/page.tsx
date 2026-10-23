@@ -7,31 +7,50 @@ import Link from "next/link";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { VanReconciliationClient } from "./van-reconciliation-client";
 
+interface Props {
+  searchParams: Promise<{ vanId?: string }>;
+}
+
 export const dynamic = "force-dynamic";
 
-export default async function VanReconciliationPage() {
+export default async function VanReconciliationPage({ searchParams }: Props) {
+  const { vanId } = await searchParams;
   const session = await auth();
 
   if (!session?.user) {
     redirect("/login");
   }
 
+  const role = session.user.role;
   if (
-    session.user.role !== UserRole.SALESPERSON &&
-    session.user.role !== UserRole.SUPER_ADMIN
+    role !== UserRole.SUPER_ADMIN &&
+    role !== UserRole.ADMIN &&
+    role !== UserRole.WAREHOUSE_MANAGER &&
+    role !== UserRole.GODOWN &&
+    role !== UserRole.SALESPERSON &&
+    role !== UserRole.ACCOUNTS
   ) {
     redirect("/login");
   }
 
-  let van = await prisma.location.findFirst({
-    where: {
-      type: LocationType.VAN,
-      assignedUserId: session.user.id,
-      active: true,
-    },
-  });
+  let van = null;
+  if (vanId) {
+    van = await prisma.location.findFirst({
+      where: { id: vanId, type: LocationType.VAN, active: true },
+    });
+  }
 
-  if (!van && session.user.role === UserRole.SUPER_ADMIN) {
+  if (!van) {
+    van = await prisma.location.findFirst({
+      where: {
+        type: LocationType.VAN,
+        assignedUserId: session.user.id,
+        active: true,
+      },
+    });
+  }
+
+  if (!van) {
     van = await prisma.location.findFirst({
       where: { type: LocationType.VAN, active: true },
       orderBy: { name: "asc" },

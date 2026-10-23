@@ -14,7 +14,22 @@ import {
   OperationActionResult,
 } from "./actions";
 import type { DailyAutoConvertSummary } from "@/modules/godown/auto-convert.service";
-import { Search, Plus, Trash2, ArrowRight, Package, AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Trash2,
+  ArrowRight,
+  Package,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRightLeft,
+  PackageOpen,
+  Scissors,
+  SlidersHorizontal,
+  Building2,
+  Store,
+  Layers,
+} from "lucide-react";
 
 interface OperationsClientProps {
   locations: { id: string; name: string; type?: string }[];
@@ -35,7 +50,7 @@ function ActionButton({ label }: { label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors cursor-pointer"
+      className="inline-flex justify-center py-2 px-4 border border-transparent shadow-xs text-xs font-bold rounded-lg text-white bg-[#790E11] hover:bg-[#600b0e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#790E11] disabled:opacity-50 transition-colors cursor-pointer"
     >
       {pending ? "Executing..." : label}
     </button>
@@ -53,8 +68,8 @@ export function OperationsClient({
   const [reverseError, setReverseError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<
-    "autoconvert" | "transfer" | "break" | "damage" | "adjust"
-  >("autoconvert");
+    "transfer" | "autoconvert" | "break" | "damage" | "adjust"
+  >("transfer");
 
   const [manualConvertState, manualConvertFormAction] = useFormState<
     OperationActionResult | undefined,
@@ -224,90 +239,108 @@ export function OperationsClient({
 
   return (
     <div className="space-y-6">
-      {/* SAFEGUARD #1: Godown Keeper Notification Banner */}
-      <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">📦</span>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-black uppercase bg-amber-200 text-amber-900 px-2 py-0.5 rounded">
-                Safeguard #1 • Live Notification
-              </span>
-              <span className="text-sm font-black text-slate-900">
-                Aaj {autoConvertSummary.totalCartonsOpenedToday} carton auto-open hue (+
-                {autoConvertSummary.totalLooseGeneratedToday} loose pieces)
-              </span>
-            </div>
-            <p className="text-xs text-slate-600 mt-0.5">
-              Jab online order, van issue ya shop transfer me loose pieces chahiye aur Godown me loose kam ho, to system sirf zaroori cartons khud khol deta hai (`carton -N, loose +N×packSize`).
-            </p>
+      {/* Top Header & Live Engine Status */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
+              <ArrowRightLeft className="w-5 h-5 text-[#790E11]" />
+              Warehouse Operations &amp; Transfers
+            </h1>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+              Live Ledger Connected
+            </span>
           </div>
+          <p className="text-xs text-gray-500">
+            Execute inter-location stock movements, carton unpacks, auto-convert audits, and adjustments across Godown and Shop.
+          </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setActiveTab("autoconvert")}
-          className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition cursor-pointer"
-        >
-          Daily Report &amp; Reverse ({autoConvertSummary.entries.length})
-        </button>
+
+        {/* Live Auto-Convert Metric Widget */}
+        <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 p-2.5 rounded-xl text-xs">
+          <PackageOpen className="w-4 h-4 text-amber-600 shrink-0" />
+          <div className="leading-tight">
+            <span className="text-[10px] uppercase font-bold text-gray-500 block">Today&apos;s Auto-Debox</span>
+            <span className="font-bold text-gray-900 font-mono">
+              {autoConvertSummary.totalCartonsOpenedToday} ctns ({autoConvertSummary.totalLooseGeneratedToday} pcs)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("autoconvert")}
+            className="ml-2 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 shadow-2xs transition"
+          >
+            Audit Log ({autoConvertSummary.entries.length})
+          </button>
+        </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="bg-white rounded-xl border border-gray-200 p-2 flex gap-2 overflow-x-auto shadow-sm">
-        <button
-          type="button"
-          onClick={() => setActiveTab("autoconvert")}
-          className={`py-2 px-4 rounded-lg text-sm font-bold transition-colors cursor-pointer ${
-            activeTab === "autoconvert"
-              ? "bg-amber-50 text-amber-800 border border-amber-300"
-              : "text-gray-600 hover:bg-gray-50"
-          }`}
-        >
-          📦 Carton Kholo → Loose &amp; Daily Auto-Convert Report
-        </button>
+      {/* Modern Segmented Pill Tabs */}
+      <div className="bg-white rounded-xl border border-gray-200 p-1.5 flex gap-1.5 overflow-x-auto shadow-xs">
         <button
           type="button"
           onClick={() => setActiveTab("transfer")}
-          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+          className={`py-2 px-3.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
             activeTab === "transfer"
-              ? "bg-blue-50 text-blue-700 border border-blue-200"
-              : "text-gray-600 hover:bg-gray-50"
+              ? "bg-[#790E11] text-white shadow-xs"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           }`}
         >
-          Inter-Location Transfer
+          <ArrowRightLeft className="w-3.5 h-3.5" />
+          1. Inter-Location Transfer
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("autoconvert")}
+          className={`py-2 px-3.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+            activeTab === "autoconvert"
+              ? "bg-amber-600 text-white shadow-xs"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          }`}
+        >
+          <PackageOpen className="w-3.5 h-3.5" />
+          2. Carton Kholo → Loose &amp; Auto-Convert
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("break")}
-          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+          className={`py-2 px-3.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
             activeTab === "break"
-              ? "bg-blue-50 text-blue-700 border border-blue-200"
-              : "text-gray-600 hover:bg-gray-50"
+              ? "bg-[#790E11] text-white shadow-xs"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           }`}
         >
-          Carton Break (Godown → Shop)
+          <Scissors className="w-3.5 h-3.5" />
+          3. Carton Break (Godown → Shop)
         </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("damage")}
-          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+          className={`py-2 px-3.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
             activeTab === "damage"
-              ? "bg-blue-50 text-blue-700 border border-blue-200"
-              : "text-gray-600 hover:bg-gray-50"
+              ? "bg-red-700 text-white shadow-xs"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           }`}
         >
-          Record Damage / Spoilage
+          <AlertCircle className="w-3.5 h-3.5" />
+          4. Record Damage / Spoilage
         </button>
+
         <button
           type="button"
           onClick={() => setActiveTab("adjust")}
-          className={`py-2 px-4 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+          className={`py-2 px-3.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
             activeTab === "adjust"
-              ? "bg-blue-50 text-blue-700 border border-blue-200"
-              : "text-gray-600 hover:bg-gray-50"
+              ? "bg-[#790E11] text-white shadow-xs"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           }`}
         >
-          Manual Adjustment
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          5. Manual Ledger Adjustment
         </button>
       </div>
 
@@ -531,16 +564,17 @@ export function OperationsClient({
             </div>
           )}
 
-          {/* Locations & Reason bar */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+          {/* Locations Corridor & Reason Bar */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 bg-gray-50/80 p-4 rounded-2xl border border-gray-200">
+            <div className="md:col-span-4">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-600 mb-1 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-[#790E11]" />
                 Source Location (From)
               </label>
               <select
                 value={fromLocId}
                 onChange={(e) => setFromLocId(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#790E11]"
               >
                 {locations.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -550,14 +584,21 @@ export function OperationsClient({
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+            <div className="hidden md:flex md:col-span-1 items-center justify-center pt-5">
+              <div className="w-8 h-8 rounded-full bg-white border border-gray-200 shadow-2xs flex items-center justify-center text-gray-400">
+                <ArrowRight className="w-4 h-4 text-[#790E11]" />
+              </div>
+            </div>
+
+            <div className="md:col-span-4">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-600 mb-1 flex items-center gap-1.5">
+                <Store className="w-3.5 h-3.5 text-blue-600" />
                 Destination Location (To)
               </label>
               <select
                 value={toLocId}
                 onChange={(e) => setToLocId(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-semibold bg-white focus:outline-none focus:ring-2 focus:ring-[#790E11]"
               >
                 {locations.map((l) => (
                   <option key={l.id} value={l.id}>
@@ -567,16 +608,16 @@ export function OperationsClient({
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
-                Transfer Reason / Note
+            <div className="md:col-span-3">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-600 mb-1">
+                Transfer Note / Reason
               </label>
               <input
                 type="text"
                 value={transferReason}
                 onChange={(e) => setTransferReason(e.target.value)}
                 placeholder="e.g. Regular shop restocking"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#790E11]"
               />
             </div>
           </div>
@@ -817,13 +858,13 @@ export function OperationsClient({
                 type="button"
                 onClick={handleBatchTransferSubmit}
                 disabled={transferSubmitting}
-                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm disabled:opacity-50 transition cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-[#790E11] hover:bg-[#600b0e] text-white font-bold rounded-xl shadow-xs disabled:opacity-50 transition cursor-pointer text-xs"
               >
                 {transferSubmitting ? (
                   "Transferring..."
                 ) : (
                   <>
-                    <span>Transfer Stock to Destination</span>
+                    <span>Execute Stock Transfer</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

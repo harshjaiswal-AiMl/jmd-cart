@@ -11,7 +11,18 @@ import {
   uploadStockExcelAction,
   undoStockUploadBatchAction,
   downloadCurrentStockExcelAction,
+  bulkUpdateStockAction,
 } from "./actions";
+import {
+  Search,
+  Plus,
+  Trash2,
+  Layers,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+  Package,
+} from "lucide-react";
 
 interface LocationOption {
   id: string;
@@ -56,7 +67,7 @@ export function UpdateStockClient({
 }: UpdateStockClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
-    "opening" | "count" | "adjust" | "csv"
+    "opening" | "count" | "adjust" | "multi" | "csv"
   >("opening");
 
   const [isPending, startTransition] = useTransition();
@@ -75,6 +86,107 @@ export function UpdateStockClient({
   const [looseInput, setLooseInput] = useState<number>(0);
   const [adjustDirection, setAdjustDirection] = useState<"add" | "subtract">("add");
   const [reason, setReason] = useState<string>("Initial physical opening stock entry");
+
+  // Multi-Product batch state
+  const [multiMode, setMultiMode] = useState<"COUNT" | "OPENING" | "ADJUST">("COUNT");
+  const [multiAdjustDir, setMultiAdjustDir] = useState<"add" | "subtract">("add");
+  const [multiReason, setMultiReason] = useState<string>("Multi-product physical stock count");
+  const [multiSearch, setMultiSearch] = useState<string>("");
+  const [multiItems, setMultiItems] = useState<Record<string, { cartons: number; loose: number }>>({});
+
+  const addMultiProduct = (prodId: string) => {
+    const prod = products.find((p) => p.id === prodId);
+    if (!prod) return;
+    const curBal = prod.balancesByLocation[locationId] || 0;
+    const pSize = prod.packSize || 1;
+    const defaultCartons = multiMode === "COUNT" ? Math.floor(curBal / pSize) : 0;
+    const defaultLoose = multiMode === "COUNT" ? curBal % pSize : 0;
+
+    setMultiItems((prev) => ({
+      ...prev,
+      [prodId]: prev[prodId] || { cartons: defaultCartons, loose: defaultLoose },
+    }));
+  };
+
+  const removeMultiProduct = (prodId: string) => {
+    setMultiItems((prev) => {
+      const next = { ...prev };
+      delete next[prodId];
+      return next;
+    });
+  };
+
+  const updateMultiItem = (prodId: string, cartons: number, loose: number) => {
+    setMultiItems((prev) => ({
+      ...prev,
+      [prodId]: { cartons: Math.max(0, cartons), loose: Math.max(0, loose) },
+    }));
+  };
+
+  const addAllFilteredMulti = (matchingProds: ProductOption[]) => {
+    setMultiItems((prev) => {
+      const next = { ...prev };
+      for (const prod of matchingProds.slice(0, 50)) {
+        if (!next[prod.id]) {
+          const curBal = prod.balancesByLocation[locationId] || 0;
+          const pSize = prod.packSize || 1;
+          const defaultCartons = multiMode === "COUNT" ? Math.floor(curBal / pSize) : 0;
+          const defaultLoose = multiMode === "COUNT" ? curBal % pSize : 0;
+          next[prod.id] = { cartons: defaultCartons, loose: defaultLoose };
+        }
+      }
+      return next;
+    });
+  };
+
+  const clearMultiBatch = () => {
+    setMultiItems({});
+  };
+
+  const handleMultiSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    const itemKeys = Object.keys(multiItems);
+    if (itemKeys.length === 0) {
+      setMessage({ type: "error", text: "Please add at least one product to the batch list." });
+      return;
+    }
+
+    const payloadItems = itemKeys.map((pId) => {
+      const p = products.find((x) => x.id === pId);
+      const pSize = p?.packSize || 1;
+      const { cartons, loose } = multiItems[pId];
+      const totalPieces = cartons * pSize + loose;
+      return {
+        productId: pId,
+        qty: totalPieces,
+      };
+    });
+
+    startTransition(async () => {
+      const res = await bulkUpdateStockAction({
+        locationId,
+        mode: multiMode,
+        reason: multiReason.trim() || `Multi-product ${multiMode} stock update`,
+        adjustDirection: multiAdjustDir,
+        items: payloadItems,
+      });
+
+      if (!res.success) {
+        setMessage({ type: "error", text: res.error || "Failed to bulk update stock" });
+      } else {
+        setMessage({
+          type: "success",
+          text: `Successfully updated stock for ${res.count} products at ${
+            locations.find((l) => l.id === locationId)?.name || "target location"
+          }!`,
+        });
+        setMultiItems({});
+        setMultiSearch("");
+        router.refresh();
+      }
+    });
+  };
 
   // Excel / CSV Instant Upload state
   const [excelMode, setExcelMode] = useState<
@@ -159,12 +271,17 @@ export function UpdateStockClient({
     adjustDirection === "add" ? Math.abs(computedPieces) : -Math.abs(computedPieces);
   const adjustResultBalance = currentBalance + signedAdjustment;
 
-  const handleTabSwitch = (tab: "opening" | "count" | "adjust" | "csv") => {
+  const handleTabSwitch = (tab: "opening" | "count" | "adjust" | "multi" | "csv") => {
     setActiveTab(tab);
     setMessage(null);
     if (tab === "opening") setReason("Initial physical opening stock entry");
     if (tab === "count") setReason("Physical stock count reconciliation");
     if (tab === "adjust") setReason("Stock count / manual adjustment");
+    if (tab === "multi") {
+      if (multiMode === "OPENING") setMultiReason("Initial physical opening stock entry");
+      else if (multiMode === "COUNT") setMultiReason("Multi-product physical stock count");
+      else setMultiReason("Multi-product stock adjustment");
+    }
   };
 
   const downloadBase64File = (base64: string, filename: string) => {
@@ -456,6 +573,18 @@ export function UpdateStockClient({
           </button>
           <button
             type="button"
+            onClick={() => handleTabSwitch("multi")}
+            className={`px-4 py-2.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              activeTab === "multi"
+                ? "bg-emerald-700 text-white shadow-xs"
+                : "text-emerald-800 bg-emerald-50 hover:bg-emerald-100"
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            4. Multi-Product Batch Entry
+          </button>
+          <button
+            type="button"
             onClick={() => handleTabSwitch("csv")}
             className={`px-4 py-2.5 rounded-lg text-xs font-bold transition ${
               activeTab === "csv"
@@ -463,7 +592,7 @@ export function UpdateStockClient({
                 : "text-gray-600 hover:bg-gray-100"
             }`}
           >
-            4. Instant Excel / CSV Stock Upload
+            5. Instant Excel / CSV Upload
           </button>
         </div>
 
@@ -489,7 +618,362 @@ export function UpdateStockClient({
         </div>
       )}
 
-      {activeTab !== "csv" ? (
+      {activeTab === "multi" ? (
+        <form onSubmit={handleMultiSubmit} className="space-y-6">
+          {/* Controls Card: Mode, Location, Adjust Direction, Reason */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
+              <div>
+                <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-emerald-700" />
+                  Multi-Product Batch Stock Update
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Queue and update opening balances, physical counts, or adjustments across multiple products in a single operation.
+                </p>
+              </div>
+
+              {/* Mode Selector */}
+              <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMultiMode("COUNT");
+                    setMultiReason("Multi-product physical stock count");
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    multiMode === "COUNT"
+                      ? "bg-white text-gray-900 shadow-xs"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Physical Count
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMultiMode("OPENING");
+                    setMultiReason("Initial physical opening stock entry");
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    multiMode === "OPENING"
+                      ? "bg-white text-gray-900 shadow-xs"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Opening Stock
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMultiMode("ADJUST");
+                    setMultiReason("Multi-product stock adjustment");
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    multiMode === "ADJUST"
+                      ? "bg-white text-gray-900 shadow-xs"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Adjustment (+/-)
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
+                  Target Location *
+                </label>
+                <select
+                  value={locationId}
+                  onChange={(e) => setLocationId(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium"
+                >
+                  {locations.map((loc) => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name} ({loc.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {multiMode === "ADJUST" && (
+                <div>
+                  <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
+                    Adjustment Direction *
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMultiAdjustDir("add")}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${
+                        multiAdjustDir === "add"
+                          ? "bg-emerald-600 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      + Add Stock
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMultiAdjustDir("subtract")}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${
+                        multiAdjustDir === "subtract"
+                          ? "bg-red-600 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      - Deduct Stock
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className={multiMode === "ADJUST" ? "sm:col-span-1" : "sm:col-span-2"}>
+                <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
+                  Audit Reason *
+                </label>
+                <input
+                  type="text"
+                  required
+                  minLength={3}
+                  value={multiReason}
+                  onChange={(e) => setMultiReason(e.target.value)}
+                  placeholder="e.g. Physical inventory verification / Godown stock audit"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Product Quick Search & Add */}
+            <div className="pt-2 border-t border-gray-100 space-y-2">
+              <label className="block text-xs font-bold uppercase text-gray-700">
+                Search & Queue Products
+              </label>
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={multiSearch}
+                  onChange={(e) => setMultiSearch(e.target.value)}
+                  placeholder="Type product name or short code (e.g. 'Mustard', 'MDH', 'Besan')..."
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+              </div>
+
+              {/* Matching products preview */}
+              {multiSearch.trim().length > 0 && (() => {
+                const matchingProds = products.filter(
+                  (p) =>
+                    (p.name.toLowerCase().includes(multiSearch.toLowerCase()) ||
+                      p.shortCode.toLowerCase().includes(multiSearch.toLowerCase())) &&
+                    !multiItems[p.id]
+                );
+
+                return (
+                  <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-200 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>
+                        Matching Products ({matchingProds.length}):
+                      </span>
+                      {matchingProds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => addAllFilteredMulti(matchingProds)}
+                          className="text-xs font-bold text-emerald-700 hover:underline"
+                        >
+                          + Add all matching ({Math.min(50, matchingProds.length)})
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                      {matchingProds.slice(0, 30).map((prod) => {
+                        const curBal = prod.balancesByLocation[locationId] || 0;
+                        return (
+                          <button
+                            key={prod.id}
+                            type="button"
+                            onClick={() => addMultiProduct(prod.id)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:border-emerald-600 hover:bg-emerald-50 text-left text-xs transition"
+                          >
+                            <Plus className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span className="font-semibold text-gray-800">{prod.name}</span>
+                            <span className="text-[10px] text-gray-400 font-mono">({prod.shortCode})</span>
+                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1 py-0.5 rounded">
+                              {curBal} pcs
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Queued Items Table */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+            <div className="p-4 border-b border-gray-100 bg-gray-50/75 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">
+                  Products in Batch Queue ({Object.keys(multiItems).length})
+                </span>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Set carton and loose quantities for each queued product.
+                </p>
+              </div>
+
+              {Object.keys(multiItems).length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearMultiBatch}
+                  className="text-xs font-semibold text-red-600 hover:underline"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {Object.keys(multiItems).length === 0 ? (
+              <div className="p-10 text-center space-y-2">
+                <Package className="w-8 h-8 text-gray-300 mx-auto" />
+                <p className="text-sm font-medium text-gray-500">No products added to batch yet.</p>
+                <p className="text-xs text-gray-400">
+                  Search above and click on products to add them to this bulk update list.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-100 text-xs">
+                  <thead className="bg-gray-50 text-gray-600 uppercase font-bold text-[10px] text-left">
+                    <tr>
+                      <th className="px-4 py-3">Product Name & Code</th>
+                      <th className="px-3 py-3 text-center">Pack Size</th>
+                      <th className="px-3 py-3 text-center">Current Stock</th>
+                      <th className="px-3 py-3 text-center">Cartons</th>
+                      <th className="px-3 py-3 text-center">Loose (Pcs)</th>
+                      <th className="px-3 py-3 text-center">Total Pcs</th>
+                      <th className="px-4 py-3 text-right">Resulting Balance</th>
+                      <th className="px-3 py-3 text-center">Remove</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {Object.keys(multiItems).map((prodId) => {
+                      const prod = products.find((p) => p.id === prodId);
+                      if (!prod) return null;
+                      const item = multiItems[prodId];
+                      const packSize = prod.packSize || 1;
+                      const curBal = prod.balancesByLocation[locationId] || 0;
+                      const inputTotal = item.cartons * packSize + item.loose;
+
+                      let delta = 0;
+                      let resulting = 0;
+
+                      if (multiMode === "OPENING") {
+                        resulting = curBal + inputTotal;
+                        delta = inputTotal;
+                      } else if (multiMode === "COUNT") {
+                        resulting = inputTotal;
+                        delta = inputTotal - curBal;
+                      } else {
+                        delta = multiAdjustDir === "add" ? inputTotal : -inputTotal;
+                        resulting = curBal + delta;
+                      }
+
+                      return (
+                        <tr key={prodId} className="hover:bg-gray-50/50">
+                          <td className="px-4 py-3">
+                            <p className="font-semibold text-gray-900">{prod.name}</p>
+                            <p className="text-[10px] font-mono text-gray-400">SKU: {prod.shortCode}</p>
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-gray-600">
+                            {packSize} pcs/ctn
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono text-gray-700">
+                            <span className="font-bold">{curBal}</span> pcs
+                            {packSize > 1 && (
+                              <span className="block text-[10px] text-gray-400">
+                                ({Math.floor(curBal / packSize)}c + {curBal % packSize}p)
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <input
+                              type="number"
+                              min={0}
+                              value={item.cartons}
+                              onChange={(e) =>
+                                updateMultiItem(prodId, parseInt(e.target.value || "0", 10), item.loose)
+                              }
+                              className="w-16 px-2 py-1 text-center font-mono border border-gray-300 rounded-lg text-xs"
+                            />
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <input
+                              type="number"
+                              min={0}
+                              value={item.loose}
+                              onChange={(e) =>
+                                updateMultiItem(prodId, item.cartons, parseInt(e.target.value || "0", 10))
+                              }
+                              className="w-16 px-2 py-1 text-center font-mono border border-gray-300 rounded-lg text-xs"
+                            />
+                          </td>
+                          <td className="px-3 py-3 text-center font-mono font-bold text-gray-900">
+                            {inputTotal} pcs
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="font-mono font-bold text-gray-900 text-sm">
+                              {resulting} pcs
+                            </span>
+                            {delta !== 0 && (
+                              <span
+                                className={`block text-[10px] font-bold ${
+                                  delta > 0 ? "text-emerald-700" : "text-red-600"
+                                }`}
+                              >
+                                {delta > 0 ? `+${delta}` : delta} pcs
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => removeMultiProduct(prodId)}
+                              className="p-1 text-gray-400 hover:text-red-600 rounded"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {Object.keys(multiItems).length > 0 && (
+              <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                <div className="text-xs text-gray-600">
+                  Ready to post <strong className="text-gray-900">{Object.keys(multiItems).length}</strong> products in{" "}
+                  <strong>{multiMode}</strong> mode.
+                </div>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-xs transition"
+                >
+                  {isPending ? "Applying Bulk Stock..." : `Apply Stock Update (${Object.keys(multiItems).length} items)`}
+                </button>
+              </div>
+            )}
+          </div>
+        </form>
+      ) : activeTab !== "csv" ? (
         products.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center space-y-4">
             <h2 className="text-lg font-bold text-gray-900">No products in catalog yet</h2>

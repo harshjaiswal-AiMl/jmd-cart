@@ -15,6 +15,7 @@ export type VanIssueItemInput = z.input<typeof vanIssueItemSchema>;
 
 export const createVanIssueSheetSchema = z.object({
   vanLocationId: z.string().min(1, "Van location ID is required"),
+  salespersonId: z.string().optional(),
   notes: z.string().max(500).optional(),
   items: z.array(vanIssueItemSchema).min(1, "At least one product line is required"),
 });

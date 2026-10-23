@@ -187,7 +187,23 @@ export class VanRepository {
         throw new VanNotFoundError(input.vanLocationId);
       }
 
-      if (!van.assignedUser) {
+      let salesperson = van.assignedUser;
+      if (input.salespersonId) {
+        const customUser = await tx.user.findUnique({
+          where: { id: input.salespersonId },
+        });
+        if (customUser) {
+          salesperson = customUser;
+          if (van.assignedUserId !== customUser.id) {
+            await tx.location.update({
+              where: { id: van.id },
+              data: { assignedUserId: customUser.id },
+            });
+          }
+        }
+      }
+
+      if (!salesperson) {
         throw new SalespersonNotAssignedError(van.name);
       }
 
@@ -228,7 +244,7 @@ export class VanRepository {
       const vanDay = await tx.vanDay.create({
         data: {
           vanLocationId: van.id,
-          salespersonId: van.assignedUser.id,
+          salespersonId: salesperson.id,
           date: now,
           status: VanDayStatus.OPEN,
           issueSheetNo,

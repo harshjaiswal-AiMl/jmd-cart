@@ -631,6 +631,114 @@ export class GodownService {
   }
 
   /**
+   * Bulk update stock for multiple products in a single operation.
+   * Mode: "OPENING" (sets opening balance) | "COUNT" (sets absolute counted physical stock) | "ADJUST" (relative +/- adjustment)
+   */
+  async bulkUpdateStock(
+    actorRole: UserRole,
+    actorId: string,
+    data: {
+      locationId: string;
+      mode: "OPENING" | "COUNT" | "ADJUST";
+      reason: string;
+      adjustDirection?: "add" | "subtract";
+      items: Array<{
+        productId: string;
+        qty: number;
+      }>;
+    },
+    ip?: string
+  ) {
+    assertPermission(actorRole, Permission.STOCK_ADJUST);
+    if (!data.items || data.items.length === 0) {
+      throw new Error("No products provided for bulk stock update");
+    }
+
+    const location = await prisma.location.findUnique({ where: { id: data.locationId } });
+    if (!location) {
+      throw new Error("Location not found");
+    }
+
+    const results: any[] = [];
+    await prisma.$transaction(async (tx) => {
+      for (const item of data.items) {
+        if (item.qty < 0) {
+          throw new Error("Quantity cannot be negative");
+        }
+
+        if (data.mode === "OPENING") {
+          const movement = await stockService.postMovement(
+            {
+              type: MovementType.ADJUSTMENT,
+              productId: item.productId,
+              toLocationId: data.locationId,
+              qty: item.qty,
+              referenceType: "OPENING_STOCK",
+              reason: data.reason || "Bulk physical opening stock entry",
+              idempotencyKey: `bulk_op_${Date.now()}_${item.productId}_${Math.random().toString(36).substring(2, 6)}`,
+              actorId,
+            },
+            tx
+          );
+          results.push(movement);
+        } else if (data.mode === "COUNT") {
+          const systemQty = await stockService.getBalance(item.productId, data.locationId);
+          const delta = item.qty - systemQty;
+          if (delta !== 0) {
+            const movement = await stockService.postMovement(
+              {
+                type: MovementType.ADJUSTMENT,
+                productId: item.productId,
+                toLocationId: delta > 0 ? data.locationId : null,
+                fromLocationId: delta < 0 ? data.locationId : null,
+                qty: Math.abs(delta),
+                referenceType: "STOCK_COUNT",
+                reason: data.reason || "Bulk physical stock count update",
+                idempotencyKey: `bulk_cnt_${Date.now()}_${item.productId}_${Math.random().toString(36).substring(2, 6)}`,
+                actorId,
+              },
+              tx
+            );
+            results.push(movement);
+          }
+        } else if (data.mode === "ADJUST") {
+          const isSubtract = data.adjustDirection === "subtract";
+          const movement = await stockService.postMovement(
+            {
+              type: MovementType.ADJUSTMENT,
+              productId: item.productId,
+              toLocationId: isSubtract ? null : data.locationId,
+              fromLocationId: isSubtract ? data.locationId : null,
+              qty: item.qty,
+              referenceType: "ADJUSTMENT",
+              reason: data.reason || "Bulk stock adjustment",
+              idempotencyKey: `bulk_adj_${Date.now()}_${item.productId}_${Math.random().toString(36).substring(2, 6)}`,
+              actorId,
+            },
+            tx
+          );
+          results.push(movement);
+        }
+      }
+    });
+
+    await auditService.log({
+      actorId,
+      action: "STOCK_BULK_UPDATE",
+      entity: "StockMovement",
+      after: {
+        locationId: data.locationId,
+        mode: data.mode,
+        itemCount: data.items.length,
+        reason: data.reason,
+      },
+      ip,
+    });
+
+    return { success: true, count: data.items.length, movements: results };
+  }
+
+  /**
    * Bulk CSV/Excel Stock Update with Preview and Row-Level Error Reporting.
    * Format: `shortCode,cartons,loosePieces,reason`
    * Mode: `"OPENING_STOCK" | "STOCK_COUNT" | "ADJUSTMENT"`
