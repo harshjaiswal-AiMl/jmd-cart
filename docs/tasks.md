@@ -143,6 +143,13 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
   - Section 5b (Manual Orders & Pricing): Implemented `manualOrderService` (`src/modules/order/manual-order.service.ts`) enabling phone/counter orders on behalf of party with automatic tier pricing (A/B/C), credit validation, instant stock reservation, and audit logging.
   - Dispatch Board: Implemented `dispatchService` (`src/modules/dispatch/dispatch.service.ts`) and Dispatch Board at `/godown/dispatch` (`page.tsx`, `dispatch-client.tsx`, `actions.ts`) with Today's Load Summary, orders kanban, delivery trip creation/handover (`getNextSequenceNumber(tx, "RUN")` and gapless final `INV`), counter pickup signoff, and failed delivery return counter-movements.
   - Quality Gates: 64/64 test files passed (363/363 tests green), `pnpm typecheck` passed (0 errors), `pnpm lint` passed (0 errors).
+- 2026-10-23: Operations & Godown Management Polish complete (Salesperson Van Assignment Dropdown, Purchase GRN Edit & Ledger Void, Bulk Multi-Product Stock Update UI, Operations UI SaaS Redesign, Van Reconciliation & Reports Godown Access).
+  - Salesperson Dropdown on Morning Van Issue (`/godown/van-issues/new`): Added interactive dropdown allowing selection of assigned salesperson/driver with fallback to location assigned user.
+  - Purchase Receipts Management (`/godown/purchases`): Replaced static table with `PurchasesClient`. Added View Details modal, Edit Bill Details modal, and Void / Cancel GRN with immutable stock reversal via compensating `MovementType.ADJUSTMENT` and supplier ledger debit note. Allowed access for `SUPER_ADMIN`, `ADMIN`, `WAREHOUSE_MANAGER`, and `GODOWN`.
+  - Bulk Multi-Product Stock Update (`/godown/stock/update`): Added Tab 4 `Multi-Product Batch Entry` enabling queuing multiple products with cartons & loose piece inputs, live stock balance previews, colored delta indicators, and single-click batch update across Physical Count, Opening Stock, and Adjustment modes.
+  - Operations & Transfers UI Polish (`/godown/operations`): Redesigned header with live ledger indicator and auto-deboxing metric card, modern segmented pill tabs, corridor-style Source ──► Destination selector, product search with instant live balance pills, and high-density batch transfer table.
+  - Role Access & Crash Fixes: Granted `GODOWN` and `WAREHOUSE_MANAGER` access to `/van/reconciliation` and `/admin/reports`. Fixed Stock Reports crash by wrapping all parallel reports queries in safe fallbacks.
+  - Verification & Deploy: Passed `pnpm typecheck` (0 errors), `pnpm lint` (0 errors), Cloud Run deployed to revision `jmd-cart-00023-6t2`, and smoke tests passed 14/14 on production.
 
 
 
