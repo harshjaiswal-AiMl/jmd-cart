@@ -268,6 +268,16 @@ export class StockRepository {
       items = items.filter((item) => item.isLowStock);
     }
 
+    // Out-of-stock last: in-stock items appear first, out-of-stock (0 pcs) items appear last
+    items.sort((a, b) => {
+      const aStock = (a.locationQty !== undefined ? a.locationQty : a.totalQty) > 0 ? 0 : 1;
+      const bStock = (b.locationQty !== undefined ? b.locationQty : b.totalQty) > 0 ? 0 : 1;
+      if (aStock !== bStock) {
+        return aStock - bStock;
+      }
+      return a.productName.localeCompare(b.productName, undefined, { sensitivity: "base" });
+    });
+
     const total = items.length;
     const offset = filters.offset ?? 0;
     const limit = filters.limit ?? 100;

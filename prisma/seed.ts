@@ -147,6 +147,20 @@ export async function seedReferenceData(client: PrismaClient = prisma) {
     }
   }
 
+  // 6. Deactivate products starting with digits (0-9) per owner requirement
+  const digitProducts = await client.product.findMany({
+    where: { active: true },
+    select: { id: true, name: true },
+  });
+  const toDeactivate = digitProducts.filter((p) => /^[0-9]/.test(p.name.trim()));
+  if (toDeactivate.length > 0) {
+    console.log(`Deactivating ${toDeactivate.length} products starting with digits...`);
+    await client.product.updateMany({
+      where: { id: { in: toDeactivate.map((p) => p.id) } },
+      data: { active: false },
+    });
+  }
+
   console.log("Reference seed completed (0 business rows created).");
 }
 
