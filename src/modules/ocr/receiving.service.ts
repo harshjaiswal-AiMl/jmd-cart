@@ -450,15 +450,21 @@ export class ReceivingService {
         locationId: scan.locationId,
         billScanId: scan.id,
         billTotalPaise: scan.billTotalPaise,
-        items: validLines.map((l) => ({
-          productId: l.productId!,
-          qty: l.countedPieces, // Only confirmed counts alter stock
-          billedQty: l.billedQtyPieces,
-          acceptedQty: l.countedPieces,
-          varianceReason: l.varianceReason,
-          ratePaise: l.ratePaise > 0 ? l.ratePaise : (l.product?.mrpPaise || 10000),
-          gstRateBp: l.gstRateBp,
-        })),
+        items: validLines.map((l) => {
+          let effectiveRate = l.ratePaise > 0 ? l.ratePaise : (l.product?.mrpPaise || 10000);
+          if (effectiveRate > 10000000 && l.product?.mrpPaise) {
+            effectiveRate = l.product.mrpPaise;
+          }
+          return {
+            productId: l.productId!,
+            qty: l.countedPieces, // Only confirmed counts alter stock
+            billedQty: l.billedQtyPieces,
+            acceptedQty: l.countedPieces,
+            varianceReason: l.varianceReason,
+            ratePaise: Math.min(2147483647, Math.max(0, effectiveRate)),
+            gstRateBp: l.gstRateBp || 500,
+          };
+        }),
         idempotencyKey: `post_grn_${scan.id}`,
       },
       ip

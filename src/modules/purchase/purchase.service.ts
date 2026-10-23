@@ -32,12 +32,14 @@ export class PurchaseService {
     assertPermission(actorRole, Permission.STOCK_RECEIVE);
     const parsed = createPurchaseSchema.parse(data);
 
-    // Compute totals in integer paise
+    // Compute totals in integer paise, safely clamped within PostgreSQL INT4 bounds
+    const MAX_INT4 = 2147483647;
     let totalPaise = 0;
     for (const item of parsed.items) {
-      const taxablePaise = item.qty * item.ratePaise;
-      const taxPaise = Math.round((taxablePaise * item.gstRateBp) / 10000);
-      totalPaise += taxablePaise + taxPaise;
+      const safeRate = Math.min(MAX_INT4, Math.max(0, item.ratePaise));
+      const taxablePaise = Math.min(MAX_INT4, item.qty * safeRate);
+      const taxPaise = Math.round((taxablePaise * (item.gstRateBp || 0)) / 10000);
+      totalPaise = Math.min(MAX_INT4, totalPaise + taxablePaise + taxPaise);
     }
 
     const baseKey = parsed.idempotencyKey || `pur_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -52,17 +54,17 @@ export class PurchaseService {
         totalPaise,
         status: PurchaseStatus.RECEIVED,
         billScanId: parsed.billScanId ?? null,
-        billTotalPaise: parsed.billTotalPaise ?? null,
+        billTotalPaise: parsed.billTotalPaise != null ? Math.min(MAX_INT4, Math.max(0, parsed.billTotalPaise)) : null,
         createdBy: actorId,
         items: {
           create: parsed.items.map((it) => ({
             productId: it.productId,
             qty: it.qty,
-            billedQty: it.billedQty ?? null,
-            acceptedQty: it.acceptedQty ?? it.qty,
+            billedQty: it.billedQty != null ? Math.min(MAX_INT4, it.billedQty) : null,
+            acceptedQty: it.acceptedQty != null ? Math.min(MAX_INT4, it.acceptedQty) : it.qty,
             varianceReason: it.varianceReason ?? null,
-            ratePaise: it.ratePaise,
-            gstRateBp: it.gstRateBp,
+            ratePaise: Math.min(MAX_INT4, Math.max(0, it.ratePaise)),
+            gstRateBp: Math.min(MAX_INT4, Math.max(0, it.gstRateBp || 0)),
           })),
         },
       },
