@@ -48,6 +48,17 @@ describe("Part D: Storage & Image Security Tests", () => {
       const randomBytes = Buffer.from([0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c]);
       expect(detectImageType(randomBytes)).toBeNull();
     });
+
+    it("accepts valid binary PNG even if metadata contains XML/SVG elements (Canva/Adobe provenance)", () => {
+      // PNG header followed by metadata chunk containing <svg width="..."
+      const pngWithSvgMeta = Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        Buffer.from('some chunk data <svg width="716" height="716" xmlns="http://www.w3.org/2000/svg">'),
+      ]);
+      expect(isSvg(pngWithSvgMeta)).toBe(false);
+      expect(detectImageType(pngWithSvgMeta)).toBe("png");
+      expect(detectImageMimeType(pngWithSvgMeta)).toBe("image/png");
+    });
   });
 
   describe("Zero-Dependency Cloudflare R2 SigV4 Adapter", () => {

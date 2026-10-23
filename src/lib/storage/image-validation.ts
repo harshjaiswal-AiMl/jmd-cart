@@ -7,27 +7,48 @@ export type AllowedImageType = "jpeg" | "png" | "webp" | "gif";
 export type AllowedMimeType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
 export function isSvg(buffer: Buffer): boolean {
-  const head = buffer.subarray(0, 1024).toString("utf8").toLowerCase();
+  if (buffer.length < 4) return false;
+
+  // Binary images are NEVER SVGs
+  // PNG: 89 50 4E 47
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    return false;
+  }
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return false;
+  }
+  // WebP: RIFF .... WEBP
+  if (buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP") {
+    return false;
+  }
+  // GIF: GIF87a or GIF89a
+  const gifHeader = buffer.toString("ascii", 0, 6);
+  if (gifHeader === "GIF87a" || gifHeader === "GIF89a") {
+    return false;
+  }
+
+  // Text-based SVG document check
+  const head = buffer.subarray(0, 1024).toString("utf8").trim().toLowerCase();
   return (
+    head.startsWith("<svg") ||
+    head.startsWith("<?xml") ||
+    head.startsWith("<!doctype svg") ||
     head.includes("<svg") ||
     head.includes("xmlns=\"http://www.w3.org/2000/svg\"") ||
-    head.includes("xmlns='http://www.w3.org/2000/svg'") ||
-    (head.includes("<?xml") && head.includes("<svg"))
+    head.includes("xmlns='http://www.w3.org/2000/svg'")
   );
 }
 
 export function detectImageType(buffer: Buffer): AllowedImageType | null {
   if (buffer.length < 12) return null;
 
-  // Strict check: if it looks like an SVG or XML/HTML, reject immediately
-  if (isSvg(buffer)) return null;
-
-  // JPEG: FF D8 FF
+  // 1. JPEG: FF D8 FF
   if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
     return "jpeg";
   }
 
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  // 2. PNG: 89 50 4E 47 0D 0A 1A 0A
   if (
     buffer[0] === 0x89 &&
     buffer[1] === 0x50 &&
@@ -41,7 +62,7 @@ export function detectImageType(buffer: Buffer): AllowedImageType | null {
     return "png";
   }
 
-  // WebP: RIFF .... WEBP
+  // 3. WebP: RIFF .... WEBP
   if (
     buffer.toString("ascii", 0, 4) === "RIFF" &&
     buffer.toString("ascii", 8, 12) === "WEBP"
@@ -49,7 +70,7 @@ export function detectImageType(buffer: Buffer): AllowedImageType | null {
     return "webp";
   }
 
-  // GIF: GIF87a or GIF89a
+  // 4. GIF: GIF87a or GIF89a
   const gifHeader = buffer.toString("ascii", 0, 6);
   if (gifHeader === "GIF87a" || gifHeader === "GIF89a") {
     return "gif";
