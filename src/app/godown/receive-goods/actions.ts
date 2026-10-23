@@ -74,6 +74,40 @@ export async function updateLineCountAction(
   }
 }
 
+export async function updateLineBilledQtyAction(
+  lineId: string,
+  data: {
+    billedQty: number;
+    billedUnit?: string;
+  }
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const updated = await receivingService.updateLineBilledQty(session.user.role, lineId, data);
+    return { success: true, line: updated };
+  } catch (err: unknown) {
+    return { error: (err as Error).message || "Failed to update billed quantity" };
+  }
+}
+
+export async function deleteLineAction(lineId: string) {
+  const session = await auth();
+  if (!session?.user) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    await receivingService.deleteLine(session.user.role, lineId);
+    return { success: true };
+  } catch (err: unknown) {
+    return { error: (err as Error).message || "Failed to remove line" };
+  }
+}
+
 export async function confirmAllAsBilledAction(scanId: string) {
   const session = await auth();
   if (!session?.user) {

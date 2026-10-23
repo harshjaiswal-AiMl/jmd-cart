@@ -309,6 +309,71 @@ export class ReceivingService {
   }
 
   /**
+   * Update keeper-corrected billed quantity and unit
+   */
+  async updateLineBilledQty(
+    actorRole: UserRole,
+    lineId: string,
+    data: {
+      billedQty: number;
+      billedUnit?: string;
+    }
+  ) {
+    assertPermission(actorRole, Permission.STOCK_RECEIVE);
+
+    const line = await prisma.billScanLine.findUnique({
+      where: { id: lineId },
+      include: { product: true },
+    });
+
+    if (!line) throw new Error("Scan line item not found");
+
+    const packSize = line.product?.packSize || 1;
+    const unit = data.billedUnit || line.billedUnit;
+    const isCarton = unit === "CS" || unit === "CRT" || unit === "CTN";
+    const multiplier = isCarton ? packSize : 1;
+    const billedQtyPieces = Math.round(data.billedQty * multiplier);
+
+    let variance: BillScanVariance = BillScanVariance.NONE;
+    if (line.countedPieces < billedQtyPieces) {
+      variance = BillScanVariance.SHORT;
+    } else if (line.countedPieces > billedQtyPieces) {
+      variance = BillScanVariance.EXCESS;
+    }
+
+    return prisma.billScanLine.update({
+      where: { id: lineId },
+      data: {
+        billedQty: data.billedQty,
+        billedUnit: unit,
+        billedQtyPieces,
+        variance,
+      },
+      include: { product: true },
+    });
+  }
+
+  /**
+   * Delete an erroneously recognized or non-product line (e.g. discount/footer)
+   */
+  async deleteLine(actorRole: UserRole, lineId: string) {
+    assertPermission(actorRole, Permission.STOCK_RECEIVE);
+
+    const line = await prisma.billScanLine.findUnique({
+      where: { id: lineId },
+      select: { scanId: true },
+    });
+
+    if (!line) throw new Error("Scan line item not found");
+
+    await prisma.billScanLine.delete({
+      where: { id: lineId },
+    });
+
+    return { success: true, scanId: line.scanId };
+  }
+
+  /**
    * Shortcut: Set all lines as billed (auto-count cartons and loose)
    */
   async confirmAllAsBilled(actorRole: UserRole, scanId: string) {

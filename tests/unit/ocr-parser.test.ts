@@ -128,9 +128,53 @@ TOTAL AMOUNT 34269.00
       expect(parsed.billTotalPaise).toBe(3426900);
       expect(parsed.items.length).toBe(3);
 
+      expect(parsed.items[0].parsedName).toBe("HALDI CHANDAN 45 GM");
+      expect(parsed.items[0].billedQty).toBe(1080);
+      expect(parsed.items[0].billedUnit).toBe("PCS");
+
+      expect(parsed.items[1].parsedName).toBe("DALIA MIX(PUSTAHAR)500GM");
+      expect(parsed.items[1].billedQty).toBe(60);
+
       const ghee = parsed.items[2];
       expect(ghee.parsedName).toContain("COW GHEE 200GM");
+      expect(ghee.billedQty).toBe(60);
       expect(ghee.hsn).toBe("04059020");
+    });
+
+    it("ignores noisy OCR tokens like 0.0q and skips discount footer lines", () => {
+      const noisyText = `
+1 HALDI CHANDAN 45 GM 34011941 10.00 5.00 1080 8.4900 0.0q 10.50 5% 9169.20 8616.75
+2 DALIA MIX(PUSTAHAR)500GM 11031900 50.00 2.00 60 40.7300 0.0g 2.00 5% 2443.80 2514.66
+6 Discount 1045.86 Other Adj. : 0.00 SGST2.5% si
+TOTAL AMOUNT 34269.00
+      `;
+
+      const mockOcr: OcrResult = {
+        engine: "TESSERACT_WASM",
+        durationMs: 500,
+        confidence: 88,
+        pages: [
+          {
+            pageNumber: 1,
+            text: noisyText,
+            width: 800,
+            height: 1000,
+            words: [],
+            lines: noisyText.split("\n").map((t) => ({
+              text: t,
+              words: [],
+              bbox: { x0: 0, y0: 0, x1: 100, y1: 10 },
+            })),
+          },
+        ],
+      };
+
+      const parsed = parser.parse(mockOcr);
+      expect(parsed.items.length).toBe(2);
+      expect(parsed.items[0].parsedName).toBe("HALDI CHANDAN 45 GM");
+      expect(parsed.items[0].billedQty).toBe(1080);
+      expect(parsed.items[1].parsedName).toBe("DALIA MIX(PUSTAHAR)500GM");
+      expect(parsed.items[1].billedQty).toBe(60);
     });
 
     it("100% flags arithmetic discrepancies without silent errors", () => {

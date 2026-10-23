@@ -188,11 +188,14 @@ export class TableParser {
         const line = lines[i];
         const text = line.text.trim();
 
-        // Skip headers, footers, metadata lines, totals
+        // Skip headers, footers, metadata lines, totals, discount, taxes, summary
         if (
           !text ||
           /^(S\.?No|Sl\s*No|Sr\s*No|Description|Particulars|Product|HSN|Qty|Rate|Amount|Total|Less|Subtotal|Tax|CGST|SGST|IGST|Bank|Terms|Page|This is a Computer|State Name|Buyer|Invoice|Inv\.?\s*No|Inv\.?\s*Date|Dated|Mob|Phone|Tel|GSTIN|PAN|CIN|FSSAI|Delivery|Transport|Vehicle|Declaration|Authorised|Tax\s*Invoice|Estimate|vindhyawasini|shubham|mahashian|nilons|patanjali)/i.test(text) ||
-          /(?:Phone|Mob|GSTIN|State Name|Dated|Invoice|Inv\.?\s*No|Inv\.?\s*Date)\s*[:.\-]/i.test(text)
+          /(?:Phone|Mob|GSTIN|State Name|Dated|Invoice|Inv\.?\s*No|Inv\.?\s*Date)\s*[:.\-]/i.test(text) ||
+          /\b(?:Discount|Other\s*Adj|Round\s*off|Cash\s*Discount|In\s*Words|Total\s*No|Grand\s*Total|Net\s*Amount|Bank\s*Details|A\/C|IFSC|Subject\s*to|Authorised\s*Signatory)\b/i.test(text) ||
+          /(?:SGST|CGST|IGST)\s*[:.\d%]/i.test(text) ||
+          /^Total\b/i.test(text)
         ) {
           continue;
         }
@@ -205,6 +208,11 @@ export class TableParser {
 
         const parsed = this.parseLine(text, currentLineNo);
         if (parsed) {
+          // Double check: if parsedName contains Discount or summary keywords, skip
+          if (/\b(?:discount|other\s*adj|round\s*off|cash\s*discount|total\s*no)\b/i.test(parsed.parsedName)) {
+            continue;
+          }
+
           // Arithmetic validation check: qty * rate ≈ amount
           this.validateArithmetic(parsed);
           items.push(parsed);
@@ -239,28 +247,42 @@ export class TableParser {
       tokens.splice(hsnIdx, 1);
     }
 
+    // Sanitize common OCR typos where a digit (like 0) was read as a letter in numbers
+    // e.g. "0.0q" -> "0.00", "0.0g" -> "0.00", "8.4900o" -> "8.4900"
+    for (let i = 0; i < tokens.length; i++) {
+      tokens[i] = tokens[i].replace(/^(\d+[.,]\d+)[qgolcdbs]$/i, "$10");
+    }
+
     // Determine where product description ends and numeric columns begin
-    // FMCG descriptions often contain grammage/pack info like "200 Gm*20", "45 GM", "500gm", "100G X 120Pch"
     let lastDescIdx = -1;
+    let consecutiveNumericCount = 0;
+
     for (let i = 0; i < tokens.length; i++) {
       const tok = tokens[i];
       const nextTok = i + 1 < tokens.length ? tokens[i + 1] : undefined;
       const clean = tok.replace(/[₹$,]/g, "");
 
       const isWholesaleUnit = /^(?:crt|ctn|cs|pcs|box|pkt|nos|dz|mtr|per)$/i.test(clean);
+      const isPureNumber = /^[0-9]+(?:\.[0-9]+)?%?$/.test(clean);
 
-      // If token contains letters and is not a pure wholesale unit
-      if (/[a-zA-Z]/.test(clean) && !isWholesaleUnit) {
+      const isPackGrammage =
+        /(?:gm|gms|g|kg|kgs|ml|l|ltr|ltrs|pch|pcs|pkt|rs|box|\*|x)/i.test(tok) && !isPureNumber;
+
+      const nextIsGrammage =
+        nextTok &&
+        (/^(?:gm|gms|g|kg|kgs|ml|l|ltr|ltrs|pch|pouch|tin|can|btl)$/i.test(nextTok.replace(/[₹$,]/g, "")) ||
+          /^(?:gm|gms|g|kg|ml|ltr|l|pch|pcs|pkt|rs|box|\*|x)/i.test(nextTok.replace(/[₹$,]/g, "")));
+
+      if (/[a-zA-Z]/.test(clean) && !isWholesaleUnit && !clean.includes(".")) {
         lastDescIdx = i;
-      } else if (/(?:gm|gms|g|kg|kgs|ml|l|ltr|ltrs|pch|pcs|pkt|rs|box|\*|x)/i.test(tok) && !/^[0-9]+(?:\.[0-9]+)?%?$/.test(clean)) {
+        consecutiveNumericCount = 0;
+      } else if (isPackGrammage || nextIsGrammage) {
         lastDescIdx = i;
-      } else if (nextTok) {
-        const cleanNext = nextTok.replace(/[₹$,]/g, "");
-        if (
-          /^(?:gm|gms|g|kg|kgs|ml|l|ltr|ltrs|pch|pouch|tin|can|btl)$/i.test(cleanNext) ||
-          /^(?:gm|gms|g|kg|ml|ltr|l|pch|pcs|pkt|rs|box|\*|x)/i.test(cleanNext)
-        ) {
-          lastDescIdx = i;
+        consecutiveNumericCount = 0;
+      } else if (isPureNumber || isWholesaleUnit) {
+        consecutiveNumericCount++;
+        if (consecutiveNumericCount >= 2 && lastDescIdx !== -1) {
+          break;
         }
       }
     }
@@ -319,10 +341,7 @@ export class TableParser {
     }
 
     if (foundUnitQty) {
-      // In explicit unit lines like "20 crt 5,392.16 crt 4 % 1,03,529.47":
-      // Rates and amounts are in moneyValues
       if (moneyValues.length >= 2) {
-        // First money value after quantity is usually rate
         const rateCandidates = moneyValues.filter((m) => m.val !== Math.round(billedQty * 100));
         if (rateCandidates.length >= 2) {
           ratePaise = rateCandidates[0].val;
@@ -357,11 +376,12 @@ export class TableParser {
               Math.abs(expectedPaise - lastVal) < Math.max(100, lastVal * 0.05) ||
               Math.abs(expectedPaise - secondLastVal) < Math.max(100, secondLastVal * 0.05)
             ) {
-              bestPair = { qty: Math.round(rawQ), rate: Math.round(rawR * 100), amt: lastVal };
-              break;
+              // Prefer pair with higher quantity (pieces over cartons)
+              if (!bestPair || rawQ > bestPair.qty) {
+                bestPair = { qty: Math.round(rawQ), rate: Math.round(rawR * 100), amt: lastVal };
+              }
             }
           }
-          if (bestPair) break;
         }
       }
 
