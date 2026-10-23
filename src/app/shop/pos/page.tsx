@@ -107,6 +107,16 @@ export default async function ShopPosPage() {
     };
   });
 
+  // Out-of-stock items ranked last
+  products.sort((a, b) => {
+    const aInStock = (a.shopStockQty > 0 || a.godownStockQty > 0) ? 1 : 0;
+    const bInStock = (b.shopStockQty > 0 || b.godownStockQty > 0) ? 1 : 0;
+    if (aInStock !== bInStock) {
+      return bInStock - aInStock;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
   const parties = partiesRaw.map((party) => {
     const totalDebit = party.ledgerEntries.reduce((sum, e) => sum + e.debitPaise, 0);
     const totalCredit = party.ledgerEntries.reduce((sum, e) => sum + e.creditPaise, 0);

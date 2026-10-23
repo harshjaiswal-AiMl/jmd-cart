@@ -264,8 +264,11 @@ export function CatalogueClient({
   const totalCartRupees = calculatedRupees > 0 ? calculatedRupees : Math.round(cartSummary.totalPaise / 100);
   const totalSavingsRupees = calculatedSavings > 0 ? calculatedSavings : Math.round(cartSummary.savingsPaise / 100);
 
-  // Sorting products
+  // Sorting products - In-stock products ALWAYS appear first, out-of-stock items at the bottom
   const sortedProducts = [...initialProducts].sort((a, b) => {
+    if (a.isAvailable !== b.isAvailable) {
+      return a.isAvailable ? -1 : 1;
+    }
     if (sortBy === "price-asc") {
       const priceA = a.slabs[0]?.unitPricePaise || a.mrpPaise;
       const priceB = b.slabs[0]?.unitPricePaise || b.mrpPaise;

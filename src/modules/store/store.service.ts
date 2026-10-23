@@ -123,21 +123,20 @@ export class StoreService {
       },
     });
 
-    const productMap = new Map(productsRaw.map((p) => [p.id, p]));
+    const productMap = new Map<string, any>(productsRaw.map((p: any) => [p.id, p]));
     const products = productIds
       .map((id) => productMap.get(id))
-      .filter((p): p is NonNullable<typeof p> => Boolean(p));
+      .filter((p: any): p is NonNullable<any> => Boolean(p));
 
 
     // 3. Transform products into storefront view models
     const activeSlabs = allSlabs.filter((s) => s.active);
 
     const items: StoreProductItem[] = products
-      .map((p) => {
-        // Online orders fulfil strictly from Godown:
-        // Available stock = Godown loose + (openable cartons * packSize) = total Godown pieces
-        const totalAvailableQty = p.stockBalances.reduce((sum, sb) => {
-          if (sb.location.active && sb.location.type === "GODOWN") {
+      .map((p: any) => {
+        // Shared sellable pool (Godown + Shop) per Section 5a:
+        const totalAvailableQty = p.stockBalances.reduce((sum: number, sb: any) => {
+          if (sb.location.active && (sb.location.type === "GODOWN" || sb.location.type === "SHOP")) {
             return sum + Math.max(0, sb.qty);
           }
           return sum;
@@ -247,8 +246,8 @@ export class StoreService {
     const allSlabs = await pricingService.getSlabs();
     const activeSlabs = allSlabs.filter((s) => s.active);
 
-    const totalAvailableQty = product.stockBalances.reduce((sum, sb) => {
-      if (sb.location.active && sb.location.type === "GODOWN") {
+    const totalAvailableQty = (product.stockBalances as any[]).reduce((sum: number, sb: any) => {
+      if (sb.location.active && (sb.location.type === "GODOWN" || sb.location.type === "SHOP")) {
         return sum + Math.max(0, sb.qty);
       }
       return sum;
@@ -391,15 +390,15 @@ export class StoreService {
       },
     });
 
-    const productMap = new Map(productsRaw.map((p) => [p.id, p]));
+    const productMap = new Map<string, any>(productsRaw.map((p: any) => [p.id, p]));
     const products = productIds
       .map((id) => productMap.get(id))
-      .filter((p): p is NonNullable<typeof p> => Boolean(p));
+      .filter((p: any): p is NonNullable<any> => Boolean(p));
 
 
-    return products.map((p) => {
-      const totalAvailableQty = p.stockBalances.reduce((sum, sb) => {
-        if (sb.location.active && sb.location.type === "GODOWN") {
+    return products.map((p: any) => {
+      const totalAvailableQty = p.stockBalances.reduce((sum: number, sb: any) => {
+        if (sb.location.active && (sb.location.type === "GODOWN" || sb.location.type === "SHOP")) {
           return sum + Math.max(0, sb.qty);
         }
         return sum;

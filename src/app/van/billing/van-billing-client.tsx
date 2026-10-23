@@ -28,6 +28,7 @@ import {
   VanDraftInvoice,
 } from "@/lib/offline-drafts";
 import { createVanInvoiceAction, checkVanPartyCreditStatusAction } from "./actions";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
 import { PaymentMode } from "@prisma/client";
 
@@ -163,6 +164,20 @@ export function VanBillingClient({
   const selectedParty = useMemo(() => {
     return parties.find((p) => p.id === selectedPartyId) || null;
   }, [parties, selectedPartyId]);
+
+  const partyOptions = useMemo(
+    () => [
+      { value: "", label: "Cash Retail Buyer (Walk-in)", subLabel: "Walk-in cash buyer" },
+      ...parties.map((p) => ({
+        value: p.id,
+        label: p.name,
+        subLabel: `Credit Limit: ₹${((p.creditLimitPaise || 0) / 100).toFixed(0)}`,
+        badge: p.creditEnabled ? "Credit Approved" : undefined,
+        badgeColor: p.creditEnabled ? ("green" as const) : undefined,
+      })),
+    ],
+    [parties]
+  );
 
   // Totals
   const subtotalPaise = useMemo(() => {
@@ -587,18 +602,15 @@ export function VanBillingClient({
             {/* Customer Party Selector */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-300">Customer / Buyer</label>
-              <select
+              <SearchableSelect
+                options={partyOptions}
                 value={selectedPartyId}
-                onChange={(e) => setSelectedPartyId(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="">Cash Retail Buyer (Walk-in)</option>
-                {parties.map((party) => (
-                  <option key={party.id} value={party.id}>
-                    {party.name} (Credit: ₹{(party.creditLimitPaise / 100).toFixed(0)})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedPartyId(val)}
+                placeholder="Cash Retail Buyer (Walk-in)"
+                searchPlaceholder="Search customer by name..."
+                popoverWidthClass="w-full min-w-[280px]"
+                autoSortInStock={false}
+              />
 
               {selectedParty && (
                 <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] space-y-1">

@@ -49,6 +49,13 @@ export default async function GodownOperationsPage() {
     godownQty: balanceMap.get(p.id) ?? 0,
   }));
 
+  productsWithStock.sort((a, b) => {
+    const aStock = a.godownQty > 0 ? 1 : 0;
+    const bStock = b.godownQty > 0 ? 1 : 0;
+    if (aStock !== bStock) return bStock - aStock;
+    return a.name.localeCompare(b.name);
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">

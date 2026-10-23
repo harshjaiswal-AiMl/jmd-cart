@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Location, Product, User } from "@prisma/client";
 import { createVanIssueSheetAction } from "../actions";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 
-interface StockProduct extends Product {
+interface StockProduct {
+  id: string;
+  name: string;
+  shortCode: string;
+  packSize: number;
+  packLabel: string;
+  mrpPaise: number | null;
   godownQty: number;
 }
 
@@ -75,15 +82,37 @@ export function NewVanIssueClient({
     }));
   };
 
-  // Filter products by search
-  const filteredProducts = godownProducts.filter((p) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(q) ||
-      p.shortCode.toLowerCase().includes(q)
-    );
-  });
+  const salespersonOptions = useMemo(
+    () => [
+      { value: "", label: "-- Select Route Driver / Salesperson --" },
+      ...salespersons.map((sp) => ({
+        value: sp.id,
+        label: `👤 ${sp.name}`,
+        subLabel: sp.phone ? `📞 ${sp.phone}` : undefined,
+        badge: sp.role,
+      })),
+    ],
+    [salespersons]
+  );
+
+  // Filter products by search and rank in-stock first
+  const filteredProducts = useMemo(() => {
+    return godownProducts
+      .filter((p) => {
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        return (
+          p.name.toLowerCase().includes(q) ||
+          p.shortCode.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const aStock = a.godownQty > 0 ? 1 : 0;
+        const bStock = b.godownQty > 0 ? 1 : 0;
+        if (aStock !== bStock) return bStock - aStock;
+        return a.name.localeCompare(b.name);
+      });
+  }, [godownProducts, search]);
 
   // Calculate totals
   let totalCartons = 0;
@@ -186,19 +215,15 @@ export function NewVanIssueClient({
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Assigned Route Driver / Salesperson <span className="text-red-500">*</span>
             </label>
-            <select
+            <SearchableSelect
+              options={salespersonOptions}
               value={selectedSalespersonId}
-              onChange={(e) => setSelectedSalespersonId(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:ring-1 focus:ring-blue-500 font-medium"
-              required
-            >
-              <option value="">-- Select Route Driver / Salesperson --</option>
-              {salespersons.map((sp) => (
-                <option key={sp.id} value={sp.id}>
-                  👤 {sp.name} {sp.phone ? `(📞 ${sp.phone})` : ""} [{sp.role}]
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedSalespersonId(val)}
+              placeholder="-- Select Route Driver / Salesperson --"
+              searchPlaceholder="Search salesperson by name, phone..."
+              popoverWidthClass="w-full min-w-[320px]"
+              autoSortInStock={false}
+            />
             {!selectedSalespersonId && (
               <p className="text-[11px] text-amber-600 mt-1">
                 ⚠️ Please select the salesperson driving this route today.

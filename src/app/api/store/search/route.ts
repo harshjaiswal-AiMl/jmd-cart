@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
         stockBalances: {
           where: {
             location: {
-              type: "GODOWN",
+              type: { in: ["GODOWN", "SHOP"] },
               active: true,
             },
           },
@@ -60,9 +60,8 @@ export async function GET(req: NextRequest) {
       .map((id) => productMap.get(id))
       .filter((p): p is NonNullable<typeof p> => Boolean(p));
 
-
     const formatted = products.map((p) => {
-      const godownStock = p.stockBalances.reduce((sum, sb) => sum + sb.qty, 0);
+      const availableStock = p.stockBalances.reduce((sum, sb) => sum + sb.qty, 0);
       const priceRupees = (p.priceCPaise ?? p.mrpPaise ?? 0) / 100;
       const mrpRupees = (p.mrpPaise ?? 0) / 100;
 
@@ -76,8 +75,8 @@ export async function GET(req: NextRequest) {
         categoryName: p.category?.name || null,
         priceRupees,
         mrpRupees,
-        inStock: godownStock > 0,
-        godownStock,
+        inStock: availableStock > 0,
+        godownStock: availableStock,
       };
     });
 

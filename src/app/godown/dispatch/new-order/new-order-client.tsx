@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -14,6 +14,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { createManualOrderAction } from "../actions";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 
 interface Props {
   parties: Array<{
@@ -33,6 +34,8 @@ interface Props {
     priceAPaise: number | null;
     priceBPaise: number | null;
     priceCPaise: number | null;
+    totalStock?: number;
+    inStock?: boolean;
   }>;
   deliveryStaff: Array<{ id: string; name: string }>;
   userRole: string;
@@ -63,6 +66,31 @@ export function NewOrderClient({ parties, products, deliveryStaff, userRole }: P
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const selectedParty = parties.find((p) => p.id === selectedPartyId);
+
+  const partyOptions = useMemo(
+    () =>
+      parties.map((p) => ({
+        value: p.id,
+        label: p.name,
+        subLabel: `${p.phone ? `Ph: ${p.phone} · ` : ""}${p.address || ""}`,
+        badge: p.type === "WHOLESALER" ? "Tier A (Wholesale)" : p.type === "RETAILER" ? "Tier B (Retail)" : "Tier C (Customer)",
+        badgeColor: p.type === "WHOLESALER" ? ("blue" as const) : ("gray" as const),
+      })),
+    [parties]
+  );
+
+  const productOptions = useMemo(
+    () =>
+      products.map((p) => ({
+        value: p.id,
+        label: p.name,
+        subLabel: `${p.packSize} pcs/ctn · MRP ₹${((p.mrpPaise || 0) / 100).toFixed(0)}`,
+        badge: p.inStock ? `In Stock (${p.totalStock ?? ""} pcs)` : "Out of stock",
+        badgeColor: p.inStock ? ("green" as const) : ("red" as const),
+        inStock: p.inStock,
+      })),
+    [products]
+  );
 
   const handlePartyChange = (partyId: string) => {
     setSelectedPartyId(partyId);
@@ -192,19 +220,15 @@ export function NewOrderClient({ parties, products, deliveryStaff, userRole }: P
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">Select Party *</label>
-              <select
+              <SearchableSelect
+                options={partyOptions}
                 value={selectedPartyId}
-                onChange={(e) => handlePartyChange(e.target.value)}
-                required
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-maroon-600 focus:outline-none"
-              >
-                <option value="">-- Choose Party / Customer --</option>
-                {parties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.type}) {p.phone ? `· ${p.phone}` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={handlePartyChange}
+                placeholder="-- Choose Party / Customer --"
+                searchPlaceholder="Search by party name, phone, address..."
+                popoverWidthClass="w-full min-w-[340px]"
+                autoSortInStock={false}
+              />
             </div>
 
             {selectedParty && (
@@ -280,17 +304,14 @@ export function NewOrderClient({ parties, products, deliveryStaff, userRole }: P
                 >
                   <div className="flex-1 w-full sm:w-auto">
                     <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Product</label>
-                    <select
+                    <SearchableSelect
+                      options={productOptions}
                       value={line.productId}
-                      onChange={(e) => updateLine(idx, { productId: e.target.value })}
-                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:outline-none"
-                    >
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.packSize} pcs/ctn)
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => updateLine(idx, { productId: val })}
+                      placeholder="Select product..."
+                      searchPlaceholder="Search product by name, pack size..."
+                      popoverWidthClass="w-full sm:min-w-[420px]"
+                    />
                   </div>
 
                   <div className="w-24">

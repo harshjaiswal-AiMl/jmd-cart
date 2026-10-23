@@ -32,10 +32,10 @@ export class WishlistService {
     const buyerType = user?.buyerApproved ? user.buyerType : "CUSTOMER";
 
     return items
-      .filter((item) => item.product && item.product.active)
-      .map((item) => {
+      .filter((item: any) => item.product && item.product.active)
+      .map((item: any) => {
         const prod = item.product;
-        const totalStock = prod.stockBalances.reduce((acc, sb) => acc + sb.qty, 0);
+        const totalStock = (prod.stockBalances as any[]).reduce((acc: number, sb: any) => acc + sb.qty, 0);
         const resolved = resolvePrice(prod, buyerType);
         const unitPricePaise = resolved.unitPricePaise;
         const mrpPaise = prod.mrpPaise || unitPricePaise;
@@ -64,7 +64,7 @@ export class WishlistService {
           inStock: totalStock > 0,
         };
       })
-      .sort((a, b) => {
+      .sort((a: any, b: any) => {
         if (a.inStock !== b.inStock) {
           return a.inStock ? -1 : 1;
         }
@@ -83,7 +83,7 @@ export class WishlistService {
       select: { productId: true },
     });
 
-    return list.map((i) => i.productId);
+    return list.map((i: any) => i.productId);
   }
 
   async getWishlistCount(userId: string): Promise<number> {

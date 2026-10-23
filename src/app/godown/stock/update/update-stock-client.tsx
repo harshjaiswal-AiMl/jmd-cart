@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 import {
   enterOpeningStockAction,
   setStockCountAction,
@@ -79,6 +80,20 @@ export function UpdateStockClient({
   const [locationId, setLocationId] = useState<string>(locations[0]?.id || "");
   const [productId, setProductId] = useState<string>(products[0]?.id || "");
   const [inputMode, setInputMode] = useState<"pieces" | "carton_loose">("carton_loose");
+
+  const singleProductOptions = useMemo(() => {
+    return products.map((prod) => {
+      const currentBal = prod.balancesByLocation[locationId] ?? 0;
+      return {
+        value: prod.id,
+        label: `[${prod.shortCode}] ${prod.name}`,
+        subLabel: `1 Carton = ${prod.packSize} pcs (${prod.unitType})`,
+        badge: currentBal > 0 ? `Current: ${currentBal} pcs` : "0 pcs",
+        badgeColor: currentBal > 0 ? ("green" as const) : ("gray" as const),
+        inStock: currentBal > 0,
+      };
+    });
+  }, [products, locationId]);
 
   // Quantities
   const [piecesInput, setPiecesInput] = useState<number>(0);
@@ -1032,17 +1047,14 @@ export function UpdateStockClient({
                 <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
                   Product *
                 </label>
-                <select
+                <SearchableSelect
+                  options={singleProductOptions}
                   value={productId}
-                  onChange={(e) => setProductId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium"
-                >
-                  {products.map((prod) => (
-                    <option key={prod.id} value={prod.id}>
-                      [{prod.shortCode}] {prod.name} (1 Carton = {prod.packSize} pcs)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setProductId(val)}
+                  placeholder="Select product..."
+                  searchPlaceholder="Search product by code, name..."
+                  popoverWidthClass="w-full min-w-[360px]"
+                />
               </div>
             </div>
 

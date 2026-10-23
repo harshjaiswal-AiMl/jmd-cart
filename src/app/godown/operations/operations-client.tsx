@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 import {
   manualConvertGodownAction,
   reverseConversionAction,
@@ -113,6 +114,25 @@ export function OperationsClient({
   const [breakProdId, setBreakProdId] = useState(products[0]?.id || "");
   const [cartons, setCartons] = useState(5);
   const selectedBreakProd = products.find((p) => p.id === breakProdId) || products[0];
+
+  const [damageProdId, setDamageProdId] = useState(products[0]?.id || "");
+  const [adjustProdId, setAdjustProdId] = useState(products[0]?.id || "");
+
+  const productOptions = useMemo(
+    () =>
+      products.map((p) => {
+        const hasStock = (p.godownQty ?? 0) > 0;
+        return {
+          value: p.id,
+          label: `[${p.shortCode}] ${p.name}`,
+          subLabel: `1 Carton = ${p.packSize} pcs (${p.packLabel})`,
+          badge: p.godownQty !== undefined ? (hasStock ? `Godown: ${p.godownQty} pcs` : "0 pcs") : undefined,
+          badgeColor: hasStock ? ("green" as const) : ("gray" as const),
+          inStock: hasStock,
+        };
+      }),
+    [products]
+  );
 
   const handleReverse = (auditLogId: string) => {
     setReverseMessage(null);
@@ -382,19 +402,15 @@ export function OperationsClient({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
                   Select Product in Godown
                 </label>
-                <select
+                <SearchableSelect
                   name="productId"
+                  options={productOptions}
                   value={manualProdId}
-                  onChange={(e) => setManualProdId(e.target.value)}
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                >
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} (1 Carton = {p.packSize} pcs)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setManualProdId(val)}
+                  placeholder="Select product..."
+                  searchPlaceholder="Search product by code, name..."
+                  popoverWidthClass="w-full min-w-[340px]"
+                />
               </div>
 
               <div>
@@ -894,19 +910,15 @@ export function OperationsClient({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">Product</label>
-              <select
+              <SearchableSelect
                 name="productId"
+                options={productOptions}
                 value={breakProdId}
-                onChange={(e) => setBreakProdId(e.target.value)}
-                required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-              >
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} (Pack: {p.packSize} pcs/{p.packLabel})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setBreakProdId(val)}
+                placeholder="Select product..."
+                searchPlaceholder="Search product by code, name..."
+                popoverWidthClass="w-full min-w-[360px]"
+              />
             </div>
 
             <div>
@@ -975,11 +987,15 @@ export function OperationsClient({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">Product</label>
-              <select name="productId" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.shortCode})</option>
-                ))}
-              </select>
+              <SearchableSelect
+                name="productId"
+                options={productOptions}
+                value={damageProdId}
+                onChange={(val) => setDamageProdId(val)}
+                placeholder="Select product..."
+                searchPlaceholder="Search product by code, name..."
+                popoverWidthClass="w-full min-w-[340px]"
+              />
             </div>
 
             <div>
@@ -1026,11 +1042,15 @@ export function OperationsClient({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">Product</label>
-              <select name="productId" required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.shortCode})</option>
-                ))}
-              </select>
+              <SearchableSelect
+                name="productId"
+                options={productOptions}
+                value={adjustProdId}
+                onChange={(val) => setAdjustProdId(val)}
+                placeholder="Select product..."
+                searchPlaceholder="Search product by code, name..."
+                popoverWidthClass="w-full min-w-[340px]"
+              />
             </div>
 
             <div>

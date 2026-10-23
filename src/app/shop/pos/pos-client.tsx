@@ -13,6 +13,7 @@ import {
 } from "./actions";
 import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
 import { ProductImage } from "@/components/common/ProductImage";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 
 interface ProductCatalogItem {
   id: string;
@@ -155,6 +156,20 @@ export function PosClient({
   }, []);
 
   const selectedParty = parties.find((p) => p.id === selectedPartyId);
+
+  const partyOptions = useMemo(
+    () => [
+      { value: "", label: "Walk-in Retail Customer", subLabel: "Cash / UPI retail buyer" },
+      ...parties.map((party) => ({
+        value: party.id,
+        label: party.name,
+        subLabel: `${party.phone ? `Ph: ${party.phone} · ` : ""}${party.type}`,
+        badge: party.creditEnabled ? "Credit Approved" : undefined,
+        badgeColor: party.creditEnabled ? ("green" as const) : undefined,
+      })),
+    ],
+    [parties]
+  );
 
   // Filter & sort catalog products:
   // Part B Rule: Out-of-stock items sort AFTER all in-stock items, keeping existing name order within each group.
@@ -770,18 +785,17 @@ export function PosClient({
           {/* Party Selector Header */}
           <div className="p-3 bg-white border-b border-gray-200 flex items-center gap-2 shrink-0">
             <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Buyer:</span>
-            <select
-              value={selectedPartyId}
-              onChange={(e) => setSelectedPartyId(e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#12355B] bg-white font-medium"
-            >
-              <option value="">Walk-in Retail Customer</option>
-              {parties.map((party) => (
-                <option key={party.id} value={party.id}>
-                  {party.name} ({party.phone}) {party.creditEnabled ? "• Credit Approved" : ""}
-                </option>
-              ))}
-            </select>
+            <div className="flex-1 min-w-0">
+              <SearchableSelect
+                options={partyOptions}
+                value={selectedPartyId}
+                onChange={(val) => setSelectedPartyId(val)}
+                placeholder="Walk-in Retail Customer"
+                searchPlaceholder="Search customer by name, phone..."
+                popoverWidthClass="w-full min-w-[320px]"
+                autoSortInStock={false}
+              />
+            </div>
           </div>
 
           {/* Party credit status pill */}

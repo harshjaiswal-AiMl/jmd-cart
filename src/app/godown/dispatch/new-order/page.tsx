@@ -45,6 +45,12 @@ export default async function NewManualOrderPage() {
         priceAPaise: true,
         priceBPaise: true,
         priceCPaise: true,
+        stockBalances: {
+          select: {
+            qty: true,
+            location: { select: { active: true } },
+          },
+        },
       },
     }),
     prisma.user.findMany({
@@ -53,11 +59,37 @@ export default async function NewManualOrderPage() {
     }),
   ]);
 
+  const productsWithStock = products.map((p) => {
+    const totalStock = p.stockBalances.reduce((sum, sb) => {
+      if (sb.location.active) return sum + Math.max(0, sb.qty);
+      return sum;
+    }, 0);
+    return {
+      id: p.id,
+      name: p.name,
+      packSize: p.packSize,
+      mrpPaise: p.mrpPaise,
+      priceAPaise: p.priceAPaise,
+      priceBPaise: p.priceBPaise,
+      priceCPaise: p.priceCPaise,
+      totalStock,
+      inStock: totalStock > 0,
+    };
+  });
+
+  // Out-of-stock items ranked last
+  productsWithStock.sort((a, b) => {
+    if (a.inStock !== b.inStock) {
+      return a.inStock ? -1 : 1;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <NewOrderClient
         parties={parties}
-        products={products}
+        products={productsWithStock}
         deliveryStaff={deliveryStaff}
         userRole={user.role}
       />

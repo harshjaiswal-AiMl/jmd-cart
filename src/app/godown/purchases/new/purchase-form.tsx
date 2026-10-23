@@ -5,6 +5,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import { recordPurchaseAction, PurchaseActionResult } from "../actions";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 
 interface PurchaseItemState {
   productId: string;
@@ -252,16 +253,19 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Filter suppliers in combobox
-  const filteredSuppliers = useMemo(() => {
-    if (!supplierSearch.trim()) return suppliers;
-    const term = supplierSearch.toLowerCase().trim();
-    return suppliers.filter(
-      (s) =>
-        s.name.toLowerCase().includes(term) ||
-        (s.company?.name && s.company.name.toLowerCase().includes(term))
-    );
-  }, [suppliers, supplierSearch]);
+  const supplierOptions = useMemo(
+    () => [
+      { value: "", label: "-- Direct / Unlisted Supplier --", subLabel: "No linked party" },
+      ...suppliers.map((s) => ({
+        value: s.id,
+        label: s.name,
+        subLabel: s.company?.name ? `Brand: ${s.company.name}` : undefined,
+        badge: s.companyId ? "Brand Supplier" : undefined,
+        badgeColor: s.companyId ? ("blue" as const) : undefined,
+      })),
+    ],
+    [suppliers]
+  );
 
   // Reactive line totals
   const lineDetails = items.map((it) => {
@@ -330,27 +334,16 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
               )}
             </div>
 
-            <div className="mt-1 space-y-1">
-              <input
-                type="text"
-                placeholder="Filter suppliers / brands..."
-                value={supplierSearch}
-                onChange={(e) => setSupplierSearch(e.target.value)}
-                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-              />
-
-              <select
+            <div className="mt-1">
+              <SearchableSelect
+                options={supplierOptions}
                 value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium focus:ring-blue-500 focus:border-blue-500 bg-white"
-              >
-                <option value="">-- Direct / Unlisted Supplier --</option>
-                {filteredSuppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} {s.companyId ? "★ (Brand)" : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSupplierId(val)}
+                placeholder="-- Direct / Unlisted Supplier --"
+                searchPlaceholder="Search supplier or brand name..."
+                popoverWidthClass="w-full min-w-[320px]"
+                autoSortInStock={false}
+              />
             </div>
           </div>
 

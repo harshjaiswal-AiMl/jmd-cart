@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ReturnReason } from "@/modules/returns/returns.types";
@@ -14,6 +14,7 @@ import {
   Building2,
   Package,
 } from "lucide-react";
+import { SearchableSelect } from "@/components/common/SearchableSelect";
 
 interface SupplierItem {
   id: string;
@@ -66,6 +67,31 @@ export function ReturnForm({ suppliers, locations, products }: Props) {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const supplierOptions = useMemo(
+    () =>
+      suppliers.map((s) => ({
+        value: s.id,
+        label: s.name,
+        subLabel: `${s.phone ? `Ph: ${s.phone} · ` : ""}${s.gstin ? `GSTIN: ${s.gstin}` : `[${s.type}]`}`,
+        badge: s.type,
+      })),
+    [suppliers]
+  );
+
+  const productOptions = useMemo(() => {
+    return products.map((p) => {
+      const bal = p.stockBalances.find((b) => b.locationId === locationId)?.qty ?? 0;
+      return {
+        value: p.id,
+        label: `${p.shortCode} - ${p.name}`,
+        subLabel: `${p.company?.name ? `${p.company.name} · ` : ""}Pack: ${p.packSize} pcs · MRP ₹${((p.mrpPaise || 0) / 100).toFixed(0)}`,
+        badge: bal > 0 ? `In Stock (${bal} pcs)` : "Out of stock",
+        badgeColor: bal > 0 ? ("green" as const) : ("red" as const),
+        inStock: bal > 0,
+      };
+    });
+  }, [products, locationId]);
 
   // Line items state
   const [lines, setLines] = useState<FormLine[]>([
@@ -286,18 +312,14 @@ export function ReturnForm({ suppliers, locations, products }: Props) {
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Supplier (Manufacturer / Vendor) *
             </label>
-            <select
+            <SearchableSelect
+              options={supplierOptions}
               value={supplierId}
-              onChange={(e) => setSupplierId(e.target.value)}
-              className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 bg-white text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              required
-            >
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} {s.gstin ? `(${s.gstin})` : `[${s.type}]`}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSupplierId(val)}
+              placeholder="Select supplier..."
+              searchPlaceholder="Search supplier by name, GSTIN..."
+              autoSortInStock={false}
+            />
           </div>
 
           <div>
@@ -387,17 +409,14 @@ export function ReturnForm({ suppliers, locations, products }: Props) {
                 return (
                   <tr key={idx} className="hover:bg-slate-50/60">
                     <td className="p-2.5">
-                      <select
+                      <SearchableSelect
+                        options={productOptions}
                         value={line.productId}
-                        onChange={(e) => handleProductChange(idx, e.target.value)}
-                        className="w-full text-xs border border-slate-300 rounded-lg p-1.5 bg-white font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} ({p.shortCode})
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(val) => handleProductChange(idx, val)}
+                        placeholder="Select product..."
+                        searchPlaceholder="Search product by code, name..."
+                        popoverWidthClass="w-full min-w-[360px]"
+                      />
                       <div className="text-[10px] text-slate-400 mt-0.5">
                         Pack: {packSize} pcs | MRP: ₹{((prod?.mrpPaise || 0) / 100).toFixed(2)}
                       </div>
