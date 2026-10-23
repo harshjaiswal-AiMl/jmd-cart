@@ -123,6 +123,13 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Product Matcher: Multi-tier matcher (exact supplier alias -> HSN + pack size -> fuzzy token similarity). Auto-learns supplier aliases on keeper confirmation.
   - Verification & Stock Posting: Mobile-first responsive UI (`/godown/receive-goods/[id]`) with camera upload, split-view bill inspection, quick stepper counting, "All as per bill" 1-tap verification, and idempotent GRN posting through existing stock & purchase services. Private bill storage in R2 with authenticated endpoint `/api/bills/[scanId]/image/[page]`.
   - Test & Build Results: 62/62 test suites passed (355/355 tests), 0 failures. Typecheck clean (0 errors).
+- 2026-10-23: Prompt 06 Dispatch & Shared Fulfilment implemented.
+  - Role WAREHOUSE_MANAGER added to `UserRole` and permission matrix with godown + dispatch controls, read-only invoices and catalog.
+  - Additive migration `20261023143000_dispatch_and_warehouse_manager` applied.
+  - Section 5a Shared Sellable Pool: Shop + Godown stock pooled (`available = shop + godown - reservations - buffer`). Godown fulfills whole cartons first; Shop fulfills loose units first. Shortfalls at POS counter generate Counter Pickups from Godown. Pessimistic row locking implemented with `lockAndGetBalance(tx, productId, locationId)`.
+  - Section 5b Manual Orders: Phone/counter orders placed on behalf of party with instant A/B/C tier pricing (`resolvePrice`), credit validation, immediate stock reservations, and gapless `ORD` sequence numbering.
+  - Section 5 & 8 Dispatch Board: Built at `/godown/dispatch` with Today's Load Summary (cartons/loose needed vs available, shortages), orders kanban, delivery trip creation/handover (`RUN` and final `INV` sequence numbering), and failed delivery returns.
+  - All 64 test suites (363 tests) passing green. Zero type errors. Zero lint errors.
 
 
 

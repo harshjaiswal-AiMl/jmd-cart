@@ -41,6 +41,7 @@ describe("Part 4 — Sidebar Navigation & Route Verification (nav.config.ts)", (
     expect(groupNames).toEqual([
       "Dashboard",
       "Inventory",
+      "Dispatch",
       "Van",
       "Catalog",
       "Reports",

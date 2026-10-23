@@ -15,6 +15,7 @@ export type NavGroupName =
   | "Dashboard"
   | "Sales"
   | "Inventory"
+  | "Dispatch"
   | "Van"
   | "Catalog"
   | "Parties"
@@ -30,9 +31,15 @@ export interface NavGroup {
 }
 
 const ADMIN_ROLES: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN];
+const WAREHOUSE_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN,
+  UserRole.WAREHOUSE_MANAGER,
+];
 const GODOWN_AND_ADMIN: UserRole[] = [
   UserRole.SUPER_ADMIN,
   UserRole.ADMIN,
+  UserRole.WAREHOUSE_MANAGER,
   UserRole.GODOWN,
 ];
 
@@ -70,7 +77,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Invoices",
     icon: "FileText",
     href: "/shop/invoices",
-    roles: [...ADMIN_ROLES, UserRole.SHOP, UserRole.ACCOUNTS],
+    roles: [...ADMIN_ROLES, UserRole.WAREHOUSE_MANAGER, UserRole.SHOP, UserRole.ACCOUNTS],
   },
   {
     id: "sales-online-orders",
@@ -166,7 +173,49 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...GODOWN_AND_ADMIN],
   },
 
-  // 4. Van
+  // 4. Dispatch
+  {
+    id: "dispatch-board",
+    group: "Dispatch",
+    label: "Dispatch Board",
+    icon: "Truck",
+    href: "/godown/dispatch",
+    roles: [...GODOWN_AND_ADMIN],
+  },
+  {
+    id: "dispatch-create-order",
+    group: "Dispatch",
+    label: "+ Create Order",
+    icon: "PlusCircle",
+    href: "/godown/dispatch/new-order",
+    roles: [...WAREHOUSE_ROLES],
+  },
+  {
+    id: "dispatch-runs",
+    group: "Dispatch",
+    label: "Delivery Runs",
+    icon: "Route",
+    href: "/godown/dispatch?tab=runs",
+    roles: [...GODOWN_AND_ADMIN],
+  },
+  {
+    id: "dispatch-shop-sales",
+    group: "Dispatch",
+    label: "Shop Sales Feed",
+    icon: "Receipt",
+    href: "/godown/dispatch?tab=shop-sales",
+    roles: [...WAREHOUSE_ROLES],
+  },
+  {
+    id: "dispatch-counter-pickups",
+    group: "Dispatch",
+    label: "Counter Pickups",
+    icon: "Store",
+    href: "/godown/dispatch?tab=counter-pickups",
+    roles: [...GODOWN_AND_ADMIN, UserRole.SHOP],
+  },
+
+  // 5. Van
   {
     id: "van-morning",
     group: "Van",
@@ -200,7 +249,7 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...ADMIN_ROLES, UserRole.SALESPERSON, UserRole.ACCOUNTS],
   },
 
-  // 5. Catalog
+  // 6. Catalog
   {
     id: "cat-products",
     group: "Catalog",
@@ -234,7 +283,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Price Lists (A/B/C)",
     icon: "IndianRupee",
     href: "/admin/catalog/price-lists",
-    roles: [...ADMIN_ROLES],
+    roles: [...WAREHOUSE_ROLES],
   },
   {
     id: "cat-price-slabs",
@@ -250,7 +299,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Import Products & Prices",
     icon: "Upload",
     href: "/admin/catalog/import",
-    roles: [...ADMIN_ROLES],
+    roles: [...WAREHOUSE_ROLES],
   },
   {
     id: "cat-banners",
@@ -540,7 +589,8 @@ export const NAV_GROUP_ORDER: Array<{ name: NavGroupName; icon: string }> = [
   { name: "Dashboard", icon: "LayoutDashboard" },
   { name: "Sales", icon: "Receipt" },
   { name: "Inventory", icon: "Boxes" },
-  { name: "Van", icon: "Truck" },
+  { name: "Dispatch", icon: "Truck" },
+  { name: "Van", icon: "Navigation" },
   { name: "Catalog", icon: "Package" },
   { name: "Parties", icon: "Users" },
   { name: "Delivery", icon: "MapPin" },

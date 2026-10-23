@@ -50,6 +50,10 @@ export enum Permission {
   ACCOUNTS_VIEW = "ACCOUNTS_VIEW",
   REPORTS_VIEW = "REPORTS_VIEW",
 
+  // Invoices & Dispatch
+  VIEW_INVOICES = "VIEW_INVOICES",
+  DISPATCH_MANAGE = "DISPATCH_MANAGE",
+
   // Returns to Company & Debit Notes
   RETURN_TO_COMPANY = "RETURN_TO_COMPANY",
 }
@@ -68,6 +72,28 @@ export class ForbiddenError extends Error {
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   SUPER_ADMIN: Object.values(Permission),
   ADMIN: Object.values(Permission),
+
+  WAREHOUSE_MANAGER: [
+    Permission.VIEW_PRODUCTS,
+    Permission.MANAGE_PRODUCTS,
+    Permission.IMPORT_PRODUCTS,
+    Permission.STOCK_RECEIVE,
+    Permission.STOCK_TRANSFER,
+    Permission.STOCK_CARTON_BREAK,
+    Permission.STOCK_AUDIT,
+    Permission.STOCK_VIEW,
+    Permission.STOCK_ADJUST,
+    Permission.VAN_ISSUE_LOAD,
+    Permission.VAN_RECONCILE,
+    Permission.RETURN_TO_COMPANY,
+    Permission.VIEW_ORDERS,
+    Permission.MANAGE_ORDERS,
+    Permission.VIEW_PARTIES,
+    Permission.VIEW_LEDGER,
+    Permission.REPORTS_VIEW,
+    Permission.VIEW_INVOICES,
+    Permission.DISPATCH_MANAGE,
+  ],
 
   GODOWN: [
     Permission.VIEW_PRODUCTS,
@@ -95,6 +121,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.POS_HOLD_RESUME,
     Permission.POS_CASH_CLOSE,
     Permission.VIEW_ORDERS,
+    Permission.VIEW_INVOICES,
   ],
 
   SALESPERSON: [
@@ -105,6 +132,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.RECORD_COLLECTION,
     Permission.VAN_BILL,
     Permission.VAN_RECONCILE,
+    Permission.VIEW_INVOICES,
   ],
 
   DELIVERY: [
@@ -122,6 +150,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ACCOUNTS_VIEW,
     Permission.REPORTS_VIEW,
     Permission.RETURN_TO_COMPANY,
+    Permission.VIEW_INVOICES,
   ],
 
   CUSTOMER: [
@@ -135,6 +164,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   SUPER_ADMIN: ["/admin", "/godown", "/shop", "/van", "/delivery", "/accounts", "/reports"],
   ADMIN: ["/admin", "/godown", "/shop", "/van", "/delivery", "/accounts", "/reports"],
+  WAREHOUSE_MANAGER: [
+    "/godown",
+    "/admin/catalog",
+    "/admin/reports",
+    "/reports",
+    "/shop/invoices",
+    "/admin/orders",
+  ],
   GODOWN: ["/godown", "/admin/catalog", "/admin/reports", "/reports"],
   SHOP: ["/shop", "/admin/parties"],
   SALESPERSON: ["/van"],

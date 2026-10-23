@@ -30,8 +30,9 @@ export function stockRank(
   const buffer = data.buffer ?? 0;
   if (context === "STOREFRONT") {
     const godown = data.godownQty ?? 0;
+    const shop = data.shopQty ?? 0;
     const reserved = data.reservedQty ?? 0;
-    return godown - reserved - buffer > 0 ? 1 : 0;
+    return godown + shop - reserved - buffer > 0 ? 1 : 0;
   }
   if (context === "POS") {
     const shop = data.shopQty ?? 0;
@@ -53,7 +54,7 @@ export function stockRank(
  * Evaluates to 1 for in-stock, 0 for out-of-stock in the database BEFORE pagination.
  *
  * Invariants:
- * - STOREFRONT: godown - reserved - buffer > 0 (identical to getAvailability)
+ * - STOREFRONT: shop + godown - reserved - buffer > 0 (shared sellable pool per Section 5a)
  * - POS: shop pieces > 0 or godown >= one carton
  * - VAN: van stock > 0
  * - ADMIN: total across active locations > 0
@@ -75,8 +76,15 @@ export function stockRankSql(
           FROM stock_balances sb
           JOIN locations l ON sb.location_id = l.id
           WHERE sb.product_id = ${pId}
-            AND l.type = 'GODOWN'
+            AND l.type IN ('GODOWN', 'SHOP')
             AND l.active = true
+        ), 0)
+        -
+        COALESCE((
+          SELECT SUM(sr.qty)
+          FROM stock_reservations sr
+          WHERE sr.product_id = ${pId}
+            AND sr.active = true
         ), 0)
         -
         COALESCE((
@@ -293,7 +301,7 @@ export async function getAvailability(
     const godown = godownByProduct.get(pid) ?? 0;
     const shop = shopByProduct.get(pid) ?? 0;
     const reserved = reservedByProduct.get(pid) ?? 0;
-    const availablePieces = Math.max(0, godown - reserved - buffer);
+    const availablePieces = Math.max(0, godown + shop - reserved - buffer);
 
     let status: StockAvailabilityStatus = "IN_STOCK";
     if (availablePieces === 0) {
