@@ -51,11 +51,16 @@ export class PurchaseService {
         locationId: parsed.locationId,
         totalPaise,
         status: PurchaseStatus.RECEIVED,
+        billScanId: parsed.billScanId ?? null,
+        billTotalPaise: parsed.billTotalPaise ?? null,
         createdBy: actorId,
         items: {
           create: parsed.items.map((it) => ({
             productId: it.productId,
             qty: it.qty,
+            billedQty: it.billedQty ?? null,
+            acceptedQty: it.acceptedQty ?? it.qty,
+            varianceReason: it.varianceReason ?? null,
             ratePaise: it.ratePaise,
             gstRateBp: it.gstRateBp,
           })),

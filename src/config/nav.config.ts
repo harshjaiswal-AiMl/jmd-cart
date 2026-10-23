@@ -141,6 +141,14 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS],
   },
   {
+    id: "inv-receive-goods",
+    group: "Inventory",
+    label: "Receive Goods (Scan Bill)",
+    icon: "FileUp",
+    href: "/godown/receive-goods",
+    roles: [...GODOWN_AND_ADMIN],
+  },
+  {
     id: "inv-low-stock",
     group: "Inventory",
     label: "Low Stock",

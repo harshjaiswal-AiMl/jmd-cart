@@ -4,6 +4,9 @@ import { Prisma, PurchaseStatus } from "@prisma/client";
 export const purchaseItemInputSchema = z.object({
   productId: z.string().min(1, "Product is required"),
   qty: z.number().int().positive("Quantity must be greater than zero pieces"),
+  billedQty: z.number().int().optional().nullable(),
+  acceptedQty: z.number().int().optional().nullable(),
+  varianceReason: z.string().optional().nullable(),
   ratePaise: z.number().int().positive("Purchase rate must be greater than zero"),
   gstRateBp: z.number().int().min(0, "GST rate cannot be negative").default(0),
 });
@@ -16,6 +19,8 @@ export const createPurchaseSchema = z.object({
   billDate: z.coerce.date().default(() => new Date()),
   locationId: z.string().min(1, "Receiving location is required"),
   items: z.array(purchaseItemInputSchema).min(1, "At least one item must be included in the purchase"),
+  billScanId: z.string().optional().nullable(),
+  billTotalPaise: z.number().int().optional().nullable(),
   idempotencyKey: z.string().optional(),
 });
 

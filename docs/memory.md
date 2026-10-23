@@ -112,6 +112,17 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
     - Included lists: Storefront catalogue & category pages (`store.service.ts`), Storefront search suggestions (`/api/store/search`), Wishlist (`wishlist.service.ts`), Admin catalogue picker (`catalog.repository.ts`), POS product grid (`pos-client.tsx`), Van billing picker (`/van/billing/page.tsx`).
     - Excluded lists (with business reasons): GRN purchases (purchasing goods often requires selecting zero-stock items to restock), Stock audit (auditing requires verifying all products regardless of balance), Low stock report (needs to highlight zero-stock and below-buffer items at the top), Stock movements (chronological ledger order must not be altered), Godown overview (needs location/category grouping).
   - Test & Build Results: 59/59 test suites passed (339/339 tests), 0 failures. Next.js standalone build compiled with zero errors across all 57 static/dynamic routes.
+- 2026-10-23: Stock Overview Pagination Fix:
+  - Fixed godown stock overview pagination (`/godown/stock`) to support 100 products per page with dynamic page navigation.
+  - Deployed to GCP Cloud Run revision `jmd-cart-00017-6nr`.
+- 2026-10-23: Prompt 10 completed (Receive goods by scanning supplier bill - offline OCR -> draft list -> warehouse count & verify -> Done adds stock).
+  - Additive Migration: `20261023101500_bill_scan_receiving` added models `BillScan`, `BillScanLine`, `SupplierItemAlias`, enums `BillScanStatus`, `BillScanSourceType`, `BillScanLineMatchStatus`, `BillScanVariance`, and additive columns `billScanId`, `billTotalPaise` on `Purchase` and `billedQty`, `acceptedQty`, `varianceReason` on `PurchaseItem`.
+  - Offline OCR: Zero cloud APIs, zero runtime downloads. Vendored `eng.traineddata` (4,113,088 bytes) in `src/modules/ocr/vendor/tessdata/`.
+  - Hybrid Engine: Auto-detects digital PDFs (instant text layer via `pdfjs-dist`) vs scanned PDFs and camera photos (offline WASM Tesseract with semaphore concurrency limiter and 30s timeout).
+  - Table Parsing & Arithmetic Safety: Intelligently parses Indian FMCG wholesale bills (Vindhyawasini/Bikaji, Mahashian Di Hatti/MDH, Nilons, Shubham Traders/Patanjali). Preserves pack sizes/grammages (`200 Gm*20`, `45 GM`) in product descriptions. 100% flags arithmetic discrepancies without silent errors.
+  - Product Matcher: Multi-tier matcher (exact supplier alias -> HSN + pack size -> fuzzy token similarity). Auto-learns supplier aliases on keeper confirmation.
+  - Verification & Stock Posting: Mobile-first responsive UI (`/godown/receive-goods/[id]`) with camera upload, split-view bill inspection, quick stepper counting, "All as per bill" 1-tap verification, and idempotent GRN posting through existing stock & purchase services. Private bill storage in R2 with authenticated endpoint `/api/bills/[scanId]/image/[page]`.
+  - Test & Build Results: 62/62 test suites passed (355/355 tests), 0 failures. Typecheck clean (0 errors).
 
 
 

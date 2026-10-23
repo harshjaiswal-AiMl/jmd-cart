@@ -64,6 +64,9 @@ COPY --from=builder /app/public ./public
 # Prisma schema + compiled migrations + seed
 COPY --from=builder /app/prisma ./prisma
 
+# Vendored OCR models (offline Tesseract traineddata)
+COPY --from=builder /app/src/modules/ocr/vendor ./src/modules/ocr/vendor
+
 # Copy Prisma CLI and @prisma modules for runtime migration execution
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma-cli ./node_modules/prisma
