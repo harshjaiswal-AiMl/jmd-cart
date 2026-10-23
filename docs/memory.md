@@ -130,6 +130,11 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Section 5b Manual Orders: Phone/counter orders placed on behalf of party with instant A/B/C tier pricing (`resolvePrice`), credit validation, immediate stock reservations, and gapless `ORD` sequence numbering.
   - Section 5 & 8 Dispatch Board: Built at `/godown/dispatch` with Today's Load Summary (cartons/loose needed vs available, shortages), orders kanban, delivery trip creation/handover (`RUN` and final `INV` sequence numbering), and failed delivery returns.
   - All 64 test suites (363 tests) passing green. Zero type errors. Zero lint errors.
+- 2026-10-24: Universal SearchableSelect & Out-of-Stock Products Last Ranking:
+  - Built reusable `SearchableSelect` component (`src/components/common/SearchableSelect.tsx`) with real-time text query filtering, outside-click listener, keyboard support (Escape/Enter), badges (stock qty, tier A/B/C, credit status), and hidden input support for native forms.
+  - Replaced long native HTML `<select>` elements across Dispatch manual order creation (`new-order-client.tsx` for party and line products), POS billing (`pos-client.tsx` for party/customer), Purchase GRN (`purchase-form.tsx` for supplier), Returns to company (`return-form.tsx` for supplier and product), Single-product stock update (`update-stock-client.tsx`), Godown operations (`operations-client.tsx` for convert, carton break, damage, adjust), Van issue sheet (`new-van-issue-client.tsx` for salesperson), and Van billing (`van-billing-client.tsx` for party).
+  - Out-of-stock ranking enforced universally: Storefront catalogue client (`catalogue-client.tsx`), store search suggestions API (`api/store/search/route.ts`), POS products, and Dispatch/Van sheets strictly rank in-stock products first, with out-of-stock items relegated to the bottom. Fixed store service (`store.service.ts`) stock calculation to evaluate the shared sellable pool (Godown + Shop per Section 5a).
+  - Deployed Cloud Run revision `jmd-cart-00024-785` to production; 14/14 smoke tests passed.
 
 
 
