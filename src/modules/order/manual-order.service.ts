@@ -4,6 +4,7 @@ import { resolvePrice } from "@/modules/pricing/resolve-price";
 import { allocationService } from "@/modules/stock/allocation.service";
 import { auditService } from "@/modules/audit/audit.service";
 import { getNextSequenceNumber } from "@/lib/invoice-number";
+import { ForbiddenError } from "@/modules/auth/permissions";
 
 export interface CreateManualOrderLine {
   productId: string;
