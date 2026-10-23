@@ -19,7 +19,7 @@ export async function recordPurchaseAction(
     return { error: "Unauthorized" };
   }
 
-  const rawJson = formData.get("purchaseData") as string;
+  const rawJson = (formData.get("purchaseData") || formData.get("payload")) as string;
   if (!rawJson) {
     return { error: "Purchase details are required" };
   }

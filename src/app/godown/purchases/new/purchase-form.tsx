@@ -117,19 +117,19 @@ function ProductCombobox({
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-xl p-2 space-y-1.5 max-h-72 overflow-y-auto">
+        <div className="absolute left-0 z-50 mt-1 w-[480px] max-w-[90vw] bg-white border border-gray-200 rounded-xl shadow-2xl p-3 space-y-2">
           <input
             type="text"
-            placeholder="Search name, code, brand..."
+            placeholder="Search by product name, code, brand..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full px-2.5 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
             autoFocus
           />
 
-          <div className="divide-y divide-gray-100 max-h-56 overflow-y-auto">
+          <div className="divide-y divide-gray-100 max-h-72 overflow-y-auto rounded-lg border border-gray-100">
             {filtered.length === 0 ? (
-              <div className="text-[11px] text-gray-400 p-2 text-center">
+              <div className="text-xs text-gray-500 p-4 text-center">
                 No matching products found
               </div>
             ) : (
@@ -142,21 +142,21 @@ function ProductCombobox({
                     setOpen(false);
                     setQuery("");
                   }}
-                  className={`w-full text-left p-1.5 hover:bg-blue-50 rounded text-xs transition ${
-                    p.id === value ? "bg-blue-50 font-bold" : ""
+                  className={`w-full text-left p-2.5 hover:bg-blue-50/80 transition-colors ${
+                    p.id === value ? "bg-blue-50 font-bold border-l-4 border-blue-600" : ""
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] text-blue-800 font-bold">
+                    <span className="font-mono text-xs text-blue-900 font-bold">
                       {p.shortCode}
                     </span>
-                    <span className="text-[10px] text-gray-400 font-normal">
+                    <span className="text-xs text-gray-600 font-semibold bg-gray-100 px-1.5 py-0.5 rounded">
                       MRP ₹{(p.mrpPaise / 100).toFixed(2)}
                     </span>
                   </div>
-                  <div className="truncate text-gray-800">{p.name}</div>
+                  <div className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{p.name}</div>
                   {p.company?.name && (
-                    <div className="text-[10px] text-gray-400">{p.company.name}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Brand: {p.company.name}</div>
                   )}
                 </button>
               ))
@@ -426,7 +426,7 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
             </button>
           </div>
 
-          <div className="overflow-x-auto border border-gray-200 rounded-lg">
+          <div className="overflow-x-auto border border-gray-200 rounded-xl min-h-[360px] pb-36">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wider text-left">
                 <tr>
@@ -533,6 +533,7 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
 
         {/* Submit Action */}
         <form action={formAction}>
+          <input type="hidden" name="purchaseData" value={JSON.stringify(payload)} />
           <input type="hidden" name="payload" value={JSON.stringify(payload)} />
           <div className="flex justify-end pt-4 border-t border-gray-200">
             <SubmitButton />
