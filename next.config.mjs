@@ -98,6 +98,7 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   experimental: {
+    serverComponentsExternalPackages: ['pdfjs-dist', 'tesseract.js'],
     serverActions: {
       allowedOrigins: [
         'localhost:3000',
@@ -107,6 +108,14 @@ const nextConfig = {
         safeHost(process.env.MANAGEMENT_URL),
       ].filter(Boolean),
     },
+  },
+  webpack: (config) => {
+    config.resolve.alias.canvas = false;
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      canvas: false,
+    };
+    return config;
   },
   async headers() {
     return [
