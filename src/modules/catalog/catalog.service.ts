@@ -327,6 +327,189 @@ export class CatalogService {
 
     return { updatedCount, skippedMissingMrp };
   }
+
+  /**
+   * Delete a single product. If it has transactions/movements, soft-deletes (active = false)
+   * to preserve ledger integrity. If no transactions exist, performs clean hard-delete.
+   */
+  async deleteProduct(
+    actorRole: UserRole,
+    actorId: string,
+    id: string,
+    ip?: string
+  ): Promise<{ success: boolean; mode: "DELETED" | "DEACTIVATED"; message: string }> {
+    assertPermission(actorRole, Permission.MANAGE_PRODUCTS);
+    const product = await catalogRepository.findProductById(id);
+    if (!product) {
+      throw new ProductNotFoundError(id);
+    }
+
+    const { prisma } = await import("@/lib/prisma");
+
+    const [movementsCount, invoiceItemsCount, purchaseItemsCount, debitNoteItemsCount, orderItemsCount] =
+      await Promise.all([
+        prisma.stockMovement.count({ where: { productId: id } }),
+        prisma.invoiceItem.count({ where: { productId: id } }),
+        prisma.purchaseItem.count({ where: { productId: id } }),
+        prisma.debitNoteItem.count({ where: { productId: id } }),
+        prisma.orderItem.count({ where: { productId: id } }),
+      ]);
+
+    const hasTransactions =
+      movementsCount > 0 ||
+      invoiceItemsCount > 0 ||
+      purchaseItemsCount > 0 ||
+      debitNoteItemsCount > 0 ||
+      orderItemsCount > 0;
+
+    if (hasTransactions) {
+      await prisma.product.update({
+        where: { id },
+        data: { active: false },
+      });
+
+      await auditService.log({
+        actorId,
+        action: "PRODUCT_DEACTIVATED",
+        entity: "Product",
+        entityId: id,
+        before: { active: true },
+        after: { active: false, reason: "Deactivated because transaction history exists" },
+        ip,
+      });
+
+      return {
+        success: true,
+        mode: "DEACTIVATED",
+        message: `${product.name} has sales/stock history, so it was archived (set inactive).`,
+      };
+    } else {
+      await prisma.$transaction(async (tx) => {
+        await tx.cartItem.deleteMany({ where: { productId: id } });
+        await tx.wishlistItem.deleteMany({ where: { productId: id } });
+        await tx.stockReservation.deleteMany({ where: { productId: id } });
+        await tx.supplierItemAlias.deleteMany({ where: { productId: id } });
+        await tx.billScanLine.deleteMany({ where: { productId: id } });
+        await tx.stockBalance.deleteMany({ where: { productId: id } });
+        await tx.product.delete({ where: { id } });
+      });
+
+      await auditService.log({
+        actorId,
+        action: "PRODUCT_DELETED",
+        entity: "Product",
+        entityId: id,
+        before: { name: product.name, shortCode: product.shortCode },
+        ip,
+      });
+
+      return {
+        success: true,
+        mode: "DELETED",
+        message: `${product.name} was permanently deleted.`,
+      };
+    }
+  }
+
+  /**
+   * Bulk delete products.
+   */
+  async bulkDeleteProducts(
+    actorRole: UserRole,
+    actorId: string,
+    productIds: string[],
+    ip?: string
+  ): Promise<{ deletedCount: number; deactivatedCount: number; message: string }> {
+    assertPermission(actorRole, Permission.MANAGE_PRODUCTS);
+    if (!productIds || productIds.length === 0) {
+      return { deletedCount: 0, deactivatedCount: 0, message: "No products selected" };
+    }
+
+    let deletedCount = 0;
+    let deactivatedCount = 0;
+
+    for (const id of productIds) {
+      try {
+        const res = await this.deleteProduct(actorRole, actorId, id, ip);
+        if (res.mode === "DELETED") deletedCount++;
+        else deactivatedCount++;
+      } catch (e) {
+        // Continue with next
+      }
+    }
+
+    return {
+      deletedCount,
+      deactivatedCount,
+      message: `Processed ${deletedCount + deactivatedCount} product(s): ${deletedCount} deleted, ${deactivatedCount} archived.`,
+    };
+  }
+
+  /**
+   * Bulk update common fields across selected products.
+   */
+  async bulkUpdateProducts(
+    actorRole: UserRole,
+    actorId: string,
+    input: {
+      productIds: string[];
+      companyId?: string | null;
+      categoryId?: string | null;
+      packSize?: number;
+      packLabel?: string;
+      gstRateBp?: number;
+      active?: boolean;
+      mrpPaise?: number | null;
+      priceAPaise?: number | null;
+      priceBPaise?: number | null;
+      priceCPaise?: number | null;
+    },
+    ip?: string
+  ): Promise<{ updatedCount: number }> {
+    assertPermission(actorRole, Permission.MANAGE_PRODUCTS);
+    const { productIds, ...updates } = input;
+    if (!productIds || productIds.length === 0) {
+      return { updatedCount: 0 };
+    }
+
+    const { prisma } = await import("@/lib/prisma");
+
+    const dataToUpdate: Record<string, any> = {};
+    if (updates.companyId !== undefined) dataToUpdate.companyId = updates.companyId;
+    if (updates.categoryId !== undefined) dataToUpdate.categoryId = updates.categoryId;
+    if (updates.packSize !== undefined && updates.packSize > 0) dataToUpdate.packSize = updates.packSize;
+    if (updates.packLabel !== undefined && updates.packLabel.trim()) dataToUpdate.packLabel = updates.packLabel.trim();
+    if (updates.gstRateBp !== undefined) dataToUpdate.gstRateBp = updates.gstRateBp;
+    if (updates.active !== undefined) dataToUpdate.active = updates.active;
+    if (updates.mrpPaise !== undefined) dataToUpdate.mrpPaise = updates.mrpPaise;
+    if (updates.priceAPaise !== undefined) dataToUpdate.priceAPaise = updates.priceAPaise;
+    if (updates.priceBPaise !== undefined) dataToUpdate.priceBPaise = updates.priceBPaise;
+    if (updates.priceCPaise !== undefined) dataToUpdate.priceCPaise = updates.priceCPaise;
+
+    if (Object.keys(dataToUpdate).length === 0) {
+      return { updatedCount: 0 };
+    }
+
+    const res = await prisma.product.updateMany({
+      where: { id: { in: productIds } },
+      data: dataToUpdate,
+    });
+
+    await auditService.log({
+      actorId,
+      action: "PRODUCT_BULK_UPDATED",
+      entity: "Product",
+      entityId: "bulk",
+      after: {
+        productIds,
+        dataToUpdate,
+        updatedCount: res.count,
+      },
+      ip,
+    });
+
+    return { updatedCount: res.count };
+  }
 }
 
 export const catalogService = new CatalogService();

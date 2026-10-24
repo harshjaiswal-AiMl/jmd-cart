@@ -8,6 +8,9 @@ import {
   updateProductPricesInlineAction,
   bulkSetPricesPercentOffMrpAction,
   updateProductImageAction,
+  deleteProductAction,
+  bulkDeleteProductsAction,
+  bulkUpdateProductsAction,
   CatalogActionResult,
 } from "./actions";
 import { useFormState, useFormStatus } from "react-dom";
@@ -104,13 +107,49 @@ export function CatalogClient({
   const [editProductImageUploading, setEditProductImageUploading] = useState(false);
   const [updateProductPending, setUpdateProductPending] = useState(false);
 
-  // Selection for bulk % off MRP
+  // Selection for bulk actions
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPctA, setBulkPctA] = useState("22");
   const [bulkPctB, setBulkPctB] = useState("21");
   const [bulkPctC, setBulkPctC] = useState("20");
+  const [showBulkPercentTools, setShowBulkPercentTools] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Bulk Edit Modal State
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [bulkEditForm, setBulkEditForm] = useState<{
+    companyId: string;
+    categoryId: string;
+    packSize: string;
+    packLabel: string;
+    gstRateBp: string;
+    active: "unchanged" | "active" | "inactive";
+    mrpRupees: string;
+    priceARupees: string;
+    priceBRupees: string;
+    priceCRupees: string;
+  }>({
+    companyId: "",
+    categoryId: "",
+    packSize: "",
+    packLabel: "",
+    gstRateBp: "",
+    active: "unchanged",
+    mrpRupees: "",
+    priceARupees: "",
+    priceBRupees: "",
+    priceCRupees: "",
+  });
+
+  // Delete Confirmation Modal State (single or bulk)
+  const [deleteModal, setDeleteModal] = useState<{
+    open: boolean;
+    mode: "single" | "bulk";
+    product?: ProductWithDetails;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Inline edits state map: productId -> { mrp, a, b, c, packSize }
   const [inlineEdits, setInlineEdits] = useState<
@@ -373,6 +412,124 @@ export function CatalogClient({
     });
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deleteModal) return;
+    setIsDeleting(true);
+    try {
+      if (deleteModal.mode === "single" && deleteModal.product) {
+        const prodId = deleteModal.product.id;
+        const prodName = deleteModal.product.name;
+        const res = await deleteProductAction(prodId);
+        if (res.error) {
+          setStatusMessage({ type: "err", text: res.error });
+        } else {
+          setProducts((prev) => prev.filter((p) => p.id !== prodId));
+          setSelectedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(prodId);
+            return next;
+          });
+          setStatusMessage({
+            type: "ok",
+            text: `Product "${prodName}" deleted / archived successfully.`,
+          });
+          setDeleteModal(null);
+        }
+      } else if (deleteModal.mode === "bulk") {
+        const ids = Array.from(selectedIds);
+        const res = await bulkDeleteProductsAction(ids);
+        if (res.error) {
+          setStatusMessage({ type: "err", text: res.error });
+        } else {
+          setProducts((prev) => prev.filter((p) => !selectedIds.has(p.id)));
+          setSelectedIds(new Set());
+          setStatusMessage({
+            type: "ok",
+            text: `Bulk delete complete: ${res.deletedCount ?? 0} permanently deleted, ${res.deactivatedCount ?? 0} safely archived.`,
+          });
+          setDeleteModal(null);
+        }
+      }
+    } catch (err: any) {
+      setStatusMessage({ type: "err", text: err?.message || "Failed to delete" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedIds.size === 0) return;
+    setIsBulkUpdating(true);
+    try {
+      const input: any = {
+        productIds: Array.from(selectedIds),
+      };
+      if (bulkEditForm.companyId) {
+        input.companyId = bulkEditForm.companyId === "__NONE__" ? null : bulkEditForm.companyId;
+      }
+      if (bulkEditForm.categoryId) {
+        input.categoryId = bulkEditForm.categoryId === "__NONE__" ? null : bulkEditForm.categoryId;
+      }
+      if (bulkEditForm.packSize.trim()) {
+        const sz = parseInt(bulkEditForm.packSize, 10);
+        if (Number.isFinite(sz) && sz > 0) input.packSize = sz;
+      }
+      if (bulkEditForm.packLabel.trim()) {
+        input.packLabel = bulkEditForm.packLabel.trim();
+      }
+      if (bulkEditForm.gstRateBp !== "") {
+        const bp = parseInt(bulkEditForm.gstRateBp, 10);
+        if (Number.isFinite(bp)) input.gstRateBp = bp;
+      }
+      if (bulkEditForm.active === "active") input.active = true;
+      if (bulkEditForm.active === "inactive") input.active = false;
+
+      if (bulkEditForm.mrpRupees.trim()) {
+        input.mrpPaise = parseInputToPaise(bulkEditForm.mrpRupees);
+      }
+      if (bulkEditForm.priceARupees.trim()) {
+        input.priceAPaise = parseInputToPaise(bulkEditForm.priceARupees);
+      }
+      if (bulkEditForm.priceBRupees.trim()) {
+        input.priceBPaise = parseInputToPaise(bulkEditForm.priceBRupees);
+      }
+      if (bulkEditForm.priceCRupees.trim()) {
+        input.priceCPaise = parseInputToPaise(bulkEditForm.priceCRupees);
+      }
+
+      const res = await bulkUpdateProductsAction(input);
+      if (res.error) {
+        setStatusMessage({ type: "err", text: res.error });
+      } else {
+        setStatusMessage({
+          type: "ok",
+          text: `Bulk updated ${res.updatedCount ?? selectedIds.size} products successfully!`,
+        });
+        setIsBulkEditOpen(false);
+        // Reset form
+        setBulkEditForm({
+          companyId: "",
+          categoryId: "",
+          packSize: "",
+          packLabel: "",
+          gstRateBp: "",
+          active: "unchanged",
+          mrpRupees: "",
+          priceARupees: "",
+          priceBRupees: "",
+          priceCRupees: "",
+        });
+        // Reload to sync fresh relations and tier prices
+        window.location.reload();
+      }
+    } catch (err: any) {
+      setStatusMessage({ type: "err", text: err?.message || "Failed to bulk update products" });
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       {/* Top Controls: Search, Filters, Actions */}
@@ -436,58 +593,100 @@ export function CatalogClient({
         )}
       </div>
 
-      {/* Bulk Action Bar: Set A / B / C as % off MRP */}
+      {/* Bulk Action Bar */}
       {!readOnly && selectedIds.size > 0 && (
-        <div className="bg-[#FEFDF7] border border-[#FDAF18] rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-          <div>
-            <span className="text-sm font-bold text-[#790E11]">
-              {selectedIds.size} product(s) selected
-            </span>
-            <p className="text-xs text-gray-600">
-              Bulk set Wholesaler (A), Retailer (B), and Customer (C) prices as % discount off MRP
-            </p>
+        <div className="bg-[#FEFDF7] border border-[#FDAF18] rounded-xl p-4 shadow-sm space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#790E11] text-white">
+                {selectedIds.size} of {filteredProducts.length} selected
+              </span>
+              <span className="text-xs text-gray-600 font-medium hidden sm:inline">
+                Bulk actions across selected catalog items
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsBulkEditOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors"
+                title="Edit common fields across all selected products"
+              >
+                <span>✏️</span> Bulk Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteModal({ open: true, mode: "bulk" })}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm transition-colors"
+                title="Delete or safely archive selected products"
+              >
+                <span>🗑️</span> Delete Selected
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBulkPercentTools((prev) => !prev)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm transition-colors"
+              >
+                <span>⚡</span> {showBulkPercentTools ? "Hide % Off MRP" : "% Off MRP Tool"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold border border-gray-200 transition-colors"
+              >
+                ✕ Deselect All
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs font-semibold text-gray-700">A (% off):</label>
-              <input
-                type="number"
-                step="0.1"
-                value={bulkPctA}
-                onChange={(e) => setBulkPctA(e.target.value)}
-                className="w-16 px-2 py-1 border border-gray-300 rounded text-xs font-mono text-right"
-              />
+          {showBulkPercentTools && (
+            <div className="pt-3 border-t border-amber-200/60 flex flex-wrap items-center justify-between gap-3 bg-amber-50/50 p-2.5 rounded-lg">
+              <p className="text-xs text-gray-700 font-medium">
+                Set Wholesaler (A), Retailer (B), and Customer (C) prices as % discount off MRP:
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-gray-700">A (% off):</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={bulkPctA}
+                    onChange={(e) => setBulkPctA(e.target.value)}
+                    className="w-16 px-2 py-1 border border-gray-300 rounded text-xs font-mono text-right bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-gray-700">B (% off):</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={bulkPctB}
+                    onChange={(e) => setBulkPctB(e.target.value)}
+                    className="w-16 px-2 py-1 border border-gray-300 rounded text-xs font-mono text-right bg-white"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs font-semibold text-gray-700">C (% off):</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={bulkPctC}
+                    onChange={(e) => setBulkPctC(e.target.value)}
+                    className="w-16 px-2 py-1 border border-gray-300 rounded text-xs font-mono text-right bg-white"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={handleBulkPercentApply}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#FC830D] hover:bg-[#e07208] text-white text-xs font-bold shadow-sm disabled:opacity-50"
+                >
+                  {isPending ? "Applying..." : "Apply % off MRP"}
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs font-semibold text-gray-700">B (% off):</label>
-              <input
-                type="number"
-                step="0.1"
-                value={bulkPctB}
-                onChange={(e) => setBulkPctB(e.target.value)}
-                className="w-16 px-2 py-1 border border-gray-300 rounded text-xs font-mono text-right"
-              />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs font-semibold text-gray-700">C (% off):</label>
-              <input
-                type="number"
-                step="0.1"
-                value={bulkPctC}
-                onChange={(e) => setBulkPctC(e.target.value)}
-                className="w-16 px-2 py-1 border border-gray-300 rounded text-xs font-mono text-right"
-              />
-            </div>
-            <button
-              type="button"
-              disabled={isPending}
-              onClick={handleBulkPercentApply}
-              className="px-3.5 py-1.5 rounded-lg bg-[#FC830D] hover:bg-[#e07208] text-white text-xs font-bold shadow-sm disabled:opacity-50"
-            >
-              {isPending ? "Applying..." : "Apply % off MRP"}
-            </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -824,9 +1023,41 @@ export function CatalogClient({
       {/* Product & Price List Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-gray-200 flex flex-wrap justify-between items-center gap-2 bg-gray-50/50">
-          <span className="text-sm font-medium text-gray-700">
-            Showing {filteredProducts.length} of {products.length} products
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">
+              Showing {filteredProducts.length} of {products.length} products
+            </span>
+            {selectedIds.size > 0 && !readOnly && (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#790E11] text-white">
+                  {selectedIds.size} selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsBulkEditOpen(true)}
+                  className="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-sm"
+                  title="Bulk edit selected products"
+                >
+                  ✏️ Bulk Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteModal({ open: true, mode: "bulk" })}
+                  className="px-2.5 py-1 rounded-md text-xs font-bold bg-red-600 hover:bg-red-700 text-white transition-colors shadow-sm"
+                  title="Delete or safely archive selected products"
+                >
+                  🗑️ Delete Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-xs text-gray-500 hover:text-gray-700 underline"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-3 text-xs text-gray-500">
             <span className="inline-flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-600" />
@@ -1107,6 +1338,14 @@ export function CatalogClient({
                               title="Edit product details & prices"
                             >
                               <span>✏️</span> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteModal({ open: true, mode: "single", product: p })}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition-colors shadow-sm"
+                              title="Delete or safely archive product"
+                            >
+                              <span>🗑️</span> Delete
                             </button>
                             {row.dirty && (
                               <button
@@ -1606,6 +1845,309 @@ export function CatalogClient({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Sticky Bottom Selection Bar */}
+      {!readOnly && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-gray-900/95 text-white backdrop-blur-md px-5 py-3 rounded-2xl shadow-2xl border border-gray-700 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-2 pr-3 border-r border-gray-700">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-sm font-semibold whitespace-nowrap">
+              {selectedIds.size} Selected
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsBulkEditOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow transition-colors"
+            >
+              <span>✏️</span> Bulk Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeleteModal({ open: true, mode: "bulk" })}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow transition-colors"
+            >
+              <span>🗑️</span> Delete Selected
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="px-2.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Edit Modal */}
+      {isBulkEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl max-w-xl w-full p-6 shadow-xl border border-gray-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Bulk Edit Products</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Updating {selectedIds.size} selected products. Only fields you change will be updated.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBulkEditOpen(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleBulkEditSubmit} className="mt-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Brand / Company */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Brand / Company
+                  </label>
+                  <select
+                    value={bulkEditForm.companyId}
+                    onChange={(e) =>
+                      setBulkEditForm((prev) => ({ ...prev, companyId: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">-- Keep Unchanged --</option>
+                    <option value="__NONE__">-- Remove Brand (None) --</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Category</label>
+                  <select
+                    value={bulkEditForm.categoryId}
+                    onChange={(e) =>
+                      setBulkEditForm((prev) => ({ ...prev, categoryId: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">-- Keep Unchanged --</option>
+                    <option value="__NONE__">-- Remove Category (None) --</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Qty in Case / Pack Size */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Qty in Case (Pcs/Ctn)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="-- Keep Unchanged --"
+                    value={bulkEditForm.packSize}
+                    onChange={(e) =>
+                      setBulkEditForm((prev) => ({ ...prev, packSize: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                  />
+                </div>
+
+                {/* Pack Label */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Pack Label</label>
+                  <input
+                    type="text"
+                    placeholder="-- Keep Unchanged (e.g. Case of 24) --"
+                    value={bulkEditForm.packLabel}
+                    onChange={(e) =>
+                      setBulkEditForm((prev) => ({ ...prev, packLabel: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                {/* GST Slab */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">GST Rate</label>
+                  <select
+                    value={bulkEditForm.gstRateBp}
+                    onChange={(e) =>
+                      setBulkEditForm((prev) => ({ ...prev, gstRateBp: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">-- Keep Unchanged --</option>
+                    <option value="0">0% (Nil / Exempt)</option>
+                    <option value="500">5%</option>
+                    <option value="1200">12%</option>
+                    <option value="1800">18%</option>
+                    <option value="2800">28%</option>
+                  </select>
+                </div>
+
+                {/* Active Status */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Catalog Status</label>
+                  <select
+                    value={bulkEditForm.active}
+                    onChange={(e) =>
+                      setBulkEditForm((prev) => ({
+                        ...prev,
+                        active: e.target.value as "unchanged" | "active" | "inactive",
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="unchanged">-- Keep Unchanged --</option>
+                    <option value="active">Active (Visible in Store & Catalog)</option>
+                    <option value="inactive">Inactive (Hidden / Archived)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Price Tier Overrides (Optional) */}
+              <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-wide block">
+                  Optional: Bulk Set Fixed Prices (₹)
+                </span>
+                <p className="text-[11px] text-gray-500">
+                  Leave blank to preserve existing prices. Fill only if you want all {selectedIds.size} products to have the same rate.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600">MRP (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Unchanged"
+                      value={bulkEditForm.mrpRupees}
+                      onChange={(e) =>
+                        setBulkEditForm((prev) => ({ ...prev, mrpRupees: e.target.value }))
+                      }
+                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-emerald-700">List A (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Unchanged"
+                      value={bulkEditForm.priceARupees}
+                      onChange={(e) =>
+                        setBulkEditForm((prev) => ({ ...prev, priceARupees: e.target.value }))
+                      }
+                      className="w-full px-2 py-1 border border-emerald-300 rounded text-xs font-mono bg-emerald-50/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-blue-700">List B (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Unchanged"
+                      value={bulkEditForm.priceBRupees}
+                      onChange={(e) =>
+                        setBulkEditForm((prev) => ({ ...prev, priceBRupees: e.target.value }))
+                      }
+                      className="w-full px-2 py-1 border border-blue-300 rounded text-xs font-mono bg-blue-50/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-amber-700">List C (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder="Unchanged"
+                      value={bulkEditForm.priceCRupees}
+                      onChange={(e) =>
+                        setBulkEditForm((prev) => ({ ...prev, priceCRupees: e.target.value }))
+                      }
+                      className="w-full px-2 py-1 border border-amber-300 rounded text-xs font-mono bg-amber-50/30"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkEditOpen(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isBulkUpdating}
+                  className="inline-flex justify-center py-2 px-5 border border-transparent shadow-sm text-sm font-bold rounded-lg text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {isBulkUpdating ? "Updating..." : `Update ${selectedIds.size} Products`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete / Archive Confirmation Modal */}
+      {deleteModal?.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl border border-gray-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 text-xl font-bold">
+                ⚠️
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-gray-900">
+                  {deleteModal.mode === "bulk"
+                    ? `Delete ${selectedIds.size} Products?`
+                    : `Delete "${deleteModal.product?.name}"?`}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {deleteModal.mode === "bulk"
+                    ? `You are about to delete ${selectedIds.size} selected items.`
+                    : `SKU: ${deleteModal.product?.shortCode}`}
+                </p>
+                <div className="mt-3 p-3 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-900 leading-relaxed">
+                  <strong>Safe Ledger Protection:</strong>
+                  <br />
+                  Items with NO transaction history will be <strong>permanently deleted</strong>. Items linked to past invoices, purchases, or stock movements will be <strong>safely archived (marked Inactive)</strong> to maintain legal audit immutability.
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setDeleteModal(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="inline-flex items-center gap-1.5 py-2 px-4 border border-transparent shadow-sm text-sm font-bold rounded-lg text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {isDeleting ? "Processing..." : "Yes, Delete / Archive"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -236,3 +236,88 @@ export async function toggleQuantityTierPricingAction(
     return { error: err instanceof Error ? err.message : "Failed to update pricing setting" };
   }
 }
+
+export async function deleteProductAction(id: string): Promise<CatalogActionResult> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const res = await catalogService.deleteProduct(
+      session.user.role,
+      session.user.id,
+      id
+    );
+
+    revalidatePath("/admin/catalog");
+    revalidatePath("/admin/catalog/price-lists");
+    revalidatePath("/store");
+    return { success: true, error: undefined };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to delete product" };
+  }
+}
+
+export async function bulkDeleteProductsAction(
+  productIds: string[]
+): Promise<CatalogActionResult & { deletedCount?: number; deactivatedCount?: number }> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const res = await catalogService.bulkDeleteProducts(
+      session.user.role,
+      session.user.id,
+      productIds
+    );
+
+    revalidatePath("/admin/catalog");
+    revalidatePath("/admin/catalog/price-lists");
+    revalidatePath("/store");
+    return {
+      success: true,
+      deletedCount: res.deletedCount,
+      deactivatedCount: res.deactivatedCount,
+    };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to bulk delete products" };
+  }
+}
+
+export async function bulkUpdateProductsAction(input: {
+  productIds: string[];
+  companyId?: string | null;
+  categoryId?: string | null;
+  packSize?: number;
+  packLabel?: string;
+  gstRateBp?: number;
+  active?: boolean;
+  mrpPaise?: number | null;
+  priceAPaise?: number | null;
+  priceBPaise?: number | null;
+  priceCPaise?: number | null;
+}): Promise<CatalogActionResult> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const res = await catalogService.bulkUpdateProducts(
+      session.user.role,
+      session.user.id,
+      input
+    );
+
+    revalidatePath("/admin/catalog");
+    revalidatePath("/admin/catalog/price-lists");
+    revalidatePath("/store");
+    return { success: true, updatedCount: res.updatedCount };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to bulk update products" };
+  }
+}
+
