@@ -16,6 +16,7 @@ import {
 import { useFormState, useFormStatus } from "react-dom";
 import Link from "next/link";
 import { ProductImage } from "@/components/common/ProductImage";
+import { PackLabelSelector } from "./PackLabelSelector";
 
 interface CatalogClientProps {
   initialProducts: ProductWithDetails[];
@@ -907,13 +908,7 @@ export function CatalogClient({
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
                     Pack Label
                   </label>
-                  <input
-                    type="text"
-                    name="packLabel"
-                    defaultValue="Carton"
-                    required
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  />
+                  <PackLabelSelector name="packLabel" defaultValue="Carton" required />
                 </div>
 
                 <div>
@@ -1712,12 +1707,10 @@ export function CatalogClient({
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
                     Pack Label
                   </label>
-                  <input
-                    type="text"
+                  <PackLabelSelector
                     name="packLabel"
-                    defaultValue={editingProduct.packLabel}
+                    defaultValue={editingProduct.packLabel || "Carton"}
                     required
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                 </div>
 
@@ -1968,14 +1961,13 @@ export function CatalogClient({
                 {/* Pack Label */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Pack Label</label>
-                  <input
-                    type="text"
-                    placeholder="-- Keep Unchanged (e.g. Case of 24) --"
+                  <PackLabelSelector
+                    allowUnchanged
+                    defaultValue=""
                     value={bulkEditForm.packLabel}
-                    onChange={(e) =>
-                      setBulkEditForm((prev) => ({ ...prev, packLabel: e.target.value }))
+                    onChange={(val) =>
+                      setBulkEditForm((prev) => ({ ...prev, packLabel: val }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                 </div>
 
