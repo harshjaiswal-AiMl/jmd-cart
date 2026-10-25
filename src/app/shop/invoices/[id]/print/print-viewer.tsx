@@ -6,21 +6,25 @@ import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { BusinessDetails } from "@/modules/settings/settings.types";
 import { A4Invoice } from "@/components/printing/a4-invoice";
 import { ThermalReceipt } from "@/components/printing/thermal-receipt";
+import { CashReceiptSlip } from "@/components/printing/cash-receipt-slip";
+import { DemandBillCredit } from "@/components/printing/demand-bill-credit";
+
+export type PrintFormat = "cash_receipt" | "demand_bill" | "a4" | "thermal";
 
 interface PrintViewerProps {
   invoice: InvoiceWithDetails;
   business: BusinessDetails;
-  initialFormat?: "a4" | "thermal";
+  initialFormat?: PrintFormat;
   autoPrint?: boolean;
 }
 
 export function PrintViewer({
   invoice,
   business,
-  initialFormat = "a4",
+  initialFormat = "cash_receipt",
   autoPrint = false,
 }: PrintViewerProps) {
-  const [format, setFormat] = useState<"a4" | "thermal">(initialFormat);
+  const [format, setFormat] = useState<PrintFormat>(initialFormat);
   const [copyTitle, setCopyTitle] = useState("Original for Recipient");
 
   useEffect(() => {
@@ -54,30 +58,54 @@ export function PrintViewer({
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Format Switcher */}
           <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-300 text-xs font-semibold">
             <button
               type="button"
+              onClick={() => setFormat("cash_receipt")}
+              className={`px-3 py-1.5 rounded-md transition flex items-center gap-1 ${
+                format === "cash_receipt"
+                  ? "bg-white text-emerald-800 shadow-sm font-bold border border-emerald-500/30"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Image 1 Cash & UPI Bill (Without GST)"
+            >
+              <span>💵 Cash / UPI</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormat("demand_bill")}
+              className={`px-3 py-1.5 rounded-md transition flex items-center gap-1 ${
+                format === "demand_bill"
+                  ? "bg-white text-purple-800 shadow-sm font-bold border border-purple-500/30"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="Image 2 Demand Bill with DUES Stamp (Without GST)"
+            >
+              <span>📋 Demand Bill (DUES)</span>
+            </button>
+            <button
+              type="button"
               onClick={() => setFormat("a4")}
-              className={`px-3 py-1 rounded-md transition ${
+              className={`px-3 py-1.5 rounded-md transition ${
                 format === "a4"
                   ? "bg-white text-slate-900 shadow-sm font-bold"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              A4 Invoice
+              GST A4
             </button>
             <button
               type="button"
               onClick={() => setFormat("thermal")}
-              className={`px-3 py-1 rounded-md transition ${
+              className={`px-3 py-1.5 rounded-md transition ${
                 format === "thermal"
                   ? "bg-white text-slate-900 shadow-sm font-bold"
                   : "text-slate-600 hover:text-slate-900"
               }`}
             >
-              80mm Thermal
+              GST Thermal
             </button>
           </div>
 
@@ -113,20 +141,27 @@ export function PrintViewer({
                 d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
               />
             </svg>
-            Print Now (Ctrl+P)
+            Print (Ctrl+P)
           </button>
         </div>
       </div>
 
-      {/* Render Document */}
+      {/* Render Selected Document */}
       <div className="flex justify-center print:block">
-        {format === "a4" ? (
+        {format === "cash_receipt" && (
+          <CashReceiptSlip invoice={invoice} business={business} />
+        )}
+        {format === "demand_bill" && (
+          <DemandBillCredit invoice={invoice} business={business} />
+        )}
+        {format === "a4" && (
           <A4Invoice
             invoice={invoice}
             business={business}
             copyTitle={copyTitle}
           />
-        ) : (
+        )}
+        {format === "thermal" && (
           <ThermalReceipt invoice={invoice} business={business} />
         )}
       </div>

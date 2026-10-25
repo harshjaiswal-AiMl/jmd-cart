@@ -170,6 +170,7 @@ export function PosClient({
     id: string;
     number: string;
     totalPaise: number;
+    paymentMode: PaymentMode;
   } | null>(null);
 
   // Submission state
@@ -442,10 +443,11 @@ export function PosClient({
       payments = [{ mode: "UPI", amountPaise: totalPaise }];
     } else if (paymentMode === PaymentMode.CREDIT) {
       if (!selectedPartyId) {
-        setErrorMessage("Credit payment requires an approved registered customer/retailer.");
+        setQuickCustomerModalOpen(true);
+        setQuickCustomerError("Please enter Customer name & phone for Demand Bill (or select from Buyer dropdown).");
         return;
       }
-      payments = []; // Unpaid balance recorded as credit
+      payments = []; // Unpaid balance recorded as open credit
     } else {
       // Split payments
       const cashAmount = Math.round(parseFloat(splitCashPaise || "0") * 100);
@@ -484,6 +486,7 @@ export function PosClient({
             id: invoice.id,
             number: invoice.number,
             totalPaise: invoice.totalPaise,
+            paymentMode,
           });
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Failed to finalize invoice";
@@ -500,23 +503,8 @@ export function PosClient({
       });
     };
 
-    if (balanceDuePaise > 0 && selectedPartyId && !overrideToUse) {
-      checkPartyCreditStatusAction(selectedPartyId, balanceDuePaise)
-        .then((creditStatus) => {
-          if (!creditStatus.canProceedWithoutOverride) {
-            setOverrideBreachReasons(creditStatus.breachReasons);
-            setPendingOverridePartyName(creditStatus.partyName);
-            setOverrideModalOpen(true);
-          } else {
-            executeFinalize();
-          }
-        })
-        .catch(() => {
-          executeFinalize();
-        });
-    } else {
-      executeFinalize();
-    }
+    // Credit is open for all parties/customers billed from Shop POS!
+    executeFinalize();
   };
 
   const handleSaveQuickCustomer = async (e: React.FormEvent) => {
@@ -1315,24 +1303,52 @@ export function PosClient({
             </div>
 
             <div className="flex flex-col gap-2 pt-2">
-              <Link
-                href={`/shop/invoices/${finalizedInvoice.id}/print?format=thermal`}
-                target="_blank"
-                className="w-full py-2.5 px-4 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition-colors"
-              >
-                🖨 Print 80mm Receipt
-              </Link>
+              {finalizedInvoice.paymentMode === PaymentMode.CREDIT ? (
+                <>
+                  <Link
+                    href={`/shop/invoices/${finalizedInvoice.id}/print?format=demand_bill`}
+                    target="_blank"
+                    className="w-full py-2.5 px-4 rounded-lg bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-sm transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <span>📋 Print Demand Bill (DUES)</span>
+                  </Link>
+                  <Link
+                    href={`/shop/invoices/${finalizedInvoice.id}/print?format=cash_receipt`}
+                    target="_blank"
+                    className="w-full py-2 px-4 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <span>💵 Print Cash / UPI Receipt</span>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href={`/shop/invoices/${finalizedInvoice.id}/print?format=cash_receipt`}
+                    target="_blank"
+                    className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <span>💵 Print Cash / UPI Receipt</span>
+                  </Link>
+                  <Link
+                    href={`/shop/invoices/${finalizedInvoice.id}/print?format=demand_bill`}
+                    target="_blank"
+                    className="w-full py-2 px-4 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <span>📋 Print Demand Bill (DUES)</span>
+                  </Link>
+                </>
+              )}
               <Link
                 href={`/shop/invoices/${finalizedInvoice.id}/print?format=a4`}
                 target="_blank"
-                className="w-full py-2.5 px-4 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs transition-colors"
+                className="w-full py-1.5 px-4 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 font-medium text-[11px] transition-colors"
               >
-                📄 Print A4 Tax Invoice
+                📄 View GST A4 Tax Invoice / All Formats
               </Link>
               <button
                 type="button"
                 onClick={clearBill}
-                className="w-full py-2.5 px-4 rounded-lg bg-[#12355B] hover:bg-blue-900 text-white font-bold text-xs transition-colors"
+                className="w-full py-2.5 px-4 rounded-lg bg-[#12355B] hover:bg-blue-900 text-white font-bold text-xs transition-colors mt-1"
               >
                 + Start Next Bill
               </button>
