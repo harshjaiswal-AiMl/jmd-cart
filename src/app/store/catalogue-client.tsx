@@ -508,8 +508,8 @@ export function CatalogueClient({
         </div>
       )}
 
-      {/* Main Content Area */}
-      <main className="w-full pt-48 md:pt-40 pb-20 md:pb-8 bg-surface flex-1">
+      {/* Main Content Area - pb-32 on mobile guarantees comfortable clearance above mobile bottom nav (56px) & floating checkout bar */}
+      <main className="w-full pt-48 md:pt-40 pb-32 sm:pb-24 md:pb-12 bg-surface flex-1">
         {/* 2. Sliding Promotional Hero Carousel (Loaded from Backend Banners) */}
         {!currentSearch && !selectedCategory && !selectedCompany && (
           <StoreBannerCarousel banners={banners} />

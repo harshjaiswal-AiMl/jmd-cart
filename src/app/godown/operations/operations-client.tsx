@@ -743,7 +743,7 @@ export function OperationsClient({
                 </p>
               </div>
             ) : (
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+              <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-xs">
                 <table className="w-full text-left text-sm divide-y divide-slate-200">
                   <thead className="bg-slate-100 text-slate-700 text-xs uppercase font-bold tracking-wider">
                     <tr>

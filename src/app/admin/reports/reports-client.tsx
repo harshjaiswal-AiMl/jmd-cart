@@ -484,34 +484,36 @@ export function ReportsClient({
                   Top Selling Products Today
                 </h3>
               </div>
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                  <tr>
-                    <th className="p-3 w-8 text-center">#</th>
-                    <th className="p-3">Product Name</th>
-                    <th className="p-3 text-center">Code</th>
-                    <th className="p-3 text-right">Quantity Sold</th>
-                    <th className="p-3 text-right">Revenue (₹)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {salesData.topProducts.map((p, idx) => (
-                    <tr key={p.productId} className="hover:bg-slate-50">
-                      <td className="p-3 text-center text-slate-400">{idx + 1}</td>
-                      <td className="p-3 font-semibold text-slate-900">{p.name}</td>
-                      <td className="p-3 text-center font-mono text-slate-600">
-                        {p.shortCode}
-                      </td>
-                      <td className="p-3 text-right font-bold text-slate-900">
-                        {p.qty}
-                      </td>
-                      <td className="p-3 text-right font-mono font-bold text-slate-900">
-                        ₹{(p.totalPaise / 100).toFixed(2)}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="p-3 w-8 text-center">#</th>
+                      <th className="p-3">Product Name</th>
+                      <th className="p-3 text-center">Code</th>
+                      <th className="p-3 text-right">Quantity Sold</th>
+                      <th className="p-3 text-right">Revenue (₹)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {salesData.topProducts.map((p, idx) => (
+                      <tr key={p.productId} className="hover:bg-slate-50">
+                        <td className="p-3 text-center text-slate-400">{idx + 1}</td>
+                        <td className="p-3 font-semibold text-slate-900">{p.name}</td>
+                        <td className="p-3 text-center font-mono text-slate-600">
+                          {p.shortCode}
+                        </td>
+                        <td className="p-3 text-right font-bold text-slate-900">
+                          {p.qty}
+                        </td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-900">
+                          ₹{(p.totalPaise / 100).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

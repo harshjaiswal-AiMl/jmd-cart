@@ -509,7 +509,7 @@ export function PurchasesClient({
               </div>
 
               {/* Items List */}
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="border border-gray-200 rounded-xl overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-100 text-xs">
                   <thead className="bg-gray-50 text-gray-600 font-bold uppercase text-[10px]">
                     <tr>
