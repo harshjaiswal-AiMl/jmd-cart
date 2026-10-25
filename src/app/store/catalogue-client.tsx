@@ -593,7 +593,6 @@ export function CatalogueClient({
             {/* Dynamic Categories from Database */}
             {categories.map((cat, idx) => {
               const isSelected = selectedCategory === cat.id;
-              const hasProducts = typeof cat.productCount === "number" && cat.productCount > 0;
 
               // 2-Row Display Logic:
               // - Items 0..6 (with All Staples = 8 cards) are visible on mobile (4x2 = 2 rows).
@@ -626,27 +625,13 @@ export function CatalogueClient({
                         aria-hidden="true"
                         className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-sm"
                         loading="lazy"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = "/brand/jmd-cart-logo.png";
+                        }}
                       />
                     ) : (
                       <span className="material-symbols-outlined text-[36px] sm:text-[42px] text-primary" aria-hidden="true">
                         category
-                      </span>
-                    )}
-
-                    {/* Clean Status / Count Badge */}
-                    {hasProducts ? (
-                      <span
-                        aria-hidden="true"
-                        className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-full bg-surface-container-lowest/95 text-primary border border-primary/25 shadow-2xs leading-none"
-                      >
-                        {cat.productCount}
-                      </span>
-                    ) : (
-                      <span
-                        aria-hidden="true"
-                        className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-surface-container-high/90 text-on-surface-variant/80 border border-outline-variant/30 leading-none"
-                      >
-                        Soon
                       </span>
                     )}
                   </div>
@@ -661,26 +646,6 @@ export function CatalogueClient({
               );
             })}
           </div>
-
-          {/* Bottom See All / Show Less Button */}
-          {categories.length > 7 && (
-            <div className="flex justify-center mt-3.5 sm:mt-5">
-              <button
-                type="button"
-                onClick={() => setShowAllCategories((p) => !p)}
-                className="px-5 sm:px-6 py-2 sm:py-2.5 rounded-full border border-primary/30 text-xs sm:text-sm font-bold text-primary hover:bg-primary hover:text-white transition-all shadow-2xs flex items-center gap-2 cursor-pointer bg-surface-container-lowest active:scale-95"
-              >
-                <span>
-                  {showAllCategories
-                    ? "Show Less (2 Rows)"
-                    : `See All ${categories.length} Categories`}
-                </span>
-                <span className="material-symbols-outlined text-[18px]">
-                  {showAllCategories ? "keyboard_arrow_up" : "keyboard_arrow_down"}
-                </span>
-              </button>
-            </div>
-          )}
         </section>
 
         {/* 5. Quick Reorder / Frequent Kirana Restock Strip (Placed Below Categories) */}

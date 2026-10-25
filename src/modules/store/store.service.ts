@@ -54,7 +54,7 @@ export function getCategoryFallbackPhoto(name: string): string {
     return "/media/products/58dc49501050f36a/original.png";
   }
   if (n.includes("tea") || n.includes("beverage") || n.includes("coffee") || n.includes("sugar")) {
-    return "/media/products/5280b3616ee09cd5/original.png";
+    return "/media/products/d30051862d4bce69/original.png";
   }
   if (n.includes("cereal") || n.includes("food") || n.includes("daliya") || n.includes("sattu")) {
     return "/media/products/230691785f964164/original.png";
@@ -78,28 +78,28 @@ export function getCategoryFallbackPhoto(name: string): string {
     return "/brand/mdh-logo.png";
   }
   if (n.includes("pulse") || n.includes("dal")) {
-    return "/brand/dawat.svg";
+    return "/media/products/71a8ec294bf844a9/original.png";
   }
   if (n.includes("dry fruit") || n.includes("kaju") || n.includes("badam") || n.includes("nut")) {
-    return "/brand/regency.svg";
+    return "/media/products/dbac71f75f51870f/original.jpg";
   }
   if (n.includes("sauce") || n.includes("ketchup") || n.includes("pickle") || n.includes("jam")) {
-    return "/brand/nilons.svg";
+    return "/media/products/3edf3a95842a992a/original.png";
   }
   if (n.includes("sweet") || n.includes("mithai")) {
-    return "/brand/bikaji.svg";
-  }
-  if (n.includes("baby")) {
-    return "/brand/himalaya.svg";
+    return "/media/products/5280b3616ee09cd5/original.png";
   }
   if (n.includes("beauty") || n.includes("grooming") || n.includes("skin")) {
-    return "/brand/himalaya.svg";
+    return "/media/products/8e4b5b81ca3bf9ad/original.png";
+  }
+  if (n.includes("baby")) {
+    return "/media/products/8763e34c64e05363/original.png";
   }
   if (n.includes("gift") || n.includes("hamper")) {
-    return "/brand/banner-snacks.jpg";
+    return "/media/products/ae1e5992544b29ab/original.png";
   }
   if (n.includes("electronic") || n.includes("battery") || n.includes("appliance")) {
-    return "/brand/eveready.svg";
+    return "/brand/jmd-cart-logo.png";
   }
   return "/brand/jmd-cart-logo.png";
 }
