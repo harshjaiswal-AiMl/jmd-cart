@@ -80,13 +80,8 @@ export function CatalogueClient({
   const [inStockOnly, setInStockOnly] = useState(currentInStockOnly);
   const [sortBy, setSortBy] = useState<"name" | "price-asc" | "price-desc">("name");
 
-  // Category Rail Horizontal Scroll Reference (Senior UX)
-  const categoryScrollRef = useRef<HTMLDivElement>(null);
-  const scrollCategories = (offset: number) => {
-    if (categoryScrollRef.current) {
-      categoryScrollRef.current.scrollBy({ left: offset, behavior: "smooth" });
-    }
-  };
+  // Category Grid Collapse / Expand State (2 rows by default, See All option)
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   // Cart Optimistic State (supports local guest storage + DB sync)
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>(initialCartQuantities);
@@ -523,147 +518,169 @@ export function CatalogueClient({
         {/* 3. Regional Guarantee Strip */}
         <TrustRegionalStrip />
 
-        {/* 4. Shop by Category (Zepto / Blinkit Visual Category Explorer) */}
+        {/* 4. Shop by Category (Zepto / Blinkit 2-Row Visual Category Grid) */}
         <section id="categories" className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 pt-5 pb-3">
-          <div className="flex items-center justify-between mb-3.5">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-[20px]">category</span>
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-[22px]">category</span>
               </div>
               <div>
                 <h2 className="font-headline text-base sm:text-lg lg:text-xl font-bold text-on-surface leading-none">
                   Shop by Category
                 </h2>
-                <p className="text-[11px] text-on-surface-variant font-medium mt-0.5 hidden sm:block">
-                  Explore {categories.length} FMCG &amp; grocery aisles with real-time warehouse stock
+                <p className="text-[11px] sm:text-xs text-on-surface-variant font-medium mt-1">
+                  Explore FMCG aisles with live warehouse stock
                 </p>
               </div>
             </div>
 
-            {selectedCategory && (
-              <button
-                onClick={() => handleCategorySelect("")}
-                className="px-3 py-1.5 rounded-full text-xs font-bold text-primary bg-primary/10 hover:bg-primary hover:text-white transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
-              >
-                <span>View All Aisles</span>
-                <span className="material-symbols-outlined text-[13px]">close</span>
-              </button>
-            )}
-          </div>
-
-          {/* Blinkit/Zepto Category Rail with Floating Desktop Navigation Arrows */}
-          <div className="relative group">
-            {/* Left Floating Arrow Button */}
-            <button
-              type="button"
-              onClick={() => scrollCategories(-340)}
-              aria-label="Scroll categories left"
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 z-20 w-9 h-9 rounded-full bg-surface-container-lowest/95 backdrop-blur-md border border-outline-variant/60 shadow-md flex items-center justify-center text-on-surface hover:bg-primary hover:text-white transition-all active:scale-90 hidden md:flex cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[20px]">chevron_left</span>
-            </button>
-
-            {/* Right Floating Arrow Button */}
-            <button
-              type="button"
-              onClick={() => scrollCategories(340)}
-              aria-label="Scroll categories right"
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 z-20 w-9 h-9 rounded-full bg-surface-container-lowest/95 backdrop-blur-md border border-outline-variant/60 shadow-md flex items-center justify-center text-on-surface hover:bg-primary hover:text-white transition-all active:scale-90 hidden md:flex cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[20px]">chevron_right</span>
-            </button>
-
-            {/* Scrollable Container */}
-            <div
-              ref={categoryScrollRef}
-              className="flex items-start gap-3 sm:gap-4 overflow-x-auto pb-3 pt-1 scrollbar-none px-1 scroll-smooth snap-x"
-            >
-              {/* All Staples Master Tile */}
-              <button
-                onClick={() => handleCategorySelect("")}
-                className="group flex flex-col items-center shrink-0 w-[80px] sm:w-[96px] md:w-[104px] text-center transition-all focus:outline-none snap-start cursor-pointer"
-              >
-                <div
-                  className={`w-[74px] h-[74px] sm:w-[90px] sm:h-[90px] md:w-[98px] md:h-[98px] rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center p-2.5 transition-all duration-200 border ${
-                    !selectedCategory
-                      ? "bg-primary text-on-primary border-primary shadow-md scale-102 ring-4 ring-primary/20"
-                      : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/40 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md hover:-translate-y-0.5 shadow-2xs"
-                  }`}
+            <div className="flex items-center gap-2">
+              {/* Category Quick Reset if filtered */}
+              {selectedCategory && (
+                <button
+                  onClick={() => handleCategorySelect("")}
+                  className="px-3 py-1.5 rounded-full text-xs font-bold text-primary bg-primary/10 hover:bg-primary hover:text-white transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[32px] sm:text-[36px]" aria-hidden="true">
-                    storefront
+                  <span>View All Aisles</span>
+                  <span className="material-symbols-outlined text-[13px]">close</span>
+                </button>
+              )}
+
+              {/* See All / Collapse Toggle in Header */}
+              {categories.length > 7 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllCategories((p) => !p)}
+                  className="text-xs font-bold text-primary hover:text-primary/80 transition-colors flex items-center gap-1 py-1.5 px-3 rounded-full bg-primary/10 hover:bg-primary/20 cursor-pointer"
+                >
+                  <span>{showAllCategories ? "Show 2 Rows" : `See All (${categories.length})`}</span>
+                  <span className="material-symbols-outlined text-[16px]">
+                    {showAllCategories ? "expand_less" : "expand_more"}
                   </span>
-                </div>
-                <span
-                  className={`text-[11px] sm:text-xs font-bold mt-2 text-center leading-tight transition-colors line-clamp-1 ${
-                    !selectedCategory ? "text-primary font-black" : "text-on-surface group-hover:text-primary"
-                  }`}
-                >
-                  All Staples
-                </span>
-              </button>
-
-              {/* Dynamic Categories from Database */}
-              {categories.map((cat) => {
-                const isSelected = selectedCategory === cat.id;
-                const hasProducts = typeof cat.productCount === "number" && cat.productCount > 0;
-
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => handleCategorySelect(cat.id)}
-                    className="group flex flex-col items-center shrink-0 w-[80px] sm:w-[96px] md:w-[104px] text-center transition-all focus:outline-none snap-start cursor-pointer"
-                  >
-                    <div
-                      className={`w-[74px] h-[74px] sm:w-[90px] sm:h-[90px] md:w-[98px] md:h-[98px] rounded-2xl sm:rounded-3xl flex items-center justify-center p-2.5 relative overflow-hidden transition-all duration-200 border ${
-                        isSelected
-                          ? "bg-primary/10 border-2 border-primary shadow-md scale-102 ring-4 ring-primary/20"
-                          : "bg-surface-container-lowest border-outline-variant/40 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md hover:-translate-y-0.5 shadow-2xs"
-                      }`}
-                    >
-                      {cat.imageUrl ? (
-                        <img
-                          src={cat.imageUrl}
-                          alt=""
-                          aria-hidden="true"
-                          className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-xs"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <span className="material-symbols-outlined text-[32px] text-primary" aria-hidden="true">
-                          category
-                        </span>
-                      )}
-
-                      {/* Status / Count Badge */}
-                      {hasProducts ? (
-                        <span
-                          aria-hidden="true"
-                          className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-surface-container-lowest/95 text-primary border border-primary/20 shadow-2xs leading-none"
-                        >
-                          {cat.productCount}
-                        </span>
-                      ) : (
-                        <span
-                          aria-hidden="true"
-                          className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-surface-container-high/90 text-on-surface-variant/80 border border-outline-variant/30 leading-none"
-                        >
-                          Soon
-                        </span>
-                      )}
-                    </div>
-                    <span
-                      className={`text-[11px] sm:text-xs font-bold mt-2 text-center leading-tight transition-colors line-clamp-2 max-w-[80px] sm:max-w-[96px] ${
-                        isSelected ? "text-primary font-black" : "text-on-surface group-hover:text-primary"
-                      }`}
-                    >
-                      {cat.name}
-                    </span>
-                  </button>
-                );
-              })}
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Blinkit/Zepto 2-Row Responsive Category Grid (No Scroll - Large Tiles) */}
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2.5 sm:gap-3.5 lg:gap-4">
+            {/* Tile 0: All Staples Master Card */}
+            <button
+              onClick={() => handleCategorySelect("")}
+              className="flex flex-col items-center group cursor-pointer focus:outline-none transition-transform hover:-translate-y-1 text-center"
+            >
+              <div
+                className={`w-full aspect-square rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center p-3 sm:p-4 transition-all duration-200 border ${
+                  !selectedCategory
+                    ? "bg-primary text-on-primary border-primary shadow-md ring-4 ring-primary/20"
+                    : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/40 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md shadow-2xs"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[34px] sm:text-[42px] lg:text-[48px]" aria-hidden="true">
+                  storefront
+                </span>
+              </div>
+              <span
+                className={`text-xs sm:text-sm font-bold sm:font-extrabold mt-2 text-center leading-tight transition-colors line-clamp-1 ${
+                  !selectedCategory ? "text-primary font-black" : "text-on-surface group-hover:text-primary"
+                }`}
+              >
+                All Staples
+              </span>
+            </button>
+
+            {/* Dynamic Categories from Database */}
+            {categories.map((cat, idx) => {
+              const isSelected = selectedCategory === cat.id;
+              const hasProducts = typeof cat.productCount === "number" && cat.productCount > 0;
+
+              // 2-Row Display Logic:
+              // - Items 0..6 (with All Staples = 8 cards) are visible on mobile (4x2 = 2 rows).
+              // - Items 7..14 are hidden on mobile but visible on sm/lg (6x2 or 8x2 = 2 rows on desktop).
+              // - Items 15+ are shown only when showAllCategories is true.
+              const isHiddenOnMobile = !showAllCategories && idx >= 7 && idx < 15;
+              const isHiddenOnAll = !showAllCategories && idx >= 15;
+
+              if (isHiddenOnAll) return null;
+
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategorySelect(cat.id)}
+                  className={`flex flex-col items-center group cursor-pointer focus:outline-none transition-transform hover:-translate-y-1 text-center ${
+                    isHiddenOnMobile ? "hidden sm:flex" : "flex"
+                  }`}
+                >
+                  <div
+                    className={`w-full aspect-square rounded-2xl sm:rounded-3xl flex items-center justify-center p-3 sm:p-4 relative overflow-hidden transition-all duration-200 border ${
+                      isSelected
+                        ? "bg-primary/10 border-2 border-primary shadow-md ring-4 ring-primary/20 scale-102"
+                        : "bg-surface-container-lowest border-outline-variant/40 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md shadow-2xs"
+                    }`}
+                  >
+                    {cat.imageUrl ? (
+                      <img
+                        src={cat.imageUrl}
+                        alt=""
+                        aria-hidden="true"
+                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-sm"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="material-symbols-outlined text-[36px] sm:text-[42px] text-primary" aria-hidden="true">
+                        category
+                      </span>
+                    )}
+
+                    {/* Clean Status / Count Badge */}
+                    {hasProducts ? (
+                      <span
+                        aria-hidden="true"
+                        className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-full bg-surface-container-lowest/95 text-primary border border-primary/25 shadow-2xs leading-none"
+                      >
+                        {cat.productCount}
+                      </span>
+                    ) : (
+                      <span
+                        aria-hidden="true"
+                        className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-surface-container-high/90 text-on-surface-variant/80 border border-outline-variant/30 leading-none"
+                      >
+                        Soon
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={`text-xs sm:text-sm font-bold sm:font-extrabold mt-2 text-center leading-tight line-clamp-2 ${
+                      isSelected ? "text-primary font-black" : "text-on-surface group-hover:text-primary"
+                    }`}
+                  >
+                    {cat.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Bottom See All / Show Less Button */}
+          {categories.length > 7 && (
+            <div className="flex justify-center mt-3.5 sm:mt-5">
+              <button
+                type="button"
+                onClick={() => setShowAllCategories((p) => !p)}
+                className="px-5 sm:px-6 py-2 sm:py-2.5 rounded-full border border-primary/30 text-xs sm:text-sm font-bold text-primary hover:bg-primary hover:text-white transition-all shadow-2xs flex items-center gap-2 cursor-pointer bg-surface-container-lowest active:scale-95"
+              >
+                <span>
+                  {showAllCategories
+                    ? "Show Less (2 Rows)"
+                    : `See All ${categories.length} Categories`}
+                </span>
+                <span className="material-symbols-outlined text-[18px]">
+                  {showAllCategories ? "keyboard_arrow_up" : "keyboard_arrow_down"}
+                </span>
+              </button>
+            </div>
+          )}
         </section>
 
         {/* 5. Quick Reorder / Frequent Kirana Restock Strip (Placed Below Categories) */}
