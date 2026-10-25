@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { loginAction, LoginActionState } from "./actions";
 
@@ -11,9 +12,16 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-[#790E11] hover:bg-[#5E0A0D] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#790E11] disabled:opacity-50 transition-colors cursor-pointer"
+      className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-xs text-white bg-primary hover:bg-primary-container focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 transition-all shadow-md active:scale-95 cursor-pointer"
     >
-      {pending ? "Signing in..." : "Sign in"}
+      {pending ? (
+        <>
+          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
+          <span>Signing in...</span>
+        </>
+      ) : (
+        <span>Sign In</span>
+      )}
     </button>
   );
 }
@@ -32,173 +40,202 @@ export function LoginClient({
     undefined
   );
 
+  const [showPassword, setShowPassword] = useState(false);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FEFDF7] py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-6 bg-white p-8 rounded-2xl shadow-sm border border-[#EAD9CC]">
-        <div className="text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/jmd-cart-logo.png"
-            alt="JMD Cart"
-            className="h-16 w-16 mx-auto object-contain mb-2"
-          />
-          <h2 className="text-2xl font-black text-[#790E11] tracking-tight">
-            JMD Cart
-          </h2>
-          <p className="text-xs font-semibold text-[#2A1010]/70">
-            Bharosa Ghar Tak.
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            Sign in to your IDMS distribution account
-          </p>
-        </div>
+    <div className="min-h-screen flex flex-col justify-between bg-surface font-body text-on-surface antialiased">
+      {/* 1. Sleek Navigation Header */}
+      <header className="sticky top-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-b border-surface-container-high/80 shadow-[0_1px_8px_rgba(92,12,30,0.04)]">
+        <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/jmd-cart-logo.png"
+              alt="JMD Cart"
+              className="h-9 w-auto object-contain transition-transform group-hover:scale-105 shrink-0"
+            />
+            <span className="font-headline text-xl sm:text-2xl font-bold tracking-tight text-primary">
+              JMD<span className="text-secondary">Cart</span>
+            </span>
+          </Link>
 
-        {setupRequired && (
-          <div className="rounded-xl bg-[#FFF1D6] p-4 border border-[#FDAF18] space-y-2">
-            <div className="text-xs font-black text-[#790E11] uppercase tracking-wider">
-              First-Run System Setup Required
-            </div>
-            <p className="text-xs text-[#2A1010]">
-              No Owner (Super Admin) account exists yet. Initialize the system and set your business details first.
-            </p>
+          {/* Header Right Actions */}
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link
-              href="/setup"
-              className="inline-block w-full text-center py-2 px-3 bg-[#790E11] hover:bg-[#5E0A0D] text-white font-bold text-xs rounded-lg transition-colors"
+              href="/store"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-low hover:bg-surface-container text-xs font-bold text-on-surface border border-outline-variant/60 transition-colors shadow-2xs"
             >
-              Start First-Run Setup →
+              <span className="material-symbols-outlined text-[17px] text-primary">storefront</span>
+              <span className="hidden sm:inline">Storefront</span>
             </Link>
-          </div>
-        )}
 
-        {setupComplete && (
-          <div className="rounded-xl bg-[#E3F3E6] p-4 border border-[#075828]/30 text-xs font-bold text-[#075828]">
-            ✓ First-run setup completed! Sign in below with your Owner mobile number and password.
+            <a
+              href="tel:+916278223400"
+              className="hidden xs:flex items-center gap-1 text-xs font-semibold text-on-surface-variant hover:text-primary transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px] text-primary">call</span>
+              <span>Helpline: +91 6278 223400</span>
+            </a>
           </div>
-        )}
+        </div>
+      </header>
 
-        {state?.error && (
-          <div className="rounded-md bg-red-50 p-4 border border-red-200">
-            <div className="flex">
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">
-                  {state.error}
-                </h3>
+      {/* 2. Main Login Form Section */}
+      <main className="flex-1 flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-6 bg-surface-container-lowest p-6 sm:p-8 rounded-3xl shadow-xl border border-surface-container-high/90">
+          <div className="text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/jmd-cart-logo.png"
+              alt="JMD Cart"
+              className="h-14 w-14 mx-auto object-contain mb-3 drop-shadow-sm"
+            />
+            <h1 className="text-2xl font-black font-headline text-primary tracking-tight">
+              Welcome Back
+            </h1>
+            <p className="mt-1 text-xs text-on-surface-variant">
+              Sign in to your JMD Cart account
+            </p>
+          </div>
+
+          {setupRequired && (
+            <div className="rounded-2xl bg-amber-50 p-4 border border-amber-200 space-y-2">
+              <div className="text-xs font-black text-amber-900 uppercase tracking-wider">
+                First-Run System Setup Required
               </div>
-            </div>
-          </div>
-        )}
-
-        <form className="mt-6 space-y-5" action={formAction}>
-          <input
-            type="hidden"
-            name="callbackUrl"
-            value={callbackUrl}
-          />
-
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="phone"
-                className="block text-xs font-bold text-[#2A1010]"
+              <p className="text-xs text-amber-800">
+                No Super Admin account exists yet. Initialize the system and set your business details first.
+              </p>
+              <Link
+                href="/setup"
+                className="inline-block w-full text-center py-2 px-3 bg-primary hover:bg-primary-container text-white font-bold text-xs rounded-xl transition-colors shadow-xs"
               >
-                Mobile Number or Email
+                Start First-Run Setup →
+              </Link>
+            </div>
+          )}
+
+          {setupComplete && (
+            <div className="rounded-2xl bg-emerald-50 p-4 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-emerald-600">check_circle</span>
+              <span>First-run setup completed! Sign in below with your mobile number and password.</span>
+            </div>
+          )}
+
+          {state?.error && (
+            <div className="rounded-xl bg-error-container/40 p-3.5 border border-error/20 text-xs text-error font-medium flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] shrink-0">error</span>
+              <span>{state.error}</span>
+            </div>
+          )}
+
+          <form className="space-y-4" action={formAction}>
+            <input type="hidden" name="callbackUrl" value={callbackUrl} />
+
+            <div>
+              <label htmlFor="phone" className="block text-xs font-bold text-on-surface mb-1">
+                Mobile Number or Email *
               </label>
-              <div className="mt-1">
+              <div className="relative flex items-center">
+                <span className="material-symbols-outlined absolute left-3 text-outline text-[18px] pointer-events-none">
+                  person
+                </span>
                 <input
                   id="phone"
                   name="phone"
                   type="text"
                   required
                   autoComplete="username"
-                  placeholder="10-digit mobile number or email"
-                  className="appearance-none block w-full px-3 py-2 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11] text-xs text-[#2A1010]"
+                  placeholder="10-digit mobile or email address"
+                  className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-outline-variant/60 rounded-xl placeholder:text-outline/60 focus:outline-none focus:ring-2 focus:ring-primary text-xs text-on-surface font-medium transition-colors"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label
-                  htmlFor="password"
-                  className="block text-xs font-bold text-[#2A1010]"
-                >
-                  Password
+                <label htmlFor="password" className="block text-xs font-bold text-on-surface">
+                  Password *
                 </label>
                 <Link
                   href="/forgot-password"
-                  className="text-[11px] font-bold text-[#790E11] hover:underline"
+                  className="text-[11px] font-bold text-primary hover:underline transition-colors"
                 >
                   Forgot password?
                 </Link>
               </div>
-              <div>
+              <div className="relative flex items-center">
+                <span className="material-symbols-outlined absolute left-3 text-outline text-[18px] pointer-events-none">
+                  lock
+                </span>
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   autoComplete="current-password"
                   placeholder="Enter your password"
-                  className="appearance-none block w-full px-3 py-2 border border-[#EAD9CC] rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11] text-xs text-[#2A1010]"
+                  className="w-full pl-9 pr-10 py-2.5 bg-white border border-outline-variant/60 rounded-xl placeholder:text-outline/60 focus:outline-none focus:ring-2 focus:ring-primary text-xs text-on-surface font-medium transition-colors"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((p) => !p)}
+                  className="absolute right-3 text-outline hover:text-on-surface p-0.5 rounded cursor-pointer transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  <span className="material-symbols-outlined text-[18px]">
+                    {showPassword ? "visibility_off" : "visibility"}
+                  </span>
+                </button>
               </div>
             </div>
-          </div>
 
-          <div>
-            <SubmitButton />
-          </div>
-
-          {/* Quick Demo Test Access */}
-          <div className="p-3 bg-[#FFF9ED] rounded-xl border border-[#FDAF18]/40 space-y-2 text-xs">
-            <div className="font-bold text-[#790E11] flex items-center justify-between">
-              <span>⚡ Quick Test Credentials:</span>
+            <div className="pt-2">
+              <SubmitButton />
             </div>
-            <div className="flex flex-col gap-1.5 text-[11px] text-[#2A1010]">
-              <button
-                type="button"
-                onClick={() => {
-                  const phoneInput = document.getElementById("phone") as HTMLInputElement;
-                  const passInput = document.getElementById("password") as HTMLInputElement;
-                  if (phoneInput && passInput) {
-                    phoneInput.value = "9999999999";
-                    passInput.value = "Password@123";
-                  }
-                }}
-                className="text-left p-1.5 bg-white rounded-lg border border-[#EAD9CC] hover:border-[#790E11] transition-colors flex justify-between items-center"
+
+            <div className="pt-3 text-center text-xs text-on-surface-variant border-t border-surface-container-high/60">
+              <span>New to JMD Cart? </span>
+              <Link
+                href="/register"
+                className="font-bold text-primary hover:underline ml-1"
               >
-                <span><strong>Buyer:</strong> 9999999999 / Password@123</span>
-                <span className="text-[#790E11] font-bold">Auto-Fill</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const phoneInput = document.getElementById("phone") as HTMLInputElement;
-                  const passInput = document.getElementById("password") as HTMLInputElement;
-                  if (phoneInput && passInput) {
-                    phoneInput.value = "9876543210";
-                    passInput.value = "Password@123";
-                  }
-                }}
-                className="text-left p-1.5 bg-white rounded-lg border border-[#EAD9CC] hover:border-[#790E11] transition-colors flex justify-between items-center"
-              >
-                <span><strong>Admin:</strong> 9876543210 / Password@123</span>
-                <span className="text-[#790E11] font-bold">Auto-Fill</span>
-              </button>
+                Create an account →
+              </Link>
             </div>
+          </form>
+        </div>
+      </main>
+
+      {/* 3. Clean Professional Footer */}
+      <footer className="border-t border-surface-container-high/80 bg-surface-container-lowest/60 py-6 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1240px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-on-surface-variant">
+          <div className="flex items-center gap-2 text-center sm:text-left">
+            <span className="font-bold text-primary">JMD Cart Saharsa</span>
+            <span>•</span>
+            <span>Genuine FMCG &amp; Wholesale Grocery</span>
           </div>
 
-          <div className="pt-3 text-center text-xs text-gray-600 border-t border-[#EAD9CC]">
-            <span>New Retailer or Customer? </span>
-            <Link
-              href="/register"
-              className="font-bold text-[#790E11] hover:underline"
-            >
-              Create an account →
+          <div className="flex items-center gap-4 text-[11px] font-semibold text-outline">
+            <Link href="/privacy" className="hover:text-primary transition-colors">
+              Privacy
+            </Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:text-primary transition-colors">
+              Terms
+            </Link>
+            <span>•</span>
+            <Link href="/refund-policy" className="hover:text-primary transition-colors">
+              Refunds
+            </Link>
+            <span>•</span>
+            <Link href="/cookie-policy" className="hover:text-primary transition-colors">
+              Cookies
             </Link>
           </div>
-        </form>
-      </div>
+        </div>
+      </footer>
     </div>
   );
 }
