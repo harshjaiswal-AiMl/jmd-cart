@@ -8,23 +8,15 @@ interface LegalPolicyLayoutProps {
   subtitle: string;
   lastUpdated: string;
   badge?: string;
-  activePath?: "/privacy" | "/terms" | "/cookie-policy" | "/refund-policy" | string;
+  activePath?: string;
   children: React.ReactNode;
 }
-
-const LEGAL_NAV_TABS = [
-  { label: "Terms of Service", href: "/terms" },
-  { label: "Privacy Policy", href: "/privacy" },
-  { label: "Refund & Cancellation", href: "/refund-policy" },
-  { label: "Cookie Policy", href: "/cookie-policy" },
-];
 
 export function LegalPolicyLayout({
   title,
   subtitle,
   lastUpdated,
   badge = "Customer & Merchant Protection",
-  activePath = "/terms",
   children,
 }: LegalPolicyLayoutProps) {
   return (
@@ -70,30 +62,10 @@ export function LegalPolicyLayout({
                   <span>Updated: <strong className="text-on-surface font-semibold">{lastUpdated}</strong></span>
                 </div>
                 <div className="flex items-center gap-1.5 bg-surface-container-lowest px-3 py-1.5 rounded-xl border border-surface-container-high shadow-2xs text-on-surface-variant">
-                  <span className="material-symbols-outlined text-[15px] text-primary">location_on</span>
-                  <span className="text-on-surface font-semibold">Saharsa, Bihar</span>
+                  <span className="material-symbols-outlined text-[15px] text-primary">verified</span>
+                  <span className="text-on-surface font-semibold">Official Policy</span>
                 </div>
               </div>
-            </div>
-
-            {/* Seamless Legal Document Switcher Tabs */}
-            <div className="pt-4 border-t border-surface-container-high flex items-center gap-2 overflow-x-auto scrollbar-none">
-              {LEGAL_NAV_TABS.map((tab) => {
-                const isActive = activePath === tab.href;
-                return (
-                  <Link
-                    key={tab.href}
-                    href={tab.href}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                      isActive
-                        ? "bg-primary text-on-primary shadow-xs"
-                        : "bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container border border-surface-container-high"
-                    }`}
-                  >
-                    {tab.label}
-                  </Link>
-                );
-              })}
             </div>
           </div>
         </section>
@@ -114,7 +86,7 @@ export function LegalPolicyLayout({
                 <div className="space-y-1 text-xs">
                   <h4 className="font-bold text-on-surface">Questions regarding this policy?</h4>
                   <p className="text-on-surface-variant text-[11px] leading-relaxed">
-                    Our customer desk in Purab Bazar, Saharsa is available Mon-Sat, 9 AM - 8 PM IST.
+                    Our dedicated customer desk is available Mon-Sat, 9 AM - 8 PM IST.
                   </p>
                   <a
                     href="tel:+916278223400"
