@@ -203,18 +203,29 @@ export class DispatchService {
         orderBy: { createdAt: "desc" },
         take: 50,
       }),
-      // Live feed of shop counter sales
+      // Live feed of shop counter sales & packing queue
       prisma.invoice.findMany({
-        where: { channel: InvoiceChannel.SHOP },
         orderBy: { createdAt: "desc" },
         take: 50,
         include: {
-          party: { select: { name: true } },
-          creator: { select: { name: true } },
+          party: { select: { id: true, name: true, phone: true } },
+          creator: { select: { id: true, name: true } },
           items: {
             include: {
-              product: { select: { id: true, name: true, packSize: true, reorderLevel: true } },
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  shortCode: true,
+                  packSize: true,
+                  packLabel: true,
+                  reorderLevel: true,
+                },
+              },
             },
+          },
+          counterPickups: {
+            orderBy: { createdAt: "desc" },
           },
         },
       }),
@@ -497,6 +508,102 @@ export class DispatchService {
       entity: "CounterPickup",
       entityId: pickupId,
       after: { status: CounterPickupStatus.COMPLETED },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Update packing / fulfillment status for an invoice or counter pickup.
+   * Statuses: PENDING -> PACKING -> PACKED -> COMPLETED
+   */
+  async updatePackingStatus(
+    input: {
+      pickupId?: string;
+      invoiceId?: string;
+      status: "PENDING" | "PACKING" | "PACKED" | "COMPLETED";
+      items?: any;
+      notes?: string;
+    },
+    actor: { id: string; name: string }
+  ) {
+    const { pickupId, invoiceId, status, items, notes } = input;
+
+    let targetPickupId = pickupId;
+
+    if (!targetPickupId && invoiceId) {
+      // Find existing or lazy-create for this invoice
+      const existing = await prisma.counterPickup.findFirst({
+        where: { invoiceId },
+      });
+      if (existing) {
+        targetPickupId = existing.id;
+      } else {
+        const inv = await prisma.invoice.findUnique({
+          where: { id: invoiceId },
+          include: {
+            items: {
+              include: {
+                product: { select: { id: true, name: true, shortCode: true, packSize: true, packLabel: true } },
+              },
+            },
+            creator: { select: { name: true } },
+          },
+        });
+        if (!inv) throw new Error("Invoice not found");
+
+        const created = await prisma.counterPickup.create({
+          data: {
+            invoiceId: inv.id,
+            billNumber: inv.number,
+            cashierName: inv.creator?.name || "Cashier",
+            status: status === "COMPLETED" ? CounterPickupStatus.COMPLETED : CounterPickupStatus.PENDING,
+            notes: notes || `[${status}] Started by ${actor.name}`,
+            items: inv.items.map((line) => {
+              const packSize = line.product?.packSize || 1;
+              const cartons = packSize > 1 ? Math.floor(line.qty / packSize) : 0;
+              const loose = packSize > 1 ? line.qty % packSize : line.qty;
+              return {
+                productId: line.productId,
+                productName: line.product?.name || line.productId,
+                shortCode: line.product?.shortCode || "",
+                packSize,
+                packLabel: line.product?.packLabel || "Carton",
+                qty: line.qty,
+                cartons,
+                loose,
+                packed: status === "PACKED" || status === "COMPLETED",
+              };
+            }),
+          },
+        });
+        targetPickupId = created.id;
+      }
+    }
+
+    if (!targetPickupId) {
+      throw new Error("Either pickupId or invoiceId must be provided");
+    }
+
+    const counterStatus =
+      status === "COMPLETED" ? CounterPickupStatus.COMPLETED : CounterPickupStatus.PENDING;
+
+    const updated = await prisma.counterPickup.update({
+      where: { id: targetPickupId },
+      data: {
+        status: counterStatus,
+        notes: notes || `[${status}] Updated by ${actor.name} at ${new Date().toLocaleTimeString()}`,
+        ...(status === "COMPLETED" ? { completedAt: new Date() } : {}),
+        ...(items ? { items } : {}),
+      },
+    });
+
+    await auditService.log({
+      actorId: actor.id,
+      action: "UPDATE_PACKING_STATUS",
+      entity: "CounterPickup",
+      entityId: targetPickupId,
+      after: { status, notes: updated.notes },
     });
 
     return updated;

@@ -94,6 +94,52 @@ export class CatalogService {
     return created;
   }
 
+  async bulkCreateProducts(
+    actorRole: UserRole,
+    actorId: string,
+    items: Array<any>,
+    ip?: string
+  ): Promise<{ createdCount: number; errors: Array<{ index: number; name: string; error: string }> }> {
+    assertPermission(actorRole, Permission.MANAGE_PRODUCTS);
+    let createdCount = 0;
+    const errors: Array<{ index: number; name: string; error: string }> = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      try {
+        const parsed = createProductSchema.parse(item);
+        const existing = await catalogRepository.findProductByShortCode(parsed.shortCode);
+        if (existing) {
+          throw new DuplicateShortCodeError(parsed.shortCode);
+        }
+        const created = await catalogRepository.createProduct(parsed);
+        createdCount++;
+        await auditService.log({
+          actorId,
+          action: "PRODUCT_CREATED",
+          entity: "Product",
+          entityId: created.id,
+          after: {
+            name: created.name,
+            shortCode: created.shortCode,
+            mrpPaise: created.mrpPaise,
+            gstRateBp: created.gstRateBp,
+            packSize: created.packSize,
+          },
+          ip,
+        });
+      } catch (err: any) {
+        errors.push({
+          index: i,
+          name: item?.name || `Row ${i + 1}`,
+          error: err?.message || "Failed to create",
+        });
+      }
+    }
+
+    return { createdCount, errors };
+  }
+
   async updateProduct(
     actorRole: UserRole,
     actorId: string,

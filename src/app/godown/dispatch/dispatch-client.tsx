@@ -25,6 +25,7 @@ import {
   handoverDispatchRunAction,
   handleFailedDeliveryAction,
   completeCounterPickupAction,
+  updatePackingStatusAction,
 } from "./actions";
 
 interface Props {
@@ -32,6 +33,84 @@ interface Props {
   vans: Array<{ id: string; name: string }>;
   deliveryStaff: Array<{ id: string; name: string }>;
   userRole: string;
+}
+
+function getPackingState(saleOrPickup: any) {
+  const pickup = saleOrPickup.counterPickups ? saleOrPickup.counterPickups[0] : saleOrPickup;
+  if (!pickup) {
+    return {
+      status: "PENDING" as const,
+      label: "Needs Packing",
+      badgeClass: "bg-amber-100 text-amber-900 border-amber-300",
+      pickupId: null,
+    };
+  }
+  if (pickup.status === "COMPLETED") {
+    return {
+      status: "COMPLETED" as const,
+      label: "Handed Over",
+      badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300",
+      pickupId: pickup.id,
+    };
+  }
+  const notes = pickup.notes || "";
+  if (notes.startsWith("[PACKED]")) {
+    return {
+      status: "PACKED" as const,
+      label: "Packed & Ready",
+      badgeClass: "bg-purple-100 text-purple-800 border-purple-300",
+      pickupId: pickup.id,
+    };
+  }
+  if (notes.startsWith("[PACKING]")) {
+    return {
+      status: "PACKING" as const,
+      label: "Packing In Progress",
+      badgeClass: "bg-blue-100 text-blue-800 border-blue-300",
+      pickupId: pickup.id,
+    };
+  }
+  return {
+    status: "PENDING" as const,
+    label: "Needs Packing",
+    badgeClass: "bg-amber-100 text-amber-900 border-amber-300",
+    pickupId: pickup.id,
+  };
+}
+
+function renderPackBreakdown(qty: number, packSize: number, packLabel: string = "Carton") {
+  if (packSize <= 1) {
+    return <span className="font-bold text-gray-900">{qty} Pcs</span>;
+  }
+  const cartons = Math.floor(qty / packSize);
+  const loose = qty % packSize;
+
+  if (cartons > 0 && loose > 0) {
+    return (
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs">
+          📦 {cartons} {cartons > 1 ? packLabel + "s" : packLabel} ({cartons * packSize} pcs)
+        </span>
+        <span className="text-gray-400 font-bold">+</span>
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs">
+          🛍 {loose} Loose pcs
+        </span>
+        <span className="text-[11px] text-gray-500 font-medium">({qty} pcs total)</span>
+      </div>
+    );
+  } else if (cartons > 0) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs">
+        📦 {cartons} {cartons > 1 ? packLabel + "s" : packLabel} ({qty} pcs)
+      </span>
+    );
+  } else {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs">
+        🛍 {loose} Loose pcs
+      </span>
+    );
+  }
 }
 
 export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Props) {
@@ -43,6 +122,8 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
   const [notes, setNotes] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [packingFilter, setPackingFilter] = useState<"ALL" | "PENDING" | "PACKING" | "PACKED" | "COMPLETED">("ALL");
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
   const { loadSummary, orders, runs, counterPickups, recentShopSales, shopBalances } = boardData;
 
@@ -107,6 +188,36 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
     } else {
       setMessage({ type: "success", text: "Counter pickup completed and handed over!" });
     }
+  };
+
+  const handleUpdatePackingStatus = async (
+    target: { pickupId?: string; invoiceId?: string },
+    status: "PENDING" | "PACKING" | "PACKED" | "COMPLETED"
+  ) => {
+    setIsSubmitting(true);
+    setMessage(null);
+    const res = await updatePackingStatusAction({
+      pickupId: target.pickupId,
+      invoiceId: target.invoiceId,
+      status,
+    });
+    setIsSubmitting(false);
+
+    if (res.error) {
+      setMessage({ type: "error", text: res.error });
+    } else {
+      const statusLabels = {
+        PENDING: "Order reset to Pending packing",
+        PACKING: "Packing started! Status updated to In Progress",
+        PACKED: "Marked as Packed & Ready for Pickup!",
+        COMPLETED: "Handed over successfully!",
+      };
+      setMessage({ type: "success", text: statusLabels[status] });
+    }
+  };
+
+  const toggleCheckItem = (key: string) => {
+    setCheckedItems((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleFailDelivery = async (orderId: string) => {
@@ -215,7 +326,10 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
           }`}
         >
           <Receipt className="h-4 w-4" />
-          Shop Sales Feed &amp; Stock
+          Live Packing &amp; Shop Queue ({recentShopSales.filter((s: any) => {
+            const st = getPackingState(s);
+            return st.status === "PENDING" || st.status === "PACKING";
+          }).length} to pack)
         </button>
       </div>
 
@@ -616,83 +730,356 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
         </div>
       )}
 
-      {/* Tab 5: Shop Sales Feed & Stock Panel */}
+      {/* Tab 5: Warehouse Live Packing Queue & Shop Feed */}
       {activeTab === "shop-sales" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Shop Sales Feed (Read-only bills) */}
-          <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-maroon-800" />
-              Live Shop POS Bills (Read-Only)
-            </h2>
+        <div className="space-y-6">
+          {/* Header & Filter Controls */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Package className="h-6 w-6 text-maroon-800" />
+                Live Warehouse Packing &amp; Dispatch Queue
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Bills generated at POS / Shop automatically appear here. Review products, pack cartons/loose pieces, and update fulfillment status.
+              </p>
+            </div>
 
-            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50 text-gray-600 text-xs font-semibold uppercase">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Invoice #</th>
-                    <th className="px-4 py-3 text-left">Party / Buyer</th>
-                    <th className="px-4 py-3 text-left">Cashier</th>
-                    <th className="px-4 py-3 text-right">Items / Total</th>
-                    <th className="px-4 py-3 text-center">Time</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {recentShopSales.map((sale: any) => (
-                    <tr key={sale.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-semibold text-gray-900">
-                        <Link
-                          href={`/shop/invoices/${sale.id}`}
-                          className="text-maroon-800 hover:underline"
-                        >
-                          {sale.number}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-gray-700">{sale.party?.name || "Walk-in Customer"}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{sale.creator?.name || "Cashier"}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="font-semibold text-gray-900">₹{(sale.totalPaise / 100).toFixed(2)}</div>
-                        <div className="text-xs text-gray-500">{sale.items.length} lines</div>
-                      </td>
-                      <td className="px-4 py-3 text-center text-xs text-gray-400">
-                        {new Date(sale.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold shadow-sm transition"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh Feed
+              </button>
             </div>
           </div>
 
-          {/* Shop Stock Panel & Restock Suggestions */}
-          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm space-y-4 h-fit">
-            <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
-              <Store className="h-5 w-5 text-maroon-800" />
-              Shop Stock &amp; Restock Alerts
-            </h3>
+          {/* Filter Pills */}
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <span className="font-bold text-gray-600 mr-1">Status Filter:</span>
+            <button
+              type="button"
+              onClick={() => setPackingFilter("ALL")}
+              className={`px-3 py-1 rounded-full font-bold transition ${
+                packingFilter === "ALL"
+                  ? "bg-maroon-800 text-white shadow-sm"
+                  : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+              }`}
+            >
+              All ({recentShopSales.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPackingFilter("PENDING")}
+              className={`px-3 py-1 rounded-full font-bold transition ${
+                packingFilter === "PENDING"
+                  ? "bg-amber-500 text-gray-900 shadow-sm ring-1 ring-amber-600"
+                  : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
+              }`}
+            >
+              🟡 Needs Packing ({recentShopSales.filter((s: any) => getPackingState(s).status === "PENDING").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPackingFilter("PACKING")}
+              className={`px-3 py-1 rounded-full font-bold transition ${
+                packingFilter === "PACKING"
+                  ? "bg-blue-600 text-white shadow-sm"
+                  : "bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200"
+              }`}
+            >
+              🔵 Packing In Progress ({recentShopSales.filter((s: any) => getPackingState(s).status === "PACKING").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPackingFilter("PACKED")}
+              className={`px-3 py-1 rounded-full font-bold transition ${
+                packingFilter === "PACKED"
+                  ? "bg-purple-700 text-white shadow-sm"
+                  : "bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200"
+              }`}
+            >
+              🟣 Packed &amp; Ready ({recentShopSales.filter((s: any) => getPackingState(s).status === "PACKED").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPackingFilter("COMPLETED")}
+              className={`px-3 py-1 rounded-full font-bold transition ${
+                packingFilter === "COMPLETED"
+                  ? "bg-emerald-700 text-white shadow-sm"
+                  : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200"
+              }`}
+            >
+              🟢 Handed Over ({recentShopSales.filter((s: any) => getPackingState(s).status === "COMPLETED").length})
+            </button>
+          </div>
 
-            <div className="divide-y divide-gray-100 max-h-[500px] overflow-y-auto text-xs space-y-2">
-              {shopBalances.map((sb: any) => {
-                const isLow = sb.qty <= (sb.product.reorderLevel || 10);
-                return (
-                  <div key={sb.productId} className="py-2 flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-gray-800">{sb.product.name}</div>
-                      <div className="text-gray-400">Reorder Level: {sb.product.reorderLevel} pcs</div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`font-bold ${isLow ? "text-red-600" : "text-gray-900"}`}>
-                        {sb.qty} pcs
+          {/* Packing Orders Cards Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              {recentShopSales.filter((s: any) => {
+                if (packingFilter === "ALL") return true;
+                return getPackingState(s).status === packingFilter;
+              }).length === 0 ? (
+                <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-500">
+                  <Package className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                  <p className="font-semibold text-gray-700">No orders matching this filter</p>
+                  <p className="text-xs text-gray-400 mt-1">Switch filter to &apos;All&apos; or wait for new bills from the shop</p>
+                </div>
+              ) : (
+                recentShopSales
+                  .filter((s: any) => {
+                    if (packingFilter === "ALL") return true;
+                    return getPackingState(s).status === packingFilter;
+                  })
+                  .map((sale: any) => {
+                    const packingState = getPackingState(sale);
+                    const pickup = sale.counterPickups?.[0];
+
+                    return (
+                      <div
+                        key={sale.id}
+                        className={`bg-white rounded-xl border shadow-sm overflow-hidden transition-all ${
+                          packingState.status === "PENDING"
+                            ? "border-amber-300 ring-1 ring-amber-100"
+                            : packingState.status === "PACKING"
+                            ? "border-blue-300 ring-1 ring-blue-100"
+                            : packingState.status === "PACKED"
+                            ? "border-purple-300 ring-1 ring-purple-100"
+                            : "border-gray-200"
+                        }`}
+                      >
+                        {/* Order Card Header */}
+                        <div className="p-4 bg-gray-50/70 border-b border-gray-200 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono font-bold text-sm text-maroon-900 bg-maroon-50 px-2.5 py-1 rounded border border-maroon-200">
+                              {sale.number}
+                            </span>
+                            <div>
+                              <div className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
+                                <span>{sale.party?.name || "Walk-in Retail Customer"}</span>
+                                {sale.party?.phone && (
+                                  <span className="text-xs text-gray-500 font-normal">({sale.party.phone})</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
+                                <span>Cashier: <strong className="text-gray-700">{sale.creator?.name || "Cashier"}</strong></span>
+                                <span>•</span>
+                                <span>{new Date(sale.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-bold border ${packingState.badgeClass}`}
+                            >
+                              {packingState.label}
+                            </span>
+                            <div className="text-right">
+                              <div className="font-bold text-sm text-gray-900">
+                                ₹{(sale.totalPaise / 100).toFixed(2)}
+                              </div>
+                              <div className="text-[11px] text-gray-500">{sale.items.length} items</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Items Checklist & Packing Breakdown */}
+                        <div className="p-4 space-y-3">
+                          <div className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center justify-between border-b pb-2">
+                            <span>Packing Checklist (Item &amp; Carton Breakdown)</span>
+                            <span className="text-gray-400 font-normal lowercase">check off items as you pack</span>
+                          </div>
+
+                          <div className="divide-y divide-gray-100">
+                            {sale.items.map((item: any) => {
+                              const checkKey = `${sale.id}_${item.productId}`;
+                              const isChecked = !!checkedItems[checkKey] || packingState.status === "PACKED" || packingState.status === "COMPLETED";
+
+                              return (
+                                <div
+                                  key={item.id}
+                                  onClick={() => toggleCheckItem(checkKey)}
+                                  className={`py-2.5 px-2 flex items-center justify-between rounded-lg cursor-pointer transition ${
+                                    isChecked ? "bg-emerald-50/60" : "hover:bg-gray-50"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {}}
+                                      className="h-4 w-4 rounded text-maroon-800 focus:ring-maroon-800 border-gray-300 cursor-pointer"
+                                    />
+                                    <div>
+                                      <div className={`text-sm font-semibold ${isChecked ? "text-gray-500 line-through" : "text-gray-900"}`}>
+                                        {item.product?.name || item.productId}
+                                      </div>
+                                      <div className="text-xs text-gray-400 font-mono">
+                                        Code: {item.product?.shortCode || item.product?.sku || "N/A"}
+                                        {item.product?.packSize > 1 && ` • ${item.product.packSize} pcs/${item.product.packLabel || "Carton"}`}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-right">
+                                    {renderPackBreakdown(
+                                      item.qty,
+                                      item.product?.packSize || 1,
+                                      item.product?.packLabel || "Carton"
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Order Card Footer Actions */}
+                        <div className="p-3 bg-gray-50 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {packingState.status === "PENDING" && (
+                              <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={() =>
+                                  handleUpdatePackingStatus(
+                                    { invoiceId: sale.id, pickupId: pickup?.id },
+                                    "PACKING"
+                                  )
+                                }
+                                className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                              >
+                                <span>▶</span> Start Packing
+                              </button>
+                            )}
+
+                            {packingState.status === "PACKING" && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isSubmitting}
+                                  onClick={() =>
+                                    handleUpdatePackingStatus(
+                                      { invoiceId: sale.id, pickupId: pickup?.id },
+                                      "PACKED"
+                                    )
+                                  }
+                                  className="px-3.5 py-1.5 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                                >
+                                  <span>✓</span> Mark Packed &amp; Ready
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isSubmitting}
+                                  onClick={() =>
+                                    handleUpdatePackingStatus(
+                                      { invoiceId: sale.id, pickupId: pickup?.id },
+                                      "PENDING"
+                                    )
+                                  }
+                                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs font-medium"
+                                >
+                                  ↺ Reset
+                                </button>
+                              </>
+                            )}
+
+                            {packingState.status === "PACKED" && (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={isSubmitting}
+                                  onClick={() =>
+                                    handleUpdatePackingStatus(
+                                      { invoiceId: sale.id, pickupId: pickup?.id },
+                                      "COMPLETED"
+                                    )
+                                  }
+                                  className="px-3.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                                >
+                                  <span>🚀</span> Hand Over / Complete
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isSubmitting}
+                                  onClick={() =>
+                                    handleUpdatePackingStatus(
+                                      { invoiceId: sale.id, pickupId: pickup?.id },
+                                      "PACKING"
+                                    )
+                                  }
+                                  className="px-2.5 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs font-medium"
+                                >
+                                  ↺ Back to Packing
+                                </button>
+                              </>
+                            )}
+
+                            {packingState.status === "COMPLETED" && (
+                              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg flex items-center gap-1">
+                                <span>✓</span> Handed Over &amp; Completed
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`/shop/invoices/${sale.id}/print?format=thermal`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold shadow-sm transition"
+                            >
+                              <span>🖨</span> Print Slip
+                            </a>
+                            <Link
+                              href={`/shop/invoices/${sale.id}`}
+                              className="text-xs text-maroon-800 hover:underline font-semibold"
+                            >
+                              View Bill →
+                            </Link>
+                          </div>
+                        </div>
                       </div>
-                      {isLow && (
-                        <span className="text-[10px] font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">
-                          Low Stock
-                        </span>
-                      )}
+                    );
+                  })
+              )}
+            </div>
+
+            {/* Shop Stock Panel & Restock Suggestions */}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-4 h-fit">
+              <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
+                <Store className="h-5 w-5 text-maroon-800" />
+                Shop Stock &amp; Restock Alerts
+              </h3>
+
+              <div className="divide-y divide-gray-100 max-h-[500px] overflow-y-auto text-xs space-y-2">
+                {shopBalances.map((sb: any) => {
+                  const isLow = sb.qty <= (sb.product.reorderLevel || 10);
+                  return (
+                    <div key={sb.productId} className="py-2 flex items-center justify-between">
+                      <div>
+                        <div className="font-semibold text-gray-800">{sb.product.name}</div>
+                        <div className="text-gray-400">Reorder Level: {sb.product.reorderLevel} pcs</div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-bold ${isLow ? "text-red-600" : "text-gray-900"}`}>
+                          {sb.qty} pcs
+                        </div>
+                        {isLow && (
+                          <span className="text-[10px] font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">
+                            Low Stock
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

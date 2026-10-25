@@ -10,6 +10,7 @@ import {
   finalizeBillAction,
   checkPartyCreditStatusAction,
   setAdminManualRateAction,
+  createQuickPartyAction,
 } from "./actions";
 import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
 import { ProductImage } from "@/components/common/ProductImage";
@@ -115,12 +116,37 @@ export function PosClient({
 
   // Cart / Bill state
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [localParties, setLocalParties] = useState<PartyItem[]>(parties);
   const [selectedPartyId, setSelectedPartyId] = useState<string>("");
+  const [selectedTierMode, setSelectedTierMode] = useState<"AUTO" | "WHOLESALER" | "RETAILER" | "CUSTOMER">("AUTO");
   const [orderDiscountPercent, setOrderDiscountPercent] = useState<string>("0");
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(PaymentMode.CASH);
   const [cashTenderedPaise, setCashTenderedPaise] = useState<number>(0);
   const [splitCashPaise, setSplitCashPaise] = useState<string>("");
   const [splitUpiPaise, setSplitUpiPaise] = useState<string>("");
+
+  // Quick Customer Add state
+  const [quickCustomerModalOpen, setQuickCustomerModalOpen] = useState(false);
+  const [quickCustomerForm, setQuickCustomerForm] = useState<{
+    name: string;
+    phone: string;
+    type: "CUSTOMER" | "RETAILER" | "WHOLESALER";
+    address: string;
+    gstin: string;
+  }>({
+    name: "",
+    phone: "",
+    type: "CUSTOMER",
+    address: "",
+    gstin: "",
+  });
+  const [quickCustomerSaving, setQuickCustomerSaving] = useState(false);
+  const [quickCustomerError, setQuickCustomerError] = useState<string | null>(null);
+
+  // Sync parties from props
+  useEffect(() => {
+    setLocalParties(parties);
+  }, [parties]);
 
   // Credit Limit Override state
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
@@ -155,12 +181,42 @@ export function PosClient({
     searchInputRef.current?.focus();
   }, []);
 
-  const selectedParty = parties.find((p) => p.id === selectedPartyId);
+  const selectedParty = localParties.find((p) => p.id === selectedPartyId);
+
+  // Dynamic Effective Pricing Tier:
+  // Auto Mode uses quantity / carton threshold:
+  // - Wholesaler (List A) if any line >= 3 cartons OR order >= 36 pcs OR customer type WHOLESALER
+  // - Retailer (List B) if any line >= 1 carton OR order >= 12 pcs OR customer type RETAILER
+  // - Customer (List C) otherwise
+  const effectiveTier = useMemo(() => {
+    if (selectedTierMode !== "AUTO") {
+      return selectedTierMode;
+    }
+    if (selectedParty?.type === "WHOLESALER") return "WHOLESALER";
+    if (selectedParty?.type === "RETAILER") return "RETAILER";
+
+    let totalCartons = 0;
+    let totalPieces = 0;
+    for (const item of cart) {
+      totalPieces += item.qty;
+      if (item.product.packSize > 1) {
+        totalCartons += Math.floor(item.qty / item.product.packSize);
+      }
+    }
+
+    if (totalCartons >= 3 || totalPieces >= 36) {
+      return "WHOLESALER";
+    }
+    if (totalCartons >= 1 || totalPieces >= 12) {
+      return "RETAILER";
+    }
+    return "CUSTOMER";
+  }, [selectedTierMode, selectedParty, cart]);
 
   const partyOptions = useMemo(
     () => [
       { value: "", label: "Walk-in Retail Customer", subLabel: "Cash / UPI retail buyer" },
-      ...parties.map((party) => ({
+      ...localParties.map((party) => ({
         value: party.id,
         label: party.name,
         subLabel: `${party.phone ? `Ph: ${party.phone} · ` : ""}${party.type}`,
@@ -168,7 +224,7 @@ export function PosClient({
         badgeColor: party.creditEnabled ? ("green" as const) : undefined,
       })),
     ],
-    [parties]
+    [localParties]
   );
 
   // Filter & sort catalog products:
@@ -215,18 +271,19 @@ export function PosClient({
           cart.map((c) => ({ productId: c.productId, qty: c.qty })),
           orderDiscountBp,
           false,
-          selectedPartyId || null
+          selectedPartyId || null,
+          effectiveTier
         );
         setPricingResult(result);
       } catch (err) {
         console.error("Pricing preview error:", err);
       }
     });
-  }, [cart, orderDiscountPercent, selectedPartyId]);
+  }, [cart, orderDiscountPercent, selectedPartyId, effectiveTier]);
 
   // Cart operations
   const addToCart = (product: ProductCatalogItem, qtyToAdd: number = 1) => {
-    // Check price resolution
+    // Check price resolution using effective tier (Wholesaler, Retailer, Customer)
     const resolved = resolvePrice(
       {
         mrpPaise: product.mrpPaise,
@@ -234,7 +291,7 @@ export function PosClient({
         priceBPaise: product.priceBPaise,
         priceCPaise: product.priceCPaise,
       },
-      selectedParty?.type ?? "CUSTOMER"
+      effectiveTier
     );
 
     if (resolved.isUnpriced || resolved.unitPricePaise <= 0) {
@@ -414,6 +471,7 @@ export function PosClient({
           const invoice = await finalizeBillAction({
             locationId,
             partyId: selectedPartyId || null,
+            buyerType: effectiveTier,
             orderDiscountBp,
             items: cart.map((c) => ({ productId: c.productId, qty: c.qty })),
             payments,
@@ -458,6 +516,45 @@ export function PosClient({
         });
     } else {
       executeFinalize();
+    }
+  };
+
+  const handleSaveQuickCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickCustomerForm.name.trim()) {
+      setQuickCustomerError("Customer name is required");
+      return;
+    }
+
+    setQuickCustomerSaving(true);
+    setQuickCustomerError(null);
+
+    const res = await createQuickPartyAction({
+      name: quickCustomerForm.name.trim(),
+      phone: quickCustomerForm.phone.trim() || undefined,
+      type: quickCustomerForm.type,
+      address: quickCustomerForm.address.trim() || undefined,
+      gstin: quickCustomerForm.gstin.trim() || undefined,
+    });
+
+    setQuickCustomerSaving(false);
+
+    if (res.error) {
+      setQuickCustomerError(res.error);
+    } else if (res.party) {
+      const newParty: PartyItem = {
+        id: res.party.id,
+        name: res.party.name,
+        type: res.party.type,
+        phone: res.party.phone,
+        creditEnabled: res.party.creditEnabled,
+        creditLimitPaise: res.party.creditLimitPaise,
+        currentOutstandingPaise: 0,
+      };
+      setLocalParties((prev) => [newParty, ...prev]);
+      setSelectedPartyId(newParty.id);
+      setQuickCustomerModalOpen(false);
+      setQuickCustomerForm({ name: "", phone: "", type: "CUSTOMER", address: "", gstin: "" });
     }
   };
 
@@ -783,7 +880,7 @@ export function PosClient({
         {/* Right Pane (40%): Bill, Line Items, Totals & Finalize */}
         <section className="w-5/12 flex flex-col bg-[#F8FAFC] overflow-hidden">
           {/* Party Selector Header */}
-          <div className="p-3 bg-white border-b border-gray-200 flex items-center gap-2 shrink-0">
+          <div className="p-2.5 bg-white border-b border-gray-200 flex items-center gap-2 shrink-0">
             <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Buyer:</span>
             <div className="flex-1 min-w-0">
               <SearchableSelect
@@ -796,6 +893,75 @@ export function PosClient({
                 autoSortInStock={false}
               />
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setQuickCustomerError(null);
+                setQuickCustomerModalOpen(true);
+              }}
+              className="px-2.5 py-1.5 text-xs font-bold bg-[#12355B] hover:bg-blue-900 text-white rounded-lg flex items-center gap-1 shadow-sm shrink-0 whitespace-nowrap"
+              title="Add new customer"
+            >
+              <span className="text-sm font-bold">+</span> New
+            </button>
+          </div>
+
+          {/* Pricing Rate Tier Selector */}
+          <div className="px-3 py-1.5 bg-amber-50/70 border-b border-amber-200/60 flex items-center gap-1.5 text-xs">
+            <span className="font-bold text-gray-700 text-[11px] shrink-0">Pricing Tier:</span>
+            <div className="flex items-center gap-1 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setSelectedTierMode("AUTO")}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                  selectedTierMode === "AUTO"
+                    ? "bg-[#FDAF18] text-gray-900 shadow-sm ring-1 ring-amber-500"
+                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                }`}
+                title="Automatically sets tier based on carton count and order quantity"
+              >
+                ⚡ Auto ({effectiveTier === "WHOLESALER" ? "Wholesale A" : effectiveTier === "RETAILER" ? "Retail B" : "Walk-in C"})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTierMode("WHOLESALER")}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                  selectedTierMode === "WHOLESALER"
+                    ? "bg-emerald-700 text-white shadow-sm"
+                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                }`}
+                title="Force Wholesaler rate (List A)"
+              >
+                A (Wholesale)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTierMode("RETAILER")}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                  selectedTierMode === "RETAILER"
+                    ? "bg-blue-700 text-white shadow-sm"
+                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                }`}
+                title="Force Retailer rate (List B)"
+              >
+                B (Retail)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTierMode("CUSTOMER")}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
+                  selectedTierMode === "CUSTOMER"
+                    ? "bg-purple-700 text-white shadow-sm"
+                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                }`}
+                title="Force standard Walk-in customer rate (List C)"
+              >
+                C (Walk-in)
+              </button>
+            </div>
+            <span className="ml-auto text-[10px] text-gray-500 font-medium hidden sm:inline">
+              Rate: <span className="font-bold text-gray-900 uppercase">{effectiveTier}</span>
+            </span>
           </div>
 
           {/* Party credit status pill */}
@@ -1258,6 +1424,120 @@ export function PosClient({
                 {isSavingManualRate ? "Saving..." : "Authorize & Add to Bill"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Customer Modal */}
+      {quickCustomerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Add New Customer</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Quickly register customer and apply to current bill</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickCustomerModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 font-bold p-1 rounded"
+              >
+                ✕
+              </button>
+            </div>
+
+            {quickCustomerError && (
+              <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs font-semibold">
+                {quickCustomerError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveQuickCustomer} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700">
+                  Customer / Shop Name <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={quickCustomerForm.name}
+                  onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, name: e.target.value })}
+                  placeholder="e.g. Ramesh Traders or Rajesh Kumar"
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-[#12355B] focus:border-[#12355B]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700">Mobile Phone</label>
+                  <input
+                    type="tel"
+                    value={quickCustomerForm.phone}
+                    onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, phone: e.target.value })}
+                    placeholder="10-digit number"
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700">Customer Role / Type</label>
+                  <select
+                    value={quickCustomerForm.type}
+                    onChange={(e) =>
+                      setQuickCustomerForm({
+                        ...quickCustomerForm,
+                        type: e.target.value as "CUSTOMER" | "RETAILER" | "WHOLESALER",
+                      })
+                    }
+                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="CUSTOMER">Customer (List C)</option>
+                    <option value="RETAILER">Retailer (List B)</option>
+                    <option value="WHOLESALER">Wholesaler (List A)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700">Address / City (Optional)</label>
+                <input
+                  type="text"
+                  value={quickCustomerForm.address}
+                  onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, address: e.target.value })}
+                  placeholder="e.g. Main Market, Gorakhpur"
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700">GSTIN (Optional)</label>
+                <input
+                  type="text"
+                  value={quickCustomerForm.gstin}
+                  onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, gstin: e.target.value.toUpperCase() })}
+                  placeholder="e.g. 09AAAAA0000A1Z5"
+                  className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-xs uppercase"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setQuickCustomerModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickCustomerSaving}
+                  className="px-4 py-2 rounded-lg bg-[#12355B] hover:bg-blue-900 text-white text-xs font-bold disabled:opacity-50"
+                >
+                  {quickCustomerSaving ? "Saving..." : "Save & Select"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

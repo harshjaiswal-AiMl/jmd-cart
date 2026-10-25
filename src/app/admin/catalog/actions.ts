@@ -321,3 +321,31 @@ export async function bulkUpdateProductsAction(input: {
   }
 }
 
+export async function bulkCreateProductsAction(items: Array<any>): Promise<{
+  success?: boolean;
+  error?: string;
+  createdCount?: number;
+  errors?: Array<{ index: number; name: string; error: string }>;
+}> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+
+  try {
+    const res = await catalogService.bulkCreateProducts(
+      session.user.role,
+      session.user.id,
+      items
+    );
+
+    revalidatePath("/admin/catalog");
+    revalidatePath("/admin/catalog/price-lists");
+    revalidatePath("/shop/pos");
+    revalidatePath("/store");
+    return { success: true, createdCount: res.createdCount, errors: res.errors };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Failed to bulk create products" };
+  }
+}
+

@@ -11,6 +11,7 @@ import {
   deleteProductAction,
   bulkDeleteProductsAction,
   bulkUpdateProductsAction,
+  bulkCreateProductsAction,
   CatalogActionResult,
 } from "./actions";
 import { useFormState, useFormStatus } from "react-dom";
@@ -79,6 +80,21 @@ function getOrderingWarnings(p: {
   return warnings;
 }
 
+interface BulkAddRow {
+  id: string;
+  name: string;
+  shortCode: string;
+  companyId: string;
+  categoryId: string;
+  packSize: number;
+  packLabel: string;
+  mrpRupees: string;
+  priceARupees: string;
+  priceBRupees: string;
+  priceCRupees: string;
+  gstRateBp: number;
+}
+
 export function CatalogClient({
   initialProducts,
   companies,
@@ -90,6 +106,21 @@ export function CatalogClient({
   const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [isAddOpen, setIsAddOpen] = useState(false);
+
+  // Bulk Add Products Modal State
+  const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
+  const [isBulkCreating, setIsBulkCreating] = useState(false);
+  const [bulkAddRows, setBulkAddRows] = useState<BulkAddRow[]>([
+    { id: "1", name: "", shortCode: "", companyId: "", categoryId: "", packSize: 1, packLabel: "Carton", mrpRupees: "", priceARupees: "", priceBRupees: "", priceCRupees: "", gstRateBp: 0 },
+    { id: "2", name: "", shortCode: "", companyId: "", categoryId: "", packSize: 1, packLabel: "Carton", mrpRupees: "", priceARupees: "", priceBRupees: "", priceCRupees: "", gstRateBp: 0 },
+    { id: "3", name: "", shortCode: "", companyId: "", categoryId: "", packSize: 1, packLabel: "Carton", mrpRupees: "", priceARupees: "", priceBRupees: "", priceCRupees: "", gstRateBp: 0 },
+    { id: "4", name: "", shortCode: "", companyId: "", categoryId: "", packSize: 1, packLabel: "Carton", mrpRupees: "", priceARupees: "", priceBRupees: "", priceCRupees: "", gstRateBp: 0 },
+    { id: "5", name: "", shortCode: "", companyId: "", categoryId: "", packSize: 1, packLabel: "Carton", mrpRupees: "", priceARupees: "", priceBRupees: "", priceCRupees: "", gstRateBp: 0 },
+  ]);
+  const [bulkAddPctA, setBulkAddPctA] = useState("25");
+  const [bulkAddPctB, setBulkAddPctB] = useState("20");
+  const [bulkAddPctC, setBulkAddPctC] = useState("15");
+  const [bulkAddErrors, setBulkAddErrors] = useState<string[]>([]);
 
   // Image handling state for new product modal
   const [newProductImageUrl, setNewProductImageUrl] = useState("");
@@ -350,6 +381,139 @@ export function CatalogClient({
     }
   };
 
+  const handleAddBulkRow = (count: number = 1) => {
+    setBulkAddRows((prev) => {
+      const newRows = [...prev];
+      for (let i = 0; i < count; i++) {
+        newRows.push({
+          id: Math.random().toString(36).substring(2, 9),
+          name: "",
+          shortCode: "",
+          companyId: "",
+          categoryId: "",
+          packSize: 1,
+          packLabel: "Carton",
+          mrpRupees: "",
+          priceARupees: "",
+          priceBRupees: "",
+          priceCRupees: "",
+          gstRateBp: 0,
+        });
+      }
+      return newRows;
+    });
+  };
+
+  const handleUpdateBulkRow = (id: string, field: keyof BulkAddRow, value: any) => {
+    setBulkAddRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  };
+
+  const handleRemoveBulkRow = (id: string) => {
+    setBulkAddRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== id) : prev));
+  };
+
+  const handleAutoCalcBulkRates = () => {
+    const pctA = parseFloat(bulkAddPctA) || 0;
+    const pctB = parseFloat(bulkAddPctB) || 0;
+    const pctC = parseFloat(bulkAddPctC) || 0;
+
+    setBulkAddRows((prev) =>
+      prev.map((row) => {
+        const mrp = parseFloat(row.mrpRupees);
+        if (!isNaN(mrp) && mrp > 0) {
+          return {
+            ...row,
+            priceARupees: (mrp * (1 - pctA / 100)).toFixed(2),
+            priceBRupees: (mrp * (1 - pctB / 100)).toFixed(2),
+            priceCRupees: (mrp * (1 - pctC / 100)).toFixed(2),
+          };
+        }
+        return row;
+      })
+    );
+  };
+
+  const handleSaveBulkProducts = async () => {
+    const activeRows = bulkAddRows.filter(
+      (r) => r.name.trim().length > 0 || r.shortCode.trim().length > 0
+    );
+
+    if (activeRows.length === 0) {
+      setBulkAddErrors(["Please fill in at least one product with name and code."]);
+      return;
+    }
+
+    const errors: string[] = [];
+    const validItems: any[] = [];
+
+    activeRows.forEach((row, idx) => {
+      if (!row.name.trim()) {
+        errors.push(`Row ${idx + 1}: Name is required`);
+        return;
+      }
+      if (!row.shortCode.trim()) {
+        errors.push(`Row ${idx + 1} (${row.name}): Code / SKU is required`);
+        return;
+      }
+
+      const mrpPaise = row.mrpRupees.trim() ? Math.round(parseFloat(row.mrpRupees) * 100) : null;
+      const priceAPaise = row.priceARupees.trim() ? Math.round(parseFloat(row.priceARupees) * 100) : null;
+      const priceBPaise = row.priceBRupees.trim() ? Math.round(parseFloat(row.priceBRupees) * 100) : null;
+      const priceCPaise = row.priceCRupees.trim() ? Math.round(parseFloat(row.priceCRupees) * 100) : null;
+
+      validItems.push({
+        name: row.name.trim(),
+        shortCode: row.shortCode.trim().toUpperCase(),
+        companyId: row.companyId || undefined,
+        categoryId: row.categoryId || undefined,
+        packSize: Number(row.packSize) || 1,
+        packLabel: row.packLabel.trim() || "Carton",
+        mrpPaise,
+        priceAPaise,
+        priceBPaise,
+        priceCPaise,
+        gstRateBp: Number(row.gstRateBp) || 0,
+        active: true,
+      });
+    });
+
+    if (errors.length > 0) {
+      setBulkAddErrors(errors);
+      return;
+    }
+
+    setIsBulkCreating(true);
+    setBulkAddErrors([]);
+
+    try {
+      const res = await bulkCreateProductsAction(validItems);
+      if (res.error) {
+        setBulkAddErrors([res.error]);
+      } else if (res.errors && res.errors.length > 0) {
+        setBulkAddErrors(res.errors.map((e) => `${e.name}: ${e.error}`));
+        if (res.createdCount && res.createdCount > 0) {
+          setStatusMessage({
+            type: "ok",
+            text: `Successfully created ${res.createdCount} products! Some items had errors below.`,
+          });
+        }
+      } else {
+        setStatusMessage({
+          type: "ok",
+          text: `Successfully created ${res.createdCount} products in catalog!`,
+        });
+        setIsBulkAddOpen(false);
+        window.location.reload();
+      }
+    } catch (err: any) {
+      setBulkAddErrors([err.message || "Failed to save products"]);
+    } finally {
+      setIsBulkCreating(false);
+    }
+  };
+
   const toggleSelectAll = () => {
     if (selectedIds.size === filteredProducts.length) {
       setSelectedIds(new Set());
@@ -584,6 +748,15 @@ export function CatalogClient({
             >
               📥 Import Excel Sheet
             </Link>
+            <button
+              onClick={() => {
+                setBulkAddErrors([]);
+                setIsBulkAddOpen(true);
+              }}
+              className="inline-flex items-center justify-center px-4 py-2 border border-emerald-600 rounded-lg shadow-sm text-sm font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+            >
+              📑 + Bulk Add Products
+            </button>
             <button
               onClick={() => setIsAddOpen(true)}
               className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#790E11] hover:bg-[#5E0A0D] transition-colors"
@@ -2139,6 +2312,299 @@ export function CatalogClient({
               >
                 {isDeleting ? "Processing..." : "Yes, Delete / Archive"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Add Products Modal (Multi-Row Spreadsheet Grid) */}
+      {isBulkAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-2xl max-w-7xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <span>📑</span> Bulk Add Products to Master Catalog
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Enter multiple products rapidly in a grid with brand, category, pack sizes, MRP, and tier rates (A/B/C).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBulkAddOpen(false)}
+                className="text-gray-400 hover:text-gray-600 font-bold p-1 rounded-lg hover:bg-gray-100 text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Auto-Fill Rate Calculator */}
+            <div className="px-5 py-3 bg-amber-50/70 border-b border-amber-200/60 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-bold text-amber-900">⚡ Auto-Calculate Tier Rates (% off MRP):</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-600 font-semibold">List A:</span>
+                  <input
+                    type="number"
+                    value={bulkAddPctA}
+                    onChange={(e) => setBulkAddPctA(e.target.value)}
+                    className="w-14 px-2 py-1 text-xs border border-gray-300 rounded bg-white font-bold text-center"
+                    placeholder="25"
+                  />
+                  <span className="text-gray-500">%</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-600 font-semibold">List B:</span>
+                  <input
+                    type="number"
+                    value={bulkAddPctB}
+                    onChange={(e) => setBulkAddPctB(e.target.value)}
+                    className="w-14 px-2 py-1 text-xs border border-gray-300 rounded bg-white font-bold text-center"
+                    placeholder="20"
+                  />
+                  <span className="text-gray-500">%</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-600 font-semibold">List C:</span>
+                  <input
+                    type="number"
+                    value={bulkAddPctC}
+                    onChange={(e) => setBulkAddPctC(e.target.value)}
+                    className="w-14 px-2 py-1 text-xs border border-gray-300 rounded bg-white font-bold text-center"
+                    placeholder="15"
+                  />
+                  <span className="text-gray-500">%</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAutoCalcBulkRates}
+                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded shadow-sm transition"
+                >
+                  Apply to All Rows with MRP
+                </button>
+              </div>
+
+              <div className="text-[11px] text-gray-500 font-medium">
+                Empty rows will be skipped automatically on save.
+              </div>
+            </div>
+
+            {/* Errors banner if any */}
+            {bulkAddErrors.length > 0 && (
+              <div className="p-3 bg-red-50 border-b border-red-200 text-red-800 text-xs shrink-0 max-h-32 overflow-y-auto">
+                <p className="font-bold mb-1">Please fix the following issues:</p>
+                <ul className="list-disc pl-5 space-y-0.5">
+                  {bulkAddErrors.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Grid Table Body */}
+            <div className="flex-1 overflow-x-auto overflow-y-auto p-4">
+              <table className="min-w-full divide-y divide-gray-200 text-xs border border-gray-200 rounded-lg">
+                <thead className="bg-gray-100 text-gray-700 uppercase font-semibold tracking-wider sticky top-0 z-10 shadow-sm">
+                  <tr>
+                    <th className="px-2 py-2.5 text-center w-8">#</th>
+                    <th className="px-3 py-2.5 text-left min-w-[200px]">Product Name <span className="text-red-500">*</span></th>
+                    <th className="px-3 py-2.5 text-left min-w-[120px]">Code / SKU <span className="text-red-500">*</span></th>
+                    <th className="px-3 py-2.5 text-left min-w-[140px]">Brand</th>
+                    <th className="px-3 py-2.5 text-left min-w-[140px]">Category</th>
+                    <th className="px-2 py-2.5 text-center min-w-[70px]">Pack Size</th>
+                    <th className="px-2 py-2.5 text-left min-w-[130px]">Pack Label</th>
+                    <th className="px-2 py-2.5 text-right min-w-[90px]">MRP (₹)</th>
+                    <th className="px-2 py-2.5 text-right min-w-[90px]">Wholesale A (₹)</th>
+                    <th className="px-2 py-2.5 text-right min-w-[90px]">Retail B (₹)</th>
+                    <th className="px-2 py-2.5 text-right min-w-[90px]">Walk-in C (₹)</th>
+                    <th className="px-2 py-2.5 text-center min-w-[90px]">GST Slab</th>
+                    <th className="px-2 py-2.5 text-center w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {bulkAddRows.map((row, index) => (
+                    <tr key={row.id} className="hover:bg-gray-50/80 transition-colors">
+                      <td className="px-2 py-2 text-center text-gray-400 font-bold font-mono">
+                        {index + 1}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="text"
+                          value={row.name}
+                          onChange={(e) => handleUpdateBulkRow(row.id, "name", e.target.value)}
+                          placeholder="e.g. Parle-G 100g"
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-maroon-800 focus:border-maroon-800"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="text"
+                          value={row.shortCode}
+                          onChange={(e) => handleUpdateBulkRow(row.id, "shortCode", e.target.value.toUpperCase())}
+                          placeholder="e.g. PG100"
+                          className="w-full px-2.5 py-1.5 border border-gray-300 rounded text-xs font-mono uppercase focus:ring-1 focus:ring-maroon-800 focus:border-maroon-800"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select
+                          value={row.companyId}
+                          onChange={(e) => handleUpdateBulkRow(row.id, "companyId", e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white"
+                        >
+                          <option value="">Select Brand...</option>
+                          {companies.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select
+                          value={row.categoryId}
+                          onChange={(e) => handleUpdateBulkRow(row.id, "categoryId", e.target.value)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white"
+                        >
+                          <option value="">Select Category...</option>
+                          {categories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          min="1"
+                          value={row.packSize}
+                          onChange={(e) => handleUpdateBulkRow(row.id, "packSize", parseInt(e.target.value, 10) || 1)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs text-center font-semibold"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <PackLabelSelector
+                          name={`packLabel_${row.id}`}
+                          defaultValue={row.packLabel}
+                          onChange={(val) => handleUpdateBulkRow(row.id, "packLabel", val)}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={row.mrpRupees}
+                          onChange={(e) => handleUpdateBulkRow(row.id, "mrpRupees", e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs text-right font-bold text-gray-900"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={row.priceARupees}
+                          onChange={(e) => handleUpdateBulkRow(row.id, "priceARupees", e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs text-right font-semibold text-emerald-800 bg-emerald-50/30"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={row.priceBRupees}
+                          onChange={(e) => handleUpdateBulkRow(row.id, "priceBRupees", e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-2 py-1.5 border border-blue-300 rounded text-xs text-right font-semibold text-blue-800 bg-blue-50/30"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={row.priceCRupees}
+                          onChange={(e) => handleUpdateBulkRow(row.id, "priceCRupees", e.target.value)}
+                          placeholder="0.00"
+                          className="w-full px-2 py-1.5 border border-purple-300 rounded text-xs text-right font-semibold text-purple-800 bg-purple-50/30"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select
+                          value={row.gstRateBp}
+                          onChange={(e) => handleUpdateBulkRow(row.id, "gstRateBp", parseInt(e.target.value, 10) || 0)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded text-xs bg-white text-center font-medium"
+                        >
+                          <option value="0">0%</option>
+                          <option value="500">5%</option>
+                          <option value="1200">12%</option>
+                          <option value="1800">18%</option>
+                          <option value="2800">28%</option>
+                        </select>
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBulkRow(row.id)}
+                          className="text-gray-400 hover:text-red-600 transition p-1"
+                          title="Remove row"
+                        >
+                          🗑
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="p-4 bg-gray-50 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleAddBulkRow(1)}
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 shadow-sm transition"
+                >
+                  + Add 1 Row
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddBulkRow(5)}
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 shadow-sm transition"
+                >
+                  + Add 5 Rows
+                </button>
+                <span className="text-xs text-gray-500 ml-2">
+                  Total rows: <strong className="text-gray-800">{bulkAddRows.length}</strong> (
+                  {bulkAddRows.filter((r) => r.name.trim().length > 0).length} filled)
+                </span>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkAddOpen(false)}
+                  disabled={isBulkCreating}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isBulkCreating}
+                  onClick={handleSaveBulkProducts}
+                  className="px-5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <span>💾</span> {isBulkCreating ? "Saving Products..." : "Save Products to Catalog"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -89,6 +89,31 @@ export async function completeCounterPickupAction(pickupId: string) {
   }
 }
 
+export async function updatePackingStatusAction(input: {
+  pickupId?: string;
+  invoiceId?: string;
+  status: "PENDING" | "PACKING" | "PACKED" | "COMPLETED";
+  items?: any;
+  notes?: string;
+}) {
+  const session = await auth();
+  const user = session?.user;
+  if (!user) {
+    return { error: "Authentication required" };
+  }
+
+  try {
+    await dispatchService.updatePackingStatus(input, {
+      id: user.id,
+      name: user.name || "Staff",
+    });
+    revalidatePath("/godown/dispatch");
+    return { success: true };
+  } catch (err: any) {
+    return { error: err.message || "Failed to update packing status" };
+  }
+}
+
 export async function createManualOrderAction(input: CreateManualOrderInput) {
   const session = await auth();
   const user = session?.user;

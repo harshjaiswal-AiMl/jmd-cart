@@ -99,7 +99,7 @@ export class BillingService {
     const productIds = validated.items.map((i) => i.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
-      select: { id: true, hsn: true, packSize: true, name: true, shortCode: true },
+      select: { id: true, hsn: true, packSize: true, packLabel: true, name: true, shortCode: true },
     });
     const hsnMap = new Map(products.map((p) => [p.id, p.hsn]));
     const prodMap = new Map(products.map((p) => [p.id, p]));
@@ -108,6 +108,7 @@ export class BillingService {
     const orderPricing = await pricingService.calculateOrderPricing({
       items: validated.items,
       partyId: validated.partyId ?? null,
+      buyerType: validated.buyerType,
       orderDiscountBp: validated.orderDiscountBp,
       isInterState: validated.isInterState,
       userRole: role,
@@ -430,6 +431,38 @@ export class BillingService {
             });
           }
         }
+
+        // G. Create Warehouse Packing task so Godown Keeper is notified instantly with item details
+        const cashierUser = actorId
+          ? await tx.user.findUnique({ where: { id: actorId }, select: { name: true } })
+          : null;
+
+        await tx.counterPickup.create({
+          data: {
+            invoiceId: invoice.id,
+            billNumber: invoiceNumber,
+            cashierName: cashierUser?.name || "Counter Cashier",
+            status: "PENDING",
+            items: orderPricing.lines.map((line) => {
+              const prod = prodMap.get(line.productId);
+              const packSize = prod?.packSize || 1;
+              const cartons = packSize > 1 ? Math.floor(line.qty / packSize) : 0;
+              const loose = packSize > 1 ? line.qty % packSize : line.qty;
+              return {
+                productId: line.productId,
+                productName: prod?.name || line.productId,
+                shortCode: prod?.shortCode || "",
+                packSize,
+                packLabel: prod?.packLabel || "Carton",
+                qty: line.qty,
+                cartons,
+                loose,
+                packed: false,
+              };
+            }),
+            notes: validated.notes || "Shop bill - warehouse packing required",
+          },
+        });
 
         return invoice.id;
       },

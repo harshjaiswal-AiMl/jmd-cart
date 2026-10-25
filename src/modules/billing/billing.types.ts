@@ -38,6 +38,7 @@ export const finalizeInvoiceInputSchema = z.object({
   channel: z.nativeEnum(InvoiceChannel).default(InvoiceChannel.SHOP),
   locationId: z.string().min(1, "Location ID is required"),
   partyId: z.string().nullable().optional(),
+  buyerType: z.string().optional(),
   orderDiscountBp: z.number().int().min(0).max(10000).default(0),
   isInterState: z.boolean().default(false),
   items: z.array(invoiceItemInputSchema).min(1, "At least one item is required"),

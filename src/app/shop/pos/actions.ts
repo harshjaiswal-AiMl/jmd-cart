@@ -10,7 +10,8 @@ export async function calculateOrderPricingAction(
   items: Array<{ productId: string; qty: number }>,
   orderDiscountBp: number = 0,
   isInterState: boolean = false,
-  partyId?: string | null
+  partyId?: string | null,
+  buyerType?: any
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -20,6 +21,7 @@ export async function calculateOrderPricingAction(
   return pricingService.calculateOrderPricing({
     items,
     partyId: partyId ?? null,
+    buyerType: buyerType ?? null,
     orderDiscountBp,
     isInterState,
     userRole: session.user.role,
@@ -81,6 +83,7 @@ export async function setAdminManualRateAction(input: {
 export async function finalizeBillAction(input: {
   locationId: string;
   partyId?: string | null;
+  buyerType?: any;
   orderDiscountBp?: number;
   isInterState?: boolean;
   items: Array<{ productId: string; qty: number }>;
@@ -100,6 +103,7 @@ export async function finalizeBillAction(input: {
       channel: InvoiceChannel.SHOP,
       locationId: input.locationId,
       partyId: input.partyId ?? null,
+      buyerType: input.buyerType ?? undefined,
       orderDiscountBp: input.orderDiscountBp ?? 0,
       isInterState: input.isInterState ?? false,
       items: input.items,
@@ -112,6 +116,38 @@ export async function finalizeBillAction(input: {
   );
 
   return invoice;
+}
+
+export async function createQuickPartyAction(input: {
+  name: string;
+  phone?: string;
+  type?: "CUSTOMER" | "RETAILER" | "WHOLESALER";
+  address?: string;
+  gstin?: string;
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    return { error: "Authentication required" };
+  }
+
+  try {
+    const { partyRepository } = await import("@/modules/party/party.repository");
+    const party = await partyRepository.createParty({
+      name: input.name,
+      phone: input.phone || null,
+      type: (input.type as any) || "CUSTOMER",
+      address: input.address || null,
+      gstin: input.gstin || null,
+      creditEnabled: false,
+      creditLimitPaise: 0,
+      creditDays: 0,
+      active: true,
+    });
+
+    return { success: true, party };
+  } catch (err: any) {
+    return { error: err.message || "Failed to create customer" };
+  }
 }
 
 export async function checkPartyCreditStatusAction(
