@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+:root {
+  --font-inter: "Inter", system-ui, sans-serif;
+  --font-epilogue: "Epilogue", system-ui, sans-serif;
+}
+
+body {
+  color: #1b1c1c;
+  background-color: #fcf9f8;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Hide scrollbar for category pills and carousels */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Thermal roll specific print sizing */
+  .thermal-receipt-container {
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 auto !important;
+    padding: 2mm 0 !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+
+  /* A4 document specific print sizing */
+  .a4-invoice-container {
+    width: 100% !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 8mm !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .print-page-break-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+

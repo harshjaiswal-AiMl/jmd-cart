@@ -1,0 +1,85 @@
+{
+  "name": "idms",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "dev:cloud": "bash scripts/start-local-cloud.sh",
+    "dev:lan": "next dev -H 0.0.0.0 --experimental-https",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint --dir src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "tsx scripts/guard-local-db.ts && prisma db seed",
+    "db:reset": "tsx scripts/guard-local-db.ts && prisma migrate reset --force",
+    "db:verify-empty": "tsx scripts/verify-empty-db.ts",
+    "admin:create": "tsx scripts/create-admin.ts",
+    "db:generate": "prisma generate",
+    "db:backup": "powershell -File scripts/backup.ps1",
+    "db:restore": "powershell -File scripts/restore.ps1",
+    "db:validate-backup": "powershell -File scripts/validate-backup-restore.ps1",
+    "gcp:setup": "powershell -ExecutionPolicy Bypass -File scripts/gcp-setup.ps1",
+    "gcp:lb": "powershell -ExecutionPolicy Bypass -File scripts/gcp-lb.ps1",
+    "gcp:deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy-gcp.ps1",
+    "gcp:deploy:build-only": "powershell -ExecutionPolicy Bypass -File scripts/deploy-gcp.ps1 -BuildOnly",
+    "gcp:deploy:migrate": "powershell -ExecutionPolicy Bypass -File scripts/deploy-gcp.ps1 -MigrateOnly",
+    "smoke": "tsx scripts/smoke-prod.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma",
+      "unrs-resolver"
+    ]
+  },
+  "dependencies": {
+    "@auth/core": "^0.34.2",
+    "@prisma/client": "5.22.0",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.453.0",
+    "next": "14.2.15",
+    "next-auth": "5.0.0-beta.25",
+    "nodemailer": "^10.2.1",
+    "pdfjs-dist": "^3.11.174",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.5.4",
+    "tesseract.js": "^5.1.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.16.11",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "dotenv": "^16.4.5",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.15",
+    "pg": "^8.13.0",
+    "postcss": "^8.4.47",
+    "prisma": "^5.21.1",
+    "tailwindcss": "^3.4.14",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.3"
+  }
+}

@@ -1,0 +1,9 @@
+FROM google/cloud-sdk:alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache python3 py3-pip
+
+COPY scripts/backup-and-email.py /app/backup-and-email.py
+
+CMD ["python3", "/app/backup-and-email.py"]

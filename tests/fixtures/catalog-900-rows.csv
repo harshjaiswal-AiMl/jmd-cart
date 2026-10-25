@@ -1,0 +1,901 @@
+name,shortCode,company,category,hsn,gstRate,mrp,packSize,packLabel,reorderLevel
+"Bikaji Item 1 Pack",FIX-BIK-001,"Bikaji","Spices",09042010,5,45,12,Tin,24
+"Bikaji Item 2 Pack",FIX-BIK-002,"Bikaji","Grains",10063020,12,70,20,Bag,40
+"Bikaji Item 3 Pack",FIX-BIK-003,"Bikaji","Edible Oils",15149100,18,95,24,Box,48
+"Bikaji Item 4 Pack",FIX-BIK-004,"Bikaji","Biscuits",19053100,0,120,30,Bundle,60
+"Bikaji Item 5 Pack",FIX-BIK-005,"Bikaji","Confectionery",34011110,5,145,48,Carton,96
+"Bikaji Item 6 Pack",FIX-BIK-006,"Bikaji","Personal Care",09024020,12,170,6,Tin,12
+"Bikaji Item 7 Pack",FIX-BIK-007,"Bikaji","Home Care",04051000,18,195,12,Bag,24
+"Bikaji Item 8 Pack",FIX-BIK-008,"Bikaji","Beverages",21069099,0,220,20,Box,40
+"Bikaji Item 9 Pack",FIX-BIK-009,"Bikaji","Dairy Products",09042010,5,245,24,Bundle,48
+"Bikaji Item 10 Pack",FIX-BIK-010,"Bikaji","Snacks",10063020,12,270,30,Carton,60
+"Bikaji Item 11 Pack",FIX-BIK-011,"Bikaji","Spices",15149100,18,295,48,Tin,96
+"Bikaji Item 12 Pack",FIX-BIK-012,"Bikaji","Grains",19053100,0,320,6,Bag,12
+"Bikaji Item 13 Pack",FIX-BIK-013,"Bikaji","Edible Oils",34011110,5,345,12,Box,24
+"Bikaji Item 14 Pack",FIX-BIK-014,"Bikaji","Biscuits",09024020,12,370,20,Bundle,40
+"Bikaji Item 15 Pack",FIX-BIK-015,"Bikaji","Confectionery",04051000,18,395,24,Carton,48
+"Bikaji Item 16 Pack",FIX-BIK-016,"Bikaji","Personal Care",21069099,0,420,30,Tin,60
+"Bikaji Item 17 Pack",FIX-BIK-017,"Bikaji","Home Care",09042010,5,445,48,Bag,96
+"Bikaji Item 18 Pack",FIX-BIK-018,"Bikaji","Beverages",10063020,12,470,6,Box,12
+"Bikaji Item 19 Pack",FIX-BIK-019,"Bikaji","Dairy Products",15149100,18,495,12,Bundle,24
+"Bikaji Item 20 Pack",FIX-BIK-020,"Bikaji","Snacks",19053100,0,520,20,Carton,40
+"Bikaji Item 21 Pack",FIX-BIK-021,"Bikaji","Spices",34011110,5,545,24,Tin,48
+"Bikaji Item 22 Pack",FIX-BIK-022,"Bikaji","Grains",09024020,12,570,30,Bag,60
+"Bikaji Item 23 Pack",FIX-BIK-023,"Bikaji","Edible Oils",04051000,18,595,48,Box,96
+"Bikaji Item 24 Pack",FIX-BIK-024,"Bikaji","Biscuits",21069099,0,620,6,Bundle,12
+"Bikaji Item 25 Pack",FIX-BIK-025,"Bikaji","Confectionery",09042010,5,645,12,Carton,24
+"Bikaji Item 26 Pack",FIX-BIK-026,"Bikaji","Personal Care",10063020,12,670,20,Tin,40
+"Bikaji Item 27 Pack",FIX-BIK-027,"Bikaji","Home Care",15149100,18,695,24,Bag,48
+"Bikaji Item 28 Pack",FIX-BIK-028,"Bikaji","Beverages",19053100,0,720,30,Box,60
+"Bikaji Item 29 Pack",FIX-BIK-029,"Bikaji","Dairy Products",34011110,5,745,48,Bundle,96
+"Bikaji Item 30 Pack",FIX-BIK-030,"Bikaji","Snacks",09024020,12,770,6,Carton,12
+"MDH Item 1 Pack",FIX-MDH-001,"MDH","Grains",19053100,12,60,20,Bag,40
+"MDH Item 2 Pack",FIX-MDH-002,"MDH","Edible Oils",34011110,18,85,24,Box,48
+"MDH Item 3 Pack",FIX-MDH-003,"MDH","Biscuits",09024020,0,110,30,Bundle,60
+"MDH Item 4 Pack",FIX-MDH-004,"MDH","Confectionery",04051000,5,135,48,Carton,96
+"MDH Item 5 Pack",FIX-MDH-005,"MDH","Personal Care",21069099,12,160,6,Tin,12
+"MDH Item 6 Pack",FIX-MDH-006,"MDH","Home Care",09042010,18,185,12,Bag,24
+"MDH Item 7 Pack",FIX-MDH-007,"MDH","Beverages",10063020,0,210,20,Box,40
+"MDH Item 8 Pack",FIX-MDH-008,"MDH","Dairy Products",15149100,5,235,24,Bundle,48
+"MDH Item 9 Pack",FIX-MDH-009,"MDH","Snacks",19053100,12,260,30,Carton,60
+"MDH Item 10 Pack",FIX-MDH-010,"MDH","Spices",34011110,18,285,48,Tin,96
+"MDH Item 11 Pack",FIX-MDH-011,"MDH","Grains",09024020,0,310,6,Bag,12
+"MDH Item 12 Pack",FIX-MDH-012,"MDH","Edible Oils",04051000,5,335,12,Box,24
+"MDH Item 13 Pack",FIX-MDH-013,"MDH","Biscuits",21069099,12,360,20,Bundle,40
+"MDH Item 14 Pack",FIX-MDH-014,"MDH","Confectionery",09042010,18,385,24,Carton,48
+"MDH Item 15 Pack",FIX-MDH-015,"MDH","Personal Care",10063020,0,410,30,Tin,60
+"MDH Item 16 Pack",FIX-MDH-016,"MDH","Home Care",15149100,5,435,48,Bag,96
+"MDH Item 17 Pack",FIX-MDH-017,"MDH","Beverages",19053100,12,460,6,Box,12
+"MDH Item 18 Pack",FIX-MDH-018,"MDH","Dairy Products",34011110,18,485,12,Bundle,24
+"MDH Item 19 Pack",FIX-MDH-019,"MDH","Snacks",09024020,0,510,20,Carton,40
+"MDH Item 20 Pack",FIX-MDH-020,"MDH","Spices",04051000,5,535,24,Tin,48
+"MDH Item 21 Pack",FIX-MDH-021,"MDH","Grains",21069099,12,560,30,Bag,60
+"MDH Item 22 Pack",FIX-MDH-022,"MDH","Edible Oils",09042010,18,585,48,Box,96
+"MDH Item 23 Pack",FIX-MDH-023,"MDH","Biscuits",10063020,0,610,6,Bundle,12
+"MDH Item 24 Pack",FIX-MDH-024,"MDH","Confectionery",15149100,5,635,12,Carton,24
+"MDH Item 25 Pack",FIX-MDH-025,"MDH","Personal Care",19053100,12,660,20,Tin,40
+"MDH Item 26 Pack",FIX-MDH-026,"MDH","Home Care",34011110,18,685,24,Bag,48
+"MDH Item 27 Pack",FIX-MDH-027,"MDH","Beverages",09024020,0,710,30,Box,60
+"MDH Item 28 Pack",FIX-MDH-028,"MDH","Dairy Products",04051000,5,735,48,Bundle,96
+"MDH Item 29 Pack",FIX-MDH-029,"MDH","Snacks",21069099,12,760,6,Carton,12
+"MDH Item 30 Pack",FIX-MDH-030,"MDH","Spices",09042010,18,785,12,Tin,24
+"India Gate Item 1 Pack",FIX-IND-001,"India Gate","Edible Oils",04051000,18,75,24,Box,48
+"India Gate Item 2 Pack",FIX-IND-002,"India Gate","Biscuits",21069099,0,100,30,Bundle,60
+"India Gate Item 3 Pack",FIX-IND-003,"India Gate","Confectionery",09042010,5,125,48,Carton,96
+"India Gate Item 4 Pack",FIX-IND-004,"India Gate","Personal Care",10063020,12,150,6,Tin,12
+"India Gate Item 5 Pack",FIX-IND-005,"India Gate","Home Care",15149100,18,175,12,Bag,24
+"India Gate Item 6 Pack",FIX-IND-006,"India Gate","Beverages",19053100,0,200,20,Box,40
+"India Gate Item 7 Pack",FIX-IND-007,"India Gate","Dairy Products",34011110,5,225,24,Bundle,48
+"India Gate Item 8 Pack",FIX-IND-008,"India Gate","Snacks",09024020,12,250,30,Carton,60
+"India Gate Item 9 Pack",FIX-IND-009,"India Gate","Spices",04051000,18,275,48,Tin,96
+"India Gate Item 10 Pack",FIX-IND-010,"India Gate","Grains",21069099,0,300,6,Bag,12
+"India Gate Item 11 Pack",FIX-IND-011,"India Gate","Edible Oils",09042010,5,325,12,Box,24
+"India Gate Item 12 Pack",FIX-IND-012,"India Gate","Biscuits",10063020,12,350,20,Bundle,40
+"India Gate Item 13 Pack",FIX-IND-013,"India Gate","Confectionery",15149100,18,375,24,Carton,48
+"India Gate Item 14 Pack",FIX-IND-014,"India Gate","Personal Care",19053100,0,400,30,Tin,60
+"India Gate Item 15 Pack",FIX-IND-015,"India Gate","Home Care",34011110,5,425,48,Bag,96
+"India Gate Item 16 Pack",FIX-IND-016,"India Gate","Beverages",09024020,12,450,6,Box,12
+"India Gate Item 17 Pack",FIX-IND-017,"India Gate","Dairy Products",04051000,18,475,12,Bundle,24
+"India Gate Item 18 Pack",FIX-IND-018,"India Gate","Snacks",21069099,0,500,20,Carton,40
+"India Gate Item 19 Pack",FIX-IND-019,"India Gate","Spices",09042010,5,525,24,Tin,48
+"India Gate Item 20 Pack",FIX-IND-020,"India Gate","Grains",10063020,12,550,30,Bag,60
+"India Gate Item 21 Pack",FIX-IND-021,"India Gate","Edible Oils",15149100,18,575,48,Box,96
+"India Gate Item 22 Pack",FIX-IND-022,"India Gate","Biscuits",19053100,0,600,6,Bundle,12
+"India Gate Item 23 Pack",FIX-IND-023,"India Gate","Confectionery",34011110,5,625,12,Carton,24
+"India Gate Item 24 Pack",FIX-IND-024,"India Gate","Personal Care",09024020,12,650,20,Tin,40
+"India Gate Item 25 Pack",FIX-IND-025,"India Gate","Home Care",04051000,18,675,24,Bag,48
+"India Gate Item 26 Pack",FIX-IND-026,"India Gate","Beverages",21069099,0,700,30,Box,60
+"India Gate Item 27 Pack",FIX-IND-027,"India Gate","Dairy Products",09042010,5,725,48,Bundle,96
+"India Gate Item 28 Pack",FIX-IND-028,"India Gate","Snacks",10063020,12,750,6,Carton,12
+"India Gate Item 29 Pack",FIX-IND-029,"India Gate","Spices",15149100,18,775,12,Tin,24
+"India Gate Item 30 Pack",FIX-IND-030,"India Gate","Grains",19053100,0,800,20,Bag,40
+"Engine Item 1 Pack",FIX-ENG-001,"Engine","Biscuits",10063020,0,90,30,Bundle,60
+"Engine Item 2 Pack",FIX-ENG-002,"Engine","Confectionery",15149100,5,115,48,Carton,96
+"Engine Item 3 Pack",FIX-ENG-003,"Engine","Personal Care",19053100,12,140,6,Tin,12
+"Engine Item 4 Pack",FIX-ENG-004,"Engine","Home Care",34011110,18,165,12,Bag,24
+"Engine Item 5 Pack",FIX-ENG-005,"Engine","Beverages",09024020,0,190,20,Box,40
+"Engine Item 6 Pack",FIX-ENG-006,"Engine","Dairy Products",04051000,5,215,24,Bundle,48
+"Engine Item 7 Pack",FIX-ENG-007,"Engine","Snacks",21069099,12,240,30,Carton,60
+"Engine Item 8 Pack",FIX-ENG-008,"Engine","Spices",09042010,18,265,48,Tin,96
+"Engine Item 9 Pack",FIX-ENG-009,"Engine","Grains",10063020,0,290,6,Bag,12
+"Engine Item 10 Pack",FIX-ENG-010,"Engine","Edible Oils",15149100,5,315,12,Box,24
+"Engine Item 11 Pack",FIX-ENG-011,"Engine","Biscuits",19053100,12,340,20,Bundle,40
+"Engine Item 12 Pack",FIX-ENG-012,"Engine","Confectionery",34011110,18,365,24,Carton,48
+"Engine Item 13 Pack",FIX-ENG-013,"Engine","Personal Care",09024020,0,390,30,Tin,60
+"Engine Item 14 Pack",FIX-ENG-014,"Engine","Home Care",04051000,5,415,48,Bag,96
+"Engine Item 15 Pack",FIX-ENG-015,"Engine","Beverages",21069099,12,440,6,Box,12
+"Engine Item 16 Pack",FIX-ENG-016,"Engine","Dairy Products",09042010,18,465,12,Bundle,24
+"Engine Item 17 Pack",FIX-ENG-017,"Engine","Snacks",10063020,0,490,20,Carton,40
+"Engine Item 18 Pack",FIX-ENG-018,"Engine","Spices",15149100,5,515,24,Tin,48
+"Engine Item 19 Pack",FIX-ENG-019,"Engine","Grains",19053100,12,540,30,Bag,60
+"Engine Item 20 Pack",FIX-ENG-020,"Engine","Edible Oils",34011110,18,565,48,Box,96
+"Engine Item 21 Pack",FIX-ENG-021,"Engine","Biscuits",09024020,0,590,6,Bundle,12
+"Engine Item 22 Pack",FIX-ENG-022,"Engine","Confectionery",04051000,5,615,12,Carton,24
+"Engine Item 23 Pack",FIX-ENG-023,"Engine","Personal Care",21069099,12,640,20,Tin,40
+"Engine Item 24 Pack",FIX-ENG-024,"Engine","Home Care",09042010,18,665,24,Bag,48
+"Engine Item 25 Pack",FIX-ENG-025,"Engine","Beverages",10063020,0,690,30,Box,60
+"Engine Item 26 Pack",FIX-ENG-026,"Engine","Dairy Products",15149100,5,715,48,Bundle,96
+"Engine Item 27 Pack",FIX-ENG-027,"Engine","Snacks",19053100,12,740,6,Carton,12
+"Engine Item 28 Pack",FIX-ENG-028,"Engine","Spices",34011110,18,765,12,Tin,24
+"Engine Item 29 Pack",FIX-ENG-029,"Engine","Grains",09024020,0,790,20,Bag,40
+"Engine Item 30 Pack",FIX-ENG-030,"Engine","Edible Oils",04051000,5,815,24,Box,48
+"Everest Item 1 Pack",FIX-EVE-001,"Everest","Confectionery",34011110,5,105,48,Carton,96
+"Everest Item 2 Pack",FIX-EVE-002,"Everest","Personal Care",09024020,12,130,6,Tin,12
+"Everest Item 3 Pack",FIX-EVE-003,"Everest","Home Care",04051000,18,155,12,Bag,24
+"Everest Item 4 Pack",FIX-EVE-004,"Everest","Beverages",21069099,0,180,20,Box,40
+"Everest Item 5 Pack",FIX-EVE-005,"Everest","Dairy Products",09042010,5,205,24,Bundle,48
+"Everest Item 6 Pack",FIX-EVE-006,"Everest","Snacks",10063020,12,230,30,Carton,60
+"Everest Item 7 Pack",FIX-EVE-007,"Everest","Spices",15149100,18,255,48,Tin,96
+"Everest Item 8 Pack",FIX-EVE-008,"Everest","Grains",19053100,0,280,6,Bag,12
+"Everest Item 9 Pack",FIX-EVE-009,"Everest","Edible Oils",34011110,5,305,12,Box,24
+"Everest Item 10 Pack",FIX-EVE-010,"Everest","Biscuits",09024020,12,330,20,Bundle,40
+"Everest Item 11 Pack",FIX-EVE-011,"Everest","Confectionery",04051000,18,355,24,Carton,48
+"Everest Item 12 Pack",FIX-EVE-012,"Everest","Personal Care",21069099,0,380,30,Tin,60
+"Everest Item 13 Pack",FIX-EVE-013,"Everest","Home Care",09042010,5,405,48,Bag,96
+"Everest Item 14 Pack",FIX-EVE-014,"Everest","Beverages",10063020,12,430,6,Box,12
+"Everest Item 15 Pack",FIX-EVE-015,"Everest","Dairy Products",15149100,18,455,12,Bundle,24
+"Everest Item 16 Pack",FIX-EVE-016,"Everest","Snacks",19053100,0,480,20,Carton,40
+"Everest Item 17 Pack",FIX-EVE-017,"Everest","Spices",34011110,5,505,24,Tin,48
+"Everest Item 18 Pack",FIX-EVE-018,"Everest","Grains",09024020,12,530,30,Bag,60
+"Everest Item 19 Pack",FIX-EVE-019,"Everest","Edible Oils",04051000,18,555,48,Box,96
+"Everest Item 20 Pack",FIX-EVE-020,"Everest","Biscuits",21069099,0,580,6,Bundle,12
+"Everest Item 21 Pack",FIX-EVE-021,"Everest","Confectionery",09042010,5,605,12,Carton,24
+"Everest Item 22 Pack",FIX-EVE-022,"Everest","Personal Care",10063020,12,630,20,Tin,40
+"Everest Item 23 Pack",FIX-EVE-023,"Everest","Home Care",15149100,18,655,24,Bag,48
+"Everest Item 24 Pack",FIX-EVE-024,"Everest","Beverages",19053100,0,680,30,Box,60
+"Everest Item 25 Pack",FIX-EVE-025,"Everest","Dairy Products",34011110,5,705,48,Bundle,96
+"Everest Item 26 Pack",FIX-EVE-026,"Everest","Snacks",09024020,12,730,6,Carton,12
+"Everest Item 27 Pack",FIX-EVE-027,"Everest","Spices",04051000,18,755,12,Tin,24
+"Everest Item 28 Pack",FIX-EVE-028,"Everest","Grains",21069099,0,780,20,Bag,40
+"Everest Item 29 Pack",FIX-EVE-029,"Everest","Edible Oils",09042010,5,805,24,Box,48
+"Everest Item 30 Pack",FIX-EVE-030,"Everest","Biscuits",10063020,12,30,30,Bundle,60
+"Parle Item 1 Pack",FIX-PAR-001,"Parle","Personal Care",21069099,12,120,6,Tin,12
+"Parle Item 2 Pack",FIX-PAR-002,"Parle","Home Care",09042010,18,145,12,Bag,24
+"Parle Item 3 Pack",FIX-PAR-003,"Parle","Beverages",10063020,0,170,20,Box,40
+"Parle Item 4 Pack",FIX-PAR-004,"Parle","Dairy Products",15149100,5,195,24,Bundle,48
+"Parle Item 5 Pack",FIX-PAR-005,"Parle","Snacks",19053100,12,220,30,Carton,60
+"Parle Item 6 Pack",FIX-PAR-006,"Parle","Spices",34011110,18,245,48,Tin,96
+"Parle Item 7 Pack",FIX-PAR-007,"Parle","Grains",09024020,0,270,6,Bag,12
+"Parle Item 8 Pack",FIX-PAR-008,"Parle","Edible Oils",04051000,5,295,12,Box,24
+"Parle Item 9 Pack",FIX-PAR-009,"Parle","Biscuits",21069099,12,320,20,Bundle,40
+"Parle Item 10 Pack",FIX-PAR-010,"Parle","Confectionery",09042010,18,345,24,Carton,48
+"Parle Item 11 Pack",FIX-PAR-011,"Parle","Personal Care",10063020,0,370,30,Tin,60
+"Parle Item 12 Pack",FIX-PAR-012,"Parle","Home Care",15149100,5,395,48,Bag,96
+"Parle Item 13 Pack",FIX-PAR-013,"Parle","Beverages",19053100,12,420,6,Box,12
+"Parle Item 14 Pack",FIX-PAR-014,"Parle","Dairy Products",34011110,18,445,12,Bundle,24
+"Parle Item 15 Pack",FIX-PAR-015,"Parle","Snacks",09024020,0,470,20,Carton,40
+"Parle Item 16 Pack",FIX-PAR-016,"Parle","Spices",04051000,5,495,24,Tin,48
+"Parle Item 17 Pack",FIX-PAR-017,"Parle","Grains",21069099,12,520,30,Bag,60
+"Parle Item 18 Pack",FIX-PAR-018,"Parle","Edible Oils",09042010,18,545,48,Box,96
+"Parle Item 19 Pack",FIX-PAR-019,"Parle","Biscuits",10063020,0,570,6,Bundle,12
+"Parle Item 20 Pack",FIX-PAR-020,"Parle","Confectionery",15149100,5,595,12,Carton,24
+"Parle Item 21 Pack",FIX-PAR-021,"Parle","Personal Care",19053100,12,620,20,Tin,40
+"Parle Item 22 Pack",FIX-PAR-022,"Parle","Home Care",34011110,18,645,24,Bag,48
+"Parle Item 23 Pack",FIX-PAR-023,"Parle","Beverages",09024020,0,670,30,Box,60
+"Parle Item 24 Pack",FIX-PAR-024,"Parle","Dairy Products",04051000,5,695,48,Bundle,96
+"Parle Item 25 Pack",FIX-PAR-025,"Parle","Snacks",21069099,12,720,6,Carton,12
+"Parle Item 26 Pack",FIX-PAR-026,"Parle","Spices",09042010,18,745,12,Tin,24
+"Parle Item 27 Pack",FIX-PAR-027,"Parle","Grains",10063020,0,770,20,Bag,40
+"Parle Item 28 Pack",FIX-PAR-028,"Parle","Edible Oils",15149100,5,795,24,Box,48
+"Parle Item 29 Pack",FIX-PAR-029,"Parle","Biscuits",19053100,12,20,30,Bundle,60
+"Parle Item 30 Pack",FIX-PAR-030,"Parle","Confectionery",34011110,18,45,48,Carton,96
+"Britannia Item 1 Pack",FIX-BRI-001,"Britannia","Home Care",15149100,18,135,12,Bag,24
+"Britannia Item 2 Pack",FIX-BRI-002,"Britannia","Beverages",19053100,0,160,20,Box,40
+"Britannia Item 3 Pack",FIX-BRI-003,"Britannia","Dairy Products",34011110,5,185,24,Bundle,48
+"Britannia Item 4 Pack",FIX-BRI-004,"Britannia","Snacks",09024020,12,210,30,Carton,60
+"Britannia Item 5 Pack",FIX-BRI-005,"Britannia","Spices",04051000,18,235,48,Tin,96
+"Britannia Item 6 Pack",FIX-BRI-006,"Britannia","Grains",21069099,0,260,6,Bag,12
+"Britannia Item 7 Pack",FIX-BRI-007,"Britannia","Edible Oils",09042010,5,285,12,Box,24
+"Britannia Item 8 Pack",FIX-BRI-008,"Britannia","Biscuits",10063020,12,310,20,Bundle,40
+"Britannia Item 9 Pack",FIX-BRI-009,"Britannia","Confectionery",15149100,18,335,24,Carton,48
+"Britannia Item 10 Pack",FIX-BRI-010,"Britannia","Personal Care",19053100,0,360,30,Tin,60
+"Britannia Item 11 Pack",FIX-BRI-011,"Britannia","Home Care",34011110,5,385,48,Bag,96
+"Britannia Item 12 Pack",FIX-BRI-012,"Britannia","Beverages",09024020,12,410,6,Box,12
+"Britannia Item 13 Pack",FIX-BRI-013,"Britannia","Dairy Products",04051000,18,435,12,Bundle,24
+"Britannia Item 14 Pack",FIX-BRI-014,"Britannia","Snacks",21069099,0,460,20,Carton,40
+"Britannia Item 15 Pack",FIX-BRI-015,"Britannia","Spices",09042010,5,485,24,Tin,48
+"Britannia Item 16 Pack",FIX-BRI-016,"Britannia","Grains",10063020,12,510,30,Bag,60
+"Britannia Item 17 Pack",FIX-BRI-017,"Britannia","Edible Oils",15149100,18,535,48,Box,96
+"Britannia Item 18 Pack",FIX-BRI-018,"Britannia","Biscuits",19053100,0,560,6,Bundle,12
+"Britannia Item 19 Pack",FIX-BRI-019,"Britannia","Confectionery",34011110,5,585,12,Carton,24
+"Britannia Item 20 Pack",FIX-BRI-020,"Britannia","Personal Care",09024020,12,610,20,Tin,40
+"Britannia Item 21 Pack",FIX-BRI-021,"Britannia","Home Care",04051000,18,635,24,Bag,48
+"Britannia Item 22 Pack",FIX-BRI-022,"Britannia","Beverages",21069099,0,660,30,Box,60
+"Britannia Item 23 Pack",FIX-BRI-023,"Britannia","Dairy Products",09042010,5,685,48,Bundle,96
+"Britannia Item 24 Pack",FIX-BRI-024,"Britannia","Snacks",10063020,12,710,6,Carton,12
+"Britannia Item 25 Pack",FIX-BRI-025,"Britannia","Spices",15149100,18,735,12,Tin,24
+"Britannia Item 26 Pack",FIX-BRI-026,"Britannia","Grains",19053100,0,760,20,Bag,40
+"Britannia Item 27 Pack",FIX-BRI-027,"Britannia","Edible Oils",34011110,5,785,24,Box,48
+"Britannia Item 28 Pack",FIX-BRI-028,"Britannia","Biscuits",09024020,12,810,30,Bundle,60
+"Britannia Item 29 Pack",FIX-BRI-029,"Britannia","Confectionery",04051000,18,35,48,Carton,96
+"Britannia Item 30 Pack",FIX-BRI-030,"Britannia","Personal Care",21069099,0,60,6,Tin,12
+"Tata Item 1 Pack",FIX-TAT-001,"Tata","Beverages",09024020,0,150,20,Box,40
+"Tata Item 2 Pack",FIX-TAT-002,"Tata","Dairy Products",04051000,5,175,24,Bundle,48
+"Tata Item 3 Pack",FIX-TAT-003,"Tata","Snacks",21069099,12,200,30,Carton,60
+"Tata Item 4 Pack",FIX-TAT-004,"Tata","Spices",09042010,18,225,48,Tin,96
+"Tata Item 5 Pack",FIX-TAT-005,"Tata","Grains",10063020,0,250,6,Bag,12
+"Tata Item 6 Pack",FIX-TAT-006,"Tata","Edible Oils",15149100,5,275,12,Box,24
+"Tata Item 7 Pack",FIX-TAT-007,"Tata","Biscuits",19053100,12,300,20,Bundle,40
+"Tata Item 8 Pack",FIX-TAT-008,"Tata","Confectionery",34011110,18,325,24,Carton,48
+"Tata Item 9 Pack",FIX-TAT-009,"Tata","Personal Care",09024020,0,350,30,Tin,60
+"Tata Item 10 Pack",FIX-TAT-010,"Tata","Home Care",04051000,5,375,48,Bag,96
+"Tata Item 11 Pack",FIX-TAT-011,"Tata","Beverages",21069099,12,400,6,Box,12
+"Tata Item 12 Pack",FIX-TAT-012,"Tata","Dairy Products",09042010,18,425,12,Bundle,24
+"Tata Item 13 Pack",FIX-TAT-013,"Tata","Snacks",10063020,0,450,20,Carton,40
+"Tata Item 14 Pack",FIX-TAT-014,"Tata","Spices",15149100,5,475,24,Tin,48
+"Tata Item 15 Pack",FIX-TAT-015,"Tata","Grains",19053100,12,500,30,Bag,60
+"Tata Item 16 Pack",FIX-TAT-016,"Tata","Edible Oils",34011110,18,525,48,Box,96
+"Tata Item 17 Pack",FIX-TAT-017,"Tata","Biscuits",09024020,0,550,6,Bundle,12
+"Tata Item 18 Pack",FIX-TAT-018,"Tata","Confectionery",04051000,5,575,12,Carton,24
+"Tata Item 19 Pack",FIX-TAT-019,"Tata","Personal Care",21069099,12,600,20,Tin,40
+"Tata Item 20 Pack",FIX-TAT-020,"Tata","Home Care",09042010,18,625,24,Bag,48
+"Tata Item 21 Pack",FIX-TAT-021,"Tata","Beverages",10063020,0,650,30,Box,60
+"Tata Item 22 Pack",FIX-TAT-022,"Tata","Dairy Products",15149100,5,675,48,Bundle,96
+"Tata Item 23 Pack",FIX-TAT-023,"Tata","Snacks",19053100,12,700,6,Carton,12
+"Tata Item 24 Pack",FIX-TAT-024,"Tata","Spices",34011110,18,725,12,Tin,24
+"Tata Item 25 Pack",FIX-TAT-025,"Tata","Grains",09024020,0,750,20,Bag,40
+"Tata Item 26 Pack",FIX-TAT-026,"Tata","Edible Oils",04051000,5,775,24,Box,48
+"Tata Item 27 Pack",FIX-TAT-027,"Tata","Biscuits",21069099,12,800,30,Bundle,60
+"Tata Item 28 Pack",FIX-TAT-028,"Tata","Confectionery",09042010,18,25,48,Carton,96
+"Tata Item 29 Pack",FIX-TAT-029,"Tata","Personal Care",10063020,0,50,6,Tin,12
+"Tata Item 30 Pack",FIX-TAT-030,"Tata","Home Care",15149100,5,75,12,Bag,24
+"Haldiram Item 1 Pack",FIX-HAL-001,"Haldiram","Dairy Products",09042010,5,165,24,Bundle,48
+"Haldiram Item 2 Pack",FIX-HAL-002,"Haldiram","Snacks",10063020,12,190,30,Carton,60
+"Haldiram Item 3 Pack",FIX-HAL-003,"Haldiram","Spices",15149100,18,215,48,Tin,96
+"Haldiram Item 4 Pack",FIX-HAL-004,"Haldiram","Grains",19053100,0,240,6,Bag,12
+"Haldiram Item 5 Pack",FIX-HAL-005,"Haldiram","Edible Oils",34011110,5,265,12,Box,24
+"Haldiram Item 6 Pack",FIX-HAL-006,"Haldiram","Biscuits",09024020,12,290,20,Bundle,40
+"Haldiram Item 7 Pack",FIX-HAL-007,"Haldiram","Confectionery",04051000,18,315,24,Carton,48
+"Haldiram Item 8 Pack",FIX-HAL-008,"Haldiram","Personal Care",21069099,0,340,30,Tin,60
+"Haldiram Item 9 Pack",FIX-HAL-009,"Haldiram","Home Care",09042010,5,365,48,Bag,96
+"Haldiram Item 10 Pack",FIX-HAL-010,"Haldiram","Beverages",10063020,12,390,6,Box,12
+"Haldiram Item 11 Pack",FIX-HAL-011,"Haldiram","Dairy Products",15149100,18,415,12,Bundle,24
+"Haldiram Item 12 Pack",FIX-HAL-012,"Haldiram","Snacks",19053100,0,440,20,Carton,40
+"Haldiram Item 13 Pack",FIX-HAL-013,"Haldiram","Spices",34011110,5,465,24,Tin,48
+"Haldiram Item 14 Pack",FIX-HAL-014,"Haldiram","Grains",09024020,12,490,30,Bag,60
+"Haldiram Item 15 Pack",FIX-HAL-015,"Haldiram","Edible Oils",04051000,18,515,48,Box,96
+"Haldiram Item 16 Pack",FIX-HAL-016,"Haldiram","Biscuits",21069099,0,540,6,Bundle,12
+"Haldiram Item 17 Pack",FIX-HAL-017,"Haldiram","Confectionery",09042010,5,565,12,Carton,24
+"Haldiram Item 18 Pack",FIX-HAL-018,"Haldiram","Personal Care",10063020,12,590,20,Tin,40
+"Haldiram Item 19 Pack",FIX-HAL-019,"Haldiram","Home Care",15149100,18,615,24,Bag,48
+"Haldiram Item 20 Pack",FIX-HAL-020,"Haldiram","Beverages",19053100,0,640,30,Box,60
+"Haldiram Item 21 Pack",FIX-HAL-021,"Haldiram","Dairy Products",34011110,5,665,48,Bundle,96
+"Haldiram Item 22 Pack",FIX-HAL-022,"Haldiram","Snacks",09024020,12,690,6,Carton,12
+"Haldiram Item 23 Pack",FIX-HAL-023,"Haldiram","Spices",04051000,18,715,12,Tin,24
+"Haldiram Item 24 Pack",FIX-HAL-024,"Haldiram","Grains",21069099,0,740,20,Bag,40
+"Haldiram Item 25 Pack",FIX-HAL-025,"Haldiram","Edible Oils",09042010,5,765,24,Box,48
+"Haldiram Item 26 Pack",FIX-HAL-026,"Haldiram","Biscuits",10063020,12,790,30,Bundle,60
+"Haldiram Item 27 Pack",FIX-HAL-027,"Haldiram","Confectionery",15149100,18,815,48,Carton,96
+"Haldiram Item 28 Pack",FIX-HAL-028,"Haldiram","Personal Care",19053100,0,40,6,Tin,12
+"Haldiram Item 29 Pack",FIX-HAL-029,"Haldiram","Home Care",34011110,5,65,12,Bag,24
+"Haldiram Item 30 Pack",FIX-HAL-030,"Haldiram","Beverages",09024020,12,90,20,Box,40
+"Dabur Item 1 Pack",FIX-DAB-001,"Dabur","Snacks",19053100,12,180,30,Carton,60
+"Dabur Item 2 Pack",FIX-DAB-002,"Dabur","Spices",34011110,18,205,48,Tin,96
+"Dabur Item 3 Pack",FIX-DAB-003,"Dabur","Grains",09024020,0,230,6,Bag,12
+"Dabur Item 4 Pack",FIX-DAB-004,"Dabur","Edible Oils",04051000,5,255,12,Box,24
+"Dabur Item 5 Pack",FIX-DAB-005,"Dabur","Biscuits",21069099,12,280,20,Bundle,40
+"Dabur Item 6 Pack",FIX-DAB-006,"Dabur","Confectionery",09042010,18,305,24,Carton,48
+"Dabur Item 7 Pack",FIX-DAB-007,"Dabur","Personal Care",10063020,0,330,30,Tin,60
+"Dabur Item 8 Pack",FIX-DAB-008,"Dabur","Home Care",15149100,5,355,48,Bag,96
+"Dabur Item 9 Pack",FIX-DAB-009,"Dabur","Beverages",19053100,12,380,6,Box,12
+"Dabur Item 10 Pack",FIX-DAB-010,"Dabur","Dairy Products",34011110,18,405,12,Bundle,24
+"Dabur Item 11 Pack",FIX-DAB-011,"Dabur","Snacks",09024020,0,430,20,Carton,40
+"Dabur Item 12 Pack",FIX-DAB-012,"Dabur","Spices",04051000,5,455,24,Tin,48
+"Dabur Item 13 Pack",FIX-DAB-013,"Dabur","Grains",21069099,12,480,30,Bag,60
+"Dabur Item 14 Pack",FIX-DAB-014,"Dabur","Edible Oils",09042010,18,505,48,Box,96
+"Dabur Item 15 Pack",FIX-DAB-015,"Dabur","Biscuits",10063020,0,530,6,Bundle,12
+"Dabur Item 16 Pack",FIX-DAB-016,"Dabur","Confectionery",15149100,5,555,12,Carton,24
+"Dabur Item 17 Pack",FIX-DAB-017,"Dabur","Personal Care",19053100,12,580,20,Tin,40
+"Dabur Item 18 Pack",FIX-DAB-018,"Dabur","Home Care",34011110,18,605,24,Bag,48
+"Dabur Item 19 Pack",FIX-DAB-019,"Dabur","Beverages",09024020,0,630,30,Box,60
+"Dabur Item 20 Pack",FIX-DAB-020,"Dabur","Dairy Products",04051000,5,655,48,Bundle,96
+"Dabur Item 21 Pack",FIX-DAB-021,"Dabur","Snacks",21069099,12,680,6,Carton,12
+"Dabur Item 22 Pack",FIX-DAB-022,"Dabur","Spices",09042010,18,705,12,Tin,24
+"Dabur Item 23 Pack",FIX-DAB-023,"Dabur","Grains",10063020,0,730,20,Bag,40
+"Dabur Item 24 Pack",FIX-DAB-024,"Dabur","Edible Oils",15149100,5,755,24,Box,48
+"Dabur Item 25 Pack",FIX-DAB-025,"Dabur","Biscuits",19053100,12,780,30,Bundle,60
+"Dabur Item 26 Pack",FIX-DAB-026,"Dabur","Confectionery",34011110,18,805,48,Carton,96
+"Dabur Item 27 Pack",FIX-DAB-027,"Dabur","Personal Care",09024020,0,30,6,Tin,12
+"Dabur Item 28 Pack",FIX-DAB-028,"Dabur","Home Care",04051000,5,55,12,Bag,24
+"Dabur Item 29 Pack",FIX-DAB-029,"Dabur","Beverages",21069099,12,80,20,Box,40
+"Dabur Item 30 Pack",FIX-DAB-030,"Dabur","Dairy Products",09042010,18,105,24,Bundle,48
+"Fortune Item 1 Pack",FIX-FOR-001,"Fortune","Spices",04051000,18,195,48,Tin,96
+"Fortune Item 2 Pack",FIX-FOR-002,"Fortune","Grains",21069099,0,220,6,Bag,12
+"Fortune Item 3 Pack",FIX-FOR-003,"Fortune","Edible Oils",09042010,5,245,12,Box,24
+"Fortune Item 4 Pack",FIX-FOR-004,"Fortune","Biscuits",10063020,12,270,20,Bundle,40
+"Fortune Item 5 Pack",FIX-FOR-005,"Fortune","Confectionery",15149100,18,295,24,Carton,48
+"Fortune Item 6 Pack",FIX-FOR-006,"Fortune","Personal Care",19053100,0,320,30,Tin,60
+"Fortune Item 7 Pack",FIX-FOR-007,"Fortune","Home Care",34011110,5,345,48,Bag,96
+"Fortune Item 8 Pack",FIX-FOR-008,"Fortune","Beverages",09024020,12,370,6,Box,12
+"Fortune Item 9 Pack",FIX-FOR-009,"Fortune","Dairy Products",04051000,18,395,12,Bundle,24
+"Fortune Item 10 Pack",FIX-FOR-010,"Fortune","Snacks",21069099,0,420,20,Carton,40
+"Fortune Item 11 Pack",FIX-FOR-011,"Fortune","Spices",09042010,5,445,24,Tin,48
+"Fortune Item 12 Pack",FIX-FOR-012,"Fortune","Grains",10063020,12,470,30,Bag,60
+"Fortune Item 13 Pack",FIX-FOR-013,"Fortune","Edible Oils",15149100,18,495,48,Box,96
+"Fortune Item 14 Pack",FIX-FOR-014,"Fortune","Biscuits",19053100,0,520,6,Bundle,12
+"Fortune Item 15 Pack",FIX-FOR-015,"Fortune","Confectionery",34011110,5,545,12,Carton,24
+"Fortune Item 16 Pack",FIX-FOR-016,"Fortune","Personal Care",09024020,12,570,20,Tin,40
+"Fortune Item 17 Pack",FIX-FOR-017,"Fortune","Home Care",04051000,18,595,24,Bag,48
+"Fortune Item 18 Pack",FIX-FOR-018,"Fortune","Beverages",21069099,0,620,30,Box,60
+"Fortune Item 19 Pack",FIX-FOR-019,"Fortune","Dairy Products",09042010,5,645,48,Bundle,96
+"Fortune Item 20 Pack",FIX-FOR-020,"Fortune","Snacks",10063020,12,670,6,Carton,12
+"Fortune Item 21 Pack",FIX-FOR-021,"Fortune","Spices",15149100,18,695,12,Tin,24
+"Fortune Item 22 Pack",FIX-FOR-022,"Fortune","Grains",19053100,0,720,20,Bag,40
+"Fortune Item 23 Pack",FIX-FOR-023,"Fortune","Edible Oils",34011110,5,745,24,Box,48
+"Fortune Item 24 Pack",FIX-FOR-024,"Fortune","Biscuits",09024020,12,770,30,Bundle,60
+"Fortune Item 25 Pack",FIX-FOR-025,"Fortune","Confectionery",04051000,18,795,48,Carton,96
+"Fortune Item 26 Pack",FIX-FOR-026,"Fortune","Personal Care",21069099,0,20,6,Tin,12
+"Fortune Item 27 Pack",FIX-FOR-027,"Fortune","Home Care",09042010,5,45,12,Bag,24
+"Fortune Item 28 Pack",FIX-FOR-028,"Fortune","Beverages",10063020,12,70,20,Box,40
+"Fortune Item 29 Pack",FIX-FOR-029,"Fortune","Dairy Products",15149100,18,95,24,Bundle,48
+"Fortune Item 30 Pack",FIX-FOR-030,"Fortune","Snacks",19053100,0,120,30,Carton,60
+"ITC Item 1 Pack",FIX-ITC-001,"ITC","Grains",10063020,0,210,6,Bag,12
+"ITC Item 2 Pack",FIX-ITC-002,"ITC","Edible Oils",15149100,5,235,12,Box,24
+"ITC Item 3 Pack",FIX-ITC-003,"ITC","Biscuits",19053100,12,260,20,Bundle,40
+"ITC Item 4 Pack",FIX-ITC-004,"ITC","Confectionery",34011110,18,285,24,Carton,48
+"ITC Item 5 Pack",FIX-ITC-005,"ITC","Personal Care",09024020,0,310,30,Tin,60
+"ITC Item 6 Pack",FIX-ITC-006,"ITC","Home Care",04051000,5,335,48,Bag,96
+"ITC Item 7 Pack",FIX-ITC-007,"ITC","Beverages",21069099,12,360,6,Box,12
+"ITC Item 8 Pack",FIX-ITC-008,"ITC","Dairy Products",09042010,18,385,12,Bundle,24
+"ITC Item 9 Pack",FIX-ITC-009,"ITC","Snacks",10063020,0,410,20,Carton,40
+"ITC Item 10 Pack",FIX-ITC-010,"ITC","Spices",15149100,5,435,24,Tin,48
+"ITC Item 11 Pack",FIX-ITC-011,"ITC","Grains",19053100,12,460,30,Bag,60
+"ITC Item 12 Pack",FIX-ITC-012,"ITC","Edible Oils",34011110,18,485,48,Box,96
+"ITC Item 13 Pack",FIX-ITC-013,"ITC","Biscuits",09024020,0,510,6,Bundle,12
+"ITC Item 14 Pack",FIX-ITC-014,"ITC","Confectionery",04051000,5,535,12,Carton,24
+"ITC Item 15 Pack",FIX-ITC-015,"ITC","Personal Care",21069099,12,560,20,Tin,40
+"ITC Item 16 Pack",FIX-ITC-016,"ITC","Home Care",09042010,18,585,24,Bag,48
+"ITC Item 17 Pack",FIX-ITC-017,"ITC","Beverages",10063020,0,610,30,Box,60
+"ITC Item 18 Pack",FIX-ITC-018,"ITC","Dairy Products",15149100,5,635,48,Bundle,96
+"ITC Item 19 Pack",FIX-ITC-019,"ITC","Snacks",19053100,12,660,6,Carton,12
+"ITC Item 20 Pack",FIX-ITC-020,"ITC","Spices",34011110,18,685,12,Tin,24
+"ITC Item 21 Pack",FIX-ITC-021,"ITC","Grains",09024020,0,710,20,Bag,40
+"ITC Item 22 Pack",FIX-ITC-022,"ITC","Edible Oils",04051000,5,735,24,Box,48
+"ITC Item 23 Pack",FIX-ITC-023,"ITC","Biscuits",21069099,12,760,30,Bundle,60
+"ITC Item 24 Pack",FIX-ITC-024,"ITC","Confectionery",09042010,18,785,48,Carton,96
+"ITC Item 25 Pack",FIX-ITC-025,"ITC","Personal Care",10063020,0,810,6,Tin,12
+"ITC Item 26 Pack",FIX-ITC-026,"ITC","Home Care",15149100,5,35,12,Bag,24
+"ITC Item 27 Pack",FIX-ITC-027,"ITC","Beverages",19053100,12,60,20,Box,40
+"ITC Item 28 Pack",FIX-ITC-028,"ITC","Dairy Products",34011110,18,85,24,Bundle,48
+"ITC Item 29 Pack",FIX-ITC-029,"ITC","Snacks",09024020,0,110,30,Carton,60
+"ITC Item 30 Pack",FIX-ITC-030,"ITC","Spices",04051000,5,135,48,Tin,96
+"Nestle Item 1 Pack",FIX-NES-001,"Nestle","Edible Oils",34011110,5,225,12,Box,24
+"Nestle Item 2 Pack",FIX-NES-002,"Nestle","Biscuits",09024020,12,250,20,Bundle,40
+"Nestle Item 3 Pack",FIX-NES-003,"Nestle","Confectionery",04051000,18,275,24,Carton,48
+"Nestle Item 4 Pack",FIX-NES-004,"Nestle","Personal Care",21069099,0,300,30,Tin,60
+"Nestle Item 5 Pack",FIX-NES-005,"Nestle","Home Care",09042010,5,325,48,Bag,96
+"Nestle Item 6 Pack",FIX-NES-006,"Nestle","Beverages",10063020,12,350,6,Box,12
+"Nestle Item 7 Pack",FIX-NES-007,"Nestle","Dairy Products",15149100,18,375,12,Bundle,24
+"Nestle Item 8 Pack",FIX-NES-008,"Nestle","Snacks",19053100,0,400,20,Carton,40
+"Nestle Item 9 Pack",FIX-NES-009,"Nestle","Spices",34011110,5,425,24,Tin,48
+"Nestle Item 10 Pack",FIX-NES-010,"Nestle","Grains",09024020,12,450,30,Bag,60
+"Nestle Item 11 Pack",FIX-NES-011,"Nestle","Edible Oils",04051000,18,475,48,Box,96
+"Nestle Item 12 Pack",FIX-NES-012,"Nestle","Biscuits",21069099,0,500,6,Bundle,12
+"Nestle Item 13 Pack",FIX-NES-013,"Nestle","Confectionery",09042010,5,525,12,Carton,24
+"Nestle Item 14 Pack",FIX-NES-014,"Nestle","Personal Care",10063020,12,550,20,Tin,40
+"Nestle Item 15 Pack",FIX-NES-015,"Nestle","Home Care",15149100,18,575,24,Bag,48
+"Nestle Item 16 Pack",FIX-NES-016,"Nestle","Beverages",19053100,0,600,30,Box,60
+"Nestle Item 17 Pack",FIX-NES-017,"Nestle","Dairy Products",34011110,5,625,48,Bundle,96
+"Nestle Item 18 Pack",FIX-NES-018,"Nestle","Snacks",09024020,12,650,6,Carton,12
+"Nestle Item 19 Pack",FIX-NES-019,"Nestle","Spices",04051000,18,675,12,Tin,24
+"Nestle Item 20 Pack",FIX-NES-020,"Nestle","Grains",21069099,0,700,20,Bag,40
+"Nestle Item 21 Pack",FIX-NES-021,"Nestle","Edible Oils",09042010,5,725,24,Box,48
+"Nestle Item 22 Pack",FIX-NES-022,"Nestle","Biscuits",10063020,12,750,30,Bundle,60
+"Nestle Item 23 Pack",FIX-NES-023,"Nestle","Confectionery",15149100,18,775,48,Carton,96
+"Nestle Item 24 Pack",FIX-NES-024,"Nestle","Personal Care",19053100,0,800,6,Tin,12
+"Nestle Item 25 Pack",FIX-NES-025,"Nestle","Home Care",34011110,5,25,12,Bag,24
+"Nestle Item 26 Pack",FIX-NES-026,"Nestle","Beverages",09024020,12,50,20,Box,40
+"Nestle Item 27 Pack",FIX-NES-027,"Nestle","Dairy Products",04051000,18,75,24,Bundle,48
+"Nestle Item 28 Pack",FIX-NES-028,"Nestle","Snacks",21069099,0,100,30,Carton,60
+"Nestle Item 29 Pack",FIX-NES-029,"Nestle","Spices",09042010,5,125,48,Tin,96
+"Nestle Item 30 Pack",FIX-NES-030,"Nestle","Grains",10063020,12,150,6,Bag,12
+"Amul Item 1 Pack",FIX-AMU-001,"Amul","Biscuits",21069099,12,240,20,Bundle,40
+"Amul Item 2 Pack",FIX-AMU-002,"Amul","Confectionery",09042010,18,265,24,Carton,48
+"Amul Item 3 Pack",FIX-AMU-003,"Amul","Personal Care",10063020,0,290,30,Tin,60
+"Amul Item 4 Pack",FIX-AMU-004,"Amul","Home Care",15149100,5,315,48,Bag,96
+"Amul Item 5 Pack",FIX-AMU-005,"Amul","Beverages",19053100,12,340,6,Box,12
+"Amul Item 6 Pack",FIX-AMU-006,"Amul","Dairy Products",34011110,18,365,12,Bundle,24
+"Amul Item 7 Pack",FIX-AMU-007,"Amul","Snacks",09024020,0,390,20,Carton,40
+"Amul Item 8 Pack",FIX-AMU-008,"Amul","Spices",04051000,5,415,24,Tin,48
+"Amul Item 9 Pack",FIX-AMU-009,"Amul","Grains",21069099,12,440,30,Bag,60
+"Amul Item 10 Pack",FIX-AMU-010,"Amul","Edible Oils",09042010,18,465,48,Box,96
+"Amul Item 11 Pack",FIX-AMU-011,"Amul","Biscuits",10063020,0,490,6,Bundle,12
+"Amul Item 12 Pack",FIX-AMU-012,"Amul","Confectionery",15149100,5,515,12,Carton,24
+"Amul Item 13 Pack",FIX-AMU-013,"Amul","Personal Care",19053100,12,540,20,Tin,40
+"Amul Item 14 Pack",FIX-AMU-014,"Amul","Home Care",34011110,18,565,24,Bag,48
+"Amul Item 15 Pack",FIX-AMU-015,"Amul","Beverages",09024020,0,590,30,Box,60
+"Amul Item 16 Pack",FIX-AMU-016,"Amul","Dairy Products",04051000,5,615,48,Bundle,96
+"Amul Item 17 Pack",FIX-AMU-017,"Amul","Snacks",21069099,12,640,6,Carton,12
+"Amul Item 18 Pack",FIX-AMU-018,"Amul","Spices",09042010,18,665,12,Tin,24
+"Amul Item 19 Pack",FIX-AMU-019,"Amul","Grains",10063020,0,690,20,Bag,40
+"Amul Item 20 Pack",FIX-AMU-020,"Amul","Edible Oils",15149100,5,715,24,Box,48
+"Amul Item 21 Pack",FIX-AMU-021,"Amul","Biscuits",19053100,12,740,30,Bundle,60
+"Amul Item 22 Pack",FIX-AMU-022,"Amul","Confectionery",34011110,18,765,48,Carton,96
+"Amul Item 23 Pack",FIX-AMU-023,"Amul","Personal Care",09024020,0,790,6,Tin,12
+"Amul Item 24 Pack",FIX-AMU-024,"Amul","Home Care",04051000,5,815,12,Bag,24
+"Amul Item 25 Pack",FIX-AMU-025,"Amul","Beverages",21069099,12,40,20,Box,40
+"Amul Item 26 Pack",FIX-AMU-026,"Amul","Dairy Products",09042010,18,65,24,Bundle,48
+"Amul Item 27 Pack",FIX-AMU-027,"Amul","Snacks",10063020,0,90,30,Carton,60
+"Amul Item 28 Pack",FIX-AMU-028,"Amul","Spices",15149100,5,115,48,Tin,96
+"Amul Item 29 Pack",FIX-AMU-029,"Amul","Grains",19053100,12,140,6,Bag,12
+"Amul Item 30 Pack",FIX-AMU-030,"Amul","Edible Oils",34011110,18,165,12,Box,24
+"Colgate Item 1 Pack",FIX-COL-001,"Colgate","Confectionery",15149100,18,255,24,Carton,48
+"Colgate Item 2 Pack",FIX-COL-002,"Colgate","Personal Care",19053100,0,280,30,Tin,60
+"Colgate Item 3 Pack",FIX-COL-003,"Colgate","Home Care",34011110,5,305,48,Bag,96
+"Colgate Item 4 Pack",FIX-COL-004,"Colgate","Beverages",09024020,12,330,6,Box,12
+"Colgate Item 5 Pack",FIX-COL-005,"Colgate","Dairy Products",04051000,18,355,12,Bundle,24
+"Colgate Item 6 Pack",FIX-COL-006,"Colgate","Snacks",21069099,0,380,20,Carton,40
+"Colgate Item 7 Pack",FIX-COL-007,"Colgate","Spices",09042010,5,405,24,Tin,48
+"Colgate Item 8 Pack",FIX-COL-008,"Colgate","Grains",10063020,12,430,30,Bag,60
+"Colgate Item 9 Pack",FIX-COL-009,"Colgate","Edible Oils",15149100,18,455,48,Box,96
+"Colgate Item 10 Pack",FIX-COL-010,"Colgate","Biscuits",19053100,0,480,6,Bundle,12
+"Colgate Item 11 Pack",FIX-COL-011,"Colgate","Confectionery",34011110,5,505,12,Carton,24
+"Colgate Item 12 Pack",FIX-COL-012,"Colgate","Personal Care",09024020,12,530,20,Tin,40
+"Colgate Item 13 Pack",FIX-COL-013,"Colgate","Home Care",04051000,18,555,24,Bag,48
+"Colgate Item 14 Pack",FIX-COL-014,"Colgate","Beverages",21069099,0,580,30,Box,60
+"Colgate Item 15 Pack",FIX-COL-015,"Colgate","Dairy Products",09042010,5,605,48,Bundle,96
+"Colgate Item 16 Pack",FIX-COL-016,"Colgate","Snacks",10063020,12,630,6,Carton,12
+"Colgate Item 17 Pack",FIX-COL-017,"Colgate","Spices",15149100,18,655,12,Tin,24
+"Colgate Item 18 Pack",FIX-COL-018,"Colgate","Grains",19053100,0,680,20,Bag,40
+"Colgate Item 19 Pack",FIX-COL-019,"Colgate","Edible Oils",34011110,5,705,24,Box,48
+"Colgate Item 20 Pack",FIX-COL-020,"Colgate","Biscuits",09024020,12,730,30,Bundle,60
+"Colgate Item 21 Pack",FIX-COL-021,"Colgate","Confectionery",04051000,18,755,48,Carton,96
+"Colgate Item 22 Pack",FIX-COL-022,"Colgate","Personal Care",21069099,0,780,6,Tin,12
+"Colgate Item 23 Pack",FIX-COL-023,"Colgate","Home Care",09042010,5,805,12,Bag,24
+"Colgate Item 24 Pack",FIX-COL-024,"Colgate","Beverages",10063020,12,30,20,Box,40
+"Colgate Item 25 Pack",FIX-COL-025,"Colgate","Dairy Products",15149100,18,55,24,Bundle,48
+"Colgate Item 26 Pack",FIX-COL-026,"Colgate","Snacks",19053100,0,80,30,Carton,60
+"Colgate Item 27 Pack",FIX-COL-027,"Colgate","Spices",34011110,5,105,48,Tin,96
+"Colgate Item 28 Pack",FIX-COL-028,"Colgate","Grains",09024020,12,130,6,Bag,12
+"Colgate Item 29 Pack",FIX-COL-029,"Colgate","Edible Oils",04051000,18,155,12,Box,24
+"Colgate Item 30 Pack",FIX-COL-030,"Colgate","Biscuits",21069099,0,180,20,Bundle,40
+"Dettol Item 1 Pack",FIX-DET-001,"Dettol","Personal Care",09024020,0,270,30,Tin,60
+"Dettol Item 2 Pack",FIX-DET-002,"Dettol","Home Care",04051000,5,295,48,Bag,96
+"Dettol Item 3 Pack",FIX-DET-003,"Dettol","Beverages",21069099,12,320,6,Box,12
+"Dettol Item 4 Pack",FIX-DET-004,"Dettol","Dairy Products",09042010,18,345,12,Bundle,24
+"Dettol Item 5 Pack",FIX-DET-005,"Dettol","Snacks",10063020,0,370,20,Carton,40
+"Dettol Item 6 Pack",FIX-DET-006,"Dettol","Spices",15149100,5,395,24,Tin,48
+"Dettol Item 7 Pack",FIX-DET-007,"Dettol","Grains",19053100,12,420,30,Bag,60
+"Dettol Item 8 Pack",FIX-DET-008,"Dettol","Edible Oils",34011110,18,445,48,Box,96
+"Dettol Item 9 Pack",FIX-DET-009,"Dettol","Biscuits",09024020,0,470,6,Bundle,12
+"Dettol Item 10 Pack",FIX-DET-010,"Dettol","Confectionery",04051000,5,495,12,Carton,24
+"Dettol Item 11 Pack",FIX-DET-011,"Dettol","Personal Care",21069099,12,520,20,Tin,40
+"Dettol Item 12 Pack",FIX-DET-012,"Dettol","Home Care",09042010,18,545,24,Bag,48
+"Dettol Item 13 Pack",FIX-DET-013,"Dettol","Beverages",10063020,0,570,30,Box,60
+"Dettol Item 14 Pack",FIX-DET-014,"Dettol","Dairy Products",15149100,5,595,48,Bundle,96
+"Dettol Item 15 Pack",FIX-DET-015,"Dettol","Snacks",19053100,12,620,6,Carton,12
+"Dettol Item 16 Pack",FIX-DET-016,"Dettol","Spices",34011110,18,645,12,Tin,24
+"Dettol Item 17 Pack",FIX-DET-017,"Dettol","Grains",09024020,0,670,20,Bag,40
+"Dettol Item 18 Pack",FIX-DET-018,"Dettol","Edible Oils",04051000,5,695,24,Box,48
+"Dettol Item 19 Pack",FIX-DET-019,"Dettol","Biscuits",21069099,12,720,30,Bundle,60
+"Dettol Item 20 Pack",FIX-DET-020,"Dettol","Confectionery",09042010,18,745,48,Carton,96
+"Dettol Item 21 Pack",FIX-DET-021,"Dettol","Personal Care",10063020,0,770,6,Tin,12
+"Dettol Item 22 Pack",FIX-DET-022,"Dettol","Home Care",15149100,5,795,12,Bag,24
+"Dettol Item 23 Pack",FIX-DET-023,"Dettol","Beverages",19053100,12,20,20,Box,40
+"Dettol Item 24 Pack",FIX-DET-024,"Dettol","Dairy Products",34011110,18,45,24,Bundle,48
+"Dettol Item 25 Pack",FIX-DET-025,"Dettol","Snacks",09024020,0,70,30,Carton,60
+"Dettol Item 26 Pack",FIX-DET-026,"Dettol","Spices",04051000,5,95,48,Tin,96
+"Dettol Item 27 Pack",FIX-DET-027,"Dettol","Grains",21069099,12,120,6,Bag,12
+"Dettol Item 28 Pack",FIX-DET-028,"Dettol","Edible Oils",09042010,18,145,12,Box,24
+"Dettol Item 29 Pack",FIX-DET-029,"Dettol","Biscuits",10063020,0,170,20,Bundle,40
+"Dettol Item 30 Pack",FIX-DET-030,"Dettol","Confectionery",15149100,5,195,24,Carton,48
+"Surf Excel Item 1 Pack",FIX-SUR-001,"Surf Excel","Home Care",09042010,5,285,48,Bag,96
+"Surf Excel Item 2 Pack",FIX-SUR-002,"Surf Excel","Beverages",10063020,12,310,6,Box,12
+"Surf Excel Item 3 Pack",FIX-SUR-003,"Surf Excel","Dairy Products",15149100,18,335,12,Bundle,24
+"Surf Excel Item 4 Pack",FIX-SUR-004,"Surf Excel","Snacks",19053100,0,360,20,Carton,40
+"Surf Excel Item 5 Pack",FIX-SUR-005,"Surf Excel","Spices",34011110,5,385,24,Tin,48
+"Surf Excel Item 6 Pack",FIX-SUR-006,"Surf Excel","Grains",09024020,12,410,30,Bag,60
+"Surf Excel Item 7 Pack",FIX-SUR-007,"Surf Excel","Edible Oils",04051000,18,435,48,Box,96
+"Surf Excel Item 8 Pack",FIX-SUR-008,"Surf Excel","Biscuits",21069099,0,460,6,Bundle,12
+"Surf Excel Item 9 Pack",FIX-SUR-009,"Surf Excel","Confectionery",09042010,5,485,12,Carton,24
+"Surf Excel Item 10 Pack",FIX-SUR-010,"Surf Excel","Personal Care",10063020,12,510,20,Tin,40
+"Surf Excel Item 11 Pack",FIX-SUR-011,"Surf Excel","Home Care",15149100,18,535,24,Bag,48
+"Surf Excel Item 12 Pack",FIX-SUR-012,"Surf Excel","Beverages",19053100,0,560,30,Box,60
+"Surf Excel Item 13 Pack",FIX-SUR-013,"Surf Excel","Dairy Products",34011110,5,585,48,Bundle,96
+"Surf Excel Item 14 Pack",FIX-SUR-014,"Surf Excel","Snacks",09024020,12,610,6,Carton,12
+"Surf Excel Item 15 Pack",FIX-SUR-015,"Surf Excel","Spices",04051000,18,635,12,Tin,24
+"Surf Excel Item 16 Pack",FIX-SUR-016,"Surf Excel","Grains",21069099,0,660,20,Bag,40
+"Surf Excel Item 17 Pack",FIX-SUR-017,"Surf Excel","Edible Oils",09042010,5,685,24,Box,48
+"Surf Excel Item 18 Pack",FIX-SUR-018,"Surf Excel","Biscuits",10063020,12,710,30,Bundle,60
+"Surf Excel Item 19 Pack",FIX-SUR-019,"Surf Excel","Confectionery",15149100,18,735,48,Carton,96
+"Surf Excel Item 20 Pack",FIX-SUR-020,"Surf Excel","Personal Care",19053100,0,760,6,Tin,12
+"Surf Excel Item 21 Pack",FIX-SUR-021,"Surf Excel","Home Care",34011110,5,785,12,Bag,24
+"Surf Excel Item 22 Pack",FIX-SUR-022,"Surf Excel","Beverages",09024020,12,810,20,Box,40
+"Surf Excel Item 23 Pack",FIX-SUR-023,"Surf Excel","Dairy Products",04051000,18,35,24,Bundle,48
+"Surf Excel Item 24 Pack",FIX-SUR-024,"Surf Excel","Snacks",21069099,0,60,30,Carton,60
+"Surf Excel Item 25 Pack",FIX-SUR-025,"Surf Excel","Spices",09042010,5,85,48,Tin,96
+"Surf Excel Item 26 Pack",FIX-SUR-026,"Surf Excel","Grains",10063020,12,110,6,Bag,12
+"Surf Excel Item 27 Pack",FIX-SUR-027,"Surf Excel","Edible Oils",15149100,18,135,12,Box,24
+"Surf Excel Item 28 Pack",FIX-SUR-028,"Surf Excel","Biscuits",19053100,0,160,20,Bundle,40
+"Surf Excel Item 29 Pack",FIX-SUR-029,"Surf Excel","Confectionery",34011110,5,185,24,Carton,48
+"Surf Excel Item 30 Pack",FIX-SUR-030,"Surf Excel","Personal Care",09024020,12,210,30,Tin,60
+"Lizol Item 1 Pack",FIX-LIZ-001,"Lizol","Beverages",19053100,12,300,6,Box,12
+"Lizol Item 2 Pack",FIX-LIZ-002,"Lizol","Dairy Products",34011110,18,325,12,Bundle,24
+"Lizol Item 3 Pack",FIX-LIZ-003,"Lizol","Snacks",09024020,0,350,20,Carton,40
+"Lizol Item 4 Pack",FIX-LIZ-004,"Lizol","Spices",04051000,5,375,24,Tin,48
+"Lizol Item 5 Pack",FIX-LIZ-005,"Lizol","Grains",21069099,12,400,30,Bag,60
+"Lizol Item 6 Pack",FIX-LIZ-006,"Lizol","Edible Oils",09042010,18,425,48,Box,96
+"Lizol Item 7 Pack",FIX-LIZ-007,"Lizol","Biscuits",10063020,0,450,6,Bundle,12
+"Lizol Item 8 Pack",FIX-LIZ-008,"Lizol","Confectionery",15149100,5,475,12,Carton,24
+"Lizol Item 9 Pack",FIX-LIZ-009,"Lizol","Personal Care",19053100,12,500,20,Tin,40
+"Lizol Item 10 Pack",FIX-LIZ-010,"Lizol","Home Care",34011110,18,525,24,Bag,48
+"Lizol Item 11 Pack",FIX-LIZ-011,"Lizol","Beverages",09024020,0,550,30,Box,60
+"Lizol Item 12 Pack",FIX-LIZ-012,"Lizol","Dairy Products",04051000,5,575,48,Bundle,96
+"Lizol Item 13 Pack",FIX-LIZ-013,"Lizol","Snacks",21069099,12,600,6,Carton,12
+"Lizol Item 14 Pack",FIX-LIZ-014,"Lizol","Spices",09042010,18,625,12,Tin,24
+"Lizol Item 15 Pack",FIX-LIZ-015,"Lizol","Grains",10063020,0,650,20,Bag,40
+"Lizol Item 16 Pack",FIX-LIZ-016,"Lizol","Edible Oils",15149100,5,675,24,Box,48
+"Lizol Item 17 Pack",FIX-LIZ-017,"Lizol","Biscuits",19053100,12,700,30,Bundle,60
+"Lizol Item 18 Pack",FIX-LIZ-018,"Lizol","Confectionery",34011110,18,725,48,Carton,96
+"Lizol Item 19 Pack",FIX-LIZ-019,"Lizol","Personal Care",09024020,0,750,6,Tin,12
+"Lizol Item 20 Pack",FIX-LIZ-020,"Lizol","Home Care",04051000,5,775,12,Bag,24
+"Lizol Item 21 Pack",FIX-LIZ-021,"Lizol","Beverages",21069099,12,800,20,Box,40
+"Lizol Item 22 Pack",FIX-LIZ-022,"Lizol","Dairy Products",09042010,18,25,24,Bundle,48
+"Lizol Item 23 Pack",FIX-LIZ-023,"Lizol","Snacks",10063020,0,50,30,Carton,60
+"Lizol Item 24 Pack",FIX-LIZ-024,"Lizol","Spices",15149100,5,75,48,Tin,96
+"Lizol Item 25 Pack",FIX-LIZ-025,"Lizol","Grains",19053100,12,100,6,Bag,12
+"Lizol Item 26 Pack",FIX-LIZ-026,"Lizol","Edible Oils",34011110,18,125,12,Box,24
+"Lizol Item 27 Pack",FIX-LIZ-027,"Lizol","Biscuits",09024020,0,150,20,Bundle,40
+"Lizol Item 28 Pack",FIX-LIZ-028,"Lizol","Confectionery",04051000,5,175,24,Carton,48
+"Lizol Item 29 Pack",FIX-LIZ-029,"Lizol","Personal Care",21069099,12,200,30,Tin,60
+"Lizol Item 30 Pack",FIX-LIZ-030,"Lizol","Home Care",09042010,18,225,48,Bag,96
+"Harpic Item 1 Pack",FIX-HAR-001,"Harpic","Dairy Products",04051000,18,315,12,Bundle,24
+"Harpic Item 2 Pack",FIX-HAR-002,"Harpic","Snacks",21069099,0,340,20,Carton,40
+"Harpic Item 3 Pack",FIX-HAR-003,"Harpic","Spices",09042010,5,365,24,Tin,48
+"Harpic Item 4 Pack",FIX-HAR-004,"Harpic","Grains",10063020,12,390,30,Bag,60
+"Harpic Item 5 Pack",FIX-HAR-005,"Harpic","Edible Oils",15149100,18,415,48,Box,96
+"Harpic Item 6 Pack",FIX-HAR-006,"Harpic","Biscuits",19053100,0,440,6,Bundle,12
+"Harpic Item 7 Pack",FIX-HAR-007,"Harpic","Confectionery",34011110,5,465,12,Carton,24
+"Harpic Item 8 Pack",FIX-HAR-008,"Harpic","Personal Care",09024020,12,490,20,Tin,40
+"Harpic Item 9 Pack",FIX-HAR-009,"Harpic","Home Care",04051000,18,515,24,Bag,48
+"Harpic Item 10 Pack",FIX-HAR-010,"Harpic","Beverages",21069099,0,540,30,Box,60
+"Harpic Item 11 Pack",FIX-HAR-011,"Harpic","Dairy Products",09042010,5,565,48,Bundle,96
+"Harpic Item 12 Pack",FIX-HAR-012,"Harpic","Snacks",10063020,12,590,6,Carton,12
+"Harpic Item 13 Pack",FIX-HAR-013,"Harpic","Spices",15149100,18,615,12,Tin,24
+"Harpic Item 14 Pack",FIX-HAR-014,"Harpic","Grains",19053100,0,640,20,Bag,40
+"Harpic Item 15 Pack",FIX-HAR-015,"Harpic","Edible Oils",34011110,5,665,24,Box,48
+"Harpic Item 16 Pack",FIX-HAR-016,"Harpic","Biscuits",09024020,12,690,30,Bundle,60
+"Harpic Item 17 Pack",FIX-HAR-017,"Harpic","Confectionery",04051000,18,715,48,Carton,96
+"Harpic Item 18 Pack",FIX-HAR-018,"Harpic","Personal Care",21069099,0,740,6,Tin,12
+"Harpic Item 19 Pack",FIX-HAR-019,"Harpic","Home Care",09042010,5,765,12,Bag,24
+"Harpic Item 20 Pack",FIX-HAR-020,"Harpic","Beverages",10063020,12,790,20,Box,40
+"Harpic Item 21 Pack",FIX-HAR-021,"Harpic","Dairy Products",15149100,18,815,24,Bundle,48
+"Harpic Item 22 Pack",FIX-HAR-022,"Harpic","Snacks",19053100,0,40,30,Carton,60
+"Harpic Item 23 Pack",FIX-HAR-023,"Harpic","Spices",34011110,5,65,48,Tin,96
+"Harpic Item 24 Pack",FIX-HAR-024,"Harpic","Grains",09024020,12,90,6,Bag,12
+"Harpic Item 25 Pack",FIX-HAR-025,"Harpic","Edible Oils",04051000,18,115,12,Box,24
+"Harpic Item 26 Pack",FIX-HAR-026,"Harpic","Biscuits",21069099,0,140,20,Bundle,40
+"Harpic Item 27 Pack",FIX-HAR-027,"Harpic","Confectionery",09042010,5,165,24,Carton,48
+"Harpic Item 28 Pack",FIX-HAR-028,"Harpic","Personal Care",10063020,12,190,30,Tin,60
+"Harpic Item 29 Pack",FIX-HAR-029,"Harpic","Home Care",15149100,18,215,48,Bag,96
+"Harpic Item 30 Pack",FIX-HAR-030,"Harpic","Beverages",19053100,0,240,6,Box,12
+"Vim Item 1 Pack",FIX-VIM-001,"Vim","Snacks",10063020,0,330,20,Carton,40
+"Vim Item 2 Pack",FIX-VIM-002,"Vim","Spices",15149100,5,355,24,Tin,48
+"Vim Item 3 Pack",FIX-VIM-003,"Vim","Grains",19053100,12,380,30,Bag,60
+"Vim Item 4 Pack",FIX-VIM-004,"Vim","Edible Oils",34011110,18,405,48,Box,96
+"Vim Item 5 Pack",FIX-VIM-005,"Vim","Biscuits",09024020,0,430,6,Bundle,12
+"Vim Item 6 Pack",FIX-VIM-006,"Vim","Confectionery",04051000,5,455,12,Carton,24
+"Vim Item 7 Pack",FIX-VIM-007,"Vim","Personal Care",21069099,12,480,20,Tin,40
+"Vim Item 8 Pack",FIX-VIM-008,"Vim","Home Care",09042010,18,505,24,Bag,48
+"Vim Item 9 Pack",FIX-VIM-009,"Vim","Beverages",10063020,0,530,30,Box,60
+"Vim Item 10 Pack",FIX-VIM-010,"Vim","Dairy Products",15149100,5,555,48,Bundle,96
+"Vim Item 11 Pack",FIX-VIM-011,"Vim","Snacks",19053100,12,580,6,Carton,12
+"Vim Item 12 Pack",FIX-VIM-012,"Vim","Spices",34011110,18,605,12,Tin,24
+"Vim Item 13 Pack",FIX-VIM-013,"Vim","Grains",09024020,0,630,20,Bag,40
+"Vim Item 14 Pack",FIX-VIM-014,"Vim","Edible Oils",04051000,5,655,24,Box,48
+"Vim Item 15 Pack",FIX-VIM-015,"Vim","Biscuits",21069099,12,680,30,Bundle,60
+"Vim Item 16 Pack",FIX-VIM-016,"Vim","Confectionery",09042010,18,705,48,Carton,96
+"Vim Item 17 Pack",FIX-VIM-017,"Vim","Personal Care",10063020,0,730,6,Tin,12
+"Vim Item 18 Pack",FIX-VIM-018,"Vim","Home Care",15149100,5,755,12,Bag,24
+"Vim Item 19 Pack",FIX-VIM-019,"Vim","Beverages",19053100,12,780,20,Box,40
+"Vim Item 20 Pack",FIX-VIM-020,"Vim","Dairy Products",34011110,18,805,24,Bundle,48
+"Vim Item 21 Pack",FIX-VIM-021,"Vim","Snacks",09024020,0,30,30,Carton,60
+"Vim Item 22 Pack",FIX-VIM-022,"Vim","Spices",04051000,5,55,48,Tin,96
+"Vim Item 23 Pack",FIX-VIM-023,"Vim","Grains",21069099,12,80,6,Bag,12
+"Vim Item 24 Pack",FIX-VIM-024,"Vim","Edible Oils",09042010,18,105,12,Box,24
+"Vim Item 25 Pack",FIX-VIM-025,"Vim","Biscuits",10063020,0,130,20,Bundle,40
+"Vim Item 26 Pack",FIX-VIM-026,"Vim","Confectionery",15149100,5,155,24,Carton,48
+"Vim Item 27 Pack",FIX-VIM-027,"Vim","Personal Care",19053100,12,180,30,Tin,60
+"Vim Item 28 Pack",FIX-VIM-028,"Vim","Home Care",34011110,18,205,48,Bag,96
+"Vim Item 29 Pack",FIX-VIM-029,"Vim","Beverages",09024020,0,230,6,Box,12
+"Vim Item 30 Pack",FIX-VIM-030,"Vim","Dairy Products",04051000,5,255,12,Bundle,24
+"Maggi Item 1 Pack",FIX-MAG-001,"Maggi","Spices",34011110,5,345,24,Tin,48
+"Maggi Item 2 Pack",FIX-MAG-002,"Maggi","Grains",09024020,12,370,30,Bag,60
+"Maggi Item 3 Pack",FIX-MAG-003,"Maggi","Edible Oils",04051000,18,395,48,Box,96
+"Maggi Item 4 Pack",FIX-MAG-004,"Maggi","Biscuits",21069099,0,420,6,Bundle,12
+"Maggi Item 5 Pack",FIX-MAG-005,"Maggi","Confectionery",09042010,5,445,12,Carton,24
+"Maggi Item 6 Pack",FIX-MAG-006,"Maggi","Personal Care",10063020,12,470,20,Tin,40
+"Maggi Item 7 Pack",FIX-MAG-007,"Maggi","Home Care",15149100,18,495,24,Bag,48
+"Maggi Item 8 Pack",FIX-MAG-008,"Maggi","Beverages",19053100,0,520,30,Box,60
+"Maggi Item 9 Pack",FIX-MAG-009,"Maggi","Dairy Products",34011110,5,545,48,Bundle,96
+"Maggi Item 10 Pack",FIX-MAG-010,"Maggi","Snacks",09024020,12,570,6,Carton,12
+"Maggi Item 11 Pack",FIX-MAG-011,"Maggi","Spices",04051000,18,595,12,Tin,24
+"Maggi Item 12 Pack",FIX-MAG-012,"Maggi","Grains",21069099,0,620,20,Bag,40
+"Maggi Item 13 Pack",FIX-MAG-013,"Maggi","Edible Oils",09042010,5,645,24,Box,48
+"Maggi Item 14 Pack",FIX-MAG-014,"Maggi","Biscuits",10063020,12,670,30,Bundle,60
+"Maggi Item 15 Pack",FIX-MAG-015,"Maggi","Confectionery",15149100,18,695,48,Carton,96
+"Maggi Item 16 Pack",FIX-MAG-016,"Maggi","Personal Care",19053100,0,720,6,Tin,12
+"Maggi Item 17 Pack",FIX-MAG-017,"Maggi","Home Care",34011110,5,745,12,Bag,24
+"Maggi Item 18 Pack",FIX-MAG-018,"Maggi","Beverages",09024020,12,770,20,Box,40
+"Maggi Item 19 Pack",FIX-MAG-019,"Maggi","Dairy Products",04051000,18,795,24,Bundle,48
+"Maggi Item 20 Pack",FIX-MAG-020,"Maggi","Snacks",21069099,0,20,30,Carton,60
+"Maggi Item 21 Pack",FIX-MAG-021,"Maggi","Spices",09042010,5,45,48,Tin,96
+"Maggi Item 22 Pack",FIX-MAG-022,"Maggi","Grains",10063020,12,70,6,Bag,12
+"Maggi Item 23 Pack",FIX-MAG-023,"Maggi","Edible Oils",15149100,18,95,12,Box,24
+"Maggi Item 24 Pack",FIX-MAG-024,"Maggi","Biscuits",19053100,0,120,20,Bundle,40
+"Maggi Item 25 Pack",FIX-MAG-025,"Maggi","Confectionery",34011110,5,145,24,Carton,48
+"Maggi Item 26 Pack",FIX-MAG-026,"Maggi","Personal Care",09024020,12,170,30,Tin,60
+"Maggi Item 27 Pack",FIX-MAG-027,"Maggi","Home Care",04051000,18,195,48,Bag,96
+"Maggi Item 28 Pack",FIX-MAG-028,"Maggi","Beverages",21069099,0,220,6,Box,12
+"Maggi Item 29 Pack",FIX-MAG-029,"Maggi","Dairy Products",09042010,5,245,12,Bundle,24
+"Maggi Item 30 Pack",FIX-MAG-030,"Maggi","Snacks",10063020,12,270,20,Carton,40
+"Kissan Item 1 Pack",FIX-KIS-001,"Kissan","Grains",21069099,12,360,30,Bag,60
+"Kissan Item 2 Pack",FIX-KIS-002,"Kissan","Edible Oils",09042010,18,385,48,Box,96
+"Kissan Item 3 Pack",FIX-KIS-003,"Kissan","Biscuits",10063020,0,410,6,Bundle,12
+"Kissan Item 4 Pack",FIX-KIS-004,"Kissan","Confectionery",15149100,5,435,12,Carton,24
+"Kissan Item 5 Pack",FIX-KIS-005,"Kissan","Personal Care",19053100,12,460,20,Tin,40
+"Kissan Item 6 Pack",FIX-KIS-006,"Kissan","Home Care",34011110,18,485,24,Bag,48
+"Kissan Item 7 Pack",FIX-KIS-007,"Kissan","Beverages",09024020,0,510,30,Box,60
+"Kissan Item 8 Pack",FIX-KIS-008,"Kissan","Dairy Products",04051000,5,535,48,Bundle,96
+"Kissan Item 9 Pack",FIX-KIS-009,"Kissan","Snacks",21069099,12,560,6,Carton,12
+"Kissan Item 10 Pack",FIX-KIS-010,"Kissan","Spices",09042010,18,585,12,Tin,24
+"Kissan Item 11 Pack",FIX-KIS-011,"Kissan","Grains",10063020,0,610,20,Bag,40
+"Kissan Item 12 Pack",FIX-KIS-012,"Kissan","Edible Oils",15149100,5,635,24,Box,48
+"Kissan Item 13 Pack",FIX-KIS-013,"Kissan","Biscuits",19053100,12,660,30,Bundle,60
+"Kissan Item 14 Pack",FIX-KIS-014,"Kissan","Confectionery",34011110,18,685,48,Carton,96
+"Kissan Item 15 Pack",FIX-KIS-015,"Kissan","Personal Care",09024020,0,710,6,Tin,12
+"Kissan Item 16 Pack",FIX-KIS-016,"Kissan","Home Care",04051000,5,735,12,Bag,24
+"Kissan Item 17 Pack",FIX-KIS-017,"Kissan","Beverages",21069099,12,760,20,Box,40
+"Kissan Item 18 Pack",FIX-KIS-018,"Kissan","Dairy Products",09042010,18,785,24,Bundle,48
+"Kissan Item 19 Pack",FIX-KIS-019,"Kissan","Snacks",10063020,0,810,30,Carton,60
+"Kissan Item 20 Pack",FIX-KIS-020,"Kissan","Spices",15149100,5,35,48,Tin,96
+"Kissan Item 21 Pack",FIX-KIS-021,"Kissan","Grains",19053100,12,60,6,Bag,12
+"Kissan Item 22 Pack",FIX-KIS-022,"Kissan","Edible Oils",34011110,18,85,12,Box,24
+"Kissan Item 23 Pack",FIX-KIS-023,"Kissan","Biscuits",09024020,0,110,20,Bundle,40
+"Kissan Item 24 Pack",FIX-KIS-024,"Kissan","Confectionery",04051000,5,135,24,Carton,48
+"Kissan Item 25 Pack",FIX-KIS-025,"Kissan","Personal Care",21069099,12,160,30,Tin,60
+"Kissan Item 26 Pack",FIX-KIS-026,"Kissan","Home Care",09042010,18,185,48,Bag,96
+"Kissan Item 27 Pack",FIX-KIS-027,"Kissan","Beverages",10063020,0,210,6,Box,12
+"Kissan Item 28 Pack",FIX-KIS-028,"Kissan","Dairy Products",15149100,5,235,12,Bundle,24
+"Kissan Item 29 Pack",FIX-KIS-029,"Kissan","Snacks",19053100,12,260,20,Carton,40
+"Kissan Item 30 Pack",FIX-KIS-030,"Kissan","Spices",34011110,18,285,24,Tin,48
+"Cadbury Item 1 Pack",FIX-CAD-001,"Cadbury","Edible Oils",15149100,18,375,48,Box,96
+"Cadbury Item 2 Pack",FIX-CAD-002,"Cadbury","Biscuits",19053100,0,400,6,Bundle,12
+"Cadbury Item 3 Pack",FIX-CAD-003,"Cadbury","Confectionery",34011110,5,425,12,Carton,24
+"Cadbury Item 4 Pack",FIX-CAD-004,"Cadbury","Personal Care",09024020,12,450,20,Tin,40
+"Cadbury Item 5 Pack",FIX-CAD-005,"Cadbury","Home Care",04051000,18,475,24,Bag,48
+"Cadbury Item 6 Pack",FIX-CAD-006,"Cadbury","Beverages",21069099,0,500,30,Box,60
+"Cadbury Item 7 Pack",FIX-CAD-007,"Cadbury","Dairy Products",09042010,5,525,48,Bundle,96
+"Cadbury Item 8 Pack",FIX-CAD-008,"Cadbury","Snacks",10063020,12,550,6,Carton,12
+"Cadbury Item 9 Pack",FIX-CAD-009,"Cadbury","Spices",15149100,18,575,12,Tin,24
+"Cadbury Item 10 Pack",FIX-CAD-010,"Cadbury","Grains",19053100,0,600,20,Bag,40
+"Cadbury Item 11 Pack",FIX-CAD-011,"Cadbury","Edible Oils",34011110,5,625,24,Box,48
+"Cadbury Item 12 Pack",FIX-CAD-012,"Cadbury","Biscuits",09024020,12,650,30,Bundle,60
+"Cadbury Item 13 Pack",FIX-CAD-013,"Cadbury","Confectionery",04051000,18,675,48,Carton,96
+"Cadbury Item 14 Pack",FIX-CAD-014,"Cadbury","Personal Care",21069099,0,700,6,Tin,12
+"Cadbury Item 15 Pack",FIX-CAD-015,"Cadbury","Home Care",09042010,5,725,12,Bag,24
+"Cadbury Item 16 Pack",FIX-CAD-016,"Cadbury","Beverages",10063020,12,750,20,Box,40
+"Cadbury Item 17 Pack",FIX-CAD-017,"Cadbury","Dairy Products",15149100,18,775,24,Bundle,48
+"Cadbury Item 18 Pack",FIX-CAD-018,"Cadbury","Snacks",19053100,0,800,30,Carton,60
+"Cadbury Item 19 Pack",FIX-CAD-019,"Cadbury","Spices",34011110,5,25,48,Tin,96
+"Cadbury Item 20 Pack",FIX-CAD-020,"Cadbury","Grains",09024020,12,50,6,Bag,12
+"Cadbury Item 21 Pack",FIX-CAD-021,"Cadbury","Edible Oils",04051000,18,75,12,Box,24
+"Cadbury Item 22 Pack",FIX-CAD-022,"Cadbury","Biscuits",21069099,0,100,20,Bundle,40
+"Cadbury Item 23 Pack",FIX-CAD-023,"Cadbury","Confectionery",09042010,5,125,24,Carton,48
+"Cadbury Item 24 Pack",FIX-CAD-024,"Cadbury","Personal Care",10063020,12,150,30,Tin,60
+"Cadbury Item 25 Pack",FIX-CAD-025,"Cadbury","Home Care",15149100,18,175,48,Bag,96
+"Cadbury Item 26 Pack",FIX-CAD-026,"Cadbury","Beverages",19053100,0,200,6,Box,12
+"Cadbury Item 27 Pack",FIX-CAD-027,"Cadbury","Dairy Products",34011110,5,225,12,Bundle,24
+"Cadbury Item 28 Pack",FIX-CAD-028,"Cadbury","Snacks",09024020,12,250,20,Carton,40
+"Cadbury Item 29 Pack",FIX-CAD-029,"Cadbury","Spices",04051000,18,275,24,Tin,48
+"Cadbury Item 30 Pack",FIX-CAD-030,"Cadbury","Grains",21069099,0,300,30,Bag,60
+"Saffola Item 1 Pack",FIX-SAF-001,"Saffola","Biscuits",09024020,0,390,6,Bundle,12
+"Saffola Item 2 Pack",FIX-SAF-002,"Saffola","Confectionery",04051000,5,415,12,Carton,24
+"Saffola Item 3 Pack",FIX-SAF-003,"Saffola","Personal Care",21069099,12,440,20,Tin,40
+"Saffola Item 4 Pack",FIX-SAF-004,"Saffola","Home Care",09042010,18,465,24,Bag,48
+"Saffola Item 5 Pack",FIX-SAF-005,"Saffola","Beverages",10063020,0,490,30,Box,60
+"Saffola Item 6 Pack",FIX-SAF-006,"Saffola","Dairy Products",15149100,5,515,48,Bundle,96
+"Saffola Item 7 Pack",FIX-SAF-007,"Saffola","Snacks",19053100,12,540,6,Carton,12
+"Saffola Item 8 Pack",FIX-SAF-008,"Saffola","Spices",34011110,18,565,12,Tin,24
+"Saffola Item 9 Pack",FIX-SAF-009,"Saffola","Grains",09024020,0,590,20,Bag,40
+"Saffola Item 10 Pack",FIX-SAF-010,"Saffola","Edible Oils",04051000,5,615,24,Box,48
+"Saffola Item 11 Pack",FIX-SAF-011,"Saffola","Biscuits",21069099,12,640,30,Bundle,60
+"Saffola Item 12 Pack",FIX-SAF-012,"Saffola","Confectionery",09042010,18,665,48,Carton,96
+"Saffola Item 13 Pack",FIX-SAF-013,"Saffola","Personal Care",10063020,0,690,6,Tin,12
+"Saffola Item 14 Pack",FIX-SAF-014,"Saffola","Home Care",15149100,5,715,12,Bag,24
+"Saffola Item 15 Pack",FIX-SAF-015,"Saffola","Beverages",19053100,12,740,20,Box,40
+"Saffola Item 16 Pack",FIX-SAF-016,"Saffola","Dairy Products",34011110,18,765,24,Bundle,48
+"Saffola Item 17 Pack",FIX-SAF-017,"Saffola","Snacks",09024020,0,790,30,Carton,60
+"Saffola Item 18 Pack",FIX-SAF-018,"Saffola","Spices",04051000,5,815,48,Tin,96
+"Saffola Item 19 Pack",FIX-SAF-019,"Saffola","Grains",21069099,12,40,6,Bag,12
+"Saffola Item 20 Pack",FIX-SAF-020,"Saffola","Edible Oils",09042010,18,65,12,Box,24
+"Saffola Item 21 Pack",FIX-SAF-021,"Saffola","Biscuits",10063020,0,90,20,Bundle,40
+"Saffola Item 22 Pack",FIX-SAF-022,"Saffola","Confectionery",15149100,5,115,24,Carton,48
+"Saffola Item 23 Pack",FIX-SAF-023,"Saffola","Personal Care",19053100,12,140,30,Tin,60
+"Saffola Item 24 Pack",FIX-SAF-024,"Saffola","Home Care",34011110,18,165,48,Bag,96
+"Saffola Item 25 Pack",FIX-SAF-025,"Saffola","Beverages",09024020,0,190,6,Box,12
+"Saffola Item 26 Pack",FIX-SAF-026,"Saffola","Dairy Products",04051000,5,215,12,Bundle,24
+"Saffola Item 27 Pack",FIX-SAF-027,"Saffola","Snacks",21069099,12,240,20,Carton,40
+"Saffola Item 28 Pack",FIX-SAF-028,"Saffola","Spices",09042010,18,265,24,Tin,48
+"Saffola Item 29 Pack",FIX-SAF-029,"Saffola","Grains",10063020,0,290,30,Bag,60
+"Saffola Item 30 Pack",FIX-SAF-030,"Saffola","Edible Oils",15149100,5,315,48,Box,96
+"Aashirvaad Item 1 Pack",FIX-AAS-001,"Aashirvaad","Confectionery",09042010,5,405,12,Carton,24
+"Aashirvaad Item 2 Pack",FIX-AAS-002,"Aashirvaad","Personal Care",10063020,12,430,20,Tin,40
+"Aashirvaad Item 3 Pack",FIX-AAS-003,"Aashirvaad","Home Care",15149100,18,455,24,Bag,48
+"Aashirvaad Item 4 Pack",FIX-AAS-004,"Aashirvaad","Beverages",19053100,0,480,30,Box,60
+"Aashirvaad Item 5 Pack",FIX-AAS-005,"Aashirvaad","Dairy Products",34011110,5,505,48,Bundle,96
+"Aashirvaad Item 6 Pack",FIX-AAS-006,"Aashirvaad","Snacks",09024020,12,530,6,Carton,12
+"Aashirvaad Item 7 Pack",FIX-AAS-007,"Aashirvaad","Spices",04051000,18,555,12,Tin,24
+"Aashirvaad Item 8 Pack",FIX-AAS-008,"Aashirvaad","Grains",21069099,0,580,20,Bag,40
+"Aashirvaad Item 9 Pack",FIX-AAS-009,"Aashirvaad","Edible Oils",09042010,5,605,24,Box,48
+"Aashirvaad Item 10 Pack",FIX-AAS-010,"Aashirvaad","Biscuits",10063020,12,630,30,Bundle,60
+"Aashirvaad Item 11 Pack",FIX-AAS-011,"Aashirvaad","Confectionery",15149100,18,655,48,Carton,96
+"Aashirvaad Item 12 Pack",FIX-AAS-012,"Aashirvaad","Personal Care",19053100,0,680,6,Tin,12
+"Aashirvaad Item 13 Pack",FIX-AAS-013,"Aashirvaad","Home Care",34011110,5,705,12,Bag,24
+"Aashirvaad Item 14 Pack",FIX-AAS-014,"Aashirvaad","Beverages",09024020,12,730,20,Box,40
+"Aashirvaad Item 15 Pack",FIX-AAS-015,"Aashirvaad","Dairy Products",04051000,18,755,24,Bundle,48
+"Aashirvaad Item 16 Pack",FIX-AAS-016,"Aashirvaad","Snacks",21069099,0,780,30,Carton,60
+"Aashirvaad Item 17 Pack",FIX-AAS-017,"Aashirvaad","Spices",09042010,5,805,48,Tin,96
+"Aashirvaad Item 18 Pack",FIX-AAS-018,"Aashirvaad","Grains",10063020,12,30,6,Bag,12
+"Aashirvaad Item 19 Pack",FIX-AAS-019,"Aashirvaad","Edible Oils",15149100,18,55,12,Box,24
+"Aashirvaad Item 20 Pack",FIX-AAS-020,"Aashirvaad","Biscuits",19053100,0,80,20,Bundle,40
+"Aashirvaad Item 21 Pack",FIX-AAS-021,"Aashirvaad","Confectionery",34011110,5,105,24,Carton,48
+"Aashirvaad Item 22 Pack",FIX-AAS-022,"Aashirvaad","Personal Care",09024020,12,130,30,Tin,60
+"Aashirvaad Item 23 Pack",FIX-AAS-023,"Aashirvaad","Home Care",04051000,18,155,48,Bag,96
+"Aashirvaad Item 24 Pack",FIX-AAS-024,"Aashirvaad","Beverages",21069099,0,180,6,Box,12
+"Aashirvaad Item 25 Pack",FIX-AAS-025,"Aashirvaad","Dairy Products",09042010,5,205,12,Bundle,24
+"Aashirvaad Item 26 Pack",FIX-AAS-026,"Aashirvaad","Snacks",10063020,12,230,20,Carton,40
+"Aashirvaad Item 27 Pack",FIX-AAS-027,"Aashirvaad","Spices",15149100,18,255,24,Tin,48
+"Aashirvaad Item 28 Pack",FIX-AAS-028,"Aashirvaad","Grains",19053100,0,280,30,Bag,60
+"Aashirvaad Item 29 Pack",FIX-AAS-029,"Aashirvaad","Edible Oils",34011110,5,305,48,Box,96
+"Aashirvaad Item 30 Pack",FIX-AAS-030,"Aashirvaad","Biscuits",09024020,12,330,6,Bundle,12
+"Sunfeast Item 1 Pack",FIX-SUN-001,"Sunfeast","Personal Care",19053100,12,420,20,Tin,40
+"Sunfeast Item 2 Pack",FIX-SUN-002,"Sunfeast","Home Care",34011110,18,445,24,Bag,48
+"Sunfeast Item 3 Pack",FIX-SUN-003,"Sunfeast","Beverages",09024020,0,470,30,Box,60
+"Sunfeast Item 4 Pack",FIX-SUN-004,"Sunfeast","Dairy Products",04051000,5,495,48,Bundle,96
+"Sunfeast Item 5 Pack",FIX-SUN-005,"Sunfeast","Snacks",21069099,12,520,6,Carton,12
+"Sunfeast Item 6 Pack",FIX-SUN-006,"Sunfeast","Spices",09042010,18,545,12,Tin,24
+"Sunfeast Item 7 Pack",FIX-SUN-007,"Sunfeast","Grains",10063020,0,570,20,Bag,40
+"Sunfeast Item 8 Pack",FIX-SUN-008,"Sunfeast","Edible Oils",15149100,5,595,24,Box,48
+"Sunfeast Item 9 Pack",FIX-SUN-009,"Sunfeast","Biscuits",19053100,12,620,30,Bundle,60
+"Sunfeast Item 10 Pack",FIX-SUN-010,"Sunfeast","Confectionery",34011110,18,645,48,Carton,96
+"Sunfeast Item 11 Pack",FIX-SUN-011,"Sunfeast","Personal Care",09024020,0,670,6,Tin,12
+"Sunfeast Item 12 Pack",FIX-SUN-012,"Sunfeast","Home Care",04051000,5,695,12,Bag,24
+"Sunfeast Item 13 Pack",FIX-SUN-013,"Sunfeast","Beverages",21069099,12,720,20,Box,40
+"Sunfeast Item 14 Pack",FIX-SUN-014,"Sunfeast","Dairy Products",09042010,18,745,24,Bundle,48
+"Sunfeast Item 15 Pack",FIX-SUN-015,"Sunfeast","Snacks",10063020,0,770,30,Carton,60
+"Sunfeast Item 16 Pack",FIX-SUN-016,"Sunfeast","Spices",15149100,5,795,48,Tin,96
+"Sunfeast Item 17 Pack",FIX-SUN-017,"Sunfeast","Grains",19053100,12,20,6,Bag,12
+"Sunfeast Item 18 Pack",FIX-SUN-018,"Sunfeast","Edible Oils",34011110,18,45,12,Box,24
+"Sunfeast Item 19 Pack",FIX-SUN-019,"Sunfeast","Biscuits",09024020,0,70,20,Bundle,40
+"Sunfeast Item 20 Pack",FIX-SUN-020,"Sunfeast","Confectionery",04051000,5,95,24,Carton,48
+"Sunfeast Item 21 Pack",FIX-SUN-021,"Sunfeast","Personal Care",21069099,12,120,30,Tin,60
+"Sunfeast Item 22 Pack",FIX-SUN-022,"Sunfeast","Home Care",09042010,18,145,48,Bag,96
+"Sunfeast Item 23 Pack",FIX-SUN-023,"Sunfeast","Beverages",10063020,0,170,6,Box,12
+"Sunfeast Item 24 Pack",FIX-SUN-024,"Sunfeast","Dairy Products",15149100,5,195,12,Bundle,24
+"Sunfeast Item 25 Pack",FIX-SUN-025,"Sunfeast","Snacks",19053100,12,220,20,Carton,40
+"Sunfeast Item 26 Pack",FIX-SUN-026,"Sunfeast","Spices",34011110,18,245,24,Tin,48
+"Sunfeast Item 27 Pack",FIX-SUN-027,"Sunfeast","Grains",09024020,0,270,30,Bag,60
+"Sunfeast Item 28 Pack",FIX-SUN-028,"Sunfeast","Edible Oils",04051000,5,295,48,Box,96
+"Sunfeast Item 29 Pack",FIX-SUN-029,"Sunfeast","Biscuits",21069099,12,320,6,Bundle,12
+"Sunfeast Item 30 Pack",FIX-SUN-030,"Sunfeast","Confectionery",09042010,18,345,12,Carton,24
+"Patanjali Item 1 Pack",FIX-PAT-001,"Patanjali","Home Care",04051000,18,435,24,Bag,48
+"Patanjali Item 2 Pack",FIX-PAT-002,"Patanjali","Beverages",21069099,0,460,30,Box,60
+"Patanjali Item 3 Pack",FIX-PAT-003,"Patanjali","Dairy Products",09042010,5,485,48,Bundle,96
+"Patanjali Item 4 Pack",FIX-PAT-004,"Patanjali","Snacks",10063020,12,510,6,Carton,12
+"Patanjali Item 5 Pack",FIX-PAT-005,"Patanjali","Spices",15149100,18,535,12,Tin,24
+"Patanjali Item 6 Pack",FIX-PAT-006,"Patanjali","Grains",19053100,0,560,20,Bag,40
+"Patanjali Item 7 Pack",FIX-PAT-007,"Patanjali","Edible Oils",34011110,5,585,24,Box,48
+"Patanjali Item 8 Pack",FIX-PAT-008,"Patanjali","Biscuits",09024020,12,610,30,Bundle,60
+"Patanjali Item 9 Pack",FIX-PAT-009,"Patanjali","Confectionery",04051000,18,635,48,Carton,96
+"Patanjali Item 10 Pack",FIX-PAT-010,"Patanjali","Personal Care",21069099,0,660,6,Tin,12
+"Patanjali Item 11 Pack",FIX-PAT-011,"Patanjali","Home Care",09042010,5,685,12,Bag,24
+"Patanjali Item 12 Pack",FIX-PAT-012,"Patanjali","Beverages",10063020,12,710,20,Box,40
+"Patanjali Item 13 Pack",FIX-PAT-013,"Patanjali","Dairy Products",15149100,18,735,24,Bundle,48
+"Patanjali Item 14 Pack",FIX-PAT-014,"Patanjali","Snacks",19053100,0,760,30,Carton,60
+"Patanjali Item 15 Pack",FIX-PAT-015,"Patanjali","Spices",34011110,5,785,48,Tin,96
+"Patanjali Item 16 Pack",FIX-PAT-016,"Patanjali","Grains",09024020,12,810,6,Bag,12
+"Patanjali Item 17 Pack",FIX-PAT-017,"Patanjali","Edible Oils",04051000,18,35,12,Box,24
+"Patanjali Item 18 Pack",FIX-PAT-018,"Patanjali","Biscuits",21069099,0,60,20,Bundle,40
+"Patanjali Item 19 Pack",FIX-PAT-019,"Patanjali","Confectionery",09042010,5,85,24,Carton,48
+"Patanjali Item 20 Pack",FIX-PAT-020,"Patanjali","Personal Care",10063020,12,110,30,Tin,60
+"Patanjali Item 21 Pack",FIX-PAT-021,"Patanjali","Home Care",15149100,18,135,48,Bag,96
+"Patanjali Item 22 Pack",FIX-PAT-022,"Patanjali","Beverages",19053100,0,160,6,Box,12
+"Patanjali Item 23 Pack",FIX-PAT-023,"Patanjali","Dairy Products",34011110,5,185,12,Bundle,24
+"Patanjali Item 24 Pack",FIX-PAT-024,"Patanjali","Snacks",09024020,12,210,20,Carton,40
+"Patanjali Item 25 Pack",FIX-PAT-025,"Patanjali","Spices",04051000,18,235,24,Tin,48
+"Patanjali Item 26 Pack",FIX-PAT-026,"Patanjali","Grains",21069099,0,260,30,Bag,60
+"Patanjali Item 27 Pack",FIX-PAT-027,"Patanjali","Edible Oils",09042010,5,285,48,Box,96
+"Patanjali Item 28 Pack",FIX-PAT-028,"Patanjali","Biscuits",10063020,12,310,6,Bundle,12
+"Patanjali Item 29 Pack",FIX-PAT-029,"Patanjali","Confectionery",15149100,18,335,12,Carton,24
+"Patanjali Item 30 Pack",FIX-PAT-030,"Patanjali","Personal Care",19053100,0,360,20,Tin,40
+"Catch Item 1 Pack",FIX-CAT-001,"Catch","Beverages",10063020,0,450,30,Box,60
+"Catch Item 2 Pack",FIX-CAT-002,"Catch","Dairy Products",15149100,5,475,48,Bundle,96
+"Catch Item 3 Pack",FIX-CAT-003,"Catch","Snacks",19053100,12,500,6,Carton,12
+"Catch Item 4 Pack",FIX-CAT-004,"Catch","Spices",34011110,18,525,12,Tin,24
+"Catch Item 5 Pack",FIX-CAT-005,"Catch","Grains",09024020,0,550,20,Bag,40
+"Catch Item 6 Pack",FIX-CAT-006,"Catch","Edible Oils",04051000,5,575,24,Box,48
+"Catch Item 7 Pack",FIX-CAT-007,"Catch","Biscuits",21069099,12,600,30,Bundle,60
+"Catch Item 8 Pack",FIX-CAT-008,"Catch","Confectionery",09042010,18,625,48,Carton,96
+"Catch Item 9 Pack",FIX-CAT-009,"Catch","Personal Care",10063020,0,650,6,Tin,12
+"Catch Item 10 Pack",FIX-CAT-010,"Catch","Home Care",15149100,5,675,12,Bag,24
+"Catch Item 11 Pack",FIX-CAT-011,"Catch","Beverages",19053100,12,700,20,Box,40
+"Catch Item 12 Pack",FIX-CAT-012,"Catch","Dairy Products",34011110,18,725,24,Bundle,48
+"Catch Item 13 Pack",FIX-CAT-013,"Catch","Snacks",09024020,0,750,30,Carton,60
+"Catch Item 14 Pack",FIX-CAT-014,"Catch","Spices",04051000,5,775,48,Tin,96
+"Catch Item 15 Pack",FIX-CAT-015,"Catch","Grains",21069099,12,800,6,Bag,12
+"Catch Item 16 Pack",FIX-CAT-016,"Catch","Edible Oils",09042010,18,25,12,Box,24
+"Catch Item 17 Pack",FIX-CAT-017,"Catch","Biscuits",10063020,0,50,20,Bundle,40
+"Catch Item 18 Pack",FIX-CAT-018,"Catch","Confectionery",15149100,5,75,24,Carton,48
+"Catch Item 19 Pack",FIX-CAT-019,"Catch","Personal Care",19053100,12,100,30,Tin,60
+"Catch Item 20 Pack",FIX-CAT-020,"Catch","Home Care",34011110,18,125,48,Bag,96
+"Catch Item 21 Pack",FIX-CAT-021,"Catch","Beverages",09024020,0,150,6,Box,12
+"Catch Item 22 Pack",FIX-CAT-022,"Catch","Dairy Products",04051000,5,175,12,Bundle,24
+"Catch Item 23 Pack",FIX-CAT-023,"Catch","Snacks",21069099,12,200,20,Carton,40
+"Catch Item 24 Pack",FIX-CAT-024,"Catch","Spices",09042010,18,225,24,Tin,48
+"Catch Item 25 Pack",FIX-CAT-025,"Catch","Grains",10063020,0,250,30,Bag,60
+"Catch Item 26 Pack",FIX-CAT-026,"Catch","Edible Oils",15149100,5,275,48,Box,96
+"Catch Item 27 Pack",FIX-CAT-027,"Catch","Biscuits",19053100,12,300,6,Bundle,12
+"Catch Item 28 Pack",FIX-CAT-028,"Catch","Confectionery",34011110,18,325,12,Carton,24
+"Catch Item 29 Pack",FIX-CAT-029,"Catch","Personal Care",09024020,0,350,20,Tin,40
+"Catch Item 30 Pack",FIX-CAT-030,"Catch","Home Care",04051000,5,375,24,Bag,48
+"Goldiee Item 1 Pack",FIX-GOL-001,"Goldiee","Dairy Products",34011110,5,465,48,Bundle,96
+"Goldiee Item 2 Pack",FIX-GOL-002,"Goldiee","Snacks",09024020,12,490,6,Carton,12
+"Goldiee Item 3 Pack",FIX-GOL-003,"Goldiee","Spices",04051000,18,515,12,Tin,24
+"Goldiee Item 4 Pack",FIX-GOL-004,"Goldiee","Grains",21069099,0,540,20,Bag,40
+"Goldiee Item 5 Pack",FIX-GOL-005,"Goldiee","Edible Oils",09042010,5,565,24,Box,48
+"Goldiee Item 6 Pack",FIX-GOL-006,"Goldiee","Biscuits",10063020,12,590,30,Bundle,60
+"Goldiee Item 7 Pack",FIX-GOL-007,"Goldiee","Confectionery",15149100,18,615,48,Carton,96
+"Goldiee Item 8 Pack",FIX-GOL-008,"Goldiee","Personal Care",19053100,0,640,6,Tin,12
+"Goldiee Item 9 Pack",FIX-GOL-009,"Goldiee","Home Care",34011110,5,665,12,Bag,24
+"Goldiee Item 10 Pack",FIX-GOL-010,"Goldiee","Beverages",09024020,12,690,20,Box,40
+"Goldiee Item 11 Pack",FIX-GOL-011,"Goldiee","Dairy Products",04051000,18,715,24,Bundle,48
+"Goldiee Item 12 Pack",FIX-GOL-012,"Goldiee","Snacks",21069099,0,740,30,Carton,60
+"Goldiee Item 13 Pack",FIX-GOL-013,"Goldiee","Spices",09042010,5,765,48,Tin,96
+"Goldiee Item 14 Pack",FIX-GOL-014,"Goldiee","Grains",10063020,12,790,6,Bag,12
+"Goldiee Item 15 Pack",FIX-GOL-015,"Goldiee","Edible Oils",15149100,18,815,12,Box,24
+"Goldiee Item 16 Pack",FIX-GOL-016,"Goldiee","Biscuits",19053100,0,40,20,Bundle,40
+"Goldiee Item 17 Pack",FIX-GOL-017,"Goldiee","Confectionery",34011110,5,65,24,Carton,48
+"Goldiee Item 18 Pack",FIX-GOL-018,"Goldiee","Personal Care",09024020,12,90,30,Tin,60
+"Goldiee Item 19 Pack",FIX-GOL-019,"Goldiee","Home Care",04051000,18,115,48,Bag,96
+"Goldiee Item 20 Pack",FIX-GOL-020,"Goldiee","Beverages",21069099,0,140,6,Box,12
+"Goldiee Item 21 Pack",FIX-GOL-021,"Goldiee","Dairy Products",09042010,5,165,12,Bundle,24
+"Goldiee Item 22 Pack",FIX-GOL-022,"Goldiee","Snacks",10063020,12,190,20,Carton,40
+"Goldiee Item 23 Pack",FIX-GOL-023,"Goldiee","Spices",15149100,18,215,24,Tin,48
+"Goldiee Item 24 Pack",FIX-GOL-024,"Goldiee","Grains",19053100,0,240,30,Bag,60
+"Goldiee Item 25 Pack",FIX-GOL-025,"Goldiee","Edible Oils",34011110,5,265,48,Box,96
+"Goldiee Item 26 Pack",FIX-GOL-026,"Goldiee","Biscuits",09024020,12,290,6,Bundle,12
+"Goldiee Item 27 Pack",FIX-GOL-027,"Goldiee","Confectionery",04051000,18,315,12,Carton,24
+"Goldiee Item 28 Pack",FIX-GOL-028,"Goldiee","Personal Care",21069099,0,340,20,Tin,40
+"Goldiee Item 29 Pack",FIX-GOL-029,"Goldiee","Home Care",09042010,5,365,24,Bag,48
+"Goldiee Item 30 Pack",FIX-GOL-030,"Goldiee","Beverages",10063020,12,390,30,Box,60
+"Ruchi Item 1 Pack",FIX-RUC-001,"Ruchi","Snacks",21069099,12,480,6,Carton,12
+"Ruchi Item 2 Pack",FIX-RUC-002,"Ruchi","Spices",09042010,18,505,12,Tin,24
+"Ruchi Item 3 Pack",FIX-RUC-003,"Ruchi","Grains",10063020,0,530,20,Bag,40
+"Ruchi Item 4 Pack",FIX-RUC-004,"Ruchi","Edible Oils",15149100,5,555,24,Box,48
+"Ruchi Item 5 Pack",FIX-RUC-005,"Ruchi","Biscuits",19053100,12,580,30,Bundle,60
+"Ruchi Item 6 Pack",FIX-RUC-006,"Ruchi","Confectionery",34011110,18,605,48,Carton,96
+"Ruchi Item 7 Pack",FIX-RUC-007,"Ruchi","Personal Care",09024020,0,630,6,Tin,12
+"Ruchi Item 8 Pack",FIX-RUC-008,"Ruchi","Home Care",04051000,5,655,12,Bag,24
+"Ruchi Item 9 Pack",FIX-RUC-009,"Ruchi","Beverages",21069099,12,680,20,Box,40
+"Ruchi Item 10 Pack",FIX-RUC-010,"Ruchi","Dairy Products",09042010,18,705,24,Bundle,48
+"Ruchi Item 11 Pack",FIX-RUC-011,"Ruchi","Snacks",10063020,0,730,30,Carton,60
+"Ruchi Item 12 Pack",FIX-RUC-012,"Ruchi","Spices",15149100,5,755,48,Tin,96
+"Ruchi Item 13 Pack",FIX-RUC-013,"Ruchi","Grains",19053100,12,780,6,Bag,12
+"Ruchi Item 14 Pack",FIX-RUC-014,"Ruchi","Edible Oils",34011110,18,805,12,Box,24
+"Ruchi Item 15 Pack",FIX-RUC-015,"Ruchi","Biscuits",09024020,0,30,20,Bundle,40
+"Ruchi Item 16 Pack",FIX-RUC-016,"Ruchi","Confectionery",04051000,5,55,24,Carton,48
+"Ruchi Item 17 Pack",FIX-RUC-017,"Ruchi","Personal Care",21069099,12,80,30,Tin,60
+"Ruchi Item 18 Pack",FIX-RUC-018,"Ruchi","Home Care",09042010,18,105,48,Bag,96
+"Ruchi Item 19 Pack",FIX-RUC-019,"Ruchi","Beverages",10063020,0,130,6,Box,12
+"Ruchi Item 20 Pack",FIX-RUC-020,"Ruchi","Dairy Products",15149100,5,155,12,Bundle,24
+"Ruchi Item 21 Pack",FIX-RUC-021,"Ruchi","Snacks",19053100,12,180,20,Carton,40
+"Ruchi Item 22 Pack",FIX-RUC-022,"Ruchi","Spices",34011110,18,205,24,Tin,48
+"Ruchi Item 23 Pack",FIX-RUC-023,"Ruchi","Grains",09024020,0,230,30,Bag,60
+"Ruchi Item 24 Pack",FIX-RUC-024,"Ruchi","Edible Oils",04051000,5,255,48,Box,96
+"Ruchi Item 25 Pack",FIX-RUC-025,"Ruchi","Biscuits",21069099,12,280,6,Bundle,12
+"Ruchi Item 26 Pack",FIX-RUC-026,"Ruchi","Confectionery",09042010,18,305,12,Carton,24
+"Ruchi Item 27 Pack",FIX-RUC-027,"Ruchi","Personal Care",10063020,0,330,20,Tin,40
+"Ruchi Item 28 Pack",FIX-RUC-028,"Ruchi","Home Care",15149100,5,355,24,Bag,48
+"Ruchi Item 29 Pack",FIX-RUC-029,"Ruchi","Beverages",19053100,12,380,30,Box,60
+"Ruchi Item 30 Pack",FIX-RUC-030,"Ruchi","Dairy Products",34011110,18,405,48,Bundle,96

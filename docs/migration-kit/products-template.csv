@@ -1,0 +1,9 @@
+name,company,category,short_code,hsn,gst_rate,mrp,cost_price,pack_size,low_stock_threshold
+Bikaji Bhujia 400g,Bikaji,Snacks,BIK400,21069099,12,110.00,88.00,24,48
+MDH Deggi Mirch 100g,MDH,Spices,MDH100,09109929,5,82.00,68.00,20,40
+Fortune Sunlite Oil 1L,Fortune,Edible Oils,FORT1L,15121910,5,145.00,122.00,12,36
+Tata Salt 1kg,Tata,Staples,TATA1K,25010010,0,28.00,22.50,24,72
+Dettol Soap 125g,Dettol,Personal Care,DET125,34011110,18,65.00,52.00,48,96
+Surf Excel Easy Wash 1kg,Surf Excel,Detergents,SURF1K,34029011,18,140.00,115.00,12,24
+Parle-G Gold 1kg,Parle,Biscuits,PARLG1K,19053100,18,120.00,98.00,12,36
+Colgate MaxFresh 150g,Colgate,Oral Care,COLG150,33061020,18,115.00,92.00,24,48

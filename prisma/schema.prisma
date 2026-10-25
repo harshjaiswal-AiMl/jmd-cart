@@ -1,0 +1,1149 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  WAREHOUSE_MANAGER
+  GODOWN
+  SHOP
+  SALESPERSON
+  DELIVERY
+  ACCOUNTS
+  CUSTOMER
+}
+
+enum ImportBatchType {
+  CATALOG
+  STOCK
+}
+
+enum ImportBatchStatus {
+  APPLIED
+  UNDONE
+}
+
+enum LocationType {
+  GODOWN
+  SHOP
+  VAN
+}
+
+enum MovementType {
+  PURCHASE_RECEIPT
+  TRANSFER
+  CARTON_BREAK
+  VAN_ISSUE
+  VAN_RETURN
+  SALE
+  SALE_CANCEL
+  RETURN_TO_COMPANY
+  DAMAGE
+  ADJUSTMENT
+}
+
+enum PartyType {
+  CUSTOMER
+  RETAILER
+  WHOLESALER
+  SUPPLIER
+}
+
+enum LedgerKind {
+  INVOICE
+  RECEIPT
+  CREDIT_NOTE
+  DEBIT_NOTE
+  OPENING
+  ADJUSTMENT
+}
+
+enum PurchaseStatus {
+  DRAFT
+  RECEIVED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  FINAL
+  CANCELLED
+}
+
+enum InvoiceChannel {
+  SHOP
+  VAN
+  ONLINE
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  CREDIT
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+}
+
+enum AuditStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+  PICKING
+  PACKED
+  OUT_FOR_DELIVERY
+  FAILED
+}
+
+enum OrderChannel {
+  ONLINE
+  MANUAL
+}
+
+enum DispatchRunStatus {
+  DRAFT
+  PICKING
+  PACKED
+  OUT
+  CLOSED
+  CANCELLED
+}
+
+enum ShopRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DISPATCHED
+  RECEIVED
+  CANCELLED
+}
+
+enum CounterPickupStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum ShopPickStatus {
+  PENDING
+  PICKED
+  CANCELLED
+}
+
+
+model User {
+  id                 String     @id @default(cuid())
+  branchId           Int        @default(1) @map("branch_id")
+  name               String
+  phone              String     @unique
+  email              String?    @unique
+  passwordHash       String     @map("password_hash")
+  role               UserRole
+  active             Boolean    @default(true)
+  mustChangePassword Boolean    @default(false) @map("must_change_password")
+  phoneVerifiedAt    DateTime?  @map("phone_verified_at")
+  emailVerifiedAt    DateTime?  @map("email_verified_at")
+  verificationMode   String?    @map("verification_mode") // "admin", "sms", "off"
+  partyId            String?    @map("party_id")
+  buyerType          PartyType? @default(CUSTOMER) @map("buyer_type")
+  buyerApproved      Boolean    @default(false) @map("buyer_approved")
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  party              Party?        @relation("UserParty", fields: [partyId], references: [id], onDelete: SetNull)
+  assignedLocations  Location[]
+  auditLogs          AuditLog[]
+  createdInvoices    Invoice[]
+  receivedPayments   Payment[]
+  createdPurchases   Purchase[]
+  createdCreditNotes CreditNote[]
+  vanDays            VanDay[]
+  creditOverrideInvoices Invoice[] @relation("CreditOverrideInvoices")
+  handoversGiven     CashHandover[] @relation("HandoverSalesperson")
+  handoversReceived  CashHandover[] @relation("HandoverReceiver")
+  createdDebitNotes  DebitNote[]
+  cart               Cart?
+  orders             Order[]        @relation("CustomerOrders")
+  assignedDeliveries Order[]        @relation("DeliveryStaffOrders")
+  importBatches      ImportBatch[]
+  savedAddresses     UserAddress[]  @relation("UserSavedAddresses")
+  wishlistItems      WishlistItem[] @relation("UserWishlist")
+  createdBillScans   BillScan[]     @relation("BillScanCreator")
+  createdOrders      Order[]        @relation("OrderCreator")
+  assignedRuns       DispatchRun[]  @relation("DeliveryStaffRuns")
+
+  @@map("users")
+}
+
+model Location {
+  id             String       @id @default(cuid())
+  branchId       Int          @default(1) @map("branch_id")
+  type           LocationType
+  name           String
+  assignedUserId String?      @map("assigned_user_id")
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  assignedUser   User?           @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+  stockBalances  StockBalance[]
+  fromMovements  StockMovement[] @relation("FromLocation")
+  toMovements    StockMovement[] @relation("ToLocation")
+  invoices       Invoice[]
+  purchases      Purchase[]
+  stockAudits    StockAudit[]
+  vanDays        VanDay[]
+  payments       Payment[]
+  debitNotes     DebitNote[]
+  importBatches  ImportBatch[]
+  billScans      BillScan[]
+  dispatchRuns   DispatchRun[]
+  stockReservations StockReservation[]
+
+  @@map("locations")
+}
+
+model Company {
+  id        String    @id @default(cuid())
+  branchId  Int       @default(1) @map("branch_id")
+  name      String    @unique
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  products            Product[]
+  supplierParty       Party?              @relation("CompanySupplier")
+  billScans           BillScan[]
+  supplierItemAliases SupplierItemAlias[]
+
+  @@map("companies")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  branchId  Int       @default(1) @map("branch_id")
+  name      String    @unique
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  branchId     Int      @default(1) @map("branch_id")
+  name         String
+  shortCode    String   @unique @map("short_code")
+  weight       String?  @map("weight")
+  companyId    String?  @map("company_id")
+  categoryId   String?  @map("category_id")
+  hsn          String   @default("0000")
+  gstRateBp    Int      @default(0) @map("gst_rate_bp")
+  mrpPaise     Int?     @map("mrp_paise")
+  priceAPaise  Int?     @map("price_a_paise")
+  priceBPaise  Int?     @map("price_b_paise")
+  priceCPaise  Int?     @map("price_c_paise")
+  packSize     Int      @default(1) @map("pack_size")
+  packLabel    String   @default("Carton") @map("pack_label")
+  reorderLevel Int      @default(0) @map("reorder_level")
+  imageUrl     String?  @map("image_url")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  company        Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  category       Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  stockBalances  StockBalance[]
+  stockMovements StockMovement[]
+  invoiceItems   InvoiceItem[]
+  purchaseItems  PurchaseItem[]
+  auditLines     StockAuditLine[]
+  vanDayLines    VanDayLine[]
+  debitNoteItems DebitNoteItem[]
+  cartItems      CartItem[]
+  orderItems          OrderItem[]
+  wishlistItems       WishlistItem[]      @relation("ProductWishlist")
+  billScanLines       BillScanLine[]
+  supplierItemAliases SupplierItemAlias[]
+  stockReservations   StockReservation[]
+  shopRequestLines    ShopRequestLine[]
+
+  @@index([name])
+  @@index([companyId])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model StockBalance {
+  productId  String   @map("product_id")
+  locationId String   @map("location_id")
+  branchId   Int      @default(1) @map("branch_id")
+  qty        Int      @default(0)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@id([productId, locationId])
+  @@map("stock_balances")
+}
+
+model StockMovement {
+  id             String       @id @default(cuid())
+  branchId       Int          @default(1) @map("branch_id")
+  type           MovementType
+  productId      String       @map("product_id")
+  fromLocationId String?      @map("from_location_id")
+  toLocationId   String?      @map("to_location_id")
+  qty            Int
+  referenceType  String?      @map("reference_type")
+  referenceId    String?      @map("reference_id")
+  batchId        String?      @map("batch_id")
+  reason         String?
+  meta           Json?
+  idempotencyKey String       @unique @map("idempotency_key")
+  createdBy      String?      @map("created_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  fromLocation Location?    @relation("FromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation   Location?    @relation("ToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
+  batch        ImportBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  @@index([productId, createdAt])
+  @@index([fromLocationId, createdAt])
+  @@index([toLocationId, createdAt])
+  @@index([batchId])
+  @@map("stock_movements")
+}
+
+model ImportBatch {
+  id          String            @id @default(cuid())
+  branchId    Int               @default(1) @map("branch_id")
+  type        ImportBatchType
+  filename    String
+  userId      String            @map("user_id")
+  locationId  String?           @map("location_id")
+  mode        String
+  rowsTotal   Int               @default(0) @map("rows_total")
+  rowsApplied Int               @default(0) @map("rows_applied")
+  rowsSkipped Int               @default(0) @map("rows_skipped")
+  status      ImportBatchStatus @default(APPLIED)
+  summary     Json?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  undoneAt    DateTime?         @map("undone_at")
+  undoneBy    String?           @map("undone_by")
+
+  user        User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  location    Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  movements   StockMovement[]
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@map("import_batches")
+}
+
+model Sequence {
+  name      String
+  fy        String
+  nextValue Int      @default(1) @map("next_value")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([name, fy])
+  @@map("sequences")
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  branchId  Int      @default(1) @map("branch_id")
+  actorId   String?  @map("actor_id")
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  before    Json?
+  after     Json?
+  ip        String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
+
+model Party {
+  id               String      @id @default(cuid())
+  branchId         Int         @default(1) @map("branch_id")
+  type             PartyType
+  name             String
+  phone            String?
+  email            String?
+  gstin            String?
+  address          String?
+  creditEnabled    Boolean     @default(false) @map("credit_enabled")
+  creditLimitPaise Int         @default(0) @map("credit_limit_paise")
+  creditDays       Int         @default(0) @map("credit_days")
+  tallyRef         String?     @map("tally_ref")
+  companyId        String?     @unique @map("company_id")
+  active           Boolean     @default(true)
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  company          Company?    @relation("CompanySupplier", fields: [companyId], references: [id], onDelete: SetNull)
+  invoices         Invoice[]
+  purchases        Purchase[]
+  ledgerEntries    LedgerEntry[]
+  payments         Payment[]
+  debitNotes       DebitNote[]
+  users            User[]        @relation("UserParty")
+  billScans        BillScan[]
+  orders           Order[]       @relation("PartyOrders")
+
+  @@map("parties")
+}
+
+model LedgerEntry {
+  id            String     @id @default(cuid())
+  branchId      Int        @default(1) @map("branch_id")
+  partyId       String     @map("party_id")
+  kind          LedgerKind
+  debitPaise    Int        @default(0) @map("debit_paise")
+  creditPaise   Int        @default(0) @map("credit_paise")
+  referenceType String?    @map("reference_type")
+  referenceId   String?    @map("reference_id")
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  party         Party      @relation(fields: [partyId], references: [id], onDelete: Restrict)
+
+  @@index([partyId, createdAt])
+  @@map("ledger_entries")
+}
+
+model Purchase {
+  id          String         @id @default(cuid())
+  branchId    Int            @default(1) @map("branch_id")
+  supplierId  String?        @map("supplier_id")
+  billNo      String         @map("bill_no")
+  billDate    DateTime       @map("bill_date")
+  locationId  String         @map("location_id")
+  totalPaise     Int            @map("total_paise")
+  status         PurchaseStatus @default(RECEIVED)
+  billScanId     String?        @unique @map("bill_scan_id")
+  billTotalPaise Int?           @map("bill_total_paise")
+  createdBy      String?        @map("created_by")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  supplier       Party?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  location       Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  creator        User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  billScan       BillScan?      @relation("PurchaseBillScan")
+  items          PurchaseItem[]
+
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id             String   @id @default(cuid())
+  purchaseId     String   @map("purchase_id")
+  productId      String   @map("product_id")
+  qty            Int
+  billedQty      Int?     @map("billed_qty")
+  acceptedQty    Int?     @map("accepted_qty")
+  varianceReason String?  @map("variance_reason")
+  ratePaise      Int      @map("rate_paise")
+  gstRateBp      Int      @default(0) @map("gst_rate_bp")
+
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("purchase_items")
+}
+
+model Invoice {
+  id            String         @id @default(cuid())
+  branchId      Int            @default(1) @map("branch_id")
+  number        String         @unique
+  fy            String
+  status        InvoiceStatus  @default(DRAFT)
+  channel       InvoiceChannel @default(SHOP)
+  locationId    String         @map("location_id")
+  partyId       String?        @map("party_id")
+  buyerType     String         @default("RETAIL") @map("buyer_type")
+  subtotalPaise Int            @map("subtotal_paise")
+  discountPaise Int            @default(0) @map("discount_paise")
+  taxablePaise  Int            @map("taxable_paise")
+  cgstPaise     Int            @default(0) @map("cgst_paise")
+  sgstPaise     Int            @default(0) @map("sgst_paise")
+  igstPaise     Int            @default(0) @map("igst_paise")
+  roundOffPaise Int            @default(0) @map("round_off_paise")
+  totalPaise    Int            @map("total_paise")
+  paymentStatus PaymentStatus  @default(PENDING) @map("payment_status")
+  idempotencyKey String?       @unique @map("idempotency_key")
+  createdBy     String?        @map("created_by")
+  finalizedAt   DateTime?      @map("finalized_at")
+  irn           String?
+  qr            String?
+  notes         String?
+  creditOverride Boolean      @default(false) @map("credit_override")
+  creditOverrideReason String? @map("credit_override_reason")
+  creditOverrideBy String?    @map("credit_override_by")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  location      Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  party         Party?         @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  creator       User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  creditOverrideUser User?     @relation("CreditOverrideInvoices", fields: [creditOverrideBy], references: [id], onDelete: SetNull)
+  items         InvoiceItem[]
+  payments      Payment[]
+  creditNotes   CreditNote[]
+  order         Order?
+  counterPickups CounterPickup[]
+
+  @@index([locationId, createdAt])
+  @@index([partyId, createdAt])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id             String   @id @default(cuid())
+  invoiceId      String   @map("invoice_id")
+  productId      String   @map("product_id")
+  qty            Int
+  mrpPaise       Int      @map("mrp_paise")
+  discountBp     Int      @default(0) @map("discount_bp")
+  unitPricePaise Int      @map("unit_price_paise")
+  taxablePaise   Int      @map("taxable_paise")
+  gstRateBp      Int      @map("gst_rate_bp")
+  taxPaise       Int      @map("tax_paise")
+  hsn            String
+
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("invoice_items")
+}
+
+model Payment {
+  id            String      @id @default(cuid())
+  branchId      Int         @default(1) @map("branch_id")
+  invoiceId     String?     @map("invoice_id")
+  partyId       String?     @map("party_id")
+  receiptNo     String?     @unique @map("receipt_no")
+  mode          PaymentMode
+  amountPaise   Int         @map("amount_paise")
+  notes         String?
+  vanLocationId String?     @map("van_location_id")
+  receivedBy    String?     @map("received_by")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  invoice       Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  party         Party?      @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  vanLocation   Location?   @relation(fields: [vanLocationId], references: [id], onDelete: SetNull)
+  receiver      User?       @relation(fields: [receivedBy], references: [id], onDelete: SetNull)
+
+  @@map("payments")
+}
+
+model CreditNote {
+  id         String   @id @default(cuid())
+  branchId   Int      @default(1) @map("branch_id")
+  number     String   @unique
+  invoiceId  String   @map("invoice_id")
+  reason     String
+  totalPaise Int      @map("total_paise")
+  createdBy  String?  @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  creator    User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@map("credit_notes")
+}
+
+model DebitNote {
+  id            String          @id @default(cuid())
+  branchId      Int             @default(1) @map("branch_id")
+  number        String          @unique
+  fy            String
+  supplierId    String          @map("supplier_id")
+  locationId    String          @map("location_id")
+  reason        String
+  subtotalPaise Int             @map("subtotal_paise")
+  taxPaise      Int             @map("tax_paise")
+  roundOffPaise Int             @default(0) @map("round_off_paise")
+  totalPaise    Int             @map("total_paise")
+  notes         String?
+  createdBy     String?         @map("created_by")
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  supplier      Party           @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location      Location        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  creator       User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  items         DebitNoteItem[]
+
+  @@index([supplierId, createdAt])
+  @@index([locationId, createdAt])
+  @@map("debit_notes")
+}
+
+model DebitNoteItem {
+  id             String    @id @default(cuid())
+  debitNoteId    String    @map("debit_note_id")
+  productId      String    @map("product_id")
+  qty            Int
+  unitPricePaise Int       @map("unit_price_paise")
+  taxablePaise   Int       @map("taxable_paise")
+  gstRateBp      Int       @default(0) @map("gst_rate_bp")
+  taxPaise       Int       @default(0) @map("tax_paise")
+  totalPaise     Int       @map("total_paise")
+  batchNo        String?   @map("batch_no")
+  reason         String?
+
+  debitNote      DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
+  product        Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("debit_note_items")
+}
+
+model StockAudit {
+  id         String           @id @default(cuid())
+  branchId   Int              @default(1) @map("branch_id")
+  locationId String           @map("location_id")
+  status     AuditStatus      @default(PENDING)
+  createdBy  String?          @map("created_by")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  location   Location         @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  lines      StockAuditLine[]
+
+  @@map("stock_audits")
+}
+
+model StockAuditLine {
+  id         String     @id @default(cuid())
+  auditId    String     @map("audit_id")
+  productId  String     @map("product_id")
+  systemQty  Int        @map("system_qty")
+  countedQty Int        @map("counted_qty")
+
+  audit      StockAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("stock_audit_lines")
+}
+
+enum VanDayStatus {
+  OPEN
+  RECONCILED
+  CLOSED
+}
+
+model VanDay {
+  id              String        @id @default(cuid())
+  branchId        Int           @default(1) @map("branch_id")
+  vanLocationId   String        @map("van_location_id")
+  salespersonId   String        @map("salesperson_id")
+  date            DateTime      @map("date")
+  status          VanDayStatus  @default(OPEN)
+  issueSheetNo    String        @unique @map("issue_sheet_no")
+  notes           String?
+  issuedBy        String?       @map("issued_by")
+  reconciledBy    String?       @map("reconciled_by")
+  closedBy        String?       @map("closed_by")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  vanLocation     Location      @relation(fields: [vanLocationId], references: [id], onDelete: Restrict)
+  salesperson     User          @relation(fields: [salespersonId], references: [id], onDelete: Restrict)
+  lines           VanDayLine[]
+  cashHandover    CashHandover?
+
+  @@index([vanLocationId, date])
+  @@index([salespersonId, date])
+  @@map("van_days")
+}
+
+model VanDayLine {
+  id          String   @id @default(cuid())
+  vanDayId    String   @map("van_day_id")
+  productId   String   @map("product_id")
+  issuedQty   Int      @map("issued_qty")
+  soldQty     Int      @default(0) @map("sold_qty")
+  returnedQty Int      @default(0) @map("returned_qty")
+  shortageQty Int      @default(0) @map("shortage_qty")
+  excessQty   Int      @default(0) @map("excess_qty")
+
+  vanDay      VanDay   @relation(fields: [vanDayId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([vanDayId, productId])
+  @@map("van_day_lines")
+}
+
+model CashHandover {
+  id                String   @id @default(cuid())
+  branchId          Int      @default(1) @map("branch_id")
+  vanDayId          String   @unique @map("van_day_id")
+  salespersonId     String   @map("salesperson_id")
+  receivedById      String   @map("received_by_id")
+  expectedCashPaise Int      @map("expected_cash_paise")
+  receivedCashPaise Int      @map("received_cash_paise")
+  shortagePaise     Int      @default(0) @map("shortage_paise")
+  excessPaise       Int      @default(0) @map("excess_paise")
+  notes             String?
+  confirmedAt       DateTime @default(now()) @map("confirmed_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  vanDay            VanDay   @relation(fields: [vanDayId], references: [id], onDelete: Cascade)
+  salesperson       User     @relation("HandoverSalesperson", fields: [salespersonId], references: [id], onDelete: Restrict)
+  receivedBy        User     @relation("HandoverReceiver", fields: [receivedById], references: [id], onDelete: Restrict)
+
+  @@index([salespersonId, confirmedAt])
+  @@index([receivedById, confirmedAt])
+  @@map("cash_handovers")
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique @map("user_id")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String   @map("cart_id")
+  productId String   @map("product_id")
+  qty       Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id                    String        @id @default(cuid())
+  orderNumber           String        @unique @map("order_number")
+  branchId              Int           @default(1) @map("branch_id")
+  userId                String        @map("user_id")
+  status                OrderStatus   @default(PENDING)
+  deliveryZoneCode      String        @map("delivery_zone_code")
+  deliveryZoneName      String        @map("delivery_zone_name")
+  deliveryFeePaise      Int           @default(0) @map("delivery_fee_paise")
+  subtotalPaise         Int           @map("subtotal_paise")
+  lineDiscountPaise     Int           @default(0) @map("line_discount_paise")
+  taxablePaise          Int           @map("taxable_paise")
+  cgstPaise             Int           @default(0) @map("cgst_paise")
+  sgstPaise             Int           @default(0) @map("sgst_paise")
+  igstPaise             Int           @default(0) @map("igst_paise")
+  roundOffPaise         Int           @default(0) @map("round_off_paise")
+  totalPaise            Int           @map("total_paise")
+  buyerTag              PartyType     @default(CUSTOMER) @map("buyer_tag")
+  deliveryAddress       String        @map("delivery_address")
+  contactPhone          String        @map("contact_phone")
+  customerNotes         String?       @map("customer_notes")
+  invoiceId             String?       @unique @map("invoice_id")
+  assignedDeliveryUserId String?      @map("assigned_delivery_user_id")
+  deliveredAt           DateTime?     @map("delivered_at")
+  paymentMode           PaymentMode?  @map("payment_mode")
+  paymentReference      String?       @map("payment_reference")
+  paymentNotes          String?       @map("payment_notes")
+  idempotencyKey        String?       @unique @map("idempotency_key")
+  channel               OrderChannel  @default(ONLINE) @map("channel")
+  createdByUserId       String?       @map("created_by_user_id")
+  partyId               String?       @map("party_id")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  user                  User          @relation("CustomerOrders", fields: [userId], references: [id], onDelete: Restrict)
+  assignedDeliveryUser  User?         @relation("DeliveryStaffOrders", fields: [assignedDeliveryUserId], references: [id], onDelete: SetNull)
+  createdByUser         User?         @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  party                 Party?        @relation("PartyOrders", fields: [partyId], references: [id], onDelete: SetNull)
+  invoice               Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  items                 OrderItem[]
+  dispatchRunOrders     DispatchRunOrder[]
+  packages              OrderPackage[]
+  shopPickTasks         ShopPickTask[]
+  stockReservations     StockReservation[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([assignedDeliveryUserId, status])
+  @@index([channel])
+  @@index([partyId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String   @map("order_id")
+  productId       String   @map("product_id")
+  qty             Int
+  mrpPaise        Int      @map("mrp_paise")
+  unitPricePaise  Int      @map("unit_price_paise")
+  discountBp      Int      @default(0) @map("discount_bp")
+  lineDiscountPaise Int    @default(0) @map("line_discount_paise")
+  taxablePaise    Int      @map("taxable_paise")
+  gstRateBp       Int      @map("gst_rate_bp")
+  taxPaise        Int      @map("tax_paise")
+  hsn             String
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model UserAddress {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  name        String
+  phone       String
+  addressLine String   @map("address_line")
+  area        String
+  city        String   @default("Saharsa")
+  state       String   @default("Bihar")
+  pincode     String   @default("852201")
+  type        String   @default("SHOP") // SHOP, HOME, WORK, GODOWN
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user        User     @relation("UserSavedAddresses", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_addresses")
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation("UserWishlist", fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation("ProductWishlist", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@map("wishlist_items")
+}
+
+enum BillScanStatus {
+  DRAFT
+  COUNTING
+  READY
+  POSTED
+  CANCELLED
+}
+
+enum BillScanSourceType {
+  IMAGE
+  PDF_TEXT
+  PDF_SCAN
+  MANUAL
+}
+
+enum BillScanLineMatchStatus {
+  SUGGESTED
+  CONFIRMED
+  UNMATCHED
+  EXTRA
+}
+
+enum BillScanVariance {
+  NONE
+  SHORT
+  EXCESS
+  DAMAGED
+  NOT_RECEIVED
+  EXTRA
+}
+
+model BillScan {
+  id              String             @id @default(cuid())
+  branchId        Int                @default(1) @map("branch_id")
+  supplierPartyId String?            @map("supplier_party_id")
+  companyId       String?            @map("company_id")
+  locationId      String             @map("location_id")
+  status          BillScanStatus     @default(DRAFT)
+  imageKeys       String[]           @map("image_keys")
+  sourceType      BillScanSourceType @default(IMAGE) @map("source_type")
+  ocrEngine       String?            @map("ocr_engine")
+  ocrDurationMs   Int?               @map("ocr_duration_ms")
+  ocrConfidence   Float?             @map("ocr_confidence")
+  billNo          String?            @map("bill_no")
+  billDate        DateTime?          @map("bill_date")
+  billTotalPaise  Int?               @map("bill_total_paise")
+  parsedJson      Json?              @map("parsed_json")
+  createdBy       String?            @map("created_by")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  postedAt        DateTime?          @map("posted_at")
+  purchaseId      String?            @unique @map("purchase_id")
+  idempotencyKey  String             @unique @map("idempotency_key")
+  lockedBy        String?            @map("locked_by")
+  lockedAt        DateTime?          @map("locked_at")
+
+  supplierParty   Party?             @relation(fields: [supplierPartyId], references: [id], onDelete: SetNull)
+  company         Company?           @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  location        Location           @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  creator         User?              @relation("BillScanCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  purchase        Purchase?          @relation("PurchaseBillScan", fields: [purchaseId], references: [id], onDelete: SetNull)
+  lines           BillScanLine[]
+
+  @@index([supplierPartyId])
+  @@index([companyId])
+  @@index([status])
+  @@map("bill_scans")
+}
+
+model BillScanLine {
+  id                String                  @id @default(cuid())
+  scanId            String                  @map("scan_id")
+  lineNo            Int                     @map("line_no")
+  rawText           String                  @map("raw_text")
+  parsedName        String                  @map("parsed_name")
+  hsn               String?
+  billedQty         Float                   @default(0) @map("billed_qty")
+  billedUnit        String                  @default("PCS") @map("billed_unit")
+  billedQtyPieces   Int                     @default(0) @map("billed_qty_pieces")
+  ratePaise         Int                     @default(0) @map("rate_paise")
+  gstRateBp         Int                     @default(0) @map("gst_rate_bp")
+  amountPaise       Int                     @default(0) @map("amount_paise")
+  productId         String?                 @map("product_id")
+  matchConfidence   Float?                  @map("match_confidence")
+  matchStatus       BillScanLineMatchStatus @default(UNMATCHED) @map("match_status")
+  countedCartons    Int                     @default(0) @map("counted_cartons")
+  countedLoose      Int                     @default(0) @map("counted_loose")
+  countedPieces     Int                     @default(0) @map("counted_pieces")
+  variance          BillScanVariance        @default(NONE)
+  varianceReason    String?                 @map("variance_reason")
+  flags             String[]                @default([])
+  confirmedAsBilled Boolean                 @default(false) @map("confirmed_as_billed")
+  createdAt         DateTime                @default(now()) @map("created_at")
+  updatedAt         DateTime                @updatedAt @map("updated_at")
+
+  scan              BillScan                @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  product           Product?                @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([scanId])
+  @@index([productId])
+  @@map("bill_scan_lines")
+}
+
+model SupplierItemAlias {
+  id                 String    @id @default(cuid())
+  companyId          String    @map("company_id")
+  normalizedBillText String    @map("normalized_bill_text")
+  productId          String    @map("product_id")
+  timesConfirmed     Int       @default(1) @map("times_confirmed")
+  lastUsedAt         DateTime  @default(now()) @map("last_used_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product            Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, normalizedBillText])
+  @@index([companyId])
+  @@index([productId])
+  @@map("supplier_item_aliases")
+}
+
+model StockReservation {
+  id          String   @id @default(cuid())
+  branchId    Int      @default(1) @map("branch_id")
+  productId   String   @map("product_id")
+  locationId  String   @map("location_id")
+  orderId     String?  @map("order_id")
+  qty         Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  order       Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([productId, locationId, active])
+  @@index([orderId])
+  @@map("stock_reservations")
+}
+
+model DispatchRun {
+  id              String            @id @default(cuid())
+  runNumber       String            @unique @map("run_number")
+  branchId        Int               @default(1) @map("branch_id")
+  date            DateTime          @default(now())
+  vanId           String?           @map("van_id")
+  deliveryUserId  String?           @map("delivery_user_id")
+  slot            String?
+  status          DispatchRunStatus @default(DRAFT)
+  notes           String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  van             Location?         @relation(fields: [vanId], references: [id], onDelete: SetNull)
+  deliveryUser    User?             @relation("DeliveryStaffRuns", fields: [deliveryUserId], references: [id], onDelete: SetNull)
+  orders          DispatchRunOrder[]
+
+  @@index([status, date])
+  @@map("dispatch_runs")
+}
+
+model DispatchRunOrder {
+  id        String      @id @default(cuid())
+  runId     String      @map("run_id")
+  orderId   String      @map("order_id")
+  sequence  Int         @default(0)
+
+  run       DispatchRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, orderId])
+  @@index([runId, sequence])
+  @@map("dispatch_run_orders")
+}
+
+model OrderPackage {
+  id          String   @id @default(cuid())
+  orderId     String   @map("order_id")
+  bundleCount Int      @default(1) @map("bundle_count")
+  packedBy    String?  @map("packed_by")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_packages")
+}
+
+model ShopRequest {
+  id            String            @id @default(cuid())
+  requestNumber String            @unique @map("request_number")
+  branchId      Int               @default(1) @map("branch_id")
+  status        ShopRequestStatus @default(PENDING)
+  requestedBy   String            @map("requested_by")
+  approvedBy    String?           @map("approved_by")
+  notes         String?
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  lines         ShopRequestLine[]
+
+  @@index([status, createdAt])
+  @@map("shop_requests")
+}
+
+model ShopRequestLine {
+  id           String      @id @default(cuid())
+  requestId    String      @map("request_id")
+  productId    String      @map("product_id")
+  requestedQty Int         @map("requested_qty")
+  approvedQty  Int?        @map("approved_qty")
+
+  request      ShopRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  product      Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([requestId])
+  @@map("shop_request_lines")
+}
+
+model CounterPickup {
+  id          String              @id @default(cuid())
+  branchId    Int                 @default(1) @map("branch_id")
+  invoiceId   String?             @map("invoice_id")
+  billNumber  String              @map("bill_number")
+  cashierName String?             @map("cashier_name")
+  status      CounterPickupStatus @default(PENDING)
+  items       Json                @map("items")
+  notes       String?
+  createdAt   DateTime            @default(now()) @map("created_at")
+  completedAt DateTime?           @map("completed_at")
+
+  invoice     Invoice?            @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("counter_pickups")
+}
+
+model ShopPickTask {
+  id          String         @id @default(cuid())
+  branchId    Int            @default(1) @map("branch_id")
+  orderId     String         @map("order_id")
+  status      ShopPickStatus @default(PENDING)
+  items       Json           @map("items")
+  notes       String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  pickedAt    DateTime?      @map("picked_at")
+
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("shop_pick_tasks")
+}
+
+model VanLoadingTemplate {
+  id        String   @id @default(cuid())
+  branchId  Int      @default(1) @map("branch_id")
+  vanId     String   @map("van_id")
+  name      String
+  lines     Json     @map("lines")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([vanId])
+  @@map("van_loading_templates")
+}
+
