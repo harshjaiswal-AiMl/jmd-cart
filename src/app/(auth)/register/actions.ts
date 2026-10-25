@@ -67,21 +67,20 @@ export async function verifyEmailOtpAction(
 ) {
   const email = (formData.get("email") as string)?.trim().toLowerCase();
   const otp = (formData.get("otp") as string)?.trim();
-  const password =
-    (formData.get("reg_auth_token") as string) ||
-    (formData.get("password") as string);
 
   if (!email || !otp) {
     return { error: "Email address and 6-digit verification code are required" };
   }
 
   try {
-    const { phone } = await authService.verifyRegistrationEmailOtp(email, otp);
+    const result = await authService.verifyRegistrationEmailOtp(email, otp);
+    const phone = result.phone;
+    const loginPassword = result.password || (formData.get("password") as string);
 
-    if (password) {
+    if (loginPassword) {
       await signIn("credentials", {
         phone,
-        password,
+        password: loginPassword,
         redirectTo: "/store",
       });
     }

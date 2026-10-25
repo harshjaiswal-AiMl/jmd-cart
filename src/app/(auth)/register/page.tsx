@@ -33,7 +33,7 @@ export default function RegisterPage() {
   );
 
   const [otpState, otpFormAction] = useFormState(verifyEmailOtpAction, undefined);
-  const [cachedPassword, setCachedPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
 
@@ -55,7 +55,7 @@ export default function RegisterPage() {
 
   if (state?.requiresOtp && state.email) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface py-12 px-4 sm:px-6 lg:px-8">
+      <div key="otp-verification-screen" className="min-h-screen flex items-center justify-center bg-surface py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-6 bg-surface-container-lowest p-6 sm:p-8 rounded-3xl shadow-xl border border-surface-container-high/90">
           <div className="text-center">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary mx-auto flex items-center justify-center mb-4">
@@ -77,9 +77,8 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <form action={otpFormAction} autoComplete="off" className="space-y-5">
+          <form action={otpFormAction} autoComplete="off" data-form-type="other" className="space-y-5">
             <input type="hidden" name="email" value={state.email} />
-            <input type="hidden" name="reg_auth_token" value={cachedPassword} />
 
             <div>
               <label htmlFor="email_otp_field" className="block text-xs font-bold text-on-surface uppercase tracking-wider mb-2 text-center">
@@ -95,10 +94,17 @@ export default function RegisterPage() {
                 spellCheck={false}
                 data-1p-ignore="true"
                 data-lpignore="true"
+                data-form-type="other"
                 pattern="[0-9]{6}"
                 maxLength={6}
                 required
                 autoFocus
+                value={otp}
+                onChange={(e) => {
+                  // Only accept numbers; strip any letters, symbols, or browser autofilled password text
+                  const cleanDigits = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  setOtp(cleanDigits);
+                }}
                 placeholder="000000"
                 className="tracking-[14px] text-center text-3xl font-mono block w-full px-4 py-3 bg-white border border-outline-variant/60 rounded-2xl placeholder:text-outline/30 focus:outline-none focus:ring-2 focus:ring-primary text-on-surface font-black"
               />
@@ -134,7 +140,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface py-12 px-4 sm:px-6 lg:px-8">
+    <div key="registration-form-screen" className="min-h-screen flex items-center justify-center bg-surface py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-6 bg-surface-container-lowest p-6 sm:p-8 rounded-3xl shadow-xl border border-surface-container-high/90">
         <div className="text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -158,15 +164,7 @@ export default function RegisterPage() {
           </div>
         )}
 
-        <form
-          className="space-y-4"
-          action={formAction}
-          onSubmit={(e) => {
-            const form = e.currentTarget;
-            const pwd = (form.elements.namedItem("password") as HTMLInputElement)?.value;
-            if (pwd) setCachedPassword(pwd);
-          }}
-        >
+        <form className="space-y-4" action={formAction}>
           <div>
             <label htmlFor="name" className="block text-xs font-bold text-on-surface mb-1">
               Full Name / Kirana Shop Name *
@@ -176,6 +174,7 @@ export default function RegisterPage() {
               name="name"
               type="text"
               required
+              autoComplete="name"
               placeholder="e.g. Ramesh Kumar or Maa Durga Kirana"
               className="w-full px-3.5 py-2.5 bg-white border border-outline-variant/60 rounded-xl placeholder:text-outline/60 focus:outline-none focus:ring-2 focus:ring-primary text-xs text-on-surface"
             />
@@ -191,6 +190,7 @@ export default function RegisterPage() {
                 name="phone"
                 type="tel"
                 required
+                autoComplete="tel"
                 pattern="[6-9][0-9]{9}"
                 placeholder="10-digit mobile"
                 className="w-full px-3.5 py-2.5 bg-white border border-outline-variant/60 rounded-xl placeholder:text-outline/60 focus:outline-none focus:ring-2 focus:ring-primary text-xs text-on-surface font-mono"
@@ -205,6 +205,7 @@ export default function RegisterPage() {
                 name="email"
                 type="email"
                 required
+                autoComplete="email"
                 placeholder="you@gmail.com"
                 className="w-full px-3.5 py-2.5 bg-white border border-outline-variant/60 rounded-xl placeholder:text-outline/60 focus:outline-none focus:ring-2 focus:ring-primary text-xs text-on-surface"
               />
@@ -221,8 +222,7 @@ export default function RegisterPage() {
               type="password"
               required
               minLength={6}
-              value={cachedPassword}
-              onChange={(e) => setCachedPassword(e.target.value)}
+              autoComplete="new-password"
               placeholder="••••••••"
               className="w-full px-3.5 py-2.5 bg-white border border-outline-variant/60 rounded-xl placeholder:text-outline/60 focus:outline-none focus:ring-2 focus:ring-primary text-xs text-on-surface"
             />

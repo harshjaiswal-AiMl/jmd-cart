@@ -79,11 +79,16 @@ export default function ForgotPasswordPage() {
                 id="otp"
                 name="otp"
                 type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                data-form-type="other"
                 pattern="[0-9]{6}"
                 maxLength={6}
                 required
                 autoFocus
-                placeholder="••••••"
+                placeholder="000000"
                 className="tracking-[10px] text-center text-2xl font-mono block w-full px-4 py-2.5 bg-white border border-outline-variant/60 rounded-xl placeholder:text-outline/40 focus:outline-none focus:ring-2 focus:ring-primary text-on-surface font-black"
               />
             </div>
