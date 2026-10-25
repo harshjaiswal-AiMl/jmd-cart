@@ -117,7 +117,10 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 });
-                const lineTotal = (item.totalPaise / 100).toLocaleString("en-IN", {
+                const lineTotal = (
+                  (item.taxablePaise + item.taxPaise) /
+                  100
+                ).toLocaleString("en-IN", {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 });

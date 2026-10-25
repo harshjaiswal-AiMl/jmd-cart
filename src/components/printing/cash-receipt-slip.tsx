@@ -42,7 +42,7 @@ export function CashReceiptSlip({ invoice, business }: CashReceiptSlipProps) {
 
   for (const item of invoice.items) {
     totalPieces += item.qty;
-    itemsSubtotalPaise += item.totalPaise;
+    itemsSubtotalPaise += item.taxablePaise + item.taxPaise;
   }
 
   // Roundoff calculation
@@ -113,7 +113,7 @@ export function CashReceiptSlip({ invoice, business }: CashReceiptSlipProps) {
       <div className="divide-y divide-gray-100 py-1">
         {invoice.items.map((item, idx) => {
           const unitPrice = (item.unitPricePaise / 100).toFixed(2);
-          const lineTotal = (item.totalPaise / 100).toFixed(2);
+          const lineTotal = ((item.taxablePaise + item.taxPaise) / 100).toFixed(2);
           const unit = item.product.packLabel || "Pcs.";
 
           return (
