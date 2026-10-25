@@ -548,7 +548,7 @@ export function CatalogueClient({
               )}
 
               {/* See All / Collapse Toggle in Header */}
-              {categories.length > 7 && (
+              {categories.length > 8 && (
                 <button
                   type="button"
                   onClick={() => setShowAllCategories((p) => !p)}
@@ -565,41 +565,16 @@ export function CatalogueClient({
 
           {/* Blinkit/Zepto 2-Row Responsive Category Grid (No Scroll - Large Tiles) */}
           <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2.5 sm:gap-3.5 lg:gap-4">
-            {/* Tile 0: All Staples Master Card */}
-            <button
-              onClick={() => handleCategorySelect("")}
-              className="flex flex-col items-center group cursor-pointer focus:outline-none transition-transform hover:-translate-y-1 text-center"
-            >
-              <div
-                className={`w-full aspect-square rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center p-3 sm:p-4 transition-all duration-200 border ${
-                  !selectedCategory
-                    ? "bg-primary text-on-primary border-primary shadow-md ring-4 ring-primary/20"
-                    : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/40 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md shadow-2xs"
-                }`}
-              >
-                <span className="material-symbols-outlined text-[34px] sm:text-[42px] lg:text-[48px]" aria-hidden="true">
-                  storefront
-                </span>
-              </div>
-              <span
-                className={`text-xs sm:text-sm font-bold sm:font-extrabold mt-2 text-center leading-tight transition-colors line-clamp-1 ${
-                  !selectedCategory ? "text-primary font-black" : "text-on-surface group-hover:text-primary"
-                }`}
-              >
-                All Staples
-              </span>
-            </button>
-
             {/* Dynamic Categories from Database */}
             {categories.map((cat, idx) => {
               const isSelected = selectedCategory === cat.id;
 
               // 2-Row Display Logic:
-              // - Items 0..6 (with All Staples = 8 cards) are visible on mobile (4x2 = 2 rows).
-              // - Items 7..14 are hidden on mobile but visible on sm/lg (6x2 or 8x2 = 2 rows on desktop).
-              // - Items 15+ are shown only when showAllCategories is true.
-              const isHiddenOnMobile = !showAllCategories && idx >= 7 && idx < 15;
-              const isHiddenOnAll = !showAllCategories && idx >= 15;
+              // - Items 0..7 are visible on mobile (4 cols x 2 rows = 8 cards).
+              // - Items 8..15 are hidden on mobile but visible on sm/lg (6x2 or 8x2 = 2 rows on desktop).
+              // - Items 16+ are shown only when showAllCategories is true.
+              const isHiddenOnMobile = !showAllCategories && idx >= 8 && idx < 16;
+              const isHiddenOnAll = !showAllCategories && idx >= 16;
 
               if (isHiddenOnAll) return null;
 
