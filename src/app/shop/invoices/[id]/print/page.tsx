@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { billingService } from "@/modules/billing/billing.service";
 import { settingsService } from "@/modules/settings/settings.service";
-import { PrintViewer } from "./print-viewer";
+import { PrintViewer, PrintFormat } from "./print-viewer";
 
 interface PrintPageProps {
   params: Promise<{ id: string }>;
@@ -24,8 +24,28 @@ export default async function InvoicePrintPage({
 
   const business = await settingsService.getBusinessDetails();
 
-  const selectedFormat: "a4" | "thermal" =
-    format === "thermal" ? "thermal" : "a4";
+  // Smart format detection:
+  let selectedFormat: PrintFormat;
+  if (
+    format === "demand_bill" ||
+    format === "cash_receipt" ||
+    format === "thermal" ||
+    format === "a4"
+  ) {
+    selectedFormat = format as PrintFormat;
+  } else {
+    // Determine whether credit/unpaid or cash/upi
+    const totalPaid = invoice.payments.reduce(
+      (sum, p) => sum + p.amountPaise,
+      0
+    );
+    const isCreditOrUnpaid =
+      invoice.payments.some((p) => p.mode === "CREDIT") ||
+      totalPaid < invoice.totalPaise ||
+      invoice.paymentStatus !== "PAID";
+
+    selectedFormat = isCreditOrUnpaid ? "demand_bill" : "cash_receipt";
+  }
 
   const shouldAutoPrint = autoprint === "1" || autoprint === "true";
 
