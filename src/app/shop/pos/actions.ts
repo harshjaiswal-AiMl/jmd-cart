@@ -134,10 +134,10 @@ export async function createQuickPartyAction(input: {
     const { partyRepository } = await import("@/modules/party/party.repository");
     const party = await partyRepository.createParty({
       name: input.name,
-      phone: input.phone || null,
+      phone: input.phone || undefined,
       type: (input.type as any) || "CUSTOMER",
-      address: input.address || null,
-      gstin: input.gstin || null,
+      address: input.address || undefined,
+      gstin: input.gstin || undefined,
       creditEnabled: false,
       creditLimitPaise: 0,
       creditDays: 0,
