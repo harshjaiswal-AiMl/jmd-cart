@@ -231,6 +231,7 @@ export class CrudService {
           .map((c) => ({
             id: c.id,
             name: c.name,
+            imageUrl: c.imageUrl || "",
             active: c.active,
             archived: !c.active,
           }))
@@ -685,6 +686,7 @@ export class CrudService {
         const created = await prisma.category.create({
           data: {
             name: String(data.name || "").trim(),
+            imageUrl: data.imageUrl ? String(data.imageUrl).trim() : null,
             active: data.active !== undefined ? Boolean(data.active) : true,
           },
         });
@@ -1023,6 +1025,7 @@ export class CrudService {
           where: { id },
           data: {
             ...(data.name !== undefined ? { name: String(data.name).trim() } : {}),
+            ...(data.imageUrl !== undefined ? { imageUrl: data.imageUrl ? String(data.imageUrl).trim() : null } : {}),
             ...(data.active !== undefined ? { active: Boolean(data.active) } : {}),
           },
         });

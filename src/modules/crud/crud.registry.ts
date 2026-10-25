@@ -186,6 +186,7 @@ export const CRUD_ENTITIES: Record<CrudEntityKey, CrudEntityConfig> = {
     writeRoles: ADMIN_WRITE,
     fields: [
       { key: "name", label: "Category Name", type: "text", required: true, showInList: true, showInForm: true },
+      { key: "imageUrl", label: "Category Image URL / Photo", type: "text", showInList: true, showInForm: true, placeholder: "/media/products/... or /brand/..." },
       { key: "active", label: "Active", type: "boolean", showInList: true, showInForm: true },
     ],
   },

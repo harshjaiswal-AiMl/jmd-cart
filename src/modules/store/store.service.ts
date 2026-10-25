@@ -466,6 +466,7 @@ export class StoreService {
         select: {
           id: true,
           name: true,
+          imageUrl: true,
           _count: {
             select: { products: { where: { active: true } } },
           },
@@ -480,7 +481,7 @@ export class StoreService {
 
     const formattedCategories = categories
       .map((cat) => {
-        const dbImage = cat.products[0]?.imageUrl || null;
+        const dbImage = cat.imageUrl || cat.products[0]?.imageUrl || null;
         return {
           id: cat.id,
           name: cat.name,
