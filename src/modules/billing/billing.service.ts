@@ -127,43 +127,22 @@ export class BillingService {
     );
     const balanceDuePaise = orderPricing.totalPaise - totalPaidPaise;
 
-    let effectivePartyId = validated.partyId;
     let creditOverrideApplied = false;
     let creditOverrideBy: string | null = null;
     let creditOverrideReason: string | null = null;
     let creditBreachReasons: string[] = [];
 
     if (balanceDuePaise > 0) {
-      const isShopChannel = validated.channel === InvoiceChannel.SHOP;
-
-      if (!effectivePartyId) {
-        if (isShopChannel) {
-          // Open credit policy for Shop POS: find or create default Walk-in Credit Party
-          let defaultCreditParty = await prisma.party.findFirst({
-            where: { name: "Walk-in Credit Customer" },
-          });
-          if (!defaultCreditParty) {
-            defaultCreditParty = await prisma.party.create({
-              data: {
-                name: "Walk-in Credit Customer",
-                type: "CUSTOMER",
-                creditEnabled: true,
-                creditLimitPaise: 100000000,
-              },
-            });
-          }
-          effectivePartyId = defaultCreditParty.id;
-        } else {
-          throw new Error(
-            `Walk-in retail sales must be fully paid at checkout. Total: ₹${(
-              orderPricing.totalPaise / 100
-            ).toFixed(2)}, Paid: ₹${(totalPaidPaise / 100).toFixed(2)}`
-          );
-        }
+      if (!validated.partyId) {
+        throw new Error(
+          `Walk-in retail sales must be fully paid at checkout. Total: ₹${(
+            orderPricing.totalPaise / 100
+          ).toFixed(2)}, Paid: ₹${(totalPaidPaise / 100).toFixed(2)}`
+        );
       }
 
       const party = await prisma.party.findUnique({
-        where: { id: effectivePartyId },
+        where: { id: validated.partyId },
       });
 
       if (!party) {
@@ -171,19 +150,11 @@ export class BillingService {
       }
 
       const creditStatus = await partyRepository.checkPartyCreditStatus(
-        effectivePartyId,
+        validated.partyId,
         balanceDuePaise
       );
 
-      if (isShopChannel) {
-        // Credit is open for all parties/customers billed from Shop POS
-        creditOverrideApplied = true;
-        creditOverrideBy = actorId ?? null;
-        creditOverrideReason =
-          validated.creditOverride?.reason ||
-          validated.notes ||
-          "Shop POS Open Credit Policy";
-      } else if (!creditStatus.canProceedWithoutOverride) {
+      if (!creditStatus.canProceedWithoutOverride) {
         creditBreachReasons = creditStatus.breachReasons;
 
         const callerCanOverride = hasPermission(
@@ -254,7 +225,7 @@ export class BillingService {
             channel: validated.channel,
             locationId: validated.locationId,
             idempotencyKey: validated.idempotencyKey ?? null,
-            partyId: effectivePartyId ?? null,
+            partyId: validated.partyId ?? null,
             buyerType: orderPricing.buyerTag,
             notes: validated.notes ?? null,
             creditOverride: creditOverrideApplied,
@@ -424,7 +395,7 @@ export class BillingService {
           await tx.payment.create({
             data: {
               invoiceId: invoice.id,
-              partyId: effectivePartyId ?? null,
+              partyId: validated.partyId ?? null,
               mode: payment.mode,
               amountPaise: payment.amountPaise,
               receivedBy: actorId ?? null,
@@ -433,11 +404,11 @@ export class BillingService {
         }
 
         // F. Ledger Entries for linked parties
-        if (effectivePartyId) {
+        if (validated.partyId) {
           // Debit party for the invoice
           await tx.ledgerEntry.create({
             data: {
-              partyId: effectivePartyId,
+              partyId: validated.partyId,
               kind: LedgerKind.INVOICE,
               debitPaise: orderPricing.totalPaise,
               creditPaise: 0,
@@ -450,7 +421,7 @@ export class BillingService {
           if (totalPaidPaise > 0) {
             await tx.ledgerEntry.create({
               data: {
-                partyId: effectivePartyId,
+                partyId: validated.partyId,
                 kind: LedgerKind.RECEIPT,
                 debitPaise: 0,
                 creditPaise: totalPaidPaise,

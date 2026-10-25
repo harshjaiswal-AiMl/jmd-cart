@@ -105,6 +105,8 @@ export function CatalogClient({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(100);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   // Bulk Add Products Modal State
@@ -223,6 +225,12 @@ export function CatalogClient({
 
     return matchesSearch && matchesCompany && matchesCategory;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filteredProducts.length);
+  const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
 
   const getRowValues = (p: ProductWithDetails) => {
     const edit = inlineEdits[p.id];
@@ -705,7 +713,10 @@ export function CatalogClient({
               type="text"
               placeholder="Search by product name, SKU, or brand..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full px-3 py-2 pl-9 border border-gray-300 rounded-lg text-sm focus:ring-[#790E11] focus:border-[#790E11]"
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
@@ -715,7 +726,10 @@ export function CatalogClient({
 
           <select
             value={selectedCompany}
-            onChange={(e) => setSelectedCompany(e.target.value)}
+            onChange={(e) => {
+              setSelectedCompany(e.target.value);
+              setCurrentPage(1);
+            }}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
           >
             <option value="">All Brands ({companies.length})</option>
@@ -728,7 +742,10 @@ export function CatalogClient({
 
           <select
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value);
+              setCurrentPage(1);
+            }}
             className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
           >
             <option value="">All Categories ({categories.length})</option>
@@ -1193,7 +1210,8 @@ export function CatalogClient({
         <div className="p-4 border-b border-gray-200 flex flex-wrap justify-between items-center gap-2 bg-gray-50/50">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium text-gray-700">
-              Showing {filteredProducts.length} of {products.length} products
+              Showing {filteredProducts.length === 0 ? 0 : startIndex + 1}–{endIndex} of {filteredProducts.length} products
+              {totalPages > 1 && ` (Page ${safeCurrentPage} of ${totalPages})`}
             </span>
             {selectedIds.size > 0 && !readOnly && (
               <div className="flex items-center gap-2">
@@ -1292,7 +1310,7 @@ export function CatalogClient({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredProducts.map((p) => {
+                {paginatedProducts.map((p) => {
                   const row = getRowValues(p);
                   const mrpPaiseVal = parseInputToPaise(row.mrp);
                   const aPaiseVal = parseInputToPaise(row.a);
@@ -1533,6 +1551,92 @@ export function CatalogClient({
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {filteredProducts.length > 0 && (
+          <div className="p-4 border-t border-gray-200 bg-gray-50/70 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <span className="font-medium">Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="px-2 py-1 bg-white border border-gray-300 rounded-md text-xs font-medium focus:ring-1 focus:ring-[#790E11]"
+              >
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
+                <option value={1000}>All</option>
+              </select>
+              <span className="ml-2 font-medium text-gray-700">
+                {startIndex + 1}–{endIndex} of {filteredProducts.length}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(1)}
+                disabled={safeCurrentPage <= 1}
+                className="px-2.5 py-1 text-xs border border-gray-300 rounded-md bg-white hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white transition"
+                title="First page"
+              >
+                « First
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safeCurrentPage <= 1}
+                className="px-2.5 py-1 text-xs border border-gray-300 rounded-md bg-white hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white transition"
+              >
+                ‹ Prev
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - safeCurrentPage) <= 2)
+                .map((p, idx, arr) => {
+                  const prev = arr[idx - 1];
+                  const showEllipsis = prev && p - prev > 1;
+                  return (
+                    <div key={p} className="flex items-center">
+                      {showEllipsis && <span className="px-1 text-xs text-gray-400">…</span>}
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(p)}
+                        className={`min-w-[28px] h-7 px-2 text-xs font-semibold rounded-md border transition ${
+                          p === safeCurrentPage
+                            ? "bg-[#790E11] text-white border-[#790E11]"
+                            : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    </div>
+                  );
+                })}
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safeCurrentPage >= totalPages}
+                className="px-2.5 py-1 text-xs border border-gray-300 rounded-md bg-white hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white transition"
+              >
+                Next ›
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={safeCurrentPage >= totalPages}
+                className="px-2.5 py-1 text-xs border border-gray-300 rounded-md bg-white hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-white transition"
+                title="Last page"
+              >
+                Last »
+              </button>
+            </div>
           </div>
         )}
       </div>

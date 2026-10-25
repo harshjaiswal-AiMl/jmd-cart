@@ -37,7 +37,7 @@ export default async function AdminCatalogPage({
       q,
       companyId,
       categoryId,
-      limit: 100,
+      limit: 1000,
       activeOnly: false,
     }),
     catalogService.listCompanies(session.user.role),
