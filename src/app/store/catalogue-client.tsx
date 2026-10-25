@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect, useMemo } from "react";
+import { useState, useTransition, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StoreProductItem } from "@/modules/store/store.service";
@@ -79,6 +79,14 @@ export function CatalogueClient({
   const [selectedCategory, setSelectedCategory] = useState(currentCategoryId);
   const [inStockOnly, setInStockOnly] = useState(currentInStockOnly);
   const [sortBy, setSortBy] = useState<"name" | "price-asc" | "price-desc">("name");
+
+  // Category Rail Horizontal Scroll Reference (Senior UX)
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+  const scrollCategories = (offset: number) => {
+    if (categoryScrollRef.current) {
+      categoryScrollRef.current.scrollBy({ left: offset, behavior: "smooth" });
+    }
+  };
 
   // Cart Optimistic State (supports local guest storage + DB sync)
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>(initialCartQuantities);
@@ -516,46 +524,78 @@ export function CatalogueClient({
         <TrustRegionalStrip />
 
         {/* 4. Shop by Category (Zepto / Blinkit Visual Category Explorer) */}
-        <section id="categories" className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 pt-4 pb-2">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-[22px]">category</span>
-              <h2 className="font-headline text-base sm:text-lg font-bold text-on-surface">Shop by Category</h2>
-              <span className="text-[11px] font-semibold text-on-surface-variant bg-surface-container-low px-2 py-0.5 rounded-full border border-outline-variant/30 hidden sm:inline">
-                {categories.length} Categories
-              </span>
+        <section id="categories" className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 pt-5 pb-3">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-[20px]">category</span>
+              </div>
+              <div>
+                <h2 className="font-headline text-base sm:text-lg lg:text-xl font-bold text-on-surface leading-none">
+                  Shop by Category
+                </h2>
+                <p className="text-[11px] text-on-surface-variant font-medium mt-0.5 hidden sm:block">
+                  Explore {categories.length} FMCG &amp; grocery aisles with real-time warehouse stock
+                </p>
+              </div>
             </div>
-            {selectedCategory && (
-              <button
-                onClick={() => handleCategorySelect("")}
-                className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-              >
-                <span>View All Categories</span>
-                <span className="material-symbols-outlined text-[14px]">close</span>
-              </button>
-            )}
+
+            <div className="flex items-center gap-2">
+              {selectedCategory && (
+                <button
+                  onClick={() => handleCategorySelect("")}
+                  className="px-3 py-1.5 rounded-full text-xs font-bold text-primary bg-primary/10 hover:bg-primary hover:text-white transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                >
+                  <span>All Categories</span>
+                  <span className="material-symbols-outlined text-[13px]">close</span>
+                </button>
+              )}
+
+              {/* Desktop Scroll Arrow Controls */}
+              <div className="hidden md:flex items-center gap-1 ml-2">
+                <button
+                  type="button"
+                  onClick={() => scrollCategories(-320)}
+                  aria-label="Scroll left"
+                  className="w-8 h-8 rounded-full bg-surface-container-lowest border border-outline-variant/50 shadow-2xs flex items-center justify-center text-on-surface hover:bg-surface-container hover:text-primary transition-all active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollCategories(320)}
+                  aria-label="Scroll right"
+                  className="w-8 h-8 rounded-full bg-surface-container-lowest border border-outline-variant/50 shadow-2xs flex items-center justify-center text-on-surface hover:bg-surface-container hover:text-primary transition-all active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Zepto/Blinkit Horizontal Category Rail with Real Backend Photos */}
-          <div className="flex items-start gap-3 overflow-x-auto pb-3 pt-1 scrollbar-none -mx-1 px-1">
+          {/* Blinkit/Zepto Fluid Category Rail with Real Photos & Smooth Snap */}
+          <div
+            ref={categoryScrollRef}
+            className="flex items-start gap-3 sm:gap-4 overflow-x-auto pb-3 pt-1 scrollbar-none -mx-1 px-1 scroll-smooth snap-x"
+          >
             {/* All Staples Master Tile */}
             <button
               onClick={() => handleCategorySelect("")}
-              className="group flex flex-col items-center shrink-0 w-[78px] sm:w-[94px] text-center transition-all focus:outline-none"
+              className="group flex flex-col items-center shrink-0 w-[80px] sm:w-[96px] md:w-[104px] text-center transition-all focus:outline-none snap-start cursor-pointer"
             >
               <div
-                className={`w-[70px] h-[70px] sm:w-[86px] sm:h-[86px] rounded-2xl flex flex-col items-center justify-center p-2 transition-all border ${
+                className={`w-[74px] h-[74px] sm:w-[90px] sm:h-[90px] md:w-[98px] md:h-[98px] rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center p-2.5 transition-all duration-200 border ${
                   !selectedCategory
-                    ? "bg-primary text-on-primary border-primary shadow-md scale-102 ring-2 ring-primary/40 ring-offset-2 ring-offset-surface"
-                    : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/60 hover:border-primary/50 hover:bg-surface-container-low shadow-2xs"
+                    ? "bg-primary text-on-primary border-primary shadow-md scale-102 ring-4 ring-primary/20"
+                    : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/40 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md hover:-translate-y-0.5 shadow-2xs"
                 }`}
               >
-                <span className="material-symbols-outlined text-[28px] sm:text-[32px]">storefront</span>
-                <span className="text-[10px] font-extrabold mt-0.5">All Items</span>
+                <span className="material-symbols-outlined text-[30px] sm:text-[34px]">storefront</span>
+                <span className="text-[10px] font-extrabold mt-1">All Items</span>
               </div>
               <span
-                className={`text-[11px] sm:text-xs font-bold mt-1.5 leading-tight transition-colors line-clamp-1 ${
-                  !selectedCategory ? "text-primary" : "text-on-surface group-hover:text-primary"
+                className={`text-[11px] sm:text-xs font-bold mt-2 text-center leading-tight transition-colors line-clamp-1 ${
+                  !selectedCategory ? "text-primary font-black" : "text-on-surface group-hover:text-primary"
                 }`}
               >
                 All Staples
@@ -569,34 +609,36 @@ export function CatalogueClient({
                 <button
                   key={cat.id}
                   onClick={() => handleCategorySelect(cat.id)}
-                  className="group flex flex-col items-center shrink-0 w-[78px] sm:w-[94px] text-center transition-all focus:outline-none"
+                  className="group flex flex-col items-center shrink-0 w-[80px] sm:w-[96px] md:w-[104px] text-center transition-all focus:outline-none snap-start cursor-pointer"
                 >
                   <div
-                    className={`w-[70px] h-[70px] sm:w-[86px] sm:h-[86px] rounded-2xl flex items-center justify-center p-2 relative overflow-hidden transition-all border ${
+                    className={`w-[74px] h-[74px] sm:w-[90px] sm:h-[90px] md:w-[98px] md:h-[98px] rounded-2xl sm:rounded-3xl flex items-center justify-center p-2.5 relative overflow-hidden transition-all duration-200 border ${
                       isSelected
-                        ? "bg-primary/10 border-primary shadow-md scale-102 ring-2 ring-primary ring-offset-2 ring-offset-surface"
-                        : "bg-surface-container-lowest border-outline-variant/50 hover:border-primary/50 hover:bg-surface-container-low shadow-2xs"
+                        ? "bg-primary/10 border-2 border-primary shadow-md scale-102 ring-4 ring-primary/20"
+                        : "bg-surface-container-lowest border-outline-variant/40 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md hover:-translate-y-0.5 shadow-2xs"
                     }`}
                   >
                     {cat.imageUrl ? (
                       <img
                         src={cat.imageUrl}
                         alt={cat.name}
-                        className="w-full h-full object-contain transition-transform group-hover:scale-110"
+                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-xs"
                         loading="lazy"
                       />
                     ) : (
-                      <span className="material-symbols-outlined text-[30px] text-primary">category</span>
+                      <span className="material-symbols-outlined text-[32px] text-primary">category</span>
                     )}
+
+                    {/* Floating Count Badge in Top Right Corner (Prevents text merging) */}
                     {typeof cat.productCount === "number" && cat.productCount > 0 && (
-                      <span className="absolute bottom-1 right-1 text-[9px] font-bold bg-surface-container-lowest/90 text-on-surface-variant px-1 rounded shadow-2xs border border-outline-variant/30">
+                      <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-surface-container-lowest/90 text-primary border border-primary/20 shadow-2xs leading-none">
                         {cat.productCount}
                       </span>
                     )}
                   </div>
                   <span
-                    className={`text-[11px] sm:text-xs font-bold mt-1.5 leading-tight transition-colors line-clamp-2 ${
-                      isSelected ? "text-primary" : "text-on-surface group-hover:text-primary"
+                    className={`text-[11px] sm:text-xs font-bold mt-2 text-center leading-tight transition-colors line-clamp-2 max-w-[80px] sm:max-w-[96px] ${
+                      isSelected ? "text-primary font-black" : "text-on-surface group-hover:text-primary"
                     }`}
                     title={cat.name}
                   >
@@ -854,32 +896,65 @@ export function CatalogueClient({
               )}
             </div>
           ) : sortedProducts.length === 0 ? (
-            <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-10 sm:p-12 text-center space-y-3">
-              <span className="text-4xl block">📦</span>
-              <h3 className="font-headline text-lg font-bold text-on-surface">No products found</h3>
-              <p className="text-xs text-on-surface-variant max-w-md mx-auto">
-                No items match your active search or filters. Try resetting your search or brand filters to see the full warehouse catalog.
-              </p>
-              <button
-                onClick={() => {
-                  setSelectedCompany("");
-                  setSelectedCategory("");
-                  setInStockOnly(false);
-                  router.push("/store");
-                }}
-                className="mt-3 px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-lg hover:bg-primary-container transition-colors"
-              >
-                Reset All Filters
-              </button>
+            <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/40 p-8 sm:p-12 text-center space-y-4 shadow-2xs">
+              {selectedCategoryData ? (
+                <>
+                  <div className="w-20 h-20 mx-auto rounded-3xl bg-surface-container-low p-3 border border-outline-variant/40 shadow-xs flex items-center justify-center">
+                    {selectedCategoryData.imageUrl ? (
+                      <img
+                        src={selectedCategoryData.imageUrl}
+                        alt={selectedCategoryData.name}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <span className="material-symbols-outlined text-4xl text-primary">inventory_2</span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-headline text-lg sm:text-xl font-bold text-on-surface">
+                      {selectedCategoryData.name} • Restocking Soon
+                    </h3>
+                    <p className="text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto leading-relaxed">
+                      New wholesale shipments for <strong>{selectedCategoryData.name}</strong> are currently arriving at our dispatch godown. Browse other fully stocked grocery aisles below.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleCategorySelect("")}
+                    className="mt-2 px-5 py-2.5 bg-primary text-on-primary text-xs font-bold rounded-xl hover:bg-primary/90 transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">storefront</span>
+                    <span>Browse All Active Aisles</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-4xl block">📦</span>
+                  <h3 className="font-headline text-lg font-bold text-on-surface">No products found</h3>
+                  <p className="text-xs text-on-surface-variant max-w-md mx-auto">
+                    No items match your active search or filters. Try resetting your search or brand filters to see the full warehouse catalog.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSelectedCompany("");
+                      setSelectedCategory("");
+                      setInStockOnly(false);
+                      router.push("/store");
+                    }}
+                    className="mt-3 px-4 py-2 bg-primary text-on-primary text-xs font-bold rounded-lg hover:bg-primary-container transition-colors"
+                  >
+                    Reset All Filters
+                  </button>
+                </>
+              )}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {/* Selected Category Header Banner */}
               {selectedCategoryData && (
-                <div className="bg-surface-container-lowest border border-outline-variant/50 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between shadow-2xs">
-                  <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-r from-primary/8 via-surface-container-low to-surface-container-lowest border border-primary/20 rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-2xs">
+                  <div className="flex items-center gap-3.5">
                     {selectedCategoryData.imageUrl && (
-                      <div className="w-12 h-12 rounded-xl bg-surface-container-low p-1.5 border border-outline-variant/40 flex items-center justify-center shrink-0">
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-surface-container-lowest p-2 border border-primary/20 shadow-xs flex items-center justify-center shrink-0">
                         <img
                           src={selectedCategoryData.imageUrl}
                           alt={selectedCategoryData.name}
@@ -888,25 +963,26 @@ export function CatalogueClient({
                       </div>
                     )}
                     <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                          Category
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+                          Selected Category Aisle
                         </span>
-                        <span className="text-xs text-on-surface-variant font-medium">
-                          {sortedProducts.length} items
+                        <span className="text-xs text-on-surface-variant font-semibold">
+                          {sortedProducts.length} {sortedProducts.length === 1 ? "Product" : "Products"} Available
                         </span>
                       </div>
-                      <h2 className="font-headline text-base sm:text-lg font-bold text-on-surface mt-0.5">
+                      <h2 className="font-headline text-lg sm:text-2xl font-black text-on-surface mt-1">
                         {selectedCategoryData.name}
                       </h2>
                     </div>
                   </div>
                   <button
                     onClick={() => handleCategorySelect("")}
-                    className="px-3 py-1.5 rounded-lg border border-outline-variant/60 text-xs font-bold text-on-surface hover:bg-surface-container-low transition-colors flex items-center gap-1 shadow-2xs"
+                    className="px-3.5 py-2 rounded-xl border border-outline-variant/60 text-xs font-bold text-on-surface hover:bg-surface-container-low hover:border-primary/40 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-[14px]">close</span>
-                    <span>All Staples</span>
+                    <span className="material-symbols-outlined text-[15px]">close</span>
+                    <span className="hidden sm:inline">View All Categories</span>
+                    <span className="sm:hidden">Clear</span>
                   </button>
                 </div>
               )}

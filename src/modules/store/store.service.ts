@@ -71,20 +71,35 @@ export function getCategoryFallbackPhoto(name: string): string {
   if (n.includes("clean") || n.includes("floor") || n.includes("detergent") || n.includes("wash")) {
     return "/media/products/aae5994d38fcac16/original.png";
   }
-  if (n.includes("biscuit") || n.includes("snack") || n.includes("namkeen") || n.includes("cookie")) {
-    return "/brand/bikaji.svg";
+  if (n.includes("biscuit") || n.includes("snack") || n.includes("namkeen") || n.includes("cookie") || n.includes("papad")) {
+    return "/media/products/5a5e3933958103a7/original.png";
   }
   if (n.includes("spice") || n.includes("masala")) {
     return "/brand/mdh-logo.png";
   }
-  if (n.includes("sweet")) {
-    return "/brand/bikaji.svg";
-  }
   if (n.includes("pulse") || n.includes("dal")) {
     return "/brand/dawat.svg";
   }
-  if (n.includes("beauty") || n.includes("grooming")) {
+  if (n.includes("dry fruit") || n.includes("kaju") || n.includes("badam") || n.includes("nut")) {
+    return "/brand/regency.svg";
+  }
+  if (n.includes("sauce") || n.includes("ketchup") || n.includes("pickle") || n.includes("jam")) {
+    return "/brand/nilons.svg";
+  }
+  if (n.includes("sweet") || n.includes("mithai")) {
+    return "/brand/bikaji.svg";
+  }
+  if (n.includes("baby")) {
     return "/brand/himalaya.svg";
+  }
+  if (n.includes("beauty") || n.includes("grooming") || n.includes("skin")) {
+    return "/brand/himalaya.svg";
+  }
+  if (n.includes("gift") || n.includes("hamper")) {
+    return "/brand/banner-snacks.jpg";
+  }
+  if (n.includes("electronic") || n.includes("battery") || n.includes("appliance")) {
+    return "/brand/eveready.svg";
   }
   return "/brand/jmd-cart-logo.png";
 }
@@ -446,11 +461,6 @@ export class StoreService {
       prisma.category.findMany({
         where: {
           active: true,
-          products: {
-            some: {
-              active: true,
-            },
-          },
         },
         orderBy: { name: "asc" },
         select: {
@@ -468,15 +478,23 @@ export class StoreService {
       }),
     ]);
 
-    const formattedCategories = categories.map((cat) => {
-      const dbImage = cat.products[0]?.imageUrl || null;
-      return {
-        id: cat.id,
-        name: cat.name,
-        productCount: cat._count.products,
-        imageUrl: dbImage || getCategoryFallbackPhoto(cat.name),
-      };
-    });
+    const formattedCategories = categories
+      .map((cat) => {
+        const dbImage = cat.products[0]?.imageUrl || null;
+        return {
+          id: cat.id,
+          name: cat.name,
+          productCount: cat._count.products,
+          imageUrl: dbImage || getCategoryFallbackPhoto(cat.name),
+        };
+      })
+      .sort((a, b) => {
+        // Stocked categories with products first, then alphabetical
+        if ((b.productCount > 0) !== (a.productCount > 0)) {
+          return b.productCount > 0 ? 1 : -1;
+        }
+        return a.name.localeCompare(b.name);
+      });
 
     return {
       companies,
