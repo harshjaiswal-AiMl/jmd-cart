@@ -325,9 +325,13 @@ export function ProductDetailClient({
                     </span>
                   )}
                   {product.categoryName && (
-                    <span className="text-xs text-on-surface-variant bg-surface-container-low px-2 py-0.5 rounded">
-                      {product.categoryName}
-                    </span>
+                    <Link
+                      href={`/store?categoryId=${product.categoryId || ""}`}
+                      className="text-xs text-on-surface-variant hover:text-primary bg-surface-container-low hover:bg-primary/10 transition-colors px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold border border-outline-variant/40 shadow-2xs"
+                    >
+                      <span className="material-symbols-outlined text-[13px] text-primary">category</span>
+                      <span>{product.categoryName}</span>
+                    </Link>
                   )}
                   <span className="text-xs text-outline font-mono">SKU: {product.shortCode}</span>
                 </div>

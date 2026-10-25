@@ -45,6 +45,50 @@ export interface StoreCatalogueQuery {
   buyerApproved?: boolean;
 }
 
+export function getCategoryFallbackPhoto(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("atta") || n.includes("rice") || n.includes("wheat") || n.includes("flour")) {
+    return "/media/products/e74f0026865ae77f/original.png";
+  }
+  if (n.includes("oil") || n.includes("ghee") || n.includes("mustard") || n.includes("refined")) {
+    return "/media/products/58dc49501050f36a/original.png";
+  }
+  if (n.includes("tea") || n.includes("beverage") || n.includes("coffee") || n.includes("sugar")) {
+    return "/media/products/5280b3616ee09cd5/original.png";
+  }
+  if (n.includes("cereal") || n.includes("food") || n.includes("daliya") || n.includes("sattu")) {
+    return "/media/products/230691785f964164/original.png";
+  }
+  if (n.includes("daily") || n.includes("essential") || n.includes("paste")) {
+    return "/media/products/76cee8f7ee660d4b/original.png";
+  }
+  if (n.includes("disposable") || n.includes("plate") || n.includes("cup") || n.includes("container")) {
+    return "/media/products/e64d9dc70c0c7a58/original.png";
+  }
+  if (n.includes("personal") || n.includes("health") || n.includes("chyawanprash")) {
+    return "/media/products/b8b1b7faaae2883f/original.png";
+  }
+  if (n.includes("clean") || n.includes("floor") || n.includes("detergent") || n.includes("wash")) {
+    return "/media/products/aae5994d38fcac16/original.png";
+  }
+  if (n.includes("biscuit") || n.includes("snack") || n.includes("namkeen") || n.includes("cookie")) {
+    return "/brand/bikaji.svg";
+  }
+  if (n.includes("spice") || n.includes("masala")) {
+    return "/brand/mdh-logo.png";
+  }
+  if (n.includes("sweet")) {
+    return "/brand/bikaji.svg";
+  }
+  if (n.includes("pulse") || n.includes("dal")) {
+    return "/brand/dawat.svg";
+  }
+  if (n.includes("beauty") || n.includes("grooming")) {
+    return "/brand/himalaya.svg";
+  }
+  return "/brand/jmd-cart-logo.png";
+}
+
 export class StoreService {
   /**
    * Fetch catalogue products with multi-token search, category/brand filters,
@@ -409,13 +453,34 @@ export class StoreService {
           },
         },
         orderBy: { name: "asc" },
-        select: { id: true, name: true },
+        select: {
+          id: true,
+          name: true,
+          _count: {
+            select: { products: { where: { active: true } } },
+          },
+          products: {
+            where: { active: true, imageUrl: { not: null } },
+            select: { imageUrl: true },
+            take: 1,
+          },
+        },
       }),
     ]);
 
+    const formattedCategories = categories.map((cat) => {
+      const dbImage = cat.products[0]?.imageUrl || null;
+      return {
+        id: cat.id,
+        name: cat.name,
+        productCount: cat._count.products,
+        imageUrl: dbImage || getCategoryFallbackPhoto(cat.name),
+      };
+    });
+
     return {
       companies,
-      categories,
+      categories: formattedCategories,
     };
   }
 
