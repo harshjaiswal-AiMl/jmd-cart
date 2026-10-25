@@ -108,7 +108,7 @@ export class BillingService {
     const orderPricing = await pricingService.calculateOrderPricing({
       items: validated.items,
       partyId: validated.partyId ?? null,
-      buyerType: validated.buyerType,
+      buyerType: validated.buyerType as any,
       orderDiscountBp: validated.orderDiscountBp,
       isInterState: validated.isInterState,
       userRole: role,
