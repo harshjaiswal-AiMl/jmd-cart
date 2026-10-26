@@ -13,14 +13,15 @@ export default async function DeliveryPage() {
 
   if (
     session.user.role !== UserRole.DELIVERY &&
-    session.user.role !== UserRole.SUPER_ADMIN
+    session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.SALESPERSON
   ) {
     redirect("/login");
   }
 
   // Fetch orders
   let orders = [];
-  if (session.user.role === UserRole.DELIVERY) {
+  if (session.user.role === UserRole.DELIVERY || session.user.role === UserRole.SALESPERSON) {
     orders = await orderService.listOrdersForDelivery(session.user.id);
   } else {
     // SUPER_ADMIN sees all assigned orders or active dispatch orders

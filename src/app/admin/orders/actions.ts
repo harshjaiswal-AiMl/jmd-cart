@@ -119,6 +119,7 @@ export async function recordDeliveryPaymentAction(input: {
     revalidatePath("/admin/orders");
     revalidatePath(`/admin/orders/${input.orderId}`);
     revalidatePath("/delivery");
+    revalidatePath("/van");
     revalidatePath("/shop/invoices");
     return { success: true };
   } catch (err) {

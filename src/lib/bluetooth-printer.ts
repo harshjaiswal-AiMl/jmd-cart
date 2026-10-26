@@ -174,7 +174,15 @@ export class BluetoothPrinterService {
       return { success: true, deviceName: this.deviceName };
     } catch (err: unknown) {
       this.setStatus("disconnected");
-      const message = err instanceof Error ? err.message : "Bluetooth connection cancelled or failed.";
+      let message = err instanceof Error ? err.message : "Bluetooth connection cancelled or failed.";
+      if (
+        message.toLowerCase().includes("globally disabled") ||
+        message.toLowerCase().includes("web bluetooth api")
+      ) {
+        message = "Web Bluetooth API is globally disabled in your browser settings (common in Brave Browser). Please enable brave://flags/#enable-web-bluetooth or use Google Chrome.";
+      } else if (message.toLowerCase().includes("user cancelled") || message.toLowerCase().includes("cancelled")) {
+        message = "Bluetooth pairing was cancelled.";
+      }
       return { success: false, error: message };
     }
   }

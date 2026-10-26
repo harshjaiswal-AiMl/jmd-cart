@@ -1,12 +1,15 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { UserRole, LocationType } from "@prisma/client";
+import { UserRole, LocationType, OrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { vanService } from "@/modules/van/van.service";
+import { orderService } from "@/modules/order/order.service";
+import { OrderSummary } from "@/modules/order/order.types";
 import Link from "next/link";
 import { formatISTDateTime } from "@/lib/date";
 import { VanStockView } from "./van-stock-view";
-import { Truck, FileText, ShoppingCart, ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
+import { VanHandedOverDeliveries } from "@/components/van/van-handed-over-deliveries";
+import { Truck, FileText, ShoppingCart, ArrowRight, AlertCircle, CheckCircle2, PackageCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +48,31 @@ export default async function SalespersonVanPage() {
     ? await vanService.getVanStockSummary(session.user.role, van.id)
     : null;
 
+  // Fetch handed-over customer deliveries assigned to this salesperson / van
+  let assignedOrders: OrderSummary[] = [];
+  try {
+    if (session.user.role === UserRole.SALESPERSON) {
+      assignedOrders = await orderService.listOrdersForDelivery(session.user.id);
+    } else if (session.user.role === UserRole.SUPER_ADMIN) {
+      if (van?.assignedUserId) {
+        assignedOrders = await orderService.listOrdersForDelivery(van.assignedUserId);
+      }
+      if (assignedOrders.length === 0) {
+        const all = await orderService.listAllOrders();
+        assignedOrders = all.filter(
+          (o) => o.status === OrderStatus.DISPATCHED || o.status === OrderStatus.PROCESSING
+        );
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load assigned delivery orders:", err);
+  }
+
+  const pendingDeliveries = assignedOrders.filter(
+    (o) => o.status !== OrderStatus.DELIVERED && o.status !== OrderStatus.CANCELLED
+  );
+  const pendingCashPaise = pendingDeliveries.reduce((sum, o) => sum + o.totalPaise, 0);
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 space-y-6">
       {/* Top Banner & Vehicle Header */}
@@ -62,7 +90,7 @@ export default async function SalespersonVanPage() {
             </span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-            Logged in as <strong className="text-slate-900">{session.user.name}</strong> • Daily route loading & mobile billing
+            Logged in as <strong className="text-slate-900">{session.user.name}</strong> • Daily route loading, customer deliveries & mobile billing
           </p>
         </div>
 
@@ -85,6 +113,12 @@ export default async function SalespersonVanPage() {
           </div>
         )}
       </div>
+
+      {/* Handed-Over Customer Deliveries Section */}
+      <VanHandedOverDeliveries
+        orders={assignedOrders}
+        salespersonName={session.user.name || undefined}
+      />
 
       {!van ? (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center text-amber-900 space-y-3">
@@ -149,7 +183,7 @@ export default async function SalespersonVanPage() {
           )}
 
           {/* Quick Metrics Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
                 Loaded Products
@@ -170,7 +204,7 @@ export default async function SalespersonVanPage() {
 
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
-                Inventory Valuation
+                Stock Valuation
               </p>
               <p className="text-2xl font-black text-slate-900 mt-1">
                 ₹{((stockSummary?.totalValuationPaise || 0) / 100).toLocaleString("en-IN", {
@@ -180,9 +214,24 @@ export default async function SalespersonVanPage() {
               </p>
             </div>
 
+            <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-xs bg-amber-50/30">
+              <p className="text-[11px] text-amber-700 uppercase font-bold tracking-wider flex items-center justify-between">
+                <span>Deliveries</span>
+                <span className="text-[10px] bg-amber-200/80 px-1.5 py-0.2 rounded font-bold">
+                  {pendingDeliveries.length} PENDING
+                </span>
+              </p>
+              <p className="text-2xl font-black text-slate-900 mt-1 font-mono">
+                ₹{(pendingCashPaise / 100).toLocaleString("en-IN", {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
+                })}
+              </p>
+            </div>
+
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
-                Van Operational Status
+                Van Status
               </p>
               <div className="flex items-center gap-1.5 mt-2">
                 {stockSummary?.activeVanDay ? (

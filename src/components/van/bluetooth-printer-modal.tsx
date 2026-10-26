@@ -260,6 +260,91 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
             )}
           </div>
 
+          {/* Brave Browser & Bluetooth Disabled Notice */}
+          {((errorMessage && (
+            errorMessage.toLowerCase().includes("globally disabled") ||
+            errorMessage.toLowerCase().includes("brave") ||
+            errorMessage.toLowerCase().includes("settings")
+          )) || (typeof navigator !== "undefined" && Boolean((navigator as any).brave))) && (
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-2">
+              <div className="flex items-center gap-2 font-bold text-amber-300">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Brave Browser / Web Bluetooth Disabled</span>
+              </div>
+              <p className="text-amber-200/90 text-[11px] leading-relaxed">
+                Brave blocks Web Bluetooth by default for privacy. To enable pairing with thermal printers:
+              </p>
+              <ol className="list-decimal list-inside text-[11px] text-amber-300 space-y-1 bg-black/30 p-2.5 rounded-xl border border-amber-500/20 font-sans">
+                <li>Type <code className="bg-black/50 px-1 py-0.5 rounded text-white font-mono select-all">brave://flags/#enable-web-bluetooth</code> in address bar</li>
+                <li>Set <strong>Web Bluetooth</strong> to <strong>Enabled</strong></li>
+                <li>Relaunch Brave browser</li>
+              </ol>
+              <p className="text-[11px] text-slate-300">
+                Or open <strong>management.jmdcart.com</strong> in <strong>Google Chrome</strong> on Android/Desktop.
+              </p>
+            </div>
+          )}
+
+          {/* Direct Thermal Browser Fallback */}
+          <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+                <Printer className="w-4 h-4 text-emerald-400" />
+                <span>Direct Thermal Print Fallback</span>
+              </div>
+              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-bold">
+                No Bluetooth Needed
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Invoices and slips can always be printed directly via your system print dialog (USB / Wi-Fi / Bluetooth printer).
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const printWindow = window.open("", "_blank", "width=380,height=600");
+                if (printWindow) {
+                  printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                      <head>
+                        <title>JMD CART - Test Slip</title>
+                        <style>
+                          @page { margin: 0; size: 58mm auto; }
+                          body { font-family: monospace, sans-serif; font-size: 12px; margin: 10px; color: #000; }
+                          .center { text-align: center; }
+                          .bold { font-weight: bold; }
+                          .line { border-bottom: 1px dashed #000; margin: 6px 0; }
+                        </style>
+                      </head>
+                      <body>
+                        <div class="center bold" style="font-size: 14px;">JMD CART SAHARSA</div>
+                        <div class="center">Wholesale Distribution Portal</div>
+                        <div class="line"></div>
+                        <div class="center bold">THERMAL RECEIPT TEST SLIP</div>
+                        <div class="center">${new Date().toLocaleString("en-IN")}</div>
+                        <div class="line"></div>
+                        <div>Print Mode: Direct Browser Thermal</div>
+                        <div>Status: Operational</div>
+                        <div class="line"></div>
+                        <div class="center bold">THANK YOU!</div>
+                      </body>
+                    </html>
+                  `);
+                  printWindow.document.close();
+                  printWindow.focus();
+                  setTimeout(() => {
+                    printWindow.print();
+                  }, 300);
+                }
+              }}
+              className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition flex items-center justify-center gap-2 border border-slate-700"
+            >
+              <FileText className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Test Direct Browser Print</span>
+            </button>
+          </div>
+
           {/* Messages */}
           {errorMessage && (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
