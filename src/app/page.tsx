@@ -20,8 +20,11 @@ export default async function HomePage({
   searchParams?: {
     q?: string;
     company?: string;
+    companyId?: string;
     category?: string;
+    categoryId?: string;
     inStock?: string;
+    inStockOnly?: string;
   };
 }) {
   const session = await auth();
@@ -33,11 +36,16 @@ export default async function HomePage({
       })
     : null;
 
+  const companyId = searchParams?.companyId || searchParams?.company;
+  const categoryId = searchParams?.categoryId || searchParams?.category;
+  const inStockOnly = searchParams?.inStockOnly === "true" || searchParams?.inStock === "true";
+
   const queryParams = {
     q: searchParams?.q,
-    companyId: searchParams?.company,
-    categoryId: searchParams?.category,
-    inStockOnly: searchParams?.inStock === "true",
+    companyId,
+    categoryId,
+    inStockOnly,
+    limit: categoryId || searchParams?.q ? 100 : 32,
   };
 
   const [catalogueData, filterOptions, banners, cartData] = await Promise.all([

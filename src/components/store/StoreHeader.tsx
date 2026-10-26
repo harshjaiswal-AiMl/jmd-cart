@@ -387,22 +387,18 @@ export function StoreHeader({
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setShowDropdown(false);
-    const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
+    const params = new URLSearchParams();
     if (searchValue.trim()) {
       params.set("q", searchValue.trim());
-    } else {
-      params.delete("q");
     }
-    router.push(`/store?${params.toString()}`);
+    router.push(`/store?${params.toString()}#products-grid`);
   };
 
   const handleClearSearch = () => {
     setSearchValue("");
     setSearchResults([]);
     setShowDropdown(false);
-    const params = new URLSearchParams(searchParams ? searchParams.toString() : "");
-    params.delete("q");
-    router.push(`/store?${params.toString()}`);
+    router.push("/store#products-grid");
   };
 
   return (

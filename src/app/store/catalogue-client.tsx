@@ -159,10 +159,11 @@ export function CatalogueClient({
     companyId: string,
     categoryId: string,
     inStock: boolean,
-    page: number = 1
+    page: number = 1,
+    keepSearch: boolean = true
   ) => {
     const params = new URLSearchParams();
-    if (currentSearch) params.set("q", currentSearch);
+    if (keepSearch && currentSearch) params.set("q", currentSearch);
     if (companyId) params.set("companyId", companyId);
     if (categoryId) params.set("categoryId", categoryId);
     if (inStock) params.set("inStockOnly", "true");
@@ -175,13 +176,13 @@ export function CatalogueClient({
 
   const handleCompanyChange = (companyId: string) => {
     setSelectedCompany(companyId);
-    applyFilters(companyId, selectedCategory, inStockOnly, 1);
+    applyFilters(companyId, selectedCategory, inStockOnly, 1, false);
   };
 
   const handleCategorySelect = (categoryId: string) => {
     const nextCat = selectedCategory === categoryId ? "" : categoryId;
     setSelectedCategory(nextCat);
-    applyFilters(selectedCompany, nextCat, inStockOnly, 1);
+    applyFilters(selectedCompany, nextCat, inStockOnly, 1, false);
   };
 
   const handleInStockToggle = (checked: boolean) => {

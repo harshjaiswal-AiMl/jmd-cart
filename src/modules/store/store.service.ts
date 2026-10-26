@@ -130,10 +130,20 @@ export class StoreService {
     ];
 
     if (companyId) {
-      whereParts.push(Prisma.sql`p.company_id = ${companyId}`);
+      whereParts.push(Prisma.sql`(
+        p.company_id = ${companyId}
+        OR EXISTS (
+          SELECT 1 FROM companies c WHERE c.id = p.company_id AND c.name ILIKE ${companyId}
+        )
+      )`);
     }
     if (categoryId) {
-      whereParts.push(Prisma.sql`p.category_id = ${categoryId}`);
+      whereParts.push(Prisma.sql`(
+        p.category_id = ${categoryId}
+        OR EXISTS (
+          SELECT 1 FROM categories cat WHERE cat.id = p.category_id AND cat.name ILIKE ${categoryId}
+        )
+      )`);
     }
     if (inStockOnly) {
       whereParts.push(Prisma.sql`(${stockRankSql("STOREFRONT")}) = 1`);
@@ -461,6 +471,11 @@ export class StoreService {
       prisma.category.findMany({
         where: {
           active: true,
+          products: {
+            some: {
+              active: true,
+            },
+          },
         },
         orderBy: { name: "asc" },
         select: {
