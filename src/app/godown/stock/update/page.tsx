@@ -18,13 +18,11 @@ export default async function UpdateStockPage() {
     redirect("/login");
   }
 
-  const isGodownOnly = session.user.role === UserRole.GODOWN;
-
-  const [locations, products, recentBatches] = await Promise.all([
+  const [locations, products, recentBatches, companies] = await Promise.all([
     prisma.location.findMany({
       where: {
         active: true,
-        ...(isGodownOnly ? { type: LocationType.GODOWN } : {}),
+        type: { in: [LocationType.GODOWN, LocationType.SHOP] },
       },
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
@@ -33,6 +31,8 @@ export default async function UpdateStockPage() {
       where: { active: true },
       include: {
         stockBalances: true,
+        company: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
       },
       orderBy: { shortCode: "asc" },
     }),
@@ -41,6 +41,11 @@ export default async function UpdateStockPage() {
       session.user.id,
       10
     ),
+    prisma.company.findMany({
+      where: { active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const productOptions = products.map((p) => {
@@ -52,8 +57,11 @@ export default async function UpdateStockPage() {
       id: p.id,
       shortCode: p.shortCode,
       name: p.name,
-      packSize: p.packSize,
+      packSize: p.packSize || 1,
       unitType: "PCS",
+      companyId: p.companyId || "",
+      companyName: p.company?.name || "",
+      categoryName: p.category?.name || "",
       balancesByLocation,
     };
   });
@@ -105,6 +113,7 @@ export default async function UpdateStockPage() {
         <UpdateStockClient
           locations={locations}
           products={productOptions}
+          companies={companies}
           userRole={session.user.role}
           recentBatches={serializedBatches}
         />

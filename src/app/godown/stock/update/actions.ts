@@ -296,3 +296,108 @@ export async function bulkUpdateStockAction(data: {
   }
 }
 
+export async function updateProductStockBothLocationsAction(data: {
+  productId: string;
+  godownLocationId: string;
+  godownQty?: number | null;
+  shopLocationId?: string;
+  shopQty?: number | null;
+  reason?: string;
+}) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !session.user.role) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const reason = (data.reason && data.reason.trim().length >= 3)
+      ? data.reason.trim()
+      : "Physical stock count verification (Godown & Shop)";
+
+    if (data.godownQty != null && data.godownQty >= 0) {
+      await godownService.setStockCount(session.user.role, session.user.id, {
+        productId: data.productId,
+        locationId: data.godownLocationId,
+        countedQty: data.godownQty,
+        reason: `${reason} [Godown]`,
+      });
+    }
+
+    if (data.shopLocationId && data.shopQty != null && data.shopQty >= 0) {
+      await godownService.setStockCount(session.user.role, session.user.id, {
+        productId: data.productId,
+        locationId: data.shopLocationId,
+        countedQty: data.shopQty,
+        reason: `${reason} [Shop]`,
+      });
+    }
+
+    revalidatePath("/godown/stock");
+    revalidatePath("/godown/stock/update");
+    revalidatePath("/admin");
+    revalidatePath("/store");
+    revalidatePath("/");
+
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update stock",
+    };
+  }
+}
+
+export async function bulkUpdateProductsStockBothLocationsAction(data: {
+  godownLocationId: string;
+  shopLocationId?: string;
+  reason?: string;
+  updates: Array<{
+    productId: string;
+    godownQty?: number | null;
+    shopQty?: number | null;
+  }>;
+}) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !session.user.role) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const baseReason = (data.reason && data.reason.trim().length >= 3)
+      ? data.reason.trim()
+      : "Bulk physical stock count verification (Godown & Shop)";
+
+    for (const update of data.updates) {
+      if (update.godownQty != null && update.godownQty >= 0) {
+        await godownService.setStockCount(session.user.role, session.user.id, {
+          productId: update.productId,
+          locationId: data.godownLocationId,
+          countedQty: update.godownQty,
+          reason: `${baseReason} [Godown]`,
+        });
+      }
+      if (data.shopLocationId && update.shopQty != null && update.shopQty >= 0) {
+        await godownService.setStockCount(session.user.role, session.user.id, {
+          productId: update.productId,
+          locationId: data.shopLocationId,
+          countedQty: update.shopQty,
+          reason: `${baseReason} [Shop]`,
+        });
+      }
+    }
+
+    revalidatePath("/godown/stock");
+    revalidatePath("/godown/stock/update");
+    revalidatePath("/admin");
+    revalidatePath("/store");
+    revalidatePath("/");
+
+    return { success: true, count: data.updates.length };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to bulk update stock",
+    };
+  }
+}
+

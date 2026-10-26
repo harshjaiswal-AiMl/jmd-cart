@@ -13,6 +13,8 @@ import {
   undoStockUploadBatchAction,
   downloadCurrentStockExcelAction,
   bulkUpdateStockAction,
+  updateProductStockBothLocationsAction,
+  bulkUpdateProductsStockBothLocationsAction,
 } from "./actions";
 import {
   Search,
@@ -23,6 +25,17 @@ import {
   CheckCircle2,
   ArrowRight,
   Package,
+  Building2,
+  Store,
+  Save,
+  RotateCcw,
+  Filter,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  RefreshCw,
 } from "lucide-react";
 
 interface LocationOption {
@@ -37,6 +50,9 @@ interface ProductOption {
   name: string;
   packSize: number;
   unitType: string;
+  companyId?: string;
+  companyName?: string;
+  categoryName?: string;
   balancesByLocation: Record<string, number>;
 }
 
@@ -56,6 +72,7 @@ interface RecentBatchItem {
 interface UpdateStockClientProps {
   locations: LocationOption[];
   products: ProductOption[];
+  companies?: Array<{ id: string; name: string }>;
   userRole?: string;
   recentBatches?: RecentBatchItem[];
 }
@@ -63,13 +80,14 @@ interface UpdateStockClientProps {
 export function UpdateStockClient({
   locations,
   products,
+  companies = [],
   userRole = "SUPER_ADMIN",
   recentBatches = [],
 }: UpdateStockClientProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<
     "opening" | "count" | "adjust" | "multi" | "csv"
-  >("opening");
+  >("multi");
 
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(
@@ -101,6 +119,283 @@ export function UpdateStockClient({
   const [looseInput, setLooseInput] = useState<number>(0);
   const [adjustDirection, setAdjustDirection] = useState<"add" | "subtract">("add");
   const [reason, setReason] = useState<string>("Initial physical opening stock entry");
+
+  // Full Catalog Stock Editor (Godown & Shop) State
+  const godownLocation = useMemo(
+    () => locations.find((l) => l.type === "GODOWN") || locations[0],
+    [locations]
+  );
+  const shopLocation = useMemo(
+    () => locations.find((l) => l.type === "SHOP") || locations.find((l) => l.id !== godownLocation?.id),
+    [locations, godownLocation]
+  );
+
+  const [tableSearch, setTableSearch] = useState<string>("");
+  const [tableCompanyFilter, setTableCompanyFilter] = useState<string>("");
+  const [showOnlyModified, setShowOnlyModified] = useState<boolean>(false);
+  const [tablePage, setTablePage] = useState<number>(1);
+  const [tablePageSize, setTablePageSize] = useState<number>(100);
+  const [tableAuditReason, setTableAuditReason] = useState<string>("Physical stock count verification (Godown & Shop)");
+  const [savingRowId, setSavingRowId] = useState<string | null>(null);
+
+  // tableEdits: Record<productId, { godownCartons?: number; godownLoose?: number; shopCartons?: number; shopLoose?: number }>
+  const [tableEdits, setTableEdits] = useState<
+    Record<
+      string,
+      {
+        godownCartons?: number;
+        godownLoose?: number;
+        shopCartons?: number;
+        shopLoose?: number;
+      }
+    >
+  >({});
+
+  const getProductGodownCartons = (p: ProductOption): number => {
+    if (tableEdits[p.id]?.godownCartons !== undefined) {
+      return tableEdits[p.id]!.godownCartons!;
+    }
+    const bal = p.balancesByLocation[godownLocation?.id || ""] || 0;
+    const pSize = p.packSize || 1;
+    return Math.floor(bal / pSize);
+  };
+
+  const getProductGodownLoose = (p: ProductOption): number => {
+    if (tableEdits[p.id]?.godownLoose !== undefined) {
+      return tableEdits[p.id]!.godownLoose!;
+    }
+    const bal = p.balancesByLocation[godownLocation?.id || ""] || 0;
+    const pSize = p.packSize || 1;
+    return bal % pSize;
+  };
+
+  const getProductShopCartons = (p: ProductOption): number => {
+    if (tableEdits[p.id]?.shopCartons !== undefined) {
+      return tableEdits[p.id]!.shopCartons!;
+    }
+    const bal = shopLocation ? p.balancesByLocation[shopLocation.id] || 0 : 0;
+    const pSize = p.packSize || 1;
+    return Math.floor(bal / pSize);
+  };
+
+  const getProductShopLoose = (p: ProductOption): number => {
+    if (tableEdits[p.id]?.shopLoose !== undefined) {
+      return tableEdits[p.id]!.shopLoose!;
+    }
+    const bal = shopLocation ? p.balancesByLocation[shopLocation.id] || 0 : 0;
+    const pSize = p.packSize || 1;
+    return bal % pSize;
+  };
+
+  const handleGodownCartonsChange = (prodId: string, val: string) => {
+    const num = val === "" ? 0 : Math.max(0, parseInt(val, 10) || 0);
+    const prod = products.find((p) => p.id === prodId);
+    if (!prod) return;
+    setTableEdits((prev) => ({
+      ...prev,
+      [prodId]: {
+        godownCartons: num,
+        godownLoose: prev[prodId]?.godownLoose ?? getProductGodownLoose(prod),
+        shopCartons: prev[prodId]?.shopCartons ?? getProductShopCartons(prod),
+        shopLoose: prev[prodId]?.shopLoose ?? getProductShopLoose(prod),
+      },
+    }));
+  };
+
+  const handleGodownLooseChange = (prodId: string, val: string) => {
+    const num = val === "" ? 0 : Math.max(0, parseInt(val, 10) || 0);
+    const prod = products.find((p) => p.id === prodId);
+    if (!prod) return;
+    setTableEdits((prev) => ({
+      ...prev,
+      [prodId]: {
+        godownCartons: prev[prodId]?.godownCartons ?? getProductGodownCartons(prod),
+        godownLoose: num,
+        shopCartons: prev[prodId]?.shopCartons ?? getProductShopCartons(prod),
+        shopLoose: prev[prodId]?.shopLoose ?? getProductShopLoose(prod),
+      },
+    }));
+  };
+
+  const handleShopCartonsChange = (prodId: string, val: string) => {
+    const num = val === "" ? 0 : Math.max(0, parseInt(val, 10) || 0);
+    const prod = products.find((p) => p.id === prodId);
+    if (!prod) return;
+    setTableEdits((prev) => ({
+      ...prev,
+      [prodId]: {
+        godownCartons: prev[prodId]?.godownCartons ?? getProductGodownCartons(prod),
+        godownLoose: prev[prodId]?.godownLoose ?? getProductGodownLoose(prod),
+        shopCartons: num,
+        shopLoose: prev[prodId]?.shopLoose ?? getProductShopLoose(prod),
+      },
+    }));
+  };
+
+  const handleShopLooseChange = (prodId: string, val: string) => {
+    const num = val === "" ? 0 : Math.max(0, parseInt(val, 10) || 0);
+    const prod = products.find((p) => p.id === prodId);
+    if (!prod) return;
+    setTableEdits((prev) => ({
+      ...prev,
+      [prodId]: {
+        godownCartons: prev[prodId]?.godownCartons ?? getProductGodownCartons(prod),
+        godownLoose: prev[prodId]?.godownLoose ?? getProductGodownLoose(prod),
+        shopCartons: prev[prodId]?.shopCartons ?? getProductShopCartons(prod),
+        shopLoose: num,
+      },
+    }));
+  };
+
+  const isRowModified = (p: ProductOption): boolean => {
+    const curG = p.balancesByLocation[godownLocation?.id || ""] || 0;
+    const curS = shopLocation ? p.balancesByLocation[shopLocation.id] || 0 : 0;
+    const pSize = p.packSize || 1;
+
+    const newG = getProductGodownCartons(p) * pSize + getProductGodownLoose(p);
+    const newS = getProductShopCartons(p) * pSize + getProductShopLoose(p);
+
+    return newG !== curG || (shopLocation ? newS !== curS : false);
+  };
+
+  const modifiedProducts = useMemo(() => {
+    return products.filter((p) => isRowModified(p));
+  }, [products, tableEdits, godownLocation?.id, shopLocation?.id]);
+
+  const modifiedCount = modifiedProducts.length;
+
+  // Filtered and paginated products for table
+  const companyOptions = useMemo(() => {
+    if (companies && companies.length > 0) return companies;
+    const map = new Map<string, string>();
+    products.forEach((p) => {
+      if (p.companyId && p.companyName) {
+        map.set(p.companyId, p.companyName);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [companies, products]);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (showOnlyModified && !isRowModified(p)) return false;
+      if (tableCompanyFilter && p.companyId !== tableCompanyFilter) return false;
+      if (tableSearch.trim()) {
+        const term = tableSearch.toLowerCase().trim();
+        const matchesName = p.name.toLowerCase().includes(term);
+        const matchesCode = p.shortCode.toLowerCase().includes(term);
+        const matchesComp = p.companyName ? p.companyName.toLowerCase().includes(term) : false;
+        if (!matchesName && !matchesCode && !matchesComp) return false;
+      }
+      return true;
+    });
+  }, [products, tableSearch, tableCompanyFilter, showOnlyModified, tableEdits, godownLocation?.id, shopLocation?.id]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / tablePageSize));
+  const paginatedProducts = useMemo(() => {
+    const start = (tablePage - 1) * tablePageSize;
+    return filteredProducts.slice(start, start + tablePageSize);
+  }, [filteredProducts, tablePage, tablePageSize]);
+
+  const handleSaveSingleRow = (p: ProductOption) => {
+    if (!godownLocation) return;
+    setSavingRowId(p.id);
+
+    startTransition(async () => {
+      const pSize = p.packSize || 1;
+      const gQty = getProductGodownCartons(p) * pSize + getProductGodownLoose(p);
+      const sQty = shopLocation
+        ? getProductShopCartons(p) * pSize + getProductShopLoose(p)
+        : undefined;
+
+      const res = await updateProductStockBothLocationsAction({
+        productId: p.id,
+        godownLocationId: godownLocation.id,
+        godownQty: gQty,
+        shopLocationId: shopLocation?.id,
+        shopQty: sQty,
+        reason: tableAuditReason.trim() || undefined,
+      });
+
+      setSavingRowId(null);
+      if (res.success) {
+        p.balancesByLocation[godownLocation.id] = gQty;
+        if (shopLocation && sQty !== undefined) {
+          p.balancesByLocation[shopLocation.id] = sQty;
+        }
+        setTableEdits((prev) => {
+          const next = { ...prev };
+          delete next[p.id];
+          return next;
+        });
+        setMessage({
+          type: "success",
+          text: `Stock successfully updated for "${p.name}"!`,
+        });
+      } else {
+        setMessage({
+          type: "error",
+          text: res.error || "Failed to update stock.",
+        });
+      }
+    });
+  };
+
+  const handleSaveAllModified = () => {
+    if (!godownLocation || modifiedProducts.length === 0) return;
+
+    startTransition(async () => {
+      const updates = modifiedProducts.map((p) => {
+        const pSize = p.packSize || 1;
+        const gQty = getProductGodownCartons(p) * pSize + getProductGodownLoose(p);
+        const sQty = shopLocation
+          ? getProductShopCartons(p) * pSize + getProductShopLoose(p)
+          : null;
+        return {
+          productId: p.id,
+          godownQty: gQty,
+          shopQty: sQty,
+        };
+      });
+
+      const res = await bulkUpdateProductsStockBothLocationsAction({
+        godownLocationId: godownLocation.id,
+        shopLocationId: shopLocation?.id,
+        reason: tableAuditReason.trim() || undefined,
+        updates,
+      });
+
+      if (res.success) {
+        updates.forEach((u) => {
+          const prod = products.find((p) => p.id === u.productId);
+          if (prod) {
+            if (u.godownQty != null) {
+              prod.balancesByLocation[godownLocation.id] = u.godownQty;
+            }
+            if (shopLocation && u.shopQty != null) {
+              prod.balancesByLocation[shopLocation.id] = u.shopQty;
+            }
+          }
+        });
+        setTableEdits({});
+        setMessage({
+          type: "success",
+          text: `Successfully updated stock across Godown & Shop for ${res.count} products!`,
+        });
+      } else {
+        setMessage({
+          type: "error",
+          text: res.error || "Failed to bulk update stock.",
+        });
+      }
+    });
+  };
+
+  const handleResetAllEdits = () => {
+    if (confirm("Reset all unsaved stock changes back to system balances?")) {
+      setTableEdits({});
+    }
+  };
 
   // Multi-Product batch state
   const [multiMode, setMultiMode] = useState<"COUNT" | "OPENING" | "ADJUST">("COUNT");
@@ -634,360 +929,425 @@ export function UpdateStockClient({
       )}
 
       {activeTab === "multi" ? (
-        <form onSubmit={handleMultiSubmit} className="space-y-6">
-          {/* Controls Card: Mode, Location, Adjust Direction, Reason */}
+        <div className="space-y-4">
+          {/* Controls Card: Filter, Search, Audit Reason, Page Size */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-xs space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-gray-100 pb-4">
               <div>
                 <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
                   <Layers className="w-5 h-5 text-emerald-700" />
-                  Multi-Product Batch Stock Update
+                  <span>All Products Stock Editor</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Godown &amp; Shop Stock
+                  </span>
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Queue and update opening balances, physical counts, or adjustments across multiple products in a single operation.
+                  View and update cartons &amp; loose pieces for <strong>Main Godown</strong> and <strong>Retail Shop</strong> across all products.
                 </p>
               </div>
 
-              {/* Mode Selector */}
-              <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMultiMode("COUNT");
-                    setMultiReason("Multi-product physical stock count");
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    multiMode === "COUNT"
-                      ? "bg-white text-gray-900 shadow-xs"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Physical Count
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMultiMode("OPENING");
-                    setMultiReason("Initial physical opening stock entry");
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    multiMode === "OPENING"
-                      ? "bg-white text-gray-900 shadow-xs"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Opening Stock
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMultiMode("ADJUST");
-                    setMultiReason("Multi-product stock adjustment");
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    multiMode === "ADJUST"
-                      ? "bg-white text-gray-900 shadow-xs"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  Adjustment (+/-)
-                </button>
+              {/* Status Indicator & Modified Count */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-xs font-medium text-gray-600 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>{products.length} Products Active</span>
+                </div>
+                {modifiedCount > 0 && (
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-amber-500 text-white shadow-xs">
+                    {modifiedCount} Unsaved Change{modifiedCount > 1 ? "s" : ""}
+                  </span>
+                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
-                  Target Location *
-                </label>
+            {/* Filter & Search Bar */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+              {/* Search */}
+              <div className="lg:col-span-4 relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="search"
+                  value={tableSearch}
+                  onChange={(e) => {
+                    setTableSearch(e.target.value);
+                    setTablePage(1);
+                  }}
+                  placeholder="Search products by name or SKU..."
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-300 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                />
+              </div>
+
+              {/* Brand / Company Filter */}
+              <div className="lg:col-span-3">
                 <select
-                  value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium"
+                  value={tableCompanyFilter}
+                  onChange={(e) => {
+                    setTableCompanyFilter(e.target.value);
+                    setTablePage(1);
+                  }}
+                  className="w-full py-2 px-3 rounded-xl border border-gray-300 text-xs text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600"
                 >
-                  {locations.map((loc) => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.name} ({loc.type})
+                  <option value="">All Brands / Companies ({products.length})</option>
+                  {companyOptions.map((comp) => (
+                    <option key={comp.id} value={comp.id}>
+                      {comp.name}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {multiMode === "ADJUST" && (
-                <div>
-                  <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
-                    Adjustment Direction *
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setMultiAdjustDir("add")}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${
-                        multiAdjustDir === "add"
-                          ? "bg-emerald-600 text-white"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      + Add Stock
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMultiAdjustDir("subtract")}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition ${
-                        multiAdjustDir === "subtract"
-                          ? "bg-red-600 text-white"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      - Deduct Stock
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className={multiMode === "ADJUST" ? "sm:col-span-1" : "sm:col-span-2"}>
-                <label className="block text-xs font-bold uppercase text-gray-600 mb-1">
-                  Audit Reason *
-                </label>
+              {/* Audit Reason */}
+              <div className="lg:col-span-3">
                 <input
                   type="text"
-                  required
-                  minLength={3}
-                  value={multiReason}
-                  onChange={(e) => setMultiReason(e.target.value)}
-                  placeholder="e.g. Physical inventory verification / Godown stock audit"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Product Quick Search & Add */}
-            <div className="pt-2 border-t border-gray-100 space-y-2">
-              <label className="block text-xs font-bold uppercase text-gray-700">
-                Search & Queue Products
-              </label>
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={multiSearch}
-                  onChange={(e) => setMultiSearch(e.target.value)}
-                  placeholder="Type product name or short code (e.g. 'Mustard', 'MDH', 'Besan')..."
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  value={tableAuditReason}
+                  onChange={(e) => setTableAuditReason(e.target.value)}
+                  placeholder="Audit reason (min 3 chars)..."
+                  className="w-full py-2 px-3 rounded-xl border border-gray-300 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                  title="Mandatory reason logged in ledger for stock count changes"
                 />
               </div>
 
-              {/* Matching products preview */}
-              {multiSearch.trim().length > 0 && (() => {
-                const matchingProds = products.filter(
-                  (p) =>
-                    (p.name.toLowerCase().includes(multiSearch.toLowerCase()) ||
-                      p.shortCode.toLowerCase().includes(multiSearch.toLowerCase())) &&
-                    !multiItems[p.id]
-                );
+              {/* Page Size & Toggle */}
+              <div className="lg:col-span-2 flex items-center gap-2">
+                <select
+                  value={tablePageSize}
+                  onChange={(e) => {
+                    setTablePageSize(Number(e.target.value));
+                    setTablePage(1);
+                  }}
+                  className="py-2 px-2.5 rounded-xl border border-gray-300 text-xs text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600 w-full"
+                >
+                  <option value={50}>50 / page</option>
+                  <option value={100}>100 / page</option>
+                  <option value={200}>200 / page</option>
+                  <option value={10000}>All Products</option>
+                </select>
 
-                return (
-                  <div className="bg-gray-50 p-2.5 rounded-xl border border-gray-200 space-y-2">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>
-                        Matching Products ({matchingProds.length}):
-                      </span>
-                      {matchingProds.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => addAllFilteredMulti(matchingProds)}
-                          className="text-xs font-bold text-emerald-700 hover:underline"
-                        >
-                          + Add all matching ({Math.min(50, matchingProds.length)})
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                      {matchingProds.slice(0, 30).map((prod) => {
-                        const curBal = prod.balancesByLocation[locationId] || 0;
-                        return (
-                          <button
-                            key={prod.id}
-                            type="button"
-                            onClick={() => addMultiProduct(prod.id)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:border-emerald-600 hover:bg-emerald-50 text-left text-xs transition"
-                          >
-                            <Plus className="w-3 h-3 text-emerald-600 shrink-0" />
-                            <span className="font-semibold text-gray-800">{prod.name}</span>
-                            <span className="text-[10px] text-gray-400 font-mono">({prod.shortCode})</span>
-                            <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1 py-0.5 rounded">
-                              {curBal} pcs
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-
-          {/* Queued Items Table */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
-            <div className="p-4 border-b border-gray-100 bg-gray-50/75 flex items-center justify-between">
-              <div>
-                <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">
-                  Products in Batch Queue ({Object.keys(multiItems).length})
-                </span>
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  Set carton and loose quantities for each queued product.
-                </p>
-              </div>
-
-              {Object.keys(multiItems).length > 0 && (
                 <button
                   type="button"
-                  onClick={clearMultiBatch}
-                  className="text-xs font-semibold text-red-600 hover:underline"
+                  onClick={() => setShowOnlyModified(!showOnlyModified)}
+                  className={`p-2 rounded-xl border text-xs font-bold transition shrink-0 ${
+                    showOnlyModified
+                      ? "bg-amber-100 text-amber-900 border-amber-300"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                  title="Toggle to show only modified items"
                 >
-                  Clear All
+                  <Filter className="w-3.5 h-3.5" />
                 </button>
-              )}
+              </div>
             </div>
 
-            {Object.keys(multiItems).length === 0 ? (
-              <div className="p-10 text-center space-y-2">
-                <Package className="w-8 h-8 text-gray-300 mx-auto" />
-                <p className="text-sm font-medium text-gray-500">No products added to batch yet.</p>
-                <p className="text-xs text-gray-400">
-                  Search above and click on products to add them to this bulk update list.
-                </p>
+            {/* Floating / Sticky Action Bar when products are modified */}
+            {modifiedCount > 0 && (
+              <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-2 text-xs text-amber-900 font-bold">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    You have modified stock for <strong>{modifiedCount} product{modifiedCount > 1 ? "s" : ""}</strong>.
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetAllEdits}
+                    disabled={isPending}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-700 transition disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset All</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveAllModified}
+                    disabled={isPending}
+                    className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-xs font-bold text-white shadow-xs transition disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {isPending ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving {modifiedCount} Products...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Save All Changes ({modifiedCount})</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-100 text-xs">
-                  <thead className="bg-gray-50 text-gray-600 uppercase font-bold text-[10px] text-left">
+            )}
+          </div>
+
+          {/* Table Card */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50/80 text-[11px] font-bold text-gray-700 uppercase tracking-wider">
+                    <th className="py-3 px-3 w-10 text-center">#</th>
+                    <th className="py-3 px-4 min-w-[220px]">Product / SKU</th>
+                    <th className="py-3 px-3 text-center min-w-[100px]">Pack Size</th>
+                    {/* Main Godown Column Header */}
+                    <th className="py-3 px-4 min-w-[200px] bg-blue-50/50 border-l border-r border-blue-100">
+                      <div className="flex items-center gap-1.5 text-blue-900 font-black">
+                        <Building2 className="w-3.5 h-3.5 text-blue-700" />
+                        <span>Main Godown Stock</span>
+                      </div>
+                      <div className="text-[10px] text-blue-600 font-normal normal-case">
+                        Cartons + Loose Pieces
+                      </div>
+                    </th>
+                    {/* Retail Shop Column Header */}
+                    <th className="py-3 px-4 min-w-[200px] bg-emerald-50/50 border-r border-emerald-100">
+                      <div className="flex items-center gap-1.5 text-emerald-900 font-black">
+                        <Store className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Retail Shop Stock</span>
+                      </div>
+                      <div className="text-[10px] text-emerald-600 font-normal normal-case">
+                        Cartons + Loose Pieces
+                      </div>
+                    </th>
+                    <th className="py-3 px-3 text-center min-w-[90px]">Total Pcs</th>
+                    <th className="py-3 px-4 text-center min-w-[100px]">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paginatedProducts.length === 0 ? (
                     <tr>
-                      <th className="px-4 py-3">Product Name & Code</th>
-                      <th className="px-3 py-3 text-center">Pack Size</th>
-                      <th className="px-3 py-3 text-center">Current Stock</th>
-                      <th className="px-3 py-3 text-center">Cartons</th>
-                      <th className="px-3 py-3 text-center">Loose (Pcs)</th>
-                      <th className="px-3 py-3 text-center">Total Pcs</th>
-                      <th className="px-4 py-3 text-right">Resulting Balance</th>
-                      <th className="px-3 py-3 text-center">Remove</th>
+                      <td colSpan={7} className="py-12 text-center text-gray-500">
+                        <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                        <p className="font-semibold text-sm">No products found matching filters.</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Try clearing your search query or brand filter.</p>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {Object.keys(multiItems).map((prodId) => {
-                      const prod = products.find((p) => p.id === prodId);
-                      if (!prod) return null;
-                      const item = multiItems[prodId];
-                      const packSize = prod.packSize || 1;
-                      const curBal = prod.balancesByLocation[locationId] || 0;
-                      const inputTotal = item.cartons * packSize + item.loose;
+                  ) : (
+                    paginatedProducts.map((p, idx) => {
+                      const rowNum = (tablePage - 1) * tablePageSize + idx + 1;
+                      const pSize = p.packSize || 1;
 
-                      let delta = 0;
-                      let resulting = 0;
+                      const curG = p.balancesByLocation[godownLocation?.id || ""] || 0;
+                      const curS = shopLocation ? p.balancesByLocation[shopLocation.id] || 0 : 0;
 
-                      if (multiMode === "OPENING") {
-                        resulting = curBal + inputTotal;
-                        delta = inputTotal;
-                      } else if (multiMode === "COUNT") {
-                        resulting = inputTotal;
-                        delta = inputTotal - curBal;
-                      } else {
-                        delta = multiAdjustDir === "add" ? inputTotal : -inputTotal;
-                        resulting = curBal + delta;
-                      }
+                      const editGCartons = getProductGodownCartons(p);
+                      const editGLoose = getProductGodownLoose(p);
+                      const newGTotal = editGCartons * pSize + editGLoose;
+                      const deltaG = newGTotal - curG;
+
+                      const editSCartons = getProductShopCartons(p);
+                      const editSLoose = getProductShopLoose(p);
+                      const newSTotal = editSCartons * pSize + editSLoose;
+                      const deltaS = newSTotal - curS;
+
+                      const totalCombined = newGTotal + (shopLocation ? newSTotal : 0);
+                      const isModified = deltaG !== 0 || (shopLocation ? deltaS !== 0 : false);
+                      const isSaving = savingRowId === p.id;
 
                       return (
-                        <tr key={prodId} className="hover:bg-gray-50/50">
-                          <td className="px-4 py-3">
-                            <p className="font-semibold text-gray-900">{prod.name}</p>
-                            <p className="text-[10px] font-mono text-gray-400">SKU: {prod.shortCode}</p>
+                        <tr
+                          key={p.id}
+                          className={`transition ${
+                            isModified ? "bg-amber-50/40 hover:bg-amber-50/70" : "hover:bg-gray-50/50"
+                          }`}
+                        >
+                          <td className="py-2.5 px-3 text-center font-mono text-gray-400 text-xs">
+                            {rowNum}
                           </td>
-                          <td className="px-3 py-3 text-center font-mono text-gray-600">
-                            {packSize} pcs/ctn
+
+                          {/* Product Info */}
+                          <td className="py-2.5 px-4">
+                            <div className="font-bold text-gray-900 leading-tight">{p.name}</div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {p.shortCode && (
+                                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-gray-100 text-gray-600 border border-gray-200">
+                                  {p.shortCode}
+                                </span>
+                              )}
+                              {p.companyName && (
+                                <span className="text-[10px] text-slate-500 font-medium">
+                                  {p.companyName}
+                                </span>
+                              )}
+                            </div>
                           </td>
-                          <td className="px-3 py-3 text-center font-mono text-gray-700">
-                            <span className="font-bold">{curBal}</span> pcs
-                            {packSize > 1 && (
-                              <span className="block text-[10px] text-gray-400">
-                                ({Math.floor(curBal / packSize)}c + {curBal % packSize}p)
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-center">
-                            <input
-                              type="number"
-                              min={0}
-                              value={item.cartons}
-                              onChange={(e) =>
-                                updateMultiItem(prodId, parseInt(e.target.value || "0", 10), item.loose)
-                              }
-                              className="w-16 px-2 py-1 text-center font-mono border border-gray-300 rounded-lg text-xs"
-                            />
-                          </td>
-                          <td className="px-3 py-3 text-center">
-                            <input
-                              type="number"
-                              min={0}
-                              value={item.loose}
-                              onChange={(e) =>
-                                updateMultiItem(prodId, item.cartons, parseInt(e.target.value || "0", 10))
-                              }
-                              className="w-16 px-2 py-1 text-center font-mono border border-gray-300 rounded-lg text-xs"
-                            />
-                          </td>
-                          <td className="px-3 py-3 text-center font-mono font-bold text-gray-900">
-                            {inputTotal} pcs
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="font-mono font-bold text-gray-900 text-sm">
-                              {resulting} pcs
+
+                          {/* Pack Size */}
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="font-mono text-xs font-semibold text-gray-700">
+                              {pSize > 1 ? `${pSize} pcs/crt` : "Loose (1)"}
                             </span>
-                            {delta !== 0 && (
-                              <span
-                                className={`block text-[10px] font-bold ${
-                                  delta > 0 ? "text-emerald-700" : "text-red-600"
-                                }`}
-                              >
-                                {delta > 0 ? `+${delta}` : delta} pcs
-                              </span>
+                          </td>
+
+                          {/* Main Godown Inputs */}
+                          <td className="py-2.5 px-4 bg-blue-50/20 border-l border-r border-blue-100">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1">
+                                <div className="text-[9px] uppercase font-bold text-blue-800 mb-0.5">Cartons</div>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={editGCartons}
+                                  onChange={(e) => handleGodownCartonsChange(p.id, e.target.value)}
+                                  className="w-full px-2 py-1 text-center font-mono text-xs font-bold border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                              <span className="text-gray-300 font-black mt-3">+</span>
+                              <div className="flex-1">
+                                <div className="text-[9px] uppercase font-bold text-blue-800 mb-0.5">Loose Pcs</div>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={editGLoose}
+                                  onChange={(e) => handleGodownLooseChange(p.id, e.target.value)}
+                                  className="w-full px-2 py-1 text-center font-mono text-xs font-bold border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] mt-1 text-blue-900 font-mono">
+                              <span>Total: <strong>{newGTotal} pcs</strong></span>
+                              {deltaG !== 0 && (
+                                <span className={`font-bold ${deltaG > 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                                  {deltaG > 0 ? `+${deltaG}` : deltaG} pcs
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Retail Shop Inputs */}
+                          <td className="py-2.5 px-4 bg-emerald-50/20 border-r border-emerald-100">
+                            {shopLocation ? (
+                              <>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="flex-1">
+                                    <div className="text-[9px] uppercase font-bold text-emerald-800 mb-0.5">Cartons</div>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={editSCartons}
+                                      onChange={(e) => handleShopCartonsChange(p.id, e.target.value)}
+                                      className="w-full px-2 py-1 text-center font-mono text-xs font-bold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    />
+                                  </div>
+                                  <span className="text-gray-300 font-black mt-3">+</span>
+                                  <div className="flex-1">
+                                    <div className="text-[9px] uppercase font-bold text-emerald-800 mb-0.5">Loose Pcs</div>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={editSLoose}
+                                      onChange={(e) => handleShopLooseChange(p.id, e.target.value)}
+                                      className="w-full px-2 py-1 text-center font-mono text-xs font-bold border border-emerald-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] mt-1 text-emerald-900 font-mono">
+                                  <span>Total: <strong>{newSTotal} pcs</strong></span>
+                                  {deltaS !== 0 && (
+                                    <span className={`font-bold ${deltaS > 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                                      {deltaS > 0 ? `+${deltaS}` : deltaS} pcs
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            ) : (
+                              <span className="text-gray-400 text-[10px]">No shop location</span>
                             )}
                           </td>
-                          <td className="px-3 py-3 text-center">
+
+                          {/* Combined Total */}
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="font-mono text-xs font-black text-gray-900 block">
+                              {totalCombined}
+                            </span>
+                            <span className="text-[10px] text-gray-400">pcs</span>
+                          </td>
+
+                          {/* Row Save Action */}
+                          <td className="py-2.5 px-4 text-center">
                             <button
                               type="button"
-                              onClick={() => removeMultiProduct(prodId)}
-                              className="p-1 text-gray-400 hover:text-red-600 rounded"
+                              onClick={() => handleSaveSingleRow(p)}
+                              disabled={!isModified || isSaving || isPending}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 w-full ${
+                                isModified
+                                  ? "bg-[#075828] hover:bg-emerald-900 text-white shadow-xs"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                              }`}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {isSaving ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Save className="w-3 h-3" />
+                              )}
+                              <span>{isSaving ? "Saving..." : "Save"}</span>
                             </button>
                           </td>
                         </tr>
                       );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-            {Object.keys(multiItems).length > 0 && (
-              <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                <div className="text-xs text-gray-600">
-                  Ready to post <strong className="text-gray-900">{Object.keys(multiItems).length}</strong> products in{" "}
-                  <strong>{multiMode}</strong> mode.
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-gray-100 bg-gray-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="text-gray-600">
+                  Showing <strong>{(tablePage - 1) * tablePageSize + 1}</strong> to{" "}
+                  <strong>{Math.min(tablePage * tablePageSize, filteredProducts.length)}</strong> of{" "}
+                  <strong>{filteredProducts.length}</strong> products
                 </div>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-xs transition"
-                >
-                  {isPending ? "Applying Bulk Stock..." : `Apply Stock Update (${Object.keys(multiItems).length} items)`}
-                </button>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setTablePage(1)}
+                    disabled={tablePage === 1}
+                    className="p-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 disabled:opacity-40 transition"
+                    title="First Page"
+                  >
+                    <ChevronsLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTablePage((p) => Math.max(1, p - 1))}
+                    disabled={tablePage === 1}
+                    className="p-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 disabled:opacity-40 transition"
+                    title="Previous Page"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  <span className="px-3 py-1 font-semibold text-gray-800">
+                    Page {tablePage} of {totalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setTablePage((p) => Math.min(totalPages, p + 1))}
+                    disabled={tablePage === totalPages}
+                    className="p-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 disabled:opacity-40 transition"
+                    title="Next Page"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTablePage(totalPages)}
+                    disabled={tablePage === totalPages}
+                    className="p-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 disabled:opacity-40 transition"
+                    title="Last Page"
+                  >
+                    <ChevronsRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
-        </form>
+        </div>
       ) : activeTab !== "csv" ? (
         products.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center space-y-4">
