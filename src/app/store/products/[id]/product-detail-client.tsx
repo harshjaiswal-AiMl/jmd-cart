@@ -107,9 +107,57 @@ export function ProductDetailClient({
   const packThreshold = product.slabs?.[1]?.minQty || 4;
   const cartonThreshold = product.slabs?.[2]?.minQty || Math.max(10, packSize);
 
-  const s1Rate = (getUnitPricePaiseForQty(1) / 100).toFixed(2);
-  const s2Rate = (getUnitPricePaiseForQty(packThreshold) / 100).toFixed(2);
-  const s3Rate = (getUnitPricePaiseForQty(cartonThreshold) / 100).toFixed(2);
+  const s1UnitPricePaise = getUnitPricePaiseForQty(1);
+  const s2UnitPricePaise = getUnitPricePaiseForQty(packThreshold);
+  const s3UnitPricePaise = getUnitPricePaiseForQty(cartonThreshold);
+
+  const s1Rate = (s1UnitPricePaise / 100).toFixed(2);
+  const s2Rate = (s2UnitPricePaise / 100).toFixed(2);
+  const s3Rate = (s3UnitPricePaise / 100).toFixed(2);
+
+  const s1DiscountPct =
+    product.mrpPaise > 0 && product.mrpPaise > s1UnitPricePaise
+      ? Math.round(((product.mrpPaise - s1UnitPricePaise) / product.mrpPaise) * 100)
+      : 0;
+  const s2DiscountPct =
+    product.mrpPaise > 0 && product.mrpPaise > s2UnitPricePaise
+      ? Math.round(((product.mrpPaise - s2UnitPricePaise) / product.mrpPaise) * 100)
+      : 0;
+  const s3DiscountPct =
+    product.mrpPaise > 0 && product.mrpPaise > s3UnitPricePaise
+      ? Math.round(((product.mrpPaise - s3UnitPricePaise) / product.mrpPaise) * 100)
+      : 0;
+
+  // Next-slab unlock nudge
+  let nextSlabNudge: {
+    qtyNeeded: number;
+    nextTierName: string;
+    nextDiscountPct: number;
+    nextRateRupees: string;
+    extraSaveRupees: string;
+  } | null = null;
+
+  if (selectedQty < packThreshold && s2DiscountPct > s1DiscountPct) {
+    const qtyNeeded = packThreshold - selectedQty;
+    const extraSaveRupees = ((s1UnitPricePaise - s2UnitPricePaise) / 100).toFixed(0);
+    nextSlabNudge = {
+      qtyNeeded,
+      nextTierName: "Kirana Pack",
+      nextDiscountPct: s2DiscountPct,
+      nextRateRupees: s2Rate,
+      extraSaveRupees,
+    };
+  } else if (selectedQty >= packThreshold && selectedQty < cartonThreshold && s3DiscountPct > s2DiscountPct) {
+    const qtyNeeded = cartonThreshold - selectedQty;
+    const extraSaveRupees = ((s2UnitPricePaise - s3UnitPricePaise) / 100).toFixed(0);
+    nextSlabNudge = {
+      qtyNeeded,
+      nextTierName: `Full ${product.packLabel || "Carton"}`,
+      nextDiscountPct: s3DiscountPct,
+      nextRateRupees: s3Rate,
+      extraSaveRupees,
+    };
+  }
 
   const handleAddToCart = (qtyToAdd: number) => {
     if (typeof window !== "undefined") {
@@ -393,6 +441,13 @@ export function ProductDetailClient({
                         ₹{mrpRupees}
                       </span>
                     </div>
+                    {s1DiscountPct > 0 && (
+                      <div className="mt-1.5">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60">
+                          {s1DiscountPct}% OFF
+                        </span>
+                      </div>
+                    )}
                   </button>
 
                   {/* Retailer Pack */}
@@ -422,6 +477,13 @@ export function ProductDetailClient({
                     <div className="mt-2 text-sm font-bold text-primary font-mono">
                       ₹{s2Rate} <span className="text-[11px] text-on-surface-variant font-normal">/ unit</span>
                     </div>
+                    {s2DiscountPct > 0 && (
+                      <div className="mt-1.5">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60">
+                          {s2DiscountPct}% OFF
+                        </span>
+                      </div>
+                    )}
                   </button>
 
                   {/* Full Carton */}
@@ -451,8 +513,42 @@ export function ProductDetailClient({
                     <div className="mt-2 text-sm font-bold text-primary font-mono">
                       ₹{s3Rate} <span className="text-[11px] text-on-surface-variant font-normal">/ unit</span>
                     </div>
+                    {s3DiscountPct > 0 && (
+                      <div className="mt-1.5">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-black border border-amber-200">
+                          <span>🔥</span> {s3DiscountPct}% OFF
+                        </span>
+                      </div>
+                    )}
                   </button>
                 </div>
+
+                {/* Smart Next-Slab Unlock Nudge */}
+                {nextSlabNudge && (
+                  <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-950 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-amber-600 text-[20px] shrink-0">
+                        bolt
+                      </span>
+                      <div className="leading-tight">
+                        <span>
+                          Buy <strong>{nextSlabNudge.qtyNeeded} more</strong> to unlock{" "}
+                          <strong>{nextSlabNudge.nextTierName} ({nextSlabNudge.nextDiscountPct}% OFF)</strong>!
+                        </span>
+                        <span className="block text-[11px] text-amber-800 font-medium mt-0.5">
+                          Rate drops to ₹{nextSlabNudge.nextRateRupees}/unit (Save ₹{nextSlabNudge.extraSaveRupees} extra/pc)
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQty((prev) => prev + nextSlabNudge!.qtyNeeded)}
+                      className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                    >
+                      + Add {nextSlabNudge.qtyNeeded}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Price & Cart Actions Block */}
@@ -481,16 +577,26 @@ export function ProductDetailClient({
                 </div>
 
                 {/* Applied Pricing Tier Status */}
-                <div className="pt-3 border-t border-surface-container flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-1.5 text-on-surface-variant">
+                <div className="pt-3 border-t border-surface-container flex items-center justify-between text-xs flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5 text-on-surface-variant flex-wrap">
                     <span className="material-symbols-outlined text-secondary text-[18px]">verified</span>
                     <span>Applied Price:</span>
-                    <strong className="text-on-surface font-semibold">
-                      {selectedQty >= cartonThreshold
-                        ? "Wholesale Tier Rate"
-                        : selectedQty >= packThreshold
-                        ? "Retailer Tier Rate"
-                        : "Customer Rate"}
+                    <strong className="text-on-surface font-semibold flex items-center gap-1">
+                      {selectedQty >= cartonThreshold ? (
+                        <span className="text-amber-900 font-bold bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[13px] text-amber-600">military_tech</span>
+                          Wholesale Carton Slab ({s3DiscountPct}% OFF)
+                        </span>
+                      ) : selectedQty >= packThreshold ? (
+                        <span className="text-emerald-900 font-bold bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[13px] text-emerald-600">store</span>
+                          Kirana Retailer Slab ({s2DiscountPct}% OFF)
+                        </span>
+                      ) : (
+                        <span className="text-primary font-bold bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+                          Customer Rate {s1DiscountPct > 0 ? `(${s1DiscountPct}% OFF)` : ""}
+                        </span>
+                      )}
                     </strong>
                   </div>
                   <span className="text-primary font-mono font-bold">

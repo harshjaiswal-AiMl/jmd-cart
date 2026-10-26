@@ -318,6 +318,25 @@ export function CatalogueClient({
     const qty = cartQuantities[product.id] || 0;
     const isUpdating = updatingId === product.id;
 
+    // Calculate maximum slab discount for smart badge
+    const bestSlabDiscountPct =
+      product.slabs && product.slabs.length > 0
+        ? product.slabs.reduce((max, s) => {
+            const pct = Math.round(s.discountBp / 100);
+            return pct > max ? pct : max;
+          }, 0)
+        : 0;
+
+    const baseDiscountPct =
+      product.mrpPaise > 0 && mrpRupees > effectiveRateRupees
+        ? Math.round(
+            ((product.mrpPaise -
+              (product.unitPricePaise || product.slabs[0]?.unitPricePaise || product.mrpPaise)) /
+              product.mrpPaise) *
+              100
+          )
+        : 0;
+
     return (
       <div
         key={product.id}
@@ -344,10 +363,14 @@ export function CatalogueClient({
             )}
 
             {/* Savings Badge */}
-            {savingsRupees > 0 && (
+            {(savingsRupees > 0 || bestSlabDiscountPct > 0) && (
               <div className="absolute top-2 left-2">
                 <span className="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-black uppercase tracking-tight shadow-2xs">
-                  Save ₹{savingsRupees}
+                  {bestSlabDiscountPct > baseDiscountPct
+                    ? `Up to ${bestSlabDiscountPct}% OFF`
+                    : baseDiscountPct > 0
+                    ? `${baseDiscountPct}% OFF`
+                    : `Save ₹${savingsRupees}`}
                 </span>
               </div>
             )}
@@ -437,8 +460,8 @@ export function CatalogueClient({
               )}
             </div>
             {product.packSize > 1 && (
-              <div className="text-[9px] text-on-surface-variant truncate">
-                {product.packSize} pcs/ctn
+              <div className="text-[9px] text-on-surface-variant truncate font-medium">
+                {product.packSize} pcs/ctn {bestSlabDiscountPct > baseDiscountPct ? `• Up to ${bestSlabDiscountPct}% OFF` : ""}
               </div>
             )}
           </div>

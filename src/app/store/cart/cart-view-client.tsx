@@ -292,7 +292,7 @@ export function CartViewClient({
                                       ₹{lineMrp}
                                     </span>
                                     <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.2 rounded">
-                                      Save ₹{unitSavings}
+                                      Save ₹{unitSavings} ({Math.round((unitSavings / lineMrp) * 100)}% off)
                                     </span>
                                   </>
                                 )}
