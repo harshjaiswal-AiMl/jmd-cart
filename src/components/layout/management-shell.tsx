@@ -186,19 +186,41 @@ export function ManagementShell({
 
   const navGroups = useMemo(() => getNavGroupsForRole(user.role), [user.role]);
 
+  const [notificationsRead, setNotificationsRead] = useState<boolean>(false);
+
   // Restore sidebar state from localStorage
   useEffect(() => {
     try {
-      const savedCollapsed = localStorage.getItem("jmd_sidebar_collapsed");
-      if (savedCollapsed === "1") setSidebarCollapsed(true);
+      if (pathname === "/shop/pos") {
+        setSidebarCollapsed(true);
+      } else {
+        const savedCollapsed = localStorage.getItem("jmd_sidebar_collapsed");
+        if (savedCollapsed === "1") setSidebarCollapsed(true);
+      }
       const savedGroups = localStorage.getItem("jmd_sidebar_groups");
       if (savedGroups) {
         setCollapsedGroups(JSON.parse(savedGroups));
+      }
+      const readTimestamp = localStorage.getItem("jmd_notifs_read_at");
+      if (readTimestamp) {
+        const lastRead = parseInt(readTimestamp, 10);
+        if (Date.now() - lastRead < 4 * 60 * 60 * 1000) {
+          setNotificationsRead(true);
+        }
       }
     } catch {
       // ignore storage errors
     }
   }, []);
+
+  const markAllNotificationsRead = () => {
+    setNotificationsRead(true);
+    try {
+      localStorage.setItem("jmd_notifs_read_at", Date.now().toString());
+    } catch {
+      // ignore
+    }
+  };
 
   // Ctrl+K shortcut for Command Palette
   useEffect(() => {
@@ -268,8 +290,10 @@ export function ManagementShell({
     return NAV_ITEMS.find((i) => i.href.split("?")[0] === pathname);
   }, [fullCurrentUrl, pathname]);
 
-  const totalNotifCount =
-    badges.pendingOrders + badges.lowStock + badges.autoConverted;
+  const totalNotifCount = notificationsRead
+    ? 0
+    : badges.pendingOrders + badges.lowStock + badges.autoConverted;
+  const displayNotifCount = totalNotifCount > 99 ? "99+" : String(totalNotifCount);
 
   // Command palette results
   const visibleItems = useMemo(
@@ -305,7 +329,7 @@ export function ManagementShell({
     const isCollapsed = !isMobile && sidebarCollapsed;
 
     return (
-      <div className="flex flex-col h-full bg-[#790E11] text-[#FEFDF7] select-none">
+      <div className="flex flex-col h-full overflow-hidden bg-[#790E11] text-[#FEFDF7] select-none">
         {/* Brand Header */}
         <div className="h-16 px-4 flex items-center justify-between border-b border-white/15 shrink-0">
           <Link
@@ -353,8 +377,8 @@ export function ManagementShell({
           )}
         </div>
 
-        {/* Navigation Groups */}
-        <div className="flex-1 overflow-y-auto py-3 px-2.5 space-y-3">
+        {/* Navigation Groups - with min-h-0 so flexbox allows scrolling to very bottom */}
+        <div className="flex-1 min-h-0 overflow-y-auto py-3 px-2.5 space-y-3 overscroll-contain">
           {navGroups.map((group) => {
             const isGroupCollapsed = Boolean(collapsedGroups[group.name]);
             const GroupIcon = ICON_MAP[group.icon] || Boxes;
@@ -468,7 +492,7 @@ export function ManagementShell({
       {/* Desktop Persistent Sidebar */}
       <aside
         aria-label="Management Sidebar"
-        className={`hidden lg:flex flex-col shrink-0 transition-all duration-200 sticky top-0 h-screen z-30 ${
+        className={`hidden lg:flex flex-col shrink-0 transition-all duration-200 sticky top-0 h-screen z-30 print:hidden ${
           sidebarCollapsed ? "w-16" : "w-64"
         }`}
       >
@@ -477,7 +501,7 @@ export function ManagementShell({
 
       {/* Mobile Slide-Over Sidebar Drawer (360px ready) */}
       {mobileDrawerOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
+        <div className="fixed inset-0 z-50 lg:hidden flex print:hidden">
           <div
             className="fixed inset-0 bg-black/50 backdrop-blur-xs"
             onClick={() => setMobileDrawerOpen(false)}
@@ -492,9 +516,9 @@ export function ManagementShell({
       )}
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 print:p-0 print:m-0 print:block">
         {/* Top Bar */}
-        <header className="sticky top-0 z-20 h-16 bg-white/95 backdrop-blur border-b border-gray-200 px-3 sm:px-6 flex items-center justify-between gap-3">
+        <header className="sticky top-0 z-20 h-16 bg-white/95 backdrop-blur border-b border-gray-200 px-3 sm:px-6 flex items-center justify-between gap-3 print:hidden">
           {/* Left: Mobile Menu + Breadcrumbs */}
           <div className="flex items-center gap-2.5 min-w-0">
             <button
@@ -570,7 +594,7 @@ export function ManagementShell({
                 <Bell className="w-4 h-4" />
                 {totalNotifCount > 0 && (
                   <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full text-[10px] font-black bg-[#FC830D] text-white">
-                    {totalNotifCount}
+                    {displayNotifCount}
                   </span>
                 )}
               </button>
@@ -581,9 +605,20 @@ export function ManagementShell({
                     <span className="text-xs font-black uppercase text-gray-700">
                       System Alerts &amp; Notifications
                     </span>
-                    <span className="text-[11px] font-bold text-[#790E11]">
-                      {totalNotifCount} active
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-[#790E11]">
+                        {displayNotifCount} active
+                      </span>
+                      {totalNotifCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={markAllNotificationsRead}
+                          className="text-[10px] text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer"
+                        >
+                          Mark read
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2 text-xs">
                     <Link

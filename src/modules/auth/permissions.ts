@@ -178,7 +178,6 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   ],
   GODOWN: [
     "/godown",
-    "/van",
     "/admin/catalog",
     "/admin/crud/companies",
     "/admin/crud/categories",

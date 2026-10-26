@@ -42,7 +42,7 @@ export function VanBottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 shadow-lg sm:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#12355B] border-t border-[#0D2641] shadow-lg sm:hidden">
       <div className="grid grid-cols-5 h-16">
         {navItems.map((item) => {
           const isActive = item.exact
@@ -56,13 +56,13 @@ export function VanBottomNav() {
               href={item.href}
               className={`flex flex-col items-center justify-center gap-1 transition-colors ${
                 isActive
-                  ? "text-emerald-400 font-bold"
-                  : "text-slate-400 hover:text-slate-200 font-medium"
+                  ? "text-[#FC830D] font-bold"
+                  : "text-white/70 hover:text-white font-medium"
               }`}
             >
               <div
                 className={`p-1 rounded-lg transition-transform ${
-                  isActive ? "bg-emerald-500/10 scale-110" : ""
+                  isActive ? "bg-white/10 scale-105" : ""
                 }`}
               >
                 <Icon className="w-5 h-5" />

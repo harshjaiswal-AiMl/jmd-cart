@@ -35,7 +35,10 @@ export class DashboardRepository {
       prisma.invoice.findMany({
         where: {
           status: InvoiceStatus.FINAL,
-          createdAt: { gte: startUtc, lte: endUtc },
+          OR: [
+            { finalizedAt: { gte: startUtc, lte: endUtc } },
+            { finalizedAt: null, createdAt: { gte: startUtc, lte: endUtc } },
+          ],
         },
         include: {
           items: {

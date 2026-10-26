@@ -174,10 +174,10 @@ export class ReportsRepository {
     locationId?: string
   ): Promise<DailySalesReport> {
     const where: Prisma.InvoiceWhereInput = {
-      createdAt: {
-        gte: startUtc,
-        lte: endUtc,
-      },
+      OR: [
+        { finalizedAt: { gte: startUtc, lte: endUtc } },
+        { finalizedAt: null, createdAt: { gte: startUtc, lte: endUtc } },
+      ],
     };
 
     if (channel) where.channel = channel;
@@ -785,7 +785,10 @@ export class ReportsRepository {
       prisma.invoice.findMany({
         where: {
           status: InvoiceStatus.FINAL,
-          createdAt: { gte: startUtc, lte: endUtc },
+          OR: [
+            { finalizedAt: { gte: startUtc, lte: endUtc } },
+            { finalizedAt: null, createdAt: { gte: startUtc, lte: endUtc } },
+          ],
         },
         include: { party: { select: { name: true } } },
       }),
@@ -902,7 +905,11 @@ export class ReportsRepository {
   ): Promise<SalesRegisterReport> {
     const invoices = await prisma.invoice.findMany({
       where: {
-        createdAt: { gte: startUtc, lte: endUtc },
+        status: InvoiceStatus.FINAL,
+        OR: [
+          { finalizedAt: { gte: startUtc, lte: endUtc } },
+          { finalizedAt: null, createdAt: { gte: startUtc, lte: endUtc } },
+        ],
       },
       include: {
         party: { select: { name: true, gstin: true } },

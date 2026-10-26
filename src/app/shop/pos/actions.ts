@@ -5,6 +5,7 @@ import { pricingService } from "@/modules/pricing/pricing.service";
 import { billingService } from "@/modules/billing/billing.service";
 import { authService } from "@/modules/auth/auth.service";
 import { InvoiceChannel, UserRole } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 export async function calculateOrderPricingAction(
   items: Array<{ productId: string; qty: number }>,
@@ -94,28 +95,50 @@ export async function finalizeBillAction(input: {
 }) {
   const session = await auth();
   if (!session?.user) {
-    throw new Error("Unauthorized");
+    return { success: false, error: "Session expired or unauthorized. Please re-login." };
   }
 
-  const invoice = await billingService.finalizeInvoice(
-    session.user.role,
-    {
-      channel: InvoiceChannel.SHOP,
-      locationId: input.locationId,
-      partyId: input.partyId ?? null,
-      buyerType: input.buyerType ?? undefined,
-      orderDiscountBp: input.orderDiscountBp ?? 0,
-      isInterState: input.isInterState ?? false,
-      items: input.items,
-      payments: input.payments,
-      idempotencyKey: input.idempotencyKey,
-      notes: input.notes,
-      creditOverride: input.creditOverride,
-    },
-    session.user.id
-  );
+  try {
+    const invoice = await billingService.finalizeInvoice(
+      session.user.role,
+      {
+        channel: InvoiceChannel.SHOP,
+        locationId: input.locationId,
+        partyId: input.partyId ?? null,
+        buyerType: input.buyerType ?? undefined,
+        orderDiscountBp: input.orderDiscountBp ?? 0,
+        isInterState: input.isInterState ?? false,
+        items: input.items,
+        payments: input.payments,
+        idempotencyKey: input.idempotencyKey,
+        notes: input.notes,
+        creditOverride: input.creditOverride,
+      },
+      session.user.id
+    );
 
-  return invoice;
+    return {
+      success: true,
+      invoice: {
+        id: invoice.id,
+        number: invoice.number,
+        totalPaise: invoice.totalPaise,
+        status: invoice.status,
+        channel: invoice.channel,
+        paymentStatus: invoice.paymentStatus,
+        paymentMode:
+          invoice.payments.find((p) => p.mode === "CREDIT")?.mode ||
+          invoice.payments[0]?.mode ||
+          "CASH",
+      },
+    };
+  } catch (err: any) {
+    console.error("[finalizeBillAction error]:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to finalize invoice",
+    };
+  }
 }
 
 export async function createQuickPartyAction(input: {
@@ -180,3 +203,114 @@ export async function verifyOwnerOverrideAction(
 
   return authService.verifyOwnerCredentials(phoneOrEmail, password);
 }
+
+export async function getPartyBillHistoryAction(partyId: string, limit: number = 20) {
+  const session = await auth();
+  if (!session?.user) {
+    return { error: "Authentication required" };
+  }
+
+  try {
+    const invoices = await prisma.invoice.findMany({
+      where: { partyId },
+      orderBy: { finalizedAt: "desc" },
+      take: limit,
+      select: {
+        id: true,
+        number: true,
+        channel: true,
+        status: true,
+        totalPaise: true,
+        finalizedAt: true,
+        createdAt: true,
+        paymentStatus: true,
+        items: {
+          select: {
+            id: true,
+            qty: true,
+            unitPricePaise: true,
+            taxablePaise: true,
+            product: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        payments: {
+          select: {
+            id: true,
+            mode: true,
+            amountPaise: true,
+          },
+        },
+      },
+    });
+
+    const sanitized = invoices.map((inv: any) => ({
+      ...inv,
+      finalizedAt: inv.finalizedAt ? inv.finalizedAt.toISOString() : null,
+      createdAt: inv.createdAt.toISOString(),
+      lines: (inv.items || []).map((it: any) => ({
+        id: it.id,
+        productName: it.product?.name || "Product",
+        qty: it.qty,
+        unitPricePaise: it.unitPricePaise,
+        lineTotalPaise: it.taxablePaise,
+      })),
+    }));
+
+    return { success: true, invoices: sanitized };
+  } catch (err: any) {
+    return { error: err.message || "Failed to fetch party invoices" };
+  }
+}
+
+export async function getPartyLastItemPurchaseAction(partyId: string, productId: string) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, lastPurchase: null };
+  }
+
+  try {
+    const lastLine = await prisma.invoiceItem.findFirst({
+      where: {
+        productId,
+        invoice: {
+          partyId,
+          status: "FINAL",
+        },
+      },
+      orderBy: {
+        invoice: {
+          finalizedAt: "desc",
+        },
+      },
+      include: {
+        invoice: {
+          select: {
+            number: true,
+            finalizedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!lastLine) {
+      return { success: true, lastPurchase: null };
+    }
+
+    return {
+      success: true,
+      lastPurchase: {
+        ratePaise: lastLine.unitPricePaise,
+        qty: lastLine.qty,
+        invoiceNumber: lastLine.invoice.number,
+        date: lastLine.invoice.finalizedAt ? lastLine.invoice.finalizedAt.toISOString() : null,
+      },
+    };
+  } catch {
+    return { success: false, lastPurchase: null };
+  }
+}
+
