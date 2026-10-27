@@ -47,7 +47,9 @@ export const DEFAULT_PAYMENT_MODE_SETTINGS: PaymentModeSettings = {
 };
 
 export const DEFAULT_INVOICE_PRINT_SETTINGS: InvoicePrintSettings = {
-  showAgentCode: false,
+  showAgentCode: true,
+  showAgentCodeOnline: false,
+  showGstBreakup: false,
   footerThankYou: "Thank You! Visit Again!",
   footerDeliveryText: "CALL US FOR FREE DOOR DELIVERY",
   footerDeliveryPhone: "7979749009",

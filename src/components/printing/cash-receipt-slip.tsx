@@ -20,7 +20,7 @@ export function CashReceiptSlip({ invoice, business, options }: CashReceiptSlipP
         <img
           src="/brand/jmd-cart-logo-color.jpg"
           alt="JMD Cart"
-          className="w-44 max-w-[190px] h-auto object-contain mx-auto mb-1 print:contrast-125"
+          className="w-32 max-w-[130px] max-h-12 h-auto object-contain mx-auto mb-1 print:contrast-125"
         />
       </div>
 

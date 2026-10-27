@@ -94,7 +94,9 @@ export const pricingSettingsSchema = z.object({
 export type PricingSettings = z.infer<typeof pricingSettingsSchema>;
 
 export const invoicePrintSettingsSchema = z.object({
-  showAgentCode: z.boolean().default(false),
+  showAgentCode: z.boolean().default(true),
+  showAgentCodeOnline: z.boolean().default(false),
+  showGstBreakup: z.boolean().default(false),
   footerThankYou: z.string().default("Thank You! Visit Again!"),
   footerDeliveryText: z.string().default("CALL US FOR FREE DOOR DELIVERY"),
   footerDeliveryPhone: z.string().default("7979749009"),

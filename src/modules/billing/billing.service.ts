@@ -1,3 +1,4 @@
+import { incentiveService } from "@/modules/incentive/incentive.service";
 import {
   InvoiceStatus,
   InvoiceChannel,
@@ -722,6 +723,13 @@ export class BillingService {
               referenceId: creditNote.id,
             },
           });
+        }
+
+        // F. Reverse incentive entries
+        try {
+          await incentiveService.onInvoiceCancelled(existing.id, validated.reason, actorId || "SYSTEM", tx);
+        } catch (incErr) {
+          console.error("[Incentive] Reversal error (non-blocking):", incErr);
         }
 
         return { creditNoteId: creditNote.id };

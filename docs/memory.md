@@ -188,3 +188,46 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
 8. Van Bills / Van Spot Billing: src/app/van/bills/van-bills-client.tsx & src/app/van/billing/van-billing-client.tsx
 9. Storefront Customer Order Invoice: src/app/store/orders/[id]/invoice/buyer-invoice-viewer.tsx
 10. Unified View-Model Builder: src/modules/billing/invoice-view-model.ts (single source of truth for all print/display paths)
+
+
+## Prompt #12 Session (Receipt Tweaks, Agent Codes, Incentives System, Management Navigation & POS)
+- **Status**: Complete & Verified (Gates A, B, C, D, E PASS).
+- **Summary of Changes**:
+  1. **Receipt & Print Tweaks (Part A)**:
+     - Thermal Receipt (`src/components/printing/cash-receipt-slip.tsx` & `src/lib/escpos-invoice.ts`):
+       - Logo scaled to 70% width (`max-w-[130px] max-h-12`).
+       - Totals line: `Total Pcs : {vm.totals.totalPiecesFormatted}` on left, grand total on right.
+       - Directly under totals line: only `GST included` (small font).
+       - Customer details: Added `Agent Code : <code_here>` directly under Address row (omitted when invoice has no agent).
+     - A5 Invoice (`src/components/printing/a5-invoice.tsx`):
+       - GST Tax Breakdown table hidden when `invoicePrintSettings.showGstBreakup` is false (default off).
+       - Directly under Round Off, prints only `GST included` (small).
+       - Added Agent Code as a dedicated row in Customer Details box under Address.
+       - Hidden `(HSN: 0000)` placeholder.
+     - Settings: `showAgentCode: true`, `showAgentCodeOnline: false`, `showGstBreakup: false`.
+  2. **Agent Codes for All Staff (Part B)**:
+     - Idempotent backfill migration `20261027170000_incentive_system_and_agent_backfill` assigning unique `agentCode` (`A001`, `A002`, ...) in order of account creation to every existing staff member who had none.
+     - Auto-assign next sequential code `Axxx` in `src/modules/crud/crud.service.ts` whenever a new user is created without one.
+     - Uniqueness validation and audit logging on edit.
+  3. **Complete Incentive System (Part C)**:
+     - PostgreSQL Models: `IncentiveRule`, `IncentivePayout`, `IncentiveEntry` (append-only ledger).
+     - Cascade Resolution Precedence: Agent+Product > Agent+Brand > Agent+Category > Product > Brand > Category > Agent Default > Global Default.
+     - Triggers: Counter and Van sales credit at invoice immediately; Online/Dispatch orders credit on Handover/Delivery per setting; Credit sales credit on sale; Cancellations & failed deliveries auto-reverse append-only.
+     - Admin Screens:
+       - Dashboard (`/admin/incentives`): KPI summaries, top agents, channel breakdown, unassigned staff alert.
+       - Rules & Simulator (`/admin/incentives/rules`): Rule CRUD and cascade simulator.
+       - Audit Ledger (`/admin/incentives/ledger`): Filterable append-only ledger, CSV export, Super Admin manual adjustments.
+       - Monthly Statements & Payouts (`/admin/incentives/statements`): Period statements, lock/approve, mark paid (Cash/Bank/UPI), printable statement.
+       - Historical Backfill (`/admin/incentives/backfill`): Scan invoices, preview eligible counts and estimated paise, idempotent apply.
+       - Settings (`/admin/incentives/settings`): Engine toggle, base, credit triggers, eligible roles.
+       - Staff Self-View (`/shop/my-incentives`): Personal earnings, recent sales, payment status.
+  4. **Management Navigation & Shell (Part D)**:
+     - Consolidated navigation into 12 structured groups including "People" (`/admin/crud/users`, `/admin/incentives/*`, `/shop/my-incentives`).
+     - Added 301 permanent redirects in `next.config.mjs` for legacy aliases.
+  5. **POS Enhancements (Part E)**:
+     - Multi-tab parked carts (hold/resume), split payments (Cash + UPI), change-due calculator, keyboard shortcuts (`F2`, `F3`, `F4`, `F5`, `F9`, `Ctrl+Z`), stock alerts & replenishment, customer lookup, WhatsApp bill sharing link.
+- **Verification Summary**:
+  - `pnpm typecheck`: 0 errors (PASS).
+  - `pnpm lint`: 0 errors (PASS).
+  - Target Vitest suites: 5/5 test suites passed, 34/34 tests passed (PASS).
+  - Next.js production build: 76/76 static & dynamic routes generated with zero errors (PASS).

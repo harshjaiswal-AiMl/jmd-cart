@@ -4,6 +4,9 @@ import { amountInWords } from "@/lib/number-to-words";
 
 export interface InvoiceViewModelOptions {
   showAgentCode?: boolean;
+  showAgentCodeOnline?: boolean;
+  showGstBreakup?: boolean;
+  isStorefront?: boolean;
   footerThankYou?: string;
   footerDeliveryText?: string;
   footerDeliveryPhone?: string;
@@ -114,6 +117,7 @@ export interface InvoiceViewModel {
   gstIncluded: boolean;
 
   // HSN Tax Breakdown (for B2B / A5)
+  showGstBreakup: boolean;
   hsnTaxSummary: Array<{
     hsn: string;
     gstRatePct: number;
@@ -231,6 +235,13 @@ export function buildInvoiceViewModel(
     invoice.customerAddress || invoice.party?.address || null;
   const custGstin = invoice.party?.gstin || null;
 
+  // Agent code snapshot resolution (Prompt #12: default on for staff, hidden for storefront)
+  const rawAgentCode =
+    invoice.agentCodeSnapshot || invoice.agentUser?.agentCode || null;
+  const isOnline = options.isStorefront === true;
+  const showAgent = isOnline ? (options.showAgentCodeOnline ?? false) : (options.showAgentCode ?? true);
+  const effectiveAgentCode = showAgent && rawAgentCode ? rawAgentCode : null;
+
   const customerRows: InvoiceCustomerRow[] = [];
   if (custName) {
     customerRows.push({ label: "Name", value: custName });
@@ -240,6 +251,9 @@ export function buildInvoiceViewModel(
   }
   if (custAddress) {
     customerRows.push({ label: "Address", value: custAddress });
+  }
+  if (effectiveAgentCode) {
+    customerRows.push({ label: "Agent Code", value: effectiveAgentCode });
   }
   if (customerRows.length === 0) {
     customerRows.push({ label: "Customer", value: "Walk-in" });
@@ -294,7 +308,9 @@ export function buildInvoiceViewModel(
     }
 
     // Accumulate HSN breakdown
-    const hsnCode = item.hsn || "21069099";
+    const rawHsn = item.hsn?.trim() || "";
+    const isPlaceholderHsn = !rawHsn || ["0", "00", "0000", "000000"].includes(rawHsn);
+    const hsnCode = isPlaceholderHsn ? "" : rawHsn;
     const gstRatePct = item.gstRateBp / 100;
     const existingHsn = hsnMap.get(hsnCode) || {
       hsn: hsnCode,
@@ -322,7 +338,7 @@ export function buildInvoiceViewModel(
       productId: item.productId,
       name: item.product?.name || "Item",
       shortCode: item.product?.shortCode || "",
-      hsn: item.hsn || "",
+      hsn: hsnCode,
       gstRatePct: item.gstRateBp / 100,
       packSize,
       packLabel: item.product?.packLabel || "Carton",
@@ -349,16 +365,12 @@ export function buildInvoiceViewModel(
   // In retail POS / Van FMCG, prices are MRP-derived (tax-inclusive)
   const isGstIncluded =
     invoice.taxablePaise > 0 &&
-    invoice.taxablePaise + totalTaxPaise === invoice.subtotalPaise;
+    (invoice.taxablePaise + totalTaxPaise === invoice.subtotalPaise ||
+      invoice.taxablePaise + totalTaxPaise === invoice.totalPaise - (invoice.roundOffPaise || 0) ||
+      invoice.taxablePaise + totalTaxPaise === invoice.subtotalPaise - (invoice.discountPaise || 0));
 
   const roundoffPaise = invoice.totalPaise - subtotalCalculatedPaise;
   const roundOffRupees = (roundoffPaise / 100).toFixed(2);
-
-  // Agent code snapshot
-  const rawAgentCode =
-    invoice.agentCodeSnapshot || invoice.agentUser?.agentCode || null;
-  const showAgent = options.showAgentCode ?? false;
-  const effectiveAgentCode = showAgent && rawAgentCode ? rawAgentCode : null;
 
   const hsnTaxSummary = Array.from(hsnMap.values()).map((h) => ({
     hsn: h.hsn,
@@ -450,6 +462,7 @@ export function buildInvoiceViewModel(
     payableFormatted: payableRupeesFormatted,
     gstIncluded: isGstIncluded,
 
+    showGstBreakup: options.showGstBreakup ?? false,
     hsnTaxSummary,
 
     footerThankYou: thankYouText,

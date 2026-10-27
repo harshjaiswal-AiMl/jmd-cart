@@ -648,6 +648,20 @@ export class CrudService {
           if (existing) {
             throw new Error(`Agent code '${agentCode}' is already assigned to user '${existing.name}'`);
           }
+        } else {
+          // Auto-assign the next sequential code (A001, A002, ...)
+          const usersWithACode = await prisma.user.findMany({
+            where: { agentCode: { startsWith: "A" } },
+            select: { agentCode: true },
+          });
+          let maxNum = 0;
+          for (const u of usersWithACode) {
+            if (u.agentCode && /^A\d+$/.test(u.agentCode)) {
+              const n = parseInt(u.agentCode.slice(1), 10);
+              if (!isNaN(n) && n > maxNum) maxNum = n;
+            }
+          }
+          agentCode = `A${String(maxNum + 1).padStart(3, "0")}`;
         }
         const created = await prisma.user.create({
           data: {

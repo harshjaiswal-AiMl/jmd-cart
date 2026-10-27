@@ -22,6 +22,7 @@ export type NavGroupName =
   | "Delivery"
   | "Accounts"
   | "Reports"
+  | "People"
   | "Admin";
 
 export interface NavGroup {
@@ -461,7 +462,73 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
   },
 
-  // 10. Admin
+  // 10. People & Incentives
+  {
+    id: "people-users",
+    group: "People",
+    label: "Staff & Users",
+    icon: "UserCog",
+    href: "/admin/crud/users",
+    roles: [...ADMIN_ROLES],
+  },
+  {
+    id: "people-incentives-dash",
+    group: "People",
+    label: "Incentives Dashboard",
+    icon: "Award",
+    href: "/admin/incentives",
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+  },
+  {
+    id: "people-incentives-rules",
+    group: "People",
+    label: "Rules & Calculator",
+    icon: "Percent",
+    href: "/admin/incentives/rules",
+    roles: [...ADMIN_ROLES],
+  },
+  {
+    id: "people-incentives-ledger",
+    group: "People",
+    label: "Incentives Ledger",
+    icon: "BookOpen",
+    href: "/admin/incentives/ledger",
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+  },
+  {
+    id: "people-incentives-statements",
+    group: "People",
+    label: "Monthly Statements",
+    icon: "Calendar",
+    href: "/admin/incentives/statements",
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+  },
+  {
+    id: "people-incentives-backfill",
+    group: "People",
+    label: "Historical Backfill",
+    icon: "History",
+    href: "/admin/incentives/backfill",
+    roles: [...ADMIN_ROLES],
+  },
+  {
+    id: "people-incentives-settings",
+    group: "People",
+    label: "Incentive Settings",
+    icon: "Settings",
+    href: "/admin/incentives/settings",
+    roles: [...ADMIN_ROLES],
+  },
+  {
+    id: "sales-my-incentives",
+    group: "Sales",
+    label: "My Incentives",
+    icon: "Award",
+    href: "/shop/my-incentives",
+    roles: [UserRole.SHOP, UserRole.SALESPERSON, UserRole.DELIVERY, ...ADMIN_ROLES],
+  },
+
+  // 11. Admin
   {
     id: "adm-crud-hub",
     group: "Admin",
@@ -547,6 +614,7 @@ export const NAV_GROUP_ORDER: Array<{ name: NavGroupName; icon: string }> = [
   { name: "Delivery", icon: "MapPin" },
   { name: "Accounts", icon: "Wallet" },
   { name: "Reports", icon: "BarChart3" },
+  { name: "People", icon: "UserCog" },
   { name: "Admin", icon: "Settings" },
 ];
 

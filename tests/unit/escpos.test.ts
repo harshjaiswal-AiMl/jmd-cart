@@ -228,7 +228,9 @@ describe("Task 2.5: ESC/POS Command Encoder & Receipt Formatter", () => {
       expect(decoded).toContain("Gupta Kirana Store");
       expect(decoded).toContain("Bikaji Bhujia 400g Pouch");
       expect(decoded).toContain("12 pcs @ Rs.46.00");
-      expect(decoded).toContain("TOTAL:");
+      expect(decoded).toContain("Total Pcs :");
+      expect(decoded).toContain("GST included");
+      expect(decoded).toContain("Agent Code:");
       expect(decoded).toContain("Rs.552.00");
       expect(decoded).toContain("Paid (CASH):");
       expect(decoded).toContain("Thank You! Visit Again!");

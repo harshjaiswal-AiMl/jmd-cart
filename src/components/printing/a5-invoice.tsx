@@ -157,7 +157,7 @@ export function A5Invoice({ invoice, business, options }: A5InvoiceProps) {
                       </td>
                       <td className="py-1 px-1.5 font-semibold text-slate-900 leading-tight">
                         {item.name}
-                        {item.hsn && (
+                        {item.hsn && !["0", "00", "0000", "000000"].includes(item.hsn.trim()) && (
                           <span className="text-[8px] text-slate-500 font-normal ml-1">
                             (HSN: {item.hsn})
                           </span>
@@ -184,7 +184,7 @@ export function A5Invoice({ invoice, business, options }: A5InvoiceProps) {
               </table>
 
               {/* HSN-wise GST Summary (if supported and last page) */}
-              {isLastPage && vm.hsnTaxSummary.length > 0 && (
+              {isLastPage && vm.showGstBreakup && vm.hsnTaxSummary.length > 0 && (
                 <div className="mb-2">
                   <p className="text-[8.5px] font-bold text-slate-700 uppercase tracking-wider mb-0.5">
                     GST Tax Breakdown

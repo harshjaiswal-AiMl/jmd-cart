@@ -1,3 +1,4 @@
+import { incentiveService } from "@/modules/incentive/incentive.service";
 import { Prisma, OrderStatus, DispatchRunStatus, ShopRequestStatus, CounterPickupStatus, MovementType, InvoiceChannel, PaymentStatus, InvoiceStatus, LocationType, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { allocationService } from "@/modules/stock/allocation.service";
@@ -410,6 +411,12 @@ export class DispatchService {
         where: { id: runId },
         data: { status: DispatchRunStatus.OUT },
       });
+
+      try {
+        await incentiveService.onDispatchHandover(run.orders.map((ro) => ro.order.id), tx);
+      } catch (incErr) {
+        console.error("[Incentive] Dispatch handover credit error:", incErr);
+      }
     });
 
     await auditService.log({

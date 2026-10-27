@@ -3,9 +3,9 @@ import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { BusinessDetails } from "@/modules/settings/settings.types";
 import { CollectionReceipt } from "@/modules/party/party.types";
 import { formatISTDate, formatISTTime } from "./date";
-import { buildInvoiceViewModel } from "@/modules/billing/invoice-view-model";
+import { buildInvoiceViewModel, InvoiceViewModelOptions } from "@/modules/billing/invoice-view-model";
 
-export interface EscPosInvoiceOptions {
+export interface EscPosInvoiceOptions extends InvoiceViewModelOptions {
   paperWidth?: 58 | 80; // 58mm (32 chars) or 80mm (48 chars)
 }
 
@@ -19,7 +19,7 @@ export function formatInvoiceForEscPos(
 ): Uint8Array {
   const width = options.paperWidth === 80 ? 48 : 32;
   const builder = new EscPosBuilder();
-  const vm = buildInvoiceViewModel(invoice, business);
+  const vm = buildInvoiceViewModel(invoice, business, options);
 
   // 1. Store Header (no cash header, no cashier name)
   builder.align("center");
@@ -51,14 +51,12 @@ export function formatInvoiceForEscPos(
   builder.align("left");
   builder.twoColumn("INVOICE NO:", vm.invoiceNumberClean, width);
   builder.twoColumn("DATE:", `${vm.invoiceDate} ${vm.invoiceTime}`, width);
-  builder.twoColumn("CHANNEL:", `${invoice.channel} (${invoice.location.name})`, width);
+  builder.twoColumn("CHANNEL:", `${invoice.channel} (${invoice.location?.name || vm.locationName || 'Shop'})`, width);
 
   if (vm.isNonCash) {
     builder.twoColumn("MODE:", vm.paymentModeBadge, width);
   }
-  if (vm.agentCode) {
-    builder.twoColumn("AGENT:", vm.agentCode, width);
-  }
+  
 
   // Customer block (3 rows: Name, Mobile, Address - omitted if empty)
   if (vm.customer.name) {
@@ -71,6 +69,9 @@ export function formatInvoiceForEscPos(
     }
   } else {
     builder.twoColumn("CUSTOMER:", "Walk-in", width);
+  }
+  if (vm.agentCode) {
+    builder.twoColumn("Agent Code:", vm.agentCode, width);
   }
 
   builder.rule("-", width);
@@ -101,9 +102,7 @@ export function formatInvoiceForEscPos(
   }
 
   const totalTaxPaise = invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise;
-  if (vm.gstIncluded) {
-    builder.twoColumn("GST (Included):", `Rs.${(totalTaxPaise / 100).toFixed(2)}`, width);
-  } else if (totalTaxPaise > 0) {
+  if (!vm.gstIncluded && totalTaxPaise > 0) {
     builder.twoColumn("GST:", `Rs.${(totalTaxPaise / 100).toFixed(2)}`, width);
   }
 
@@ -121,7 +120,11 @@ export function formatInvoiceForEscPos(
   // 5. Grand Total (Double Height + Bold)
   builder.bold(true);
   builder.size("double-height");
-  builder.twoColumn("TOTAL:", `Rs.${vm.payableFormatted}`, width);
+  builder.twoColumn(`Total Pcs : ${vm.totals.totalPiecesFormatted}`, `Rs.${vm.payableFormatted}`, width);
+  builder.normal();
+  if (vm.gstIncluded) {
+    builder.line("GST included");
+  }
   builder.normal();
   builder.rule("=", width);
 

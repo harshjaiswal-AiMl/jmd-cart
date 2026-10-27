@@ -56,6 +56,35 @@ enum PartyType {
   SUPPLIER
 }
 
+enum IncentiveRuleScope {
+  GLOBAL
+  AGENT
+  BRAND
+  CATEGORY
+  PRODUCT
+}
+
+enum IncentiveEntryType {
+  ACCRUAL
+  REVERSAL
+  ADJUSTMENT
+}
+
+enum IncentiveEntryStatus {
+  PENDING
+  CREDITED
+  REVERSED
+  VOID
+  APPROVED
+  PAID
+}
+
+enum IncentivePayoutStatus {
+  DRAFT
+  APPROVED
+  PAID
+}
+
 enum LedgerKind {
   INVOICE
   RECEIPT
@@ -150,7 +179,6 @@ enum ShopPickStatus {
   CANCELLED
 }
 
-
 model User {
   id                 String     @id @default(cuid())
   branchId           Int        @default(1) @map("branch_id")
@@ -171,28 +199,31 @@ model User {
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
 
-  party              Party?        @relation("UserParty", fields: [partyId], references: [id], onDelete: SetNull)
-  assignedLocations  Location[]
-  auditLogs          AuditLog[]
-  createdInvoices    Invoice[]
-  receivedPayments   Payment[]
-  createdPurchases   Purchase[]
-  createdCreditNotes CreditNote[]
-  vanDays            VanDay[]
-  creditOverrideInvoices Invoice[] @relation("CreditOverrideInvoices")
-  agentInvoices      Invoice[]     @relation("AgentInvoices")
-  handoversGiven     CashHandover[] @relation("HandoverSalesperson")
-  handoversReceived  CashHandover[] @relation("HandoverReceiver")
-  createdDebitNotes  DebitNote[]
-  cart               Cart?
-  orders             Order[]        @relation("CustomerOrders")
-  assignedDeliveries Order[]        @relation("DeliveryStaffOrders")
-  importBatches      ImportBatch[]
-  savedAddresses     UserAddress[]  @relation("UserSavedAddresses")
-  wishlistItems      WishlistItem[] @relation("UserWishlist")
-  createdBillScans   BillScan[]     @relation("BillScanCreator")
-  createdOrders      Order[]        @relation("OrderCreator")
-  assignedRuns       DispatchRun[]  @relation("DeliveryStaffRuns")
+  party                  Party?            @relation("UserParty", fields: [partyId], references: [id], onDelete: SetNull)
+  assignedLocations      Location[]
+  auditLogs              AuditLog[]
+  createdInvoices        Invoice[]
+  receivedPayments       Payment[]
+  createdPurchases       Purchase[]
+  createdCreditNotes     CreditNote[]
+  vanDays                VanDay[]
+  creditOverrideInvoices Invoice[]         @relation("CreditOverrideInvoices")
+  agentInvoices          Invoice[]         @relation("AgentInvoices")
+  handoversGiven         CashHandover[]    @relation("HandoverSalesperson")
+  handoversReceived      CashHandover[]    @relation("HandoverReceiver")
+  createdDebitNotes      DebitNote[]
+  cart                   Cart?
+  orders                 Order[]           @relation("CustomerOrders")
+  assignedDeliveries     Order[]           @relation("DeliveryStaffOrders")
+  importBatches          ImportBatch[]
+  savedAddresses         UserAddress[]     @relation("UserSavedAddresses")
+  wishlistItems          WishlistItem[]    @relation("UserWishlist")
+  createdBillScans       BillScan[]        @relation("BillScanCreator")
+  createdOrders          Order[]           @relation("OrderCreator")
+  assignedRuns           DispatchRun[]     @relation("DeliveryStaffRuns")
+  incentiveRules         IncentiveRule[]
+  incentiveEntries       IncentiveEntry[]
+  incentivePayouts       IncentivePayout[]
 
   @@map("users")
 }
@@ -207,50 +238,52 @@ model Location {
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  assignedUser   User?           @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
-  stockBalances  StockBalance[]
-  fromMovements  StockMovement[] @relation("FromLocation")
-  toMovements    StockMovement[] @relation("ToLocation")
-  invoices       Invoice[]
-  purchases      Purchase[]
-  stockAudits    StockAudit[]
-  vanDays        VanDay[]
-  payments       Payment[]
-  debitNotes     DebitNote[]
-  importBatches  ImportBatch[]
-  billScans      BillScan[]
-  dispatchRuns   DispatchRun[]
+  assignedUser      User?              @relation(fields: [assignedUserId], references: [id], onDelete: SetNull)
+  stockBalances     StockBalance[]
+  fromMovements     StockMovement[]    @relation("FromLocation")
+  toMovements       StockMovement[]    @relation("ToLocation")
+  invoices          Invoice[]
+  purchases         Purchase[]
+  stockAudits       StockAudit[]
+  vanDays           VanDay[]
+  payments          Payment[]
+  debitNotes        DebitNote[]
+  importBatches     ImportBatch[]
+  billScans         BillScan[]
+  dispatchRuns      DispatchRun[]
   stockReservations StockReservation[]
 
   @@map("locations")
 }
 
 model Company {
-  id        String    @id @default(cuid())
-  branchId  Int       @default(1) @map("branch_id")
-  name      String    @unique
-  active    Boolean   @default(true)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  branchId  Int      @default(1) @map("branch_id")
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   products            Product[]
   supplierParty       Party?              @relation("CompanySupplier")
   billScans           BillScan[]
   supplierItemAliases SupplierItemAlias[]
+  incentiveRules      IncentiveRule[]
 
   @@map("companies")
 }
 
 model Category {
-  id        String    @id @default(cuid())
-  branchId  Int       @default(1) @map("branch_id")
-  name      String    @unique
-  imageUrl  String?   @map("image_url")
-  active    Boolean   @default(true)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  branchId  Int      @default(1) @map("branch_id")
+  name      String   @unique
+  imageUrl  String?  @map("image_url")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  products  Product[]
+  products       Product[]
+  incentiveRules IncentiveRule[]
 
   @@map("categories")
 }
@@ -277,22 +310,23 @@ model Product {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  company        Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  category       Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  stockBalances  StockBalance[]
-  stockMovements StockMovement[]
-  invoiceItems   InvoiceItem[]
-  purchaseItems  PurchaseItem[]
-  auditLines     StockAuditLine[]
-  vanDayLines    VanDayLine[]
-  debitNoteItems DebitNoteItem[]
-  cartItems      CartItem[]
+  company             Company?            @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  category            Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  stockBalances       StockBalance[]
+  stockMovements      StockMovement[]
+  invoiceItems        InvoiceItem[]
+  purchaseItems       PurchaseItem[]
+  auditLines          StockAuditLine[]
+  vanDayLines         VanDayLine[]
+  debitNoteItems      DebitNoteItem[]
+  cartItems           CartItem[]
   orderItems          OrderItem[]
   wishlistItems       WishlistItem[]      @relation("ProductWishlist")
   billScanLines       BillScanLine[]
   supplierItemAliases SupplierItemAlias[]
   stockReservations   StockReservation[]
   shopRequestLines    ShopRequestLine[]
+  incentiveRules      IncentiveRule[]
 
   @@index([name])
   @@index([companyId])
@@ -360,9 +394,9 @@ model ImportBatch {
   undoneAt    DateTime?         @map("undone_at")
   undoneBy    String?           @map("undone_by")
 
-  user        User              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  location    Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  movements   StockMovement[]
+  user      User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  location  Location?       @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  movements StockMovement[]
 
   @@index([type, createdAt])
   @@index([userId, createdAt])
@@ -399,7 +433,7 @@ model AuditLog {
   ip        String?
   createdAt DateTime @default(now()) @map("created_at")
 
-  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([entity, entityId])
   @@index([actorId, createdAt])
@@ -407,32 +441,32 @@ model AuditLog {
 }
 
 model Party {
-  id               String      @id @default(cuid())
-  branchId         Int         @default(1) @map("branch_id")
+  id               String    @id @default(cuid())
+  branchId         Int       @default(1) @map("branch_id")
   type             PartyType
   name             String
   phone            String?
   email            String?
   gstin            String?
   address          String?
-  creditEnabled    Boolean     @default(false) @map("credit_enabled")
-  creditLimitPaise Int         @default(0) @map("credit_limit_paise")
-  creditDays       Int         @default(0) @map("credit_days")
-  tallyRef         String?     @map("tally_ref")
-  companyId        String?     @unique @map("company_id")
-  active           Boolean     @default(true)
-  createdAt        DateTime    @default(now()) @map("created_at")
-  updatedAt        DateTime    @updatedAt @map("updated_at")
+  creditEnabled    Boolean   @default(false) @map("credit_enabled")
+  creditLimitPaise Int       @default(0) @map("credit_limit_paise")
+  creditDays       Int       @default(0) @map("credit_days")
+  tallyRef         String?   @map("tally_ref")
+  companyId        String?   @unique @map("company_id")
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  company          Company?    @relation("CompanySupplier", fields: [companyId], references: [id], onDelete: SetNull)
-  invoices         Invoice[]
-  purchases        Purchase[]
-  ledgerEntries    LedgerEntry[]
-  payments         Payment[]
-  debitNotes       DebitNote[]
-  users            User[]        @relation("UserParty")
-  billScans        BillScan[]
-  orders           Order[]       @relation("PartyOrders")
+  company       Company?      @relation("CompanySupplier", fields: [companyId], references: [id], onDelete: SetNull)
+  invoices      Invoice[]
+  purchases     Purchase[]
+  ledgerEntries LedgerEntry[]
+  payments      Payment[]
+  debitNotes    DebitNote[]
+  users         User[]        @relation("UserParty")
+  billScans     BillScan[]
+  orders        Order[]       @relation("PartyOrders")
 
   @@map("parties")
 }
@@ -448,19 +482,19 @@ model LedgerEntry {
   referenceId   String?    @map("reference_id")
   createdAt     DateTime   @default(now()) @map("created_at")
 
-  party         Party      @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  party Party @relation(fields: [partyId], references: [id], onDelete: Restrict)
 
   @@index([partyId, createdAt])
   @@map("ledger_entries")
 }
 
 model Purchase {
-  id          String         @id @default(cuid())
-  branchId    Int            @default(1) @map("branch_id")
-  supplierId  String?        @map("supplier_id")
-  billNo      String         @map("bill_no")
-  billDate    DateTime       @map("bill_date")
-  locationId  String         @map("location_id")
+  id             String         @id @default(cuid())
+  branchId       Int            @default(1) @map("branch_id")
+  supplierId     String?        @map("supplier_id")
+  billNo         String         @map("bill_no")
+  billDate       DateTime       @map("bill_date")
+  locationId     String         @map("location_id")
   totalPaise     Int            @map("total_paise")
   status         PurchaseStatus @default(RECEIVED)
   billScanId     String?        @unique @map("bill_scan_id")
@@ -469,78 +503,79 @@ model Purchase {
   createdAt      DateTime       @default(now()) @map("created_at")
   updatedAt      DateTime       @updatedAt @map("updated_at")
 
-  supplier       Party?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  location       Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  creator        User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  billScan       BillScan?      @relation("PurchaseBillScan")
-  items          PurchaseItem[]
+  supplier Party?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  location Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  creator  User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  billScan BillScan?      @relation("PurchaseBillScan")
+  items    PurchaseItem[]
 
   @@map("purchases")
 }
 
 model PurchaseItem {
-  id             String   @id @default(cuid())
-  purchaseId     String   @map("purchase_id")
-  productId      String   @map("product_id")
+  id             String  @id @default(cuid())
+  purchaseId     String  @map("purchase_id")
+  productId      String  @map("product_id")
   qty            Int
-  billedQty      Int?     @map("billed_qty")
-  acceptedQty    Int?     @map("accepted_qty")
-  varianceReason String?  @map("variance_reason")
-  ratePaise      Int      @map("rate_paise")
-  gstRateBp      Int      @default(0) @map("gst_rate_bp")
+  billedQty      Int?    @map("billed_qty")
+  acceptedQty    Int?    @map("accepted_qty")
+  varianceReason String? @map("variance_reason")
+  ratePaise      Int     @map("rate_paise")
+  gstRateBp      Int     @default(0) @map("gst_rate_bp")
 
-  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@map("purchase_items")
 }
 
 model Invoice {
-  id            String         @id @default(cuid())
-  branchId      Int            @default(1) @map("branch_id")
-  number        String         @unique
-  fy            String
-  status        InvoiceStatus  @default(DRAFT)
-  channel       InvoiceChannel @default(SHOP)
-  locationId    String         @map("location_id")
-  partyId       String?        @map("party_id")
-  buyerType     String         @default("RETAIL") @map("buyer_type")
-  subtotalPaise Int            @map("subtotal_paise")
-  discountPaise Int            @default(0) @map("discount_paise")
-  taxablePaise  Int            @map("taxable_paise")
-  cgstPaise     Int            @default(0) @map("cgst_paise")
-  sgstPaise     Int            @default(0) @map("sgst_paise")
-  igstPaise     Int            @default(0) @map("igst_paise")
-  roundOffPaise Int            @default(0) @map("round_off_paise")
-  totalPaise    Int            @map("total_paise")
-  paymentStatus PaymentStatus  @default(PENDING) @map("payment_status")
-  idempotencyKey String?       @unique @map("idempotency_key")
-  createdBy     String?        @map("created_by")
-  finalizedAt   DateTime?      @map("finalized_at")
-  irn           String?
-  qr            String?
-  notes         String?
-  creditOverride Boolean      @default(false) @map("credit_override")
-  creditOverrideReason String? @map("credit_override_reason")
-  creditOverrideBy String?    @map("credit_override_by")
-  customerName   String?        @map("customer_name")
-  customerPhone  String?        @map("customer_phone")
-  customerAddress String?       @map("customer_address")
-  agentUserId    String?        @map("agent_user_id")
-  agentCodeSnapshot String?     @map("agent_code_snapshot")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  id                   String         @id @default(cuid())
+  branchId             Int            @default(1) @map("branch_id")
+  number               String         @unique
+  fy                   String
+  status               InvoiceStatus  @default(DRAFT)
+  channel              InvoiceChannel @default(SHOP)
+  locationId           String         @map("location_id")
+  partyId              String?        @map("party_id")
+  buyerType            String         @default("RETAIL") @map("buyer_type")
+  subtotalPaise        Int            @map("subtotal_paise")
+  discountPaise        Int            @default(0) @map("discount_paise")
+  taxablePaise         Int            @map("taxable_paise")
+  cgstPaise            Int            @default(0) @map("cgst_paise")
+  sgstPaise            Int            @default(0) @map("sgst_paise")
+  igstPaise            Int            @default(0) @map("igst_paise")
+  roundOffPaise        Int            @default(0) @map("round_off_paise")
+  totalPaise           Int            @map("total_paise")
+  paymentStatus        PaymentStatus  @default(PENDING) @map("payment_status")
+  idempotencyKey       String?        @unique @map("idempotency_key")
+  createdBy            String?        @map("created_by")
+  finalizedAt          DateTime?      @map("finalized_at")
+  irn                  String?
+  qr                   String?
+  notes                String?
+  creditOverride       Boolean        @default(false) @map("credit_override")
+  creditOverrideReason String?        @map("credit_override_reason")
+  creditOverrideBy     String?        @map("credit_override_by")
+  customerName         String?        @map("customer_name")
+  customerPhone        String?        @map("customer_phone")
+  customerAddress      String?        @map("customer_address")
+  agentUserId          String?        @map("agent_user_id")
+  agentCodeSnapshot    String?        @map("agent_code_snapshot")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
 
-  location      Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  party         Party?         @relation(fields: [partyId], references: [id], onDelete: SetNull)
-  creator       User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  creditOverrideUser User?     @relation("CreditOverrideInvoices", fields: [creditOverrideBy], references: [id], onDelete: SetNull)
-  agentUser      User?          @relation("AgentInvoices", fields: [agentUserId], references: [id], onDelete: SetNull)
-  items         InvoiceItem[]
-  payments      Payment[]
-  creditNotes   CreditNote[]
-  order         Order?
-  counterPickups CounterPickup[]
+  location           Location         @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  party              Party?           @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  creator            User?            @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  creditOverrideUser User?            @relation("CreditOverrideInvoices", fields: [creditOverrideBy], references: [id], onDelete: SetNull)
+  agentUser          User?            @relation("AgentInvoices", fields: [agentUserId], references: [id], onDelete: SetNull)
+  items              InvoiceItem[]
+  payments           Payment[]
+  creditNotes        CreditNote[]
+  order              Order?
+  counterPickups     CounterPickup[]
+  incentiveEntries   IncentiveEntry[]
 
   @@index([locationId, createdAt])
   @@index([partyId, createdAt])
@@ -549,20 +584,20 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id             String   @id @default(cuid())
-  invoiceId      String   @map("invoice_id")
-  productId      String   @map("product_id")
+  id             String @id @default(cuid())
+  invoiceId      String @map("invoice_id")
+  productId      String @map("product_id")
   qty            Int
-  mrpPaise       Int      @map("mrp_paise")
-  discountBp     Int      @default(0) @map("discount_bp")
-  unitPricePaise Int      @map("unit_price_paise")
-  taxablePaise   Int      @map("taxable_paise")
-  gstRateBp      Int      @map("gst_rate_bp")
-  taxPaise       Int      @map("tax_paise")
+  mrpPaise       Int    @map("mrp_paise")
+  discountBp     Int    @default(0) @map("discount_bp")
+  unitPricePaise Int    @map("unit_price_paise")
+  taxablePaise   Int    @map("taxable_paise")
+  gstRateBp      Int    @map("gst_rate_bp")
+  taxPaise       Int    @map("tax_paise")
   hsn            String
 
-  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  product        Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@map("invoice_items")
 }
@@ -580,10 +615,10 @@ model Payment {
   receivedBy    String?     @map("received_by")
   createdAt     DateTime    @default(now()) @map("created_at")
 
-  invoice       Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  party         Party?      @relation(fields: [partyId], references: [id], onDelete: SetNull)
-  vanLocation   Location?   @relation(fields: [vanLocationId], references: [id], onDelete: SetNull)
-  receiver      User?       @relation(fields: [receivedBy], references: [id], onDelete: SetNull)
+  invoice     Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  party       Party?    @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  vanLocation Location? @relation(fields: [vanLocationId], references: [id], onDelete: SetNull)
+  receiver    User?     @relation(fields: [receivedBy], references: [id], onDelete: SetNull)
 
   @@map("payments")
 }
@@ -598,32 +633,32 @@ model CreditNote {
   createdBy  String?  @map("created_by")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  creator    User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  creator User?   @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@map("credit_notes")
 }
 
 model DebitNote {
-  id            String          @id @default(cuid())
-  branchId      Int             @default(1) @map("branch_id")
-  number        String          @unique
+  id            String   @id @default(cuid())
+  branchId      Int      @default(1) @map("branch_id")
+  number        String   @unique
   fy            String
-  supplierId    String          @map("supplier_id")
-  locationId    String          @map("location_id")
+  supplierId    String   @map("supplier_id")
+  locationId    String   @map("location_id")
   reason        String
-  subtotalPaise Int             @map("subtotal_paise")
-  taxPaise      Int             @map("tax_paise")
-  roundOffPaise Int             @default(0) @map("round_off_paise")
-  totalPaise    Int             @map("total_paise")
+  subtotalPaise Int      @map("subtotal_paise")
+  taxPaise      Int      @map("tax_paise")
+  roundOffPaise Int      @default(0) @map("round_off_paise")
+  totalPaise    Int      @map("total_paise")
   notes         String?
-  createdBy     String?         @map("created_by")
-  createdAt     DateTime        @default(now()) @map("created_at")
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
 
-  supplier      Party           @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  location      Location        @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  creator       User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  items         DebitNoteItem[]
+  supplier Party           @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  location Location        @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  creator  User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  items    DebitNoteItem[]
 
   @@index([supplierId, createdAt])
   @@index([locationId, createdAt])
@@ -631,48 +666,48 @@ model DebitNote {
 }
 
 model DebitNoteItem {
-  id             String    @id @default(cuid())
-  debitNoteId    String    @map("debit_note_id")
-  productId      String    @map("product_id")
+  id             String  @id @default(cuid())
+  debitNoteId    String  @map("debit_note_id")
+  productId      String  @map("product_id")
   qty            Int
-  unitPricePaise Int       @map("unit_price_paise")
-  taxablePaise   Int       @map("taxable_paise")
-  gstRateBp      Int       @default(0) @map("gst_rate_bp")
-  taxPaise       Int       @default(0) @map("tax_paise")
-  totalPaise     Int       @map("total_paise")
-  batchNo        String?   @map("batch_no")
+  unitPricePaise Int     @map("unit_price_paise")
+  taxablePaise   Int     @map("taxable_paise")
+  gstRateBp      Int     @default(0) @map("gst_rate_bp")
+  taxPaise       Int     @default(0) @map("tax_paise")
+  totalPaise     Int     @map("total_paise")
+  batchNo        String? @map("batch_no")
   reason         String?
 
-  debitNote      DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
-  product        Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  debitNote DebitNote @relation(fields: [debitNoteId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@map("debit_note_items")
 }
 
 model StockAudit {
-  id         String           @id @default(cuid())
-  branchId   Int              @default(1) @map("branch_id")
-  locationId String           @map("location_id")
-  status     AuditStatus      @default(PENDING)
-  createdBy  String?          @map("created_by")
-  createdAt  DateTime         @default(now()) @map("created_at")
-  updatedAt  DateTime         @updatedAt @map("updated_at")
+  id         String      @id @default(cuid())
+  branchId   Int         @default(1) @map("branch_id")
+  locationId String      @map("location_id")
+  status     AuditStatus @default(PENDING)
+  createdBy  String?     @map("created_by")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
 
-  location   Location         @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  lines      StockAuditLine[]
+  location Location         @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  lines    StockAuditLine[]
 
   @@map("stock_audits")
 }
 
 model StockAuditLine {
-  id         String     @id @default(cuid())
-  auditId    String     @map("audit_id")
-  productId  String     @map("product_id")
-  systemQty  Int        @map("system_qty")
-  countedQty Int        @map("counted_qty")
+  id         String @id @default(cuid())
+  auditId    String @map("audit_id")
+  productId  String @map("product_id")
+  systemQty  Int    @map("system_qty")
+  countedQty Int    @map("counted_qty")
 
-  audit      StockAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
-  product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  audit   StockAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  product Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@map("stock_audit_lines")
 }
@@ -684,24 +719,24 @@ enum VanDayStatus {
 }
 
 model VanDay {
-  id              String        @id @default(cuid())
-  branchId        Int           @default(1) @map("branch_id")
-  vanLocationId   String        @map("van_location_id")
-  salespersonId   String        @map("salesperson_id")
-  date            DateTime      @map("date")
-  status          VanDayStatus  @default(OPEN)
-  issueSheetNo    String        @unique @map("issue_sheet_no")
-  notes           String?
-  issuedBy        String?       @map("issued_by")
-  reconciledBy    String?       @map("reconciled_by")
-  closedBy        String?       @map("closed_by")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  id            String       @id @default(cuid())
+  branchId      Int          @default(1) @map("branch_id")
+  vanLocationId String       @map("van_location_id")
+  salespersonId String       @map("salesperson_id")
+  date          DateTime     @map("date")
+  status        VanDayStatus @default(OPEN)
+  issueSheetNo  String       @unique @map("issue_sheet_no")
+  notes         String?
+  issuedBy      String?      @map("issued_by")
+  reconciledBy  String?      @map("reconciled_by")
+  closedBy      String?      @map("closed_by")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
 
-  vanLocation     Location      @relation(fields: [vanLocationId], references: [id], onDelete: Restrict)
-  salesperson     User          @relation(fields: [salespersonId], references: [id], onDelete: Restrict)
-  lines           VanDayLine[]
-  cashHandover    CashHandover?
+  vanLocation  Location      @relation(fields: [vanLocationId], references: [id], onDelete: Restrict)
+  salesperson  User          @relation(fields: [salespersonId], references: [id], onDelete: Restrict)
+  lines        VanDayLine[]
+  cashHandover CashHandover?
 
   @@index([vanLocationId, date])
   @@index([salespersonId, date])
@@ -709,17 +744,17 @@ model VanDay {
 }
 
 model VanDayLine {
-  id          String   @id @default(cuid())
-  vanDayId    String   @map("van_day_id")
-  productId   String   @map("product_id")
-  issuedQty   Int      @map("issued_qty")
-  soldQty     Int      @default(0) @map("sold_qty")
-  returnedQty Int      @default(0) @map("returned_qty")
-  shortageQty Int      @default(0) @map("shortage_qty")
-  excessQty   Int      @default(0) @map("excess_qty")
+  id          String @id @default(cuid())
+  vanDayId    String @map("van_day_id")
+  productId   String @map("product_id")
+  issuedQty   Int    @map("issued_qty")
+  soldQty     Int    @default(0) @map("sold_qty")
+  returnedQty Int    @default(0) @map("returned_qty")
+  shortageQty Int    @default(0) @map("shortage_qty")
+  excessQty   Int    @default(0) @map("excess_qty")
 
-  vanDay      VanDay   @relation(fields: [vanDayId], references: [id], onDelete: Cascade)
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  vanDay  VanDay  @relation(fields: [vanDayId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@unique([vanDayId, productId])
   @@map("van_day_lines")
@@ -739,9 +774,9 @@ model CashHandover {
   confirmedAt       DateTime @default(now()) @map("confirmed_at")
   createdAt         DateTime @default(now()) @map("created_at")
 
-  vanDay            VanDay   @relation(fields: [vanDayId], references: [id], onDelete: Cascade)
-  salesperson       User     @relation("HandoverSalesperson", fields: [salespersonId], references: [id], onDelete: Restrict)
-  receivedBy        User     @relation("HandoverReceiver", fields: [receivedById], references: [id], onDelete: Restrict)
+  vanDay      VanDay @relation(fields: [vanDayId], references: [id], onDelete: Cascade)
+  salesperson User   @relation("HandoverSalesperson", fields: [salespersonId], references: [id], onDelete: Restrict)
+  receivedBy  User   @relation("HandoverReceiver", fields: [receivedById], references: [id], onDelete: Restrict)
 
   @@index([salespersonId, confirmedAt])
   @@index([receivedById, confirmedAt])
@@ -749,13 +784,13 @@ model CashHandover {
 }
 
 model Cart {
-  id        String     @id @default(cuid())
-  userId    String     @unique @map("user_id")
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     CartItem[]
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
 
   @@map("carts")
 }
@@ -768,57 +803,58 @@ model CartItem {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([cartId, productId])
   @@map("cart_items")
 }
 
 model Order {
-  id                    String        @id @default(cuid())
-  orderNumber           String        @unique @map("order_number")
-  branchId              Int           @default(1) @map("branch_id")
-  userId                String        @map("user_id")
-  status                OrderStatus   @default(PENDING)
-  deliveryZoneCode      String        @map("delivery_zone_code")
-  deliveryZoneName      String        @map("delivery_zone_name")
-  deliveryFeePaise      Int           @default(0) @map("delivery_fee_paise")
-  subtotalPaise         Int           @map("subtotal_paise")
-  lineDiscountPaise     Int           @default(0) @map("line_discount_paise")
-  taxablePaise          Int           @map("taxable_paise")
-  cgstPaise             Int           @default(0) @map("cgst_paise")
-  sgstPaise             Int           @default(0) @map("sgst_paise")
-  igstPaise             Int           @default(0) @map("igst_paise")
-  roundOffPaise         Int           @default(0) @map("round_off_paise")
-  totalPaise            Int           @map("total_paise")
-  buyerTag              PartyType     @default(CUSTOMER) @map("buyer_tag")
-  deliveryAddress       String        @map("delivery_address")
-  contactPhone          String        @map("contact_phone")
-  customerNotes         String?       @map("customer_notes")
-  invoiceId             String?       @unique @map("invoice_id")
+  id                     String       @id @default(cuid())
+  orderNumber            String       @unique @map("order_number")
+  branchId               Int          @default(1) @map("branch_id")
+  userId                 String       @map("user_id")
+  status                 OrderStatus  @default(PENDING)
+  deliveryZoneCode       String       @map("delivery_zone_code")
+  deliveryZoneName       String       @map("delivery_zone_name")
+  deliveryFeePaise       Int          @default(0) @map("delivery_fee_paise")
+  subtotalPaise          Int          @map("subtotal_paise")
+  lineDiscountPaise      Int          @default(0) @map("line_discount_paise")
+  taxablePaise           Int          @map("taxable_paise")
+  cgstPaise              Int          @default(0) @map("cgst_paise")
+  sgstPaise              Int          @default(0) @map("sgst_paise")
+  igstPaise              Int          @default(0) @map("igst_paise")
+  roundOffPaise          Int          @default(0) @map("round_off_paise")
+  totalPaise             Int          @map("total_paise")
+  buyerTag               PartyType    @default(CUSTOMER) @map("buyer_tag")
+  deliveryAddress        String       @map("delivery_address")
+  contactPhone           String       @map("contact_phone")
+  customerNotes          String?      @map("customer_notes")
+  invoiceId              String?      @unique @map("invoice_id")
   assignedDeliveryUserId String?      @map("assigned_delivery_user_id")
-  deliveredAt           DateTime?     @map("delivered_at")
-  paymentMode           PaymentMode?  @map("payment_mode")
-  paymentReference      String?       @map("payment_reference")
-  paymentNotes          String?       @map("payment_notes")
-  idempotencyKey        String?       @unique @map("idempotency_key")
-  channel               OrderChannel  @default(ONLINE) @map("channel")
-  createdByUserId       String?       @map("created_by_user_id")
-  partyId               String?       @map("party_id")
-  createdAt             DateTime      @default(now()) @map("created_at")
-  updatedAt             DateTime      @updatedAt @map("updated_at")
+  deliveredAt            DateTime?    @map("delivered_at")
+  paymentMode            PaymentMode? @map("payment_mode")
+  paymentReference       String?      @map("payment_reference")
+  paymentNotes           String?      @map("payment_notes")
+  idempotencyKey         String?      @unique @map("idempotency_key")
+  channel                OrderChannel @default(ONLINE) @map("channel")
+  createdByUserId        String?      @map("created_by_user_id")
+  partyId                String?      @map("party_id")
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
 
-  user                  User          @relation("CustomerOrders", fields: [userId], references: [id], onDelete: Restrict)
-  assignedDeliveryUser  User?         @relation("DeliveryStaffOrders", fields: [assignedDeliveryUserId], references: [id], onDelete: SetNull)
-  createdByUser         User?         @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  party                 Party?        @relation("PartyOrders", fields: [partyId], references: [id], onDelete: SetNull)
-  invoice               Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  items                 OrderItem[]
-  dispatchRunOrders     DispatchRunOrder[]
-  packages              OrderPackage[]
-  shopPickTasks         ShopPickTask[]
-  stockReservations     StockReservation[]
+  user                 User               @relation("CustomerOrders", fields: [userId], references: [id], onDelete: Restrict)
+  assignedDeliveryUser User?              @relation("DeliveryStaffOrders", fields: [assignedDeliveryUserId], references: [id], onDelete: SetNull)
+  createdByUser        User?              @relation("OrderCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  party                Party?             @relation("PartyOrders", fields: [partyId], references: [id], onDelete: SetNull)
+  invoice              Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  items                OrderItem[]
+  dispatchRunOrders    DispatchRunOrder[]
+  packages             OrderPackage[]
+  shopPickTasks        ShopPickTask[]
+  stockReservations    StockReservation[]
+  incentiveEntries     IncentiveEntry[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -829,23 +865,23 @@ model Order {
 }
 
 model OrderItem {
-  id              String   @id @default(cuid())
-  orderId         String   @map("order_id")
-  productId       String   @map("product_id")
-  qty             Int
-  mrpPaise        Int      @map("mrp_paise")
-  unitPricePaise  Int      @map("unit_price_paise")
-  discountBp      Int      @default(0) @map("discount_bp")
-  lineDiscountPaise Int    @default(0) @map("line_discount_paise")
-  taxablePaise    Int      @map("taxable_paise")
-  gstRateBp       Int      @map("gst_rate_bp")
-  taxPaise        Int      @map("tax_paise")
-  hsn             String
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(cuid())
+  orderId           String   @map("order_id")
+  productId         String   @map("product_id")
+  qty               Int
+  mrpPaise          Int      @map("mrp_paise")
+  unitPricePaise    Int      @map("unit_price_paise")
+  discountBp        Int      @default(0) @map("discount_bp")
+  lineDiscountPaise Int      @default(0) @map("line_discount_paise")
+  taxablePaise      Int      @map("taxable_paise")
+  gstRateBp         Int      @map("gst_rate_bp")
+  taxPaise          Int      @map("tax_paise")
+  hsn               String
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
   @@index([productId])
@@ -867,7 +903,7 @@ model UserAddress {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  user        User     @relation("UserSavedAddresses", fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation("UserSavedAddresses", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("user_addresses")
@@ -944,12 +980,12 @@ model BillScan {
   lockedBy        String?            @map("locked_by")
   lockedAt        DateTime?          @map("locked_at")
 
-  supplierParty   Party?             @relation(fields: [supplierPartyId], references: [id], onDelete: SetNull)
-  company         Company?           @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  location        Location           @relation(fields: [locationId], references: [id], onDelete: Restrict)
-  creator         User?              @relation("BillScanCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  purchase        Purchase?          @relation("PurchaseBillScan", fields: [purchaseId], references: [id], onDelete: SetNull)
-  lines           BillScanLine[]
+  supplierParty Party?         @relation(fields: [supplierPartyId], references: [id], onDelete: SetNull)
+  company       Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  location      Location       @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  creator       User?          @relation("BillScanCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  purchase      Purchase?      @relation("PurchaseBillScan", fields: [purchaseId], references: [id], onDelete: SetNull)
+  lines         BillScanLine[]
 
   @@index([supplierPartyId])
   @@index([companyId])
@@ -983,8 +1019,8 @@ model BillScanLine {
   createdAt         DateTime                @default(now()) @map("created_at")
   updatedAt         DateTime                @updatedAt @map("updated_at")
 
-  scan              BillScan                @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  product           Product?                @relation(fields: [productId], references: [id], onDelete: SetNull)
+  scan    BillScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([scanId])
   @@index([productId])
@@ -992,17 +1028,17 @@ model BillScanLine {
 }
 
 model SupplierItemAlias {
-  id                 String    @id @default(cuid())
-  companyId          String    @map("company_id")
-  normalizedBillText String    @map("normalized_bill_text")
-  productId          String    @map("product_id")
-  timesConfirmed     Int       @default(1) @map("times_confirmed")
-  lastUsedAt         DateTime  @default(now()) @map("last_used_at")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  id                 String   @id @default(cuid())
+  companyId          String   @map("company_id")
+  normalizedBillText String   @map("normalized_bill_text")
+  productId          String   @map("product_id")
+  timesConfirmed     Int      @default(1) @map("times_confirmed")
+  lastUsedAt         DateTime @default(now()) @map("last_used_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  product            Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, normalizedBillText])
   @@index([companyId])
@@ -1011,19 +1047,19 @@ model SupplierItemAlias {
 }
 
 model StockReservation {
-  id          String   @id @default(cuid())
-  branchId    Int      @default(1) @map("branch_id")
-  productId   String   @map("product_id")
-  locationId  String   @map("location_id")
-  orderId     String?  @map("order_id")
-  qty         Int
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
+  branchId   Int      @default(1) @map("branch_id")
+  productId  String   @map("product_id")
+  locationId String   @map("location_id")
+  orderId    String?  @map("order_id")
+  qty        Int
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  order       Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  order    Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([productId, locationId, active])
   @@index([orderId])
@@ -1031,34 +1067,34 @@ model StockReservation {
 }
 
 model DispatchRun {
-  id              String            @id @default(cuid())
-  runNumber       String            @unique @map("run_number")
-  branchId        Int               @default(1) @map("branch_id")
-  date            DateTime          @default(now())
-  vanId           String?           @map("van_id")
-  deliveryUserId  String?           @map("delivery_user_id")
-  slot            String?
-  status          DispatchRunStatus @default(DRAFT)
-  notes           String?
-  createdAt       DateTime          @default(now()) @map("created_at")
-  updatedAt       DateTime          @updatedAt @map("updated_at")
+  id             String            @id @default(cuid())
+  runNumber      String            @unique @map("run_number")
+  branchId       Int               @default(1) @map("branch_id")
+  date           DateTime          @default(now())
+  vanId          String?           @map("van_id")
+  deliveryUserId String?           @map("delivery_user_id")
+  slot           String?
+  status         DispatchRunStatus @default(DRAFT)
+  notes          String?
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
 
-  van             Location?         @relation(fields: [vanId], references: [id], onDelete: SetNull)
-  deliveryUser    User?             @relation("DeliveryStaffRuns", fields: [deliveryUserId], references: [id], onDelete: SetNull)
-  orders          DispatchRunOrder[]
+  van          Location?          @relation(fields: [vanId], references: [id], onDelete: SetNull)
+  deliveryUser User?              @relation("DeliveryStaffRuns", fields: [deliveryUserId], references: [id], onDelete: SetNull)
+  orders       DispatchRunOrder[]
 
   @@index([status, date])
   @@map("dispatch_runs")
 }
 
 model DispatchRunOrder {
-  id        String      @id @default(cuid())
-  runId     String      @map("run_id")
-  orderId   String      @map("order_id")
-  sequence  Int         @default(0)
+  id       String @id @default(cuid())
+  runId    String @map("run_id")
+  orderId  String @map("order_id")
+  sequence Int    @default(0)
 
-  run       DispatchRun @relation(fields: [runId], references: [id], onDelete: Cascade)
-  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  run   DispatchRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  order Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@unique([runId, orderId])
   @@index([runId, sequence])
@@ -1073,7 +1109,7 @@ model OrderPackage {
   notes       String?
   createdAt   DateTime @default(now()) @map("created_at")
 
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
   @@map("order_packages")
@@ -1090,21 +1126,21 @@ model ShopRequest {
   createdAt     DateTime          @default(now()) @map("created_at")
   updatedAt     DateTime          @updatedAt @map("updated_at")
 
-  lines         ShopRequestLine[]
+  lines ShopRequestLine[]
 
   @@index([status, createdAt])
   @@map("shop_requests")
 }
 
 model ShopRequestLine {
-  id           String      @id @default(cuid())
-  requestId    String      @map("request_id")
-  productId    String      @map("product_id")
-  requestedQty Int         @map("requested_qty")
-  approvedQty  Int?        @map("approved_qty")
+  id           String @id @default(cuid())
+  requestId    String @map("request_id")
+  productId    String @map("product_id")
+  requestedQty Int    @map("requested_qty")
+  approvedQty  Int?   @map("approved_qty")
 
-  request      ShopRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  product      Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  request ShopRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  product Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([requestId])
   @@map("shop_request_lines")
@@ -1122,23 +1158,23 @@ model CounterPickup {
   createdAt   DateTime            @default(now()) @map("created_at")
   completedAt DateTime?           @map("completed_at")
 
-  invoice     Invoice?            @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
   @@map("counter_pickups")
 }
 
 model ShopPickTask {
-  id          String         @id @default(cuid())
-  branchId    Int            @default(1) @map("branch_id")
-  orderId     String         @map("order_id")
-  status      ShopPickStatus @default(PENDING)
-  items       Json           @map("items")
-  notes       String?
-  createdAt   DateTime       @default(now()) @map("created_at")
-  pickedAt    DateTime?      @map("picked_at")
+  id        String         @id @default(cuid())
+  branchId  Int            @default(1) @map("branch_id")
+  orderId   String         @map("order_id")
+  status    ShopPickStatus @default(PENDING)
+  items     Json           @map("items")
+  notes     String?
+  createdAt DateTime       @default(now()) @map("created_at")
+  pickedAt  DateTime?      @map("picked_at")
 
-  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
   @@map("shop_pick_tasks")
@@ -1157,3 +1193,89 @@ model VanLoadingTemplate {
   @@map("van_loading_templates")
 }
 
+model IncentiveRule {
+  id          String             @id @default(cuid())
+  scope       IncentiveRuleScope
+  agentUserId String?            @map("agent_user_id")
+  companyId   String?            @map("company_id")
+  categoryId  String?            @map("category_id")
+  productId   String?            @map("product_id")
+  percentBp   Int                @map("percent_bp")
+  validFrom   DateTime           @map("valid_from")
+  validTo     DateTime?          @map("valid_to")
+  active      Boolean            @default(true)
+  note        String?
+
+  agentUser User?     @relation(fields: [agentUserId], references: [id], onDelete: Cascade)
+  company   Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category  Category? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product   Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([scope, active])
+  @@index([agentUserId, active])
+  @@index([productId, active])
+  @@index([companyId, active])
+  @@index([categoryId, active])
+  @@map("incentive_rules")
+}
+
+model IncentivePayout {
+  id          String                @id @default(cuid())
+  agentUserId String                @map("agent_user_id")
+  period      String                @map("period") // "YYYY-MM"
+  totalPaise  Int                   @map("total_paise")
+  method      String?               @map("method")
+  reference   String?               @map("reference")
+  paidAt      DateTime?             @map("paid_at")
+  paidBy      String?               @map("paid_by")
+  status      IncentivePayoutStatus @default(DRAFT)
+  note        String?
+
+  agentUser User             @relation(fields: [agentUserId], references: [id], onDelete: Cascade)
+  entries   IncentiveEntry[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([agentUserId, period])
+  @@index([period, status])
+  @@map("incentive_payouts")
+}
+
+model IncentiveEntry {
+  id              String               @id @default(cuid())
+  agentUserId     String               @map("agent_user_id")
+  invoiceId       String               @map("invoice_id")
+  invoiceLineId   String?              @map("invoice_line_id")
+  orderId         String?              @map("order_id")
+  type            IncentiveEntryType
+  status          IncentiveEntryStatus @default(PENDING)
+  baseAmountPaise Int                  @map("base_amount_paise")
+  percentBp       Int                  @map("percent_bp")
+  amountPaise     Int                  @map("amount_paise")
+  ruleId          String?              @map("rule_id")
+  triggerEvent    String               @map("trigger_event")
+  triggeredAt     DateTime             @default(now()) @map("triggered_at")
+  period          String               @map("period") // "YYYY-MM"
+  note            String?
+  createdBy       String?              @map("created_by")
+  payoutId        String?              @map("payout_id")
+
+  agentUser User             @relation(fields: [agentUserId], references: [id], onDelete: Cascade)
+  invoice   Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  order     Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  payout    IncentivePayout? @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([invoiceId, invoiceLineId, type])
+  @@index([agentUserId, period, status])
+  @@index([invoiceId, status])
+  @@index([orderId])
+  @@index([payoutId])
+  @@map("incentive_entries")
+}

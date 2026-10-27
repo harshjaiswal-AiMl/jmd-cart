@@ -117,6 +117,25 @@ const nextConfig = {
     };
     return config;
   },
+  async redirects() {
+    return [
+      {
+        source: '/admin/staff',
+        destination: '/admin/crud/users',
+        permanent: true,
+      },
+      {
+        source: '/admin/incentives-report',
+        destination: '/admin/incentives',
+        permanent: true,
+      },
+      {
+        source: '/admin/reports/agent-incentives',
+        destination: '/admin/incentives',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

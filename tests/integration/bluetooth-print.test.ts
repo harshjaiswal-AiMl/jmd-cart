@@ -137,7 +137,7 @@ describe("Task 2.5: Van Bluetooth ESC/POS Print Integration", () => {
     expect(textContent).toContain(testParty.name);
     expect(textContent).toContain("Bluetooth Test Biscuits");
     expect(textContent).toContain("6 pcs @ Rs.40.00");
-    expect(textContent).toContain("TOTAL:");
+    expect(textContent).toContain("Total Pcs :");
     expect(textContent).toContain("Rs.240.00");
     expect(textContent).toContain("Paid (CASH):");
     expect(textContent).toContain("Thank You! Visit Again!");

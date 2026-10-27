@@ -168,3 +168,10 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
 
 
 
+
+- 2026-10-27: Prompt #12 Complete — Receipt Tweaks, Agent Codes for All Staff, Full Multi-Tier Incentive System, Management Navigation & POS Polish.
+  - Receipt Tweaks: Resized thermal slip logo to 70%, labeled totals line `Total Pcs : 6.00` on left with grand total on right, printed only `GST included` directly underneath. Added `Agent Code : <code_here>` directly under Address row in Customer Details block on Thermal and A5. Removed GST tax breakdown table from A5 print (behind `showGstBreakup` setting, default off) and filtered placeholder HSN `0000`.
+  - Agent Codes: Idempotent backfill migration `20261027170000_incentive_system_and_agent_backfill` assigned sequential codes `A001`, `A002`, ... to all existing users without codes. Auto-assignment on user creation in `src/modules/crud/crud.service.ts` with uniqueness validation.
+  - Incentive System: Complete multi-tier engine with cascade precedence (Agent+Product > Agent+Brand > Agent+Category > Product > Brand > Category > Agent Default > Global Default), append-only ledger (`IncentiveEntry`), and monthly statements/payouts (`IncentivePayout`). Admin screens at `/admin/incentives/*` and staff view at `/shop/my-incentives`.
+  - Navigation & POS: Consolidated navigation into 12 groups with 301 redirects in `next.config.mjs`. POS multi-tab hold/resume, split payments, stock alerts, and keyboard shortcuts.
+  - Baseline verification: `pnpm typecheck` (0 errors), `pnpm lint` (0 errors), 5 targeted test suites (34/34 tests passed), `pnpm build` (76/76 static and dynamic routes compiled).
