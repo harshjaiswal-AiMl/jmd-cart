@@ -2248,7 +2248,7 @@ export function PosClient({
 
                     <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-200/60">
                       <Link
-                        href={`/shop/invoices/${inv.id}/print?format=thermal`}
+                        href={`/shop/invoices/${inv.id}/print`}
                         target="_blank"
                         className="px-2.5 py-1 text-[11px] font-bold bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-slate-700 inline-flex items-center gap-1 shadow-xs"
                       >
@@ -2483,7 +2483,7 @@ export function PosClient({
 
             <div className="grid grid-cols-2 gap-2 pt-2">
               <Link
-                href={`/shop/invoices/${finalizedInvoice.id}/print?format=thermal`}
+                href={`/shop/invoices/${finalizedInvoice.id}/print`}
                 target="_blank"
                 className="py-2.5 px-3 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center gap-1.5 transition"
               >
