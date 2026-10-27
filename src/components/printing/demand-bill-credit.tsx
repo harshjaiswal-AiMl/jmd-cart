@@ -1,36 +1,15 @@
 import React from "react";
 import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { BusinessDetails } from "@/modules/settings/settings.types";
-import { paiseToIndianWords } from "@/lib/number-to-words";
+import { buildInvoiceViewModel } from "@/modules/billing/invoice-view-model";
 
 export interface DemandBillCreditProps {
   invoice: InvoiceWithDetails;
   business?: BusinessDetails;
 }
 
-function formatDemandDate(date: Date | string | null | undefined): string {
-  if (!date) return "-";
-  const d = typeof date === "string" ? new Date(date) : date;
-  if (isNaN(d.getTime())) return "-";
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `${day}-${month}-${year}`;
-}
-
 export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
-  const phone = business?.phone || "7979749009";
-  const cashierName = invoice.creator?.name || "Counter Cashier";
-
-  // Clean invoice number
-  const cleanBillNo = invoice.number.replace(/^INV-[0-9]+-0*/, "") || invoice.number;
-
-  let totalQty = 0;
-  for (const item of invoice.items) {
-    totalQty += item.qty;
-  }
-
-  const amountInWords = paiseToIndianWords(invoice.totalPaise);
+  const vm = buildInvoiceViewModel(invoice, business);
 
   return (
     <div className="demand-bill-container bg-white text-black font-sans w-full max-w-[760px] mx-auto p-4 sm:p-6 print:p-2 border border-black print:border-black shadow-md print:shadow-none relative select-text">
@@ -45,46 +24,62 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
           Demand Bill
         </h1>
-        <p className="text-sm font-bold text-gray-800 mt-0.5 tracking-wider">
-          {phone}
-        </p>
+        {vm.business.phone && (
+          <p className="text-sm font-bold text-gray-800 mt-0.5 tracking-wider">
+            {vm.business.phone}
+          </p>
+        )}
       </div>
 
       {/* Main Bordered Bill Box */}
       <div className="border border-black">
-        {/* Top Two-Column Header: Party Details vs Date, Cashier & Bill No */}
+        {/* Top Two-Column Header: Party Details vs Date & Bill No */}
         <div className="grid grid-cols-2 border-b border-black text-xs sm:text-sm">
           {/* Party Details Column */}
           <div className="p-2 sm:p-3 border-r border-black space-y-1">
             <p className="font-bold italic text-gray-900">Party Details :</p>
             <p className="font-semibold uppercase text-gray-900">
-              {invoice.party?.name || "Cash / Retail Customer"}
+              {vm.customer.name || "Cash / Retail Customer"}
             </p>
-            {invoice.party?.address && (
-              <p className="text-gray-800 leading-snug">{invoice.party.address}</p>
+            {vm.customer.address && (
+              <p className="text-gray-800 leading-snug break-words">{vm.customer.address}</p>
             )}
-            {invoice.party?.phone && (
-              <p className="font-medium text-gray-800">{invoice.party.phone}</p>
+            {vm.customer.mobile && (
+              <p className="font-medium text-gray-800">{vm.customer.mobile}</p>
+            )}
+            {vm.customer.gstin && (
+              <p className="font-mono text-xs text-gray-800">GSTIN: {vm.customer.gstin}</p>
             )}
           </div>
 
-          {/* Date, Cashier & Bill No Column */}
+          {/* Date, Bill No & Meta */}
           <div className="p-2 sm:p-3 space-y-1.5">
             <div className="flex">
               <span className="w-20 font-bold text-gray-900">Date</span>
               <span className="mr-2 font-bold">:</span>
-              <span className="font-medium">{formatDemandDate(invoice.createdAt)}</span>
+              <span className="font-medium">{vm.invoiceDate}</span>
             </div>
             <div className="flex">
               <span className="w-20 font-bold text-gray-900">Bill No.</span>
               <span className="mr-2 font-bold">:</span>
-              <span className="font-bold">{cleanBillNo}</span>
+              <span className="font-bold">{vm.invoiceNumberClean}</span>
             </div>
-            <div className="flex">
-              <span className="w-20 font-bold text-gray-900">Cashier</span>
-              <span className="mr-2 font-bold">:</span>
-              <span className="font-semibold uppercase">{cashierName}</span>
-            </div>
+            {vm.isNonCash && (
+              <div className="flex">
+                <span className="w-20 font-bold text-purple-900">Mode</span>
+                <span className="mr-2 font-bold">:</span>
+                <span className="font-semibold uppercase text-purple-800 bg-purple-50 px-1 py-0.5 rounded border border-purple-200">
+                  {vm.paymentModeBadge}
+                </span>
+              </div>
+            )}
+            {vm.agentCode && (
+              <div className="flex text-xs text-slate-600">
+                <span className="w-20 font-medium">Agent</span>
+                <span className="mr-2">:</span>
+                <span className="font-mono">{vm.agentCode}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -124,59 +119,32 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {invoice.items.map((item, idx) => {
-                const isFullCarton =
-                  item.product.packSize > 1 &&
-                  item.qty >= item.product.packSize &&
-                  item.qty % item.product.packSize === 0;
-
-                const displayQty = isFullCarton
-                  ? (item.qty / item.product.packSize).toFixed(2)
-                  : item.qty.toFixed(2);
-                const unit = isFullCarton ? (item.product.packLabel || "Carton") : "Pcs";
-
-                const unitPrice = (
-                  (isFullCarton ? item.unitPricePaise * item.product.packSize : item.unitPricePaise) / 100
-                ).toLocaleString("en-IN", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                });
-
-                const lineTotal = (
-                  (item.taxablePaise + item.taxPaise) /
-                  100
-                ).toLocaleString("en-IN", {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                });
-
-                return (
-                  <tr key={item.id} className="min-h-[28px]">
-                    <td className="border-r border-black py-1.5 px-2 text-center font-medium">
-                      {idx + 1}
-                    </td>
-                    <td className="border-r border-black py-1.5 px-3 text-left font-medium">
-                      {item.product.name}
-                    </td>
-                    <td className="border-r border-black py-1.5 px-2 text-right font-mono">
-                      {displayQty}
-                    </td>
-                    <td className="border-r border-black py-1.5 px-2 text-center text-gray-700">
-                      {unit}
-                    </td>
-                    <td className="border-r border-black py-1.5 px-3 text-right font-mono">
-                      {unitPrice}
-                    </td>
-                    <td className="py-1.5 px-3 text-right font-mono font-semibold">
-                      {lineTotal}
-                    </td>
-                  </tr>
-                );
-              })}
+              {vm.items.map((item) => (
+                <tr key={item.id} className="min-h-[28px]">
+                  <td className="border-r border-black py-1.5 px-2 text-center font-medium">
+                    {item.index}
+                  </td>
+                  <td className="border-r border-black py-1.5 px-3 text-left font-medium">
+                    {item.name}
+                  </td>
+                  <td className="border-r border-black py-1.5 px-2 text-right font-mono">
+                    {item.displayQty}
+                  </td>
+                  <td className="border-r border-black py-1.5 px-2 text-center text-gray-700">
+                    {item.unit}
+                  </td>
+                  <td className="border-r border-black py-1.5 px-3 text-right font-mono">
+                    {item.rateFormatted}
+                  </td>
+                  <td className="py-1.5 px-3 text-right font-mono font-semibold">
+                    {item.amountFormatted}
+                  </td>
+                </tr>
+              ))}
 
               {/* Pad minimum rows for authentic bill sheet look */}
-              {invoice.items.length < 5 &&
-                Array.from({ length: 5 - invoice.items.length }).map((_, i) => (
+              {vm.items.length < 5 &&
+                Array.from({ length: 5 - vm.items.length }).map((_, i) => (
                   <tr key={`pad-${i}`} className="h-7">
                     <td className="border-r border-black">&nbsp;</td>
                     <td className="border-r border-black">&nbsp;</td>
@@ -194,7 +162,7 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
                   Total :
                 </td>
                 <td className="border-r border-black py-2 px-2 text-right font-mono">
-                  {totalQty.toFixed(2)}
+                  {vm.totalPieces.toFixed(2)}
                 </td>
                 <td className="border-r border-black py-2 px-2 text-center">
                   &nbsp;
@@ -203,25 +171,31 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
                   &nbsp;
                 </td>
                 <td className="py-2 px-3 text-right font-mono text-base">
-                  {(invoice.totalPaise / 100).toLocaleString("en-IN", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  <div className="flex items-baseline justify-end gap-1.5">
+                    {vm.gstIncluded && (
+                      <span className="text-[10px] font-normal text-slate-500 lowercase italic">
+                        (GST included)
+                      </span>
+                    )}
+                    <span>{vm.payableFormatted}</span>
+                  </div>
                 </td>
               </tr>
             </tfoot>
           </table>
         </div>
 
-        {/* Amount in words & ALL GST INCLUDED */}
+        {/* Amount in words & GST line */}
         <div className="border-t border-black p-2 sm:p-2.5 text-xs sm:text-sm flex flex-wrap justify-between items-center gap-2">
           <div>
             <span className="font-bold">Rupees : </span>
-            <span className="font-semibold italic text-gray-800">{amountInWords}</span>
+            <span className="font-semibold italic text-gray-800">{vm.amountInWords}</span>
           </div>
-          <span className="font-bold text-xs uppercase tracking-wider text-gray-700">
-            ALL GST INCLUDED
-          </span>
+          {vm.gstIncluded && (
+            <span className="text-xs text-gray-600 italic">
+              GST included
+            </span>
+          )}
         </div>
 
         {/* Signatures section */}
@@ -237,7 +211,10 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
 
       {/* Bottom Footer: Delivery & Help */}
       <div className="pt-3 pb-1 text-center flex flex-col items-center text-xs font-bold text-gray-800 uppercase tracking-wide">
-        <p>CALL US FOR FREE DOOR DELIVERY: 7979749009</p>
+        <p>
+          {vm.doorDeliveryText}
+          {vm.doorDeliveryPhone ? `: ${vm.doorDeliveryPhone}` : ""}
+        </p>
         <p className="text-[10px] text-gray-600 mt-0.5">A UNIT OF JAI MATA DI</p>
       </div>
     </div>

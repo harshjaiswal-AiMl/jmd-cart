@@ -87,6 +87,15 @@ export const CRUD_ENTITIES: Record<CrudEntityKey, CrudEntityConfig> = {
     writeRoles: ADMIN_WRITE,
     fields: [
       { key: "name", label: "Full Name", type: "text", required: true, showInList: true, showInForm: true },
+      {
+        key: "agentCode",
+        label: "Agent Code (Incentives)",
+        type: "text",
+        required: false,
+        showInList: true,
+        showInForm: true,
+        placeholder: "e.g. AG001, RK07 (3-8 uppercase alphanumeric)",
+      },
       { key: "phone", label: "Phone (10-digit)", type: "text", required: true, showInList: true, showInForm: true },
       {
         key: "role",

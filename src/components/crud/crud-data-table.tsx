@@ -397,6 +397,18 @@ export function CrudDataTable({
                                   val === undefined ||
                                   String(val).trim() === "" ? (
                                   <span className="text-gray-400">—</span>
+                                ) : f.key === "agentCode" ? (
+                                  val ? (
+                                    <span className="font-mono text-xs font-bold text-amber-900 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                      {String(val)}
+                                    </span>
+                                  ) : ["SHOP", "SALESPERSON", "DELIVERY", "GODOWN", "ACCOUNTS"].includes(String(row.role)) ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-semibold" title="Staff lacks an incentive agent code">
+                                      ⚠️ Missing Code
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400">—</span>
+                                  )
                                 ) : f.key === "gstin" ? (
                                   <span className="font-mono text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded">
                                     {String(val)}

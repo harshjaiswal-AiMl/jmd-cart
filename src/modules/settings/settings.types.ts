@@ -93,6 +93,16 @@ export const pricingSettingsSchema = z.object({
 
 export type PricingSettings = z.infer<typeof pricingSettingsSchema>;
 
+export const invoicePrintSettingsSchema = z.object({
+  showAgentCode: z.boolean().default(false),
+  footerThankYou: z.string().default("Thank You! Visit Again!"),
+  footerDeliveryText: z.string().default("CALL US FOR FREE DOOR DELIVERY"),
+  footerDeliveryPhone: z.string().default("7979749009"),
+  defaultFormat: z.enum(["thermal_80", "thermal_58", "a5", "a4"]).default("thermal_80"),
+});
+
+export type InvoicePrintSettings = z.infer<typeof invoicePrintSettingsSchema>;
+
 export interface AllSettings {
   businessDetails: BusinessDetails;
   roleDiscountLimits: RoleDiscountLimits;
@@ -101,5 +111,6 @@ export interface AllSettings {
   paymentModeSettings: PaymentModeSettings;
   eInvoiceSettings: EInvoiceSettings;
   pricingSettings?: PricingSettings;
+  invoicePrintSettings?: InvoicePrintSettings;
 }
 

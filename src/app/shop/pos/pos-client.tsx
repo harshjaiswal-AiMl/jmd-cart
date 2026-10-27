@@ -80,6 +80,7 @@ export interface PartyItem {
   name: string;
   type: string;
   phone: string | null;
+  address?: string | null;
   creditEnabled: boolean;
   creditLimitPaise: number;
   currentOutstandingPaise: number;
@@ -112,6 +113,9 @@ export interface PosBillTab {
   remarks: string;
   isHeld: boolean;
   heldAt?: number;
+  walkInName?: string;
+  walkInMobile?: string;
+  walkInAddress?: string;
 }
 
 interface PosClientProps {
@@ -1096,6 +1100,9 @@ export function PosClient({
         const res = await finalizeBillAction({
           locationId,
           partyId: activeTab.partyId || null,
+          customerName: activeTab.partyId ? undefined : activeTab.walkInName?.trim() || undefined,
+          customerPhone: activeTab.partyId ? undefined : activeTab.walkInMobile?.trim() || undefined,
+          customerAddress: activeTab.partyId ? undefined : activeTab.walkInAddress?.trim() || undefined,
           buyerType: effectiveTier,
           orderDiscountBp,
           items: finalizeItems,
@@ -1363,6 +1370,52 @@ export function PosClient({
             <span>Party</span>
           </button>
         </div>
+
+        {/* Walk-in Customer Snapshot Fields (Auto-lookup on 10 digits) */}
+        {!activeTab.partyId && (
+          <div className="w-full flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+            <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Walk-in Customer:</span>
+            <div className="flex-1 min-w-[140px] max-w-[180px]">
+              <input
+                type="tel"
+                placeholder="Mobile (10-digit)..."
+                value={activeTab.walkInMobile || ""}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const digits = raw.replace(/\D/g, "").slice(0, 10);
+                  const updates: Partial<PosBillTab> = { walkInMobile: digits };
+                  if (digits.length === 10) {
+                    const match = localParties.find((p) => p.phone === digits);
+                    if (match) {
+                      updates.walkInName = match.name;
+                      if (match.address) updates.walkInAddress = match.address;
+                    }
+                  }
+                  updateActiveTab(updates);
+                }}
+                className="w-full px-2.5 py-1 rounded-lg border border-slate-300 text-xs focus:ring-1 focus:ring-blue-500 font-mono"
+              />
+            </div>
+            <div className="flex-1 min-w-[140px] max-w-[200px]">
+              <input
+                type="text"
+                placeholder="Customer Name..."
+                value={activeTab.walkInName || ""}
+                onChange={(e) => updateActiveTab({ walkInName: e.target.value })}
+                className="w-full px-2.5 py-1 rounded-lg border border-slate-300 text-xs focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <input
+                type="text"
+                placeholder="Address / Delivery Location (optional)..."
+                value={activeTab.walkInAddress || ""}
+                onChange={(e) => updateActiveTab({ walkInAddress: e.target.value })}
+                className="w-full px-2.5 py-1 rounded-lg border border-slate-300 text-xs focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Customer Balance, Tier & History Controls */}
         <div className="flex items-center gap-2 flex-wrap">

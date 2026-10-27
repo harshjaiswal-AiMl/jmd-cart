@@ -30,7 +30,8 @@ export default async function InvoicePrintPage({
     format === "demand_bill" ||
     format === "cash_receipt" ||
     format === "thermal" ||
-    format === "a4"
+    format === "a4" ||
+    format === "a5"
   ) {
     selectedFormat = format as PrintFormat;
   } else {

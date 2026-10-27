@@ -11,6 +11,9 @@ import { z } from "zod";
 const vanInvoiceActionSchema = z.object({
   locationId: z.string().min(1, "Van location is required"),
   partyId: z.string().nullable().optional(),
+  customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
+  customerAddress: z.string().optional(),
   idempotencyKey: z.string().min(1, "Idempotency key is required"),
   orderDiscountBp: z.number().int().min(0).max(10000).optional().default(0),
   items: z
@@ -63,6 +66,9 @@ export async function createVanInvoiceAction(input: VanInvoiceActionInput) {
         channel: InvoiceChannel.VAN,
         locationId: validated.locationId,
         partyId: validated.partyId ?? null,
+        customerName: validated.customerName,
+        customerPhone: validated.customerPhone,
+        customerAddress: validated.customerAddress,
         idempotencyKey: validated.idempotencyKey,
         orderDiscountBp: validated.orderDiscountBp,
         items: validated.items,

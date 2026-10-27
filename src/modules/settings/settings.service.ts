@@ -15,6 +15,8 @@ import {
   EInvoiceSettings,
   pricingSettingsSchema,
   PricingSettings,
+  invoicePrintSettingsSchema,
+  InvoicePrintSettings,
   AllSettings,
 } from "./settings.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
@@ -42,6 +44,14 @@ export const DEFAULT_PAYMENT_MODE_SETTINGS: PaymentModeSettings = {
   gatewayProvider: "none",
   gatewayKeyId: "",
   gatewayKeySecret: "",
+};
+
+export const DEFAULT_INVOICE_PRINT_SETTINGS: InvoicePrintSettings = {
+  showAgentCode: false,
+  footerThankYou: "Thank You! Visit Again!",
+  footerDeliveryText: "CALL US FOR FREE DOOR DELIVERY",
+  footerDeliveryPhone: "7979749009",
+  defaultFormat: "thermal_80",
 };
 
 export const DEFAULT_BUSINESS_DETAILS: BusinessDetails = {
@@ -353,6 +363,36 @@ export class SettingsService {
     return parsed;
   }
 
+  async getInvoicePrintSettings(): Promise<InvoicePrintSettings> {
+    const data = await settingsRepository.getSetting<InvoicePrintSettings>("invoice_print_settings");
+    return data ? { ...DEFAULT_INVOICE_PRINT_SETTINGS, ...data } : DEFAULT_INVOICE_PRINT_SETTINGS;
+  }
+
+  async updateInvoicePrintSettings(
+    actorRole: UserRole,
+    actorId: string,
+    data: unknown,
+    ip?: string
+  ): Promise<InvoicePrintSettings> {
+    assertPermission(actorRole, Permission.MANAGE_SETTINGS);
+    const parsed = invoicePrintSettingsSchema.parse(data);
+
+    const before = await this.getInvoicePrintSettings();
+    await settingsRepository.setSetting("invoice_print_settings", parsed);
+
+    await auditService.log({
+      actorId,
+      action: "SETTINGS_INVOICE_PRINT_UPDATED",
+      entity: "Setting",
+      entityId: "invoice_print_settings",
+      before,
+      after: parsed,
+      ip,
+    });
+
+    return parsed;
+  }
+
   async getAllSettings(): Promise<AllSettings> {
     const [
       businessDetails,
@@ -362,6 +402,7 @@ export class SettingsService {
       paymentModeSettings,
       eInvoiceSettings,
       pricingSettings,
+      invoicePrintSettings,
     ] = await Promise.all([
       this.getBusinessDetails(),
       this.getRoleDiscountLimits(),
@@ -370,6 +411,7 @@ export class SettingsService {
       this.getPaymentModeSettings(),
       this.getEInvoiceSettings(),
       this.getPricingSettings(),
+      this.getInvoicePrintSettings(),
     ]);
 
     return {
@@ -380,6 +422,7 @@ export class SettingsService {
       paymentModeSettings,
       eInvoiceSettings,
       pricingSettings,
+      invoicePrintSettings,
     };
   }
 }

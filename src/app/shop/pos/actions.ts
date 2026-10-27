@@ -88,6 +88,9 @@ export async function setAdminManualRateAction(input: {
 export async function finalizeBillAction(input: {
   locationId: string;
   partyId?: string | null;
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
   buyerType?: any;
   orderDiscountBp?: number;
   isInterState?: boolean;
@@ -109,6 +112,9 @@ export async function finalizeBillAction(input: {
         channel: InvoiceChannel.SHOP,
         locationId: input.locationId,
         partyId: input.partyId ?? null,
+        customerName: input.customerName,
+        customerPhone: input.customerPhone,
+        customerAddress: input.customerAddress,
         buyerType: input.buyerType ?? undefined,
         orderDiscountBp: input.orderDiscountBp ?? 0,
         isInterState: input.isInterState ?? false,

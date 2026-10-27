@@ -1,7 +1,7 @@
 /**
  * Utility to convert integer paise into Indian Currency words.
  * Follows the Indian numbering system: Crores, Lakhs, Thousands, Hundreds.
- * Example: 425050 paise (₹4,250.50) -> "Rupees Four Thousand Two Hundred Fifty and Fifty Paise Only"
+ * Example: 43550 paise (₹435.50) -> "Rupees Four Hundred Thirty Five and Fifty Paise Only"
  */
 
 const ONES: string[] = [
@@ -99,11 +99,14 @@ export function rupeesToWords(rupees: number): string {
 
 /**
  * Converts integer paise to Indian currency words format.
+ * Format: "Rupees ... Only" or "Rupees ... and ... Paise Only"
  * Example: 105000 paise -> "Rupees One Thousand Fifty Only"
- * Example: 105075 paise -> "Rupees One Thousand Fifty and Seventy Five Paise Only"
+ * Example: 43550 paise -> "Rupees Four Hundred Thirty Five and Fifty Paise Only"
+ * Example: 99 paise -> "Ninety Nine Paise Only"
+ * Example: 0 paise -> "Rupees Zero Only"
  */
-export function paiseToIndianWords(paise: number): string {
-  if (paise === 0) return "Zero Rupees Only";
+export function amountInWords(paise: number): string {
+  if (paise === 0) return "Rupees Zero Only";
   const absPaise = Math.abs(paise);
   const rupees = Math.floor(absPaise / 100);
   const remainingPaise = absPaise % 100;
@@ -125,4 +128,9 @@ export function paiseToIndianWords(paise: number): string {
 
   const result = (paise < 0 ? "Minus " : "") + parts.join(" ") + " Only";
   return result;
+}
+
+export function paiseToIndianWords(paise: number): string {
+  if (paise === 0) return "Zero Rupees Only";
+  return amountInWords(paise);
 }

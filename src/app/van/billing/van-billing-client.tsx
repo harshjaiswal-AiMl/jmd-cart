@@ -36,6 +36,8 @@ import { PaymentMode } from "@prisma/client";
 interface VanProduct {
   id: string;
   name: string;
+  phone?: string | null;
+  address?: string | null;
   shortCode: string;
   packSize: number;
   packLabel: string;
@@ -49,6 +51,8 @@ interface VanProduct {
 interface PartyOption {
   id: string;
   name: string;
+  phone?: string | null;
+  address?: string | null;
   creditEnabled: boolean;
   creditLimitPaise: number;
   currentOutstandingPaise: number;
@@ -82,6 +86,9 @@ export function VanBillingClient({
   const [cart, setCart] = useState<CartLine[]>([]);
   const [localParties, setLocalParties] = useState<PartyOption[]>(parties);
   const [selectedPartyId, setSelectedPartyId] = useState<string>("");
+  const [walkInName, setWalkInName] = useState<string>("");
+  const [walkInMobile, setWalkInMobile] = useState<string>("");
+  const [walkInAddress, setWalkInAddress] = useState<string>("");
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(PaymentMode.CASH);
   const [isOnline, setIsOnline] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -389,6 +396,9 @@ export function VanBillingClient({
       const res = await createVanInvoiceAction({
         locationId: vanId,
         partyId: selectedPartyId || null,
+        customerName: selectedPartyId ? undefined : walkInName.trim() || undefined,
+        customerPhone: selectedPartyId ? undefined : walkInMobile.trim() || undefined,
+        customerAddress: selectedPartyId ? undefined : walkInAddress.trim() || undefined,
         idempotencyKey,
         items: cart.map((i) => ({ productId: i.product.id, qty: i.qty })),
         payments: [{ mode: paymentMode, amountPaise: totalPaise }],
@@ -704,6 +714,42 @@ export function VanBillingClient({
                       ).toFixed(2)}
                     </span>
                   </div>
+                </div>
+              )}
+
+              {!selectedPartyId && (
+                <div className="space-y-1.5 pt-1 text-xs">
+                  <input
+                    type="tel"
+                    placeholder="Customer Mobile (10-digit)..."
+                    value={walkInMobile}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setWalkInMobile(digits);
+                      if (digits.length === 10) {
+                        const match = localParties.find((p) => p.phone === digits);
+                        if (match) {
+                          setWalkInName(match.name);
+                          if (match.address) setWalkInAddress(match.address);
+                        }
+                      }
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs font-mono"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Customer Name..."
+                    value={walkInName}
+                    onChange={(e) => setWalkInName(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Address / Area (optional)..."
+                    value={walkInAddress}
+                    onChange={(e) => setWalkInAddress(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs"
+                  />
                 </div>
               )}
             </div>

@@ -1,7 +1,7 @@
 import React from "react";
 import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { BusinessDetails } from "@/modules/settings/settings.types";
-import { formatISTDate, formatISTTime } from "@/lib/date";
+import { buildInvoiceViewModel } from "@/modules/billing/invoice-view-model";
 
 export interface ThermalReceiptProps {
   invoice: InvoiceWithDetails;
@@ -9,6 +9,8 @@ export interface ThermalReceiptProps {
 }
 
 export function ThermalReceipt({ invoice, business }: ThermalReceiptProps) {
+  const vm = buildInvoiceViewModel(invoice, business);
+
   // Tax rate breakdown
   const taxSummaryMap = new Map<
     number,
@@ -41,16 +43,17 @@ export function ThermalReceipt({ invoice, business }: ThermalReceiptProps) {
       {/* Store Header */}
       <div className="text-center">
         <h1 className="text-sm font-bold uppercase tracking-wider">
-          {business.tradeName || business.legalName}
+          {vm.business.tradeName || vm.business.legalName}
         </h1>
-        {business.tradeName && business.tradeName !== business.legalName && (
-          <p className="text-[10px]">{business.legalName}</p>
+        {vm.business.tradeName && vm.business.tradeName !== vm.business.legalName && (
+          <p className="text-[10px]">{vm.business.legalName}</p>
         )}
-        <p className="text-[10px] mt-0.5">{business.address}</p>
-        <p className="text-[10px]">Ph: {business.phone}</p>
+        {vm.business.address && (
+          <p className="text-[10px] mt-0.5">{vm.business.address}</p>
+        )}
         <div className="text-[9px] mt-1 space-y-0.5">
-          {business.gstin && <p>GSTIN: {business.gstin}</p>}
-          {business.fssai && <p>FSSAI: {business.fssai}</p>}
+          {vm.business.gstin && <p>GSTIN: {vm.business.gstin}</p>}
+          {vm.business.fssai && <p>FSSAI: {vm.business.fssai}</p>}
         </div>
       </div>
 
@@ -61,12 +64,12 @@ export function ThermalReceipt({ invoice, business }: ThermalReceiptProps) {
       <div className="text-[10px] space-y-0.5">
         <div className="flex justify-between font-bold">
           <span>INVOICE:</span>
-          <span>{invoice.number}</span>
+          <span>{vm.invoiceNumberClean}</span>
         </div>
         <div className="flex justify-between">
           <span>DATE:</span>
           <span>
-            {formatISTDate(invoice.createdAt)} {formatISTTime(invoice.createdAt)}
+            {vm.invoiceDate} {vm.invoiceTime}
           </span>
         </div>
         <div className="flex justify-between">
@@ -75,30 +78,50 @@ export function ThermalReceipt({ invoice, business }: ThermalReceiptProps) {
             {invoice.channel} ({invoice.location?.name || "Shop"})
           </span>
         </div>
-        <div className="flex justify-between">
-          <span>CASHIER:</span>
-          <span>{invoice.creator?.name || "Staff"}</span>
-        </div>
-        {invoice.party && (
+        {vm.isNonCash && (
+          <div className="flex justify-between font-bold">
+            <span>MODE:</span>
+            <span>{vm.paymentModeBadge}</span>
+          </div>
+        )}
+        {vm.agentCode && (
+          <div className="flex justify-between text-[9px] text-gray-600">
+            <span>AGENT:</span>
+            <span>{vm.agentCode}</span>
+          </div>
+        )}
+
+        {/* Customer Block (3 rows: Name, Mobile, Address - omitted if empty) */}
+        {vm.customer.name ? (
           <div className="pt-1 border-t border-dotted border-gray-400 mt-1">
             <div className="flex justify-between font-semibold">
               <span>CUSTOMER:</span>
-              <span className="truncate max-w-[120px]">{invoice.party.name}</span>
+              <span className="truncate max-w-[140px] text-right">{vm.customer.name}</span>
             </div>
-            {invoice.party.phone && (
+            {vm.customer.mobile && (
               <div className="flex justify-between">
-                <span>PHONE:</span>
-                <span>{invoice.party.phone}</span>
+                <span>MOBILE:</span>
+                <span>{vm.customer.mobile}</span>
               </div>
             )}
-            {invoice.party.gstin && (
-              <div className="flex justify-between">
+            {vm.customer.address && (
+              <div className="text-left text-[9px] text-gray-700 leading-tight mt-0.5 break-words">
+                <span>{vm.customer.address}</span>
+              </div>
+            )}
+            {vm.customer.gstin && (
+              <div className="flex justify-between text-[9px]">
                 <span>GSTIN:</span>
-                <span>{invoice.party.gstin}</span>
+                <span>{vm.customer.gstin}</span>
               </div>
             )}
           </div>
+        ) : (
+          <div className="pt-0.5 text-gray-500 text-[9px]">
+            Walk-in Customer
+          </div>
         )}
+
         {invoice.irn && (
           <div className="pt-1 border-t border-dotted border-gray-400 mt-1">
             <div className="font-bold">IRN (E-INVOICE):</div>
@@ -185,12 +208,25 @@ export function ThermalReceipt({ invoice, business }: ThermalReceiptProps) {
           </div>
         )}
 
-        {/* Double border for Grand Total */}
-        <div className="my-1 border-t-2 border-b-2 border-black py-1 flex justify-between items-baseline font-bold">
-          <span className="text-xs">NET TOTAL:</span>
-          <span className="text-sm font-mono">
-            ₹{(invoice.totalPaise / 100).toFixed(2)}
-          </span>
+        {/* Double border for Grand Total with side "GST included" */}
+        <div className="my-1 border-t-2 border-b-2 border-black py-1">
+          <div className="flex justify-between items-baseline font-bold">
+            <div className="flex items-baseline gap-1">
+              <span className="text-xs">NET TOTAL:</span>
+              {vm.gstIncluded && (
+                <span className="text-[9px] font-normal text-gray-600 lowercase italic">
+                  (GST included)
+                </span>
+              )}
+            </div>
+            <span className="text-sm font-mono">
+              ₹{(invoice.totalPaise / 100).toFixed(2)}
+            </span>
+          </div>
+          {/* Amount in words under Net Total */}
+          <div className="text-[9px] font-normal italic text-gray-700 mt-0.5 leading-tight">
+            Rupees: {vm.amountInWords}
+          </div>
         </div>
       </div>
 
@@ -231,7 +267,11 @@ export function ThermalReceipt({ invoice, business }: ThermalReceiptProps) {
       {/* Footer */}
       <div className="my-2 border-t border-dashed border-black pt-2 text-center text-[9px] space-y-0.5">
         <p>Total Items: {invoice.items.length} | Total Units: {totalPieces}</p>
-        <p className="font-bold uppercase mt-1">Thank you! Visit Again</p>
+        <p className="font-bold uppercase mt-1">{vm.footerThankYou}</p>
+        <p className="text-[9px] font-medium text-gray-800">
+          {vm.doorDeliveryText}
+          {vm.doorDeliveryPhone ? `: ${vm.doorDeliveryPhone}` : ""}
+        </p>
         <p className="text-[8px] text-gray-600">
           * Subject to Saharsa Jurisdiction *
         </p>

@@ -39,6 +39,10 @@ export const finalizeInvoiceInputSchema = z.object({
   channel: z.nativeEnum(InvoiceChannel).default(InvoiceChannel.SHOP),
   locationId: z.string().min(1, "Location ID is required"),
   partyId: z.string().nullable().optional(),
+  customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
+  customerAddress: z.string().optional(),
+  agentUserId: z.string().optional(),
   buyerType: z.string().optional(),
   orderDiscountBp: z.number().int().min(0).max(10000).default(0),
   isInterState: z.boolean().default(false),
@@ -64,6 +68,7 @@ export interface InvoiceWithDetails extends Invoice {
   party: Party | null;
   creator: Pick<User, "id" | "name" | "role"> | null;
   creditOverrideUser: Pick<User, "id" | "name" | "role"> | null;
+  agentUser?: Pick<User, "id" | "name" | "role" | "agentCode"> | null;
   items: (InvoiceItem & {
     product: {
       id: string;

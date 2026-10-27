@@ -3,6 +3,7 @@ import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { BusinessDetails } from "@/modules/settings/settings.types";
 import { CollectionReceipt } from "@/modules/party/party.types";
 import { formatISTDate, formatISTTime } from "./date";
+import { buildInvoiceViewModel } from "@/modules/billing/invoice-view-model";
 
 export interface EscPosInvoiceOptions {
   paperWidth?: 58 | 80; // 58mm (32 chars) or 80mm (48 chars)
@@ -18,76 +19,81 @@ export function formatInvoiceForEscPos(
 ): Uint8Array {
   const width = options.paperWidth === 80 ? 48 : 32;
   const builder = new EscPosBuilder();
+  const vm = buildInvoiceViewModel(invoice, business);
 
-  // 1. Store Header
+  // 1. Store Header (no cash header, no cashier name)
   builder.align("center");
   builder.bold(true);
   builder.size("double-height");
-  builder.line(business.tradeName || business.legalName || "JMD CART");
+  builder.line(vm.business.tradeName || vm.business.legalName || "JMD CART");
 
   builder.normal();
   builder.align("center");
-  if (business.tradeName && business.legalName && business.tradeName !== business.legalName) {
-    builder.line(business.legalName);
+  if (vm.business.tradeName && vm.business.legalName && vm.business.tradeName !== vm.business.legalName) {
+    builder.line(vm.business.legalName);
   }
-  if (business.address) {
-    builder.line(business.address);
+  if (vm.business.address) {
+    builder.line(vm.business.address);
   }
-  if (business.phone) {
-    builder.line(`Ph: ${business.phone}`);
+  if (vm.business.phone) {
+    builder.line(`Ph: ${vm.business.phone}`);
   }
-  if (business.gstin) {
-    builder.line(`GSTIN: ${business.gstin}`);
+  if (vm.business.gstin) {
+    builder.line(`GSTIN: ${vm.business.gstin}`);
   }
-  if (business.fssai) {
-    builder.line(`FSSAI: ${business.fssai}`);
+  if (vm.business.fssai) {
+    builder.line(`FSSAI: ${vm.business.fssai}`);
   }
 
   builder.rule("-", width);
 
   // 2. Receipt Meta
   builder.align("left");
-  builder.twoColumn("INVOICE NO:", invoice.number, width);
-  builder.twoColumn(
-    "DATE:",
-    `${formatISTDate(invoice.createdAt)} ${formatISTTime(invoice.createdAt)}`,
-    width
-  );
-  builder.twoColumn("CHANNEL:", `VAN SALES (${invoice.location.name})`, width);
+  builder.twoColumn("INVOICE NO:", vm.invoiceNumberClean, width);
+  builder.twoColumn("DATE:", `${vm.invoiceDate} ${vm.invoiceTime}`, width);
+  builder.twoColumn("CHANNEL:", `${invoice.channel} (${invoice.location.name})`, width);
 
-  if (invoice.party) {
-    builder.twoColumn("CUSTOMER:", invoice.party.name, width);
-    if (invoice.party.phone) {
-      builder.twoColumn("PHONE:", invoice.party.phone, width);
+  if (vm.isNonCash) {
+    builder.twoColumn("MODE:", vm.paymentModeBadge, width);
+  }
+  if (vm.agentCode) {
+    builder.twoColumn("AGENT:", vm.agentCode, width);
+  }
+
+  // Customer block (3 rows: Name, Mobile, Address - omitted if empty)
+  if (vm.customer.name) {
+    builder.twoColumn("CUSTOMER:", vm.customer.name, width);
+    if (vm.customer.mobile) {
+      builder.twoColumn("PHONE:", vm.customer.mobile, width);
+    }
+    if (vm.customer.address) {
+      builder.line(`ADDR: ${vm.customer.address.slice(0, width - 6)}`);
     }
   } else {
-    builder.twoColumn("CUSTOMER:", "Retail Cash Customer", width);
+    builder.twoColumn("CUSTOMER:", "Walk-in", width);
   }
 
   builder.rule("-", width);
 
   // 3. Items List
-  let totalQty = 0;
-  for (const item of invoice.items) {
-    totalQty += item.qty;
-    const itemTotalPaise = item.taxablePaise + item.taxPaise;
-    const itemTotalRs = (itemTotalPaise / 100).toFixed(2);
-    const unitPriceRs = (item.unitPricePaise / 100).toFixed(2);
-
+  for (const item of vm.items) {
     // Line 1: Item Name (bold)
     builder.bold(true);
-    builder.line(item.product.name.slice(0, width));
+    builder.line(item.name.slice(0, width));
     builder.bold(false);
 
-    // Line 2: Details: Qty x Rate = Total
-    const qtyDetails = `  ${item.qty} pcs @ Rs.${unitPriceRs}`;
-    builder.twoColumn(qtyDetails, `Rs.${itemTotalRs}`, width);
+    // Line 2: Details: Qty Unit @ Rate = Total
+    const unitPriceRs = (item.ratePaise / 100).toFixed(2);
+    const qtyDetails = item.isFullCarton
+      ? `  ${item.displayQty} ${item.unit} @ Rs.${unitPriceRs}`
+      : `  ${item.qty} pcs @ Rs.${unitPriceRs}`;
+    builder.twoColumn(qtyDetails, `Rs.${item.amountFormatted}`, width);
   }
 
   builder.rule("-", width);
 
   // 4. Totals Breakdown
-  builder.twoColumn("Total Items / Qty:", `${invoice.items.length} / ${totalQty} pcs`, width);
+  builder.twoColumn("Total Items / Qty:", `${vm.items.length} / ${vm.totalPieces} pcs`, width);
   builder.twoColumn("Subtotal:", `Rs.${(invoice.subtotalPaise / 100).toFixed(2)}`, width);
 
   if (invoice.discountPaise > 0) {
@@ -95,7 +101,11 @@ export function formatInvoiceForEscPos(
   }
 
   const totalTaxPaise = invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise;
-  builder.twoColumn("GST (Included):", `Rs.${(totalTaxPaise / 100).toFixed(2)}`, width);
+  if (vm.gstIncluded) {
+    builder.twoColumn("GST (Included):", `Rs.${(totalTaxPaise / 100).toFixed(2)}`, width);
+  } else if (totalTaxPaise > 0) {
+    builder.twoColumn("GST:", `Rs.${(totalTaxPaise / 100).toFixed(2)}`, width);
+  }
 
   if (invoice.roundOffPaise !== 0) {
     const roundOffSign = invoice.roundOffPaise > 0 ? "+" : "";
@@ -111,9 +121,13 @@ export function formatInvoiceForEscPos(
   // 5. Grand Total (Double Height + Bold)
   builder.bold(true);
   builder.size("double-height");
-  builder.twoColumn("TOTAL:", `Rs.${(invoice.totalPaise / 100).toFixed(2)}`, width);
+  builder.twoColumn("TOTAL:", `Rs.${vm.payableFormatted}`, width);
   builder.normal();
   builder.rule("=", width);
+
+  // Amount in words
+  builder.line(`Rupees: ${vm.amountInWords}`);
+  builder.rule("-", width);
 
   // 6. Payment Information
   const cashPayments = invoice.payments
@@ -142,7 +156,10 @@ export function formatInvoiceForEscPos(
 
   // 7. Footer
   builder.align("center");
-  builder.line("Thank You! Visit Again!");
+  builder.line(vm.footerThankYou);
+  if (vm.doorDeliveryPhone) {
+    builder.line(`${vm.doorDeliveryText}: ${vm.doorDeliveryPhone}`);
+  }
   builder.line("Computer Generated Invoice");
   builder.line("www.jmdcart.com");
 

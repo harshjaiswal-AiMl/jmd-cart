@@ -144,19 +144,47 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - All 71 test suites (378 tests) passing green. Typecheck (0 errors) and Lint (0 errors) passing cleanly. Next.js production build (`pnpm build`) completed with 0 errors across all 67 routes.
   - Pushed synchronized commits to `origin/main` and `origin/deploy-jmd1`.
 
+- 2026-10-27: Prompt #11 Completed & Verified:
+  - Deployed revision on Cloud Run: jmd-cart-00041-6k9 (serving 100% traffic, built from ancestor commit ea72944).
+  - Branch: feat/invoice-print-agent-code.
+  - Added single-line git SHA annotation tracking to scripts/deploy-gcp.ps1.
+  - Verification tallies:
+    - pnpm typecheck: 0 errors (PASS)
+    - pnpm lint: 0 errors (PASS)
+    - pnpm test: 73 test suites passed, 387/387 tests passed (PASS)
+    - pnpm build: 69 routes generated with zero errors (PASS)
+  - Justification of touched files (git diff --stat review):
+    - `docs/prompts/11-invoice-print-agent-code.md`: Saved prompt specifications.
+    - `scripts/deploy-gcp.ps1`: Added `--update-annotations="commit-sha=$GIT_SHA"` per Part 0.3.
+    - `prisma/schema.prisma` & `prisma/migrations/20261027150000_invoice_print_agent_code/`: Added nullable `agentCode` to `User`, `customerName`, `customerPhone`, `customerAddress`, `agentUserId`, `agentCodeSnapshot` to `Invoice` with composite index `[agentUserId, createdAt]`.
+    - `src/lib/number-to-words.ts` & `tests/unit/number-to-words.test.ts`: Added `amountInWords(paise)` supporting Indian number formatting, paise, zero, and lakhs/crores.
+    - `src/lib/phone.ts` & `tests/unit/phone.test.ts`: 10-digit Indian mobile number normalization and validation.
+    - `src/modules/billing/invoice-view-model.ts`: Single shared invoice view-model builder unifying thermal, demand bill, A5, and ESC/POS render paths.
+    - `src/modules/billing/billing.types.ts`, `billing.repository.ts`, `billing.service.ts`: Snapshot persistence, agent snapshot capture upon invoice finalize, walk-in party auto-creation.
+    - `src/modules/billing/agent.service.ts` & `tests/unit/agent-service.test.ts`: Agent code generation, invoice reassignment with audit logging, and sales incentive reporting.
+    - `src/components/printing/cash-receipt-slip.tsx`: Updated thermal slip (removed CASH header, removed cashier row, added side "GST included", amount in words, dynamic footer).
+    - `src/components/printing/a5-invoice.tsx`: New A5 portrait invoice template with pagination and maroon table design.
+    - `src/components/printing/demand-bill-credit.tsx` & `thermal-receipt.tsx`: Routed through unified invoice view-model.
+    - `src/lib/escpos-invoice.ts` & `tests/unit/escpos.test.ts`: ESC/POS thermal formatting using unified view-model.
+    - `src/app/shop/invoices/[id]/print/page.tsx` & `print-viewer.tsx`: Added A5 format selector and rendering.
+    - `src/app/shop/invoices/[id]/invoice-detail-client.tsx`: Added A5 action button, customer snapshot rows, and agent badge.
+    - `src/modules/crud/crud.registry.ts` & `crud.service.ts`: Agent code validation and uniqueness check in User CRUD.
+    - `src/components/crud/crud-data-table.tsx`: Agent code display with missing warning badge for staff roles.
+    - `src/modules/settings/settings.types.ts` & `settings.service.ts`: Added `invoicePrintSettings` for footer and agent code display.
+    - `src/app/shop/pos/actions.ts` & `pos-client.tsx`: Walk-in customer inputs (Mobile, Name, Address) with auto-lookup and snapshot submission.
+    - `src/app/van/billing/actions.ts` & `van-billing-client.tsx`: Walk-in customer inputs and snapshot submission.
+    - `src/app/shop/invoices/sample/preview/page.tsx` & `sample-preview-client.tsx`: Staff-only sample preview route for Thermal and A5 with zero DB writes.
+    - `src/app/admin/reports/agent-sales/`: Agent Sales & Incentives report with filters, KPIs, leaderboard, drill-down, CSV export, and Admin Reassign modal.
+    - `src/config/nav.config.ts`: Added Agent Sales report to navigation.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+## Invoice Render Paths Map (Prompt #11 Step 1)
+1. HTML Thermal Receipt (80mm/58mm Cash/UPI): src/components/printing/cash-receipt-slip.tsx
+2. HTML Demand Bill (Credit with DUES stamp): src/components/printing/demand-bill-credit.tsx
+3. HTML GST Thermal Receipt (Detailed tax): src/components/printing/thermal-receipt.tsx
+4. HTML GST A4 Invoice: src/components/printing/a4-invoice.tsx
+5. HTML A5 Portrait Invoice (New): src/components/printing/a5-invoice.tsx
+6. Bluetooth ESC/POS van/shop printer: src/lib/escpos-invoice.ts via src/components/van/bluetooth-printer-modal.tsx
+7. Admin/Staff Invoice Detail: src/app/shop/invoices/[id]/invoice-detail-client.tsx
+8. Van Bills / Van Spot Billing: src/app/van/bills/van-bills-client.tsx & src/app/van/billing/van-billing-client.tsx
+9. Storefront Customer Order Invoice: src/app/store/orders/[id]/invoice/buyer-invoice-viewer.tsx
+10. Unified View-Model Builder: src/modules/billing/invoice-view-model.ts (single source of truth for all print/display paths)

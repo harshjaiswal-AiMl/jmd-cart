@@ -167,6 +167,7 @@ model User {
   partyId            String?    @map("party_id")
   buyerType          PartyType? @default(CUSTOMER) @map("buyer_type")
   buyerApproved      Boolean    @default(false) @map("buyer_approved")
+  agentCode          String?    @unique @map("agent_code")
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
 
@@ -179,6 +180,7 @@ model User {
   createdCreditNotes CreditNote[]
   vanDays            VanDay[]
   creditOverrideInvoices Invoice[] @relation("CreditOverrideInvoices")
+  agentInvoices      Invoice[]     @relation("AgentInvoices")
   handoversGiven     CashHandover[] @relation("HandoverSalesperson")
   handoversReceived  CashHandover[] @relation("HandoverReceiver")
   createdDebitNotes  DebitNote[]
@@ -521,6 +523,11 @@ model Invoice {
   creditOverride Boolean      @default(false) @map("credit_override")
   creditOverrideReason String? @map("credit_override_reason")
   creditOverrideBy String?    @map("credit_override_by")
+  customerName   String?        @map("customer_name")
+  customerPhone  String?        @map("customer_phone")
+  customerAddress String?       @map("customer_address")
+  agentUserId    String?        @map("agent_user_id")
+  agentCodeSnapshot String?     @map("agent_code_snapshot")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
@@ -528,6 +535,7 @@ model Invoice {
   party         Party?         @relation(fields: [partyId], references: [id], onDelete: SetNull)
   creator       User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   creditOverrideUser User?     @relation("CreditOverrideInvoices", fields: [creditOverrideBy], references: [id], onDelete: SetNull)
+  agentUser      User?          @relation("AgentInvoices", fields: [agentUserId], references: [id], onDelete: SetNull)
   items         InvoiceItem[]
   payments      Payment[]
   creditNotes   CreditNote[]
@@ -536,6 +544,7 @@ model Invoice {
 
   @@index([locationId, createdAt])
   @@index([partyId, createdAt])
+  @@index([agentUserId, createdAt])
   @@map("invoices")
 }
 

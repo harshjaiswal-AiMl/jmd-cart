@@ -452,6 +452,14 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/reports?tab=staff",
     roles: [...ADMIN_ROLES],
   },
+  {
+    id: "rep-agent-sales",
+    group: "Reports",
+    label: "Agent Sales (Incentives)",
+    icon: "BadgePercent",
+    href: "/admin/reports/agent-sales",
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+  },
 
   // 10. Admin
   {

@@ -21,6 +21,9 @@ export class BillingRepository {
         creditOverrideUser: {
           select: { id: true, name: true, role: true },
         },
+        agentUser: {
+          select: { id: true, name: true, role: true, agentCode: true },
+        },
         items: {
           include: {
             product: {
@@ -59,6 +62,9 @@ export class BillingRepository {
         },
         creditOverrideUser: {
           select: { id: true, name: true, role: true },
+        },
+        agentUser: {
+          select: { id: true, name: true, role: true, agentCode: true },
         },
         items: {
           include: {

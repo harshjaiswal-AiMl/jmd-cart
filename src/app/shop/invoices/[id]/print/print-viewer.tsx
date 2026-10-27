@@ -5,11 +5,12 @@ import Link from "next/link";
 import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { BusinessDetails } from "@/modules/settings/settings.types";
 import { A4Invoice } from "@/components/printing/a4-invoice";
+import { A5Invoice } from "@/components/printing/a5-invoice";
 import { ThermalReceipt } from "@/components/printing/thermal-receipt";
 import { CashReceiptSlip } from "@/components/printing/cash-receipt-slip";
 import { DemandBillCredit } from "@/components/printing/demand-bill-credit";
 
-export type PrintFormat = "cash_receipt" | "demand_bill" | "a4" | "thermal";
+export type PrintFormat = "cash_receipt" | "demand_bill" | "a4" | "thermal" | "a5";
 
 interface PrintViewerProps {
   invoice: InvoiceWithDetails;
@@ -69,9 +70,9 @@ export function PrintViewer({
                   ? "bg-white text-emerald-800 shadow-sm font-bold border border-emerald-500/30"
                   : "text-slate-600 hover:text-slate-900"
               }`}
-              title="Image 1 Cash & UPI Bill (Without GST)"
+              title="Thermal Cash & UPI Slip (80mm / 58mm)"
             >
-              <span>💵 Cash / UPI</span>
+              <span>💵 Thermal (80mm)</span>
             </button>
             <button
               type="button"
@@ -81,9 +82,21 @@ export function PrintViewer({
                   ? "bg-white text-purple-800 shadow-sm font-bold border border-purple-500/30"
                   : "text-slate-600 hover:text-slate-900"
               }`}
-              title="Image 2 Demand Bill with DUES Stamp (Without GST)"
+              title="Demand Bill with DUES Stamp"
             >
-              <span>📋 Demand Bill (DUES)</span>
+              <span>📋 Demand Bill</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormat("a5")}
+              className={`px-3 py-1.5 rounded-md transition flex items-center gap-1 ${
+                format === "a5"
+                  ? "bg-white text-rose-900 shadow-sm font-bold border border-rose-400"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+              title="A5 Portrait Invoice (148 × 210 mm)"
+            >
+              <span>📄 A5 Invoice</span>
             </button>
             <button
               type="button"
@@ -141,7 +154,7 @@ export function PrintViewer({
                 d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
               />
             </svg>
-            Print (Ctrl+P)
+            Print / PDF (Ctrl+P)
           </button>
         </div>
       </div>
@@ -153,6 +166,9 @@ export function PrintViewer({
         )}
         {format === "demand_bill" && (
           <DemandBillCredit invoice={invoice} business={business} />
+        )}
+        {format === "a5" && (
+          <A5Invoice invoice={invoice} business={business} />
         )}
         {format === "a4" && (
           <A4Invoice

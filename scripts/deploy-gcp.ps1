@@ -27,6 +27,7 @@ if (-not $PROJECT) { Write-Error "No GCP project set."; exit 1 }
 $SA_EMAIL = "$ServiceAccount@$PROJECT.iam.gserviceaccount.com"
 $IMAGE = "$Region-docker.pkg.dev/$PROJECT/$ArRepo/$ServiceName`:$ImageTag"
 $SQL_CONN = "$PROJECT`:$Region`:$SqlInstance"
+$GIT_SHA = (git rev-parse HEAD 2>$null).Trim()
 
 Write-Host "Project: $PROJECT" -ForegroundColor Cyan
 Write-Host "Image: $IMAGE" -ForegroundColor Cyan
@@ -96,6 +97,7 @@ gcloud run deploy $ServiceName `
     --ingress=internal-and-cloud-load-balancing `
     --allow-unauthenticated `
     --port=8080 `
+    --update-annotations="commit-sha=$GIT_SHA" `
     --project=$PROJECT `
     --quiet
 

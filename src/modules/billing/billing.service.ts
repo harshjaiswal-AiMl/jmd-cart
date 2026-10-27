@@ -6,6 +6,7 @@ import {
   LedgerKind,
   MovementType,
   UserRole,
+  PartyType,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getNextSequenceNumber } from "@/lib/invoice-number";
@@ -30,6 +31,7 @@ import { billingRepository, BillingRepository } from "./billing.repository";
 import { partyRepository } from "@/modules/party/party.repository";
 import { getEInvoiceProvider } from "@/lib/e-invoice";
 import { settingsService } from "@/modules/settings/settings.service";
+import { normalizeIndianMobile } from "@/lib/phone";
 
 export class BillingService {
   constructor(private readonly repo: BillingRepository = billingRepository) {}
@@ -217,6 +219,53 @@ export class BillingService {
           paymentStatus = PaymentStatus.PARTIAL;
         }
 
+                // Walk-in party lookup/creation & snapshots
+        const normalizedMobile = normalizeIndianMobile(validated.customerPhone);
+        if (!effectivePartyId && normalizedMobile) {
+          const existingParty = await tx.party.findFirst({
+            where: { phone: normalizedMobile },
+          });
+          if (existingParty) {
+            effectivePartyId = existingParty.id;
+          } else {
+            const newParty = await tx.party.create({
+              data: {
+                name: validated.customerName?.trim() || `Customer ${normalizedMobile}`,
+                phone: normalizedMobile,
+                address: validated.customerAddress?.trim() || null,
+                type: PartyType.CUSTOMER,
+                active: true,
+              },
+            });
+            effectivePartyId = newParty.id;
+          }
+        }
+
+        let partySnapshotName: string | null = null;
+        let partySnapshotPhone: string | null = null;
+        let partySnapshotAddress: string | null = null;
+        if (effectivePartyId) {
+          const pRec = await tx.party.findUnique({
+            where: { id: effectivePartyId },
+            select: { name: true, phone: true, address: true },
+          });
+          if (pRec) {
+            partySnapshotName = pRec.name;
+            partySnapshotPhone = pRec.phone;
+            partySnapshotAddress = pRec.address;
+          }
+        }
+
+        const effectiveAgentUserId = validated.agentUserId || actorId || null;
+        let agentCodeSnapshot: string | null = null;
+        if (effectiveAgentUserId) {
+          const agentUser = await tx.user.findUnique({
+            where: { id: effectiveAgentUserId },
+            select: { agentCode: true },
+          });
+          agentCodeSnapshot = agentUser?.agentCode || null;
+        }
+
         // C. Create Invoice record with frozen pricing
         const invoice = await tx.invoice.create({
           data: {
@@ -227,6 +276,11 @@ export class BillingService {
             locationId: validated.locationId,
             idempotencyKey: validated.idempotencyKey ?? null,
             partyId: effectivePartyId ?? null,
+            customerName: validated.customerName?.trim() || partySnapshotName,
+            customerPhone: normalizedMobile || validated.customerPhone?.trim() || partySnapshotPhone,
+            customerAddress: validated.customerAddress?.trim() || partySnapshotAddress,
+            agentUserId: effectiveAgentUserId,
+            agentCodeSnapshot,
             buyerType: orderPricing.buyerTag,
             notes: validated.notes ?? null,
             creditOverride: creditOverrideApplied,

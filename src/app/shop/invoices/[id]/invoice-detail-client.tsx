@@ -84,6 +84,14 @@ export function InvoiceDetailClient({
           </Link>
 
           <Link
+            href={`/shop/invoices/${invoice.id}/print?format=a5`}
+            target="_blank"
+            className="text-xs font-bold bg-white text-rose-800 hover:bg-rose-50 border border-rose-300 px-3.5 py-2 rounded-lg shadow-sm flex items-center gap-1.5 transition"
+          >
+            📄 A5 Invoice
+          </Link>
+
+          <Link
             href={`/shop/invoices/${invoice.id}/print?format=demand_bill`}
             target="_blank"
             className="text-xs font-bold bg-white text-purple-700 hover:bg-purple-50 border border-purple-300 px-3.5 py-2 rounded-lg shadow-sm flex items-center gap-1.5 transition"
@@ -140,7 +148,22 @@ export function InvoiceDetailClient({
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
             Customer / Party
           </span>
-          {invoice.party ? (
+          {invoice.customerName || invoice.customerPhone || invoice.customerAddress ? (
+            <div className="space-y-1 text-xs">
+              <p className="font-bold text-slate-900 text-sm">
+                {invoice.customerName || invoice.party?.name || "Walk-in Customer"}
+              </p>
+              {invoice.customerPhone && (
+                <p className="text-slate-600">Phone: {invoice.customerPhone}</p>
+              )}
+              {invoice.customerAddress && (
+                <p className="text-slate-500">Address: {invoice.customerAddress}</p>
+              )}
+              {invoice.party?.gstin && (
+                <p className="text-slate-600">GSTIN: {invoice.party.gstin}</p>
+              )}
+            </div>
+          ) : invoice.party ? (
             <div className="space-y-1 text-xs">
               <p className="font-bold text-slate-900 text-sm">{invoice.party.name}</p>
               <p className="text-slate-600">Phone: {invoice.party.phone}</p>
@@ -178,6 +201,17 @@ export function InvoiceDetailClient({
               <strong className="text-slate-900">Billed By:</strong>{" "}
               {invoice.creator?.name || "Staff"}
             </p>
+            {(invoice.agentCodeSnapshot || invoice.agentUser?.agentCode) && (
+              <p>
+                <strong className="text-slate-900">Agent:</strong>{" "}
+                <span className="font-mono font-bold bg-amber-50 text-amber-900 border border-amber-200 px-1.5 py-0.5 rounded text-[11px]">
+                  {invoice.agentCodeSnapshot || invoice.agentUser?.agentCode}
+                </span>{" "}
+                <span className="text-slate-500 text-[11px]">
+                  ({invoice.agentUser?.name || invoice.creator?.name})
+                </span>
+              </p>
+            )}
           </div>
         </div>
 

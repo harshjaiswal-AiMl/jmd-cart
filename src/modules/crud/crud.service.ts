@@ -148,6 +148,7 @@ export class CrudService {
             name: u.name,
             phone: u.phone,
             email: u.email || "",
+            agentCode: u.agentCode || "",
             role: u.role,
             buyerType: u.buyerType || "CUSTOMER",
             buyerApproved: u.buyerApproved,
@@ -637,6 +638,17 @@ export class CrudService {
         }
         const rawPassword = String(data.password || "Welcome@123");
         const passwordHash = await bcrypt.hash(rawPassword, 10);
+        let agentCode: string | null = null;
+        if (data.agentCode !== undefined && data.agentCode !== null && String(data.agentCode).trim()) {
+          agentCode = String(data.agentCode).trim().toUpperCase();
+          if (!/^[A-Z0-9]{3,8}$/.test(agentCode)) {
+            throw new Error("Agent code must be 3 to 8 uppercase alphanumeric characters (e.g. AG001, RK07)");
+          }
+          const existing = await prisma.user.findUnique({ where: { agentCode } });
+          if (existing) {
+            throw new Error(`Agent code '${agentCode}' is already assigned to user '${existing.name}'`);
+          }
+        }
         const created = await prisma.user.create({
           data: {
             name: String(data.name || "").trim(),
@@ -644,6 +656,7 @@ export class CrudService {
             role: targetRole,
             buyerType: (data.buyerType as PartyType) || PartyType.CUSTOMER,
             buyerApproved: Boolean(data.buyerApproved),
+            agentCode,
             passwordHash,
             active: data.active !== undefined ? Boolean(data.active) : true,
           },
@@ -941,6 +954,23 @@ export class CrudService {
           }
         }
 
+        if (data.agentCode !== undefined) {
+          const rawCode = String(data.agentCode || "").trim().toUpperCase();
+          if (rawCode === "") {
+            // Unset code
+          } else {
+            if (!/^[A-Z0-9]{3,8}$/.test(rawCode)) {
+              throw new Error("Agent code must be 3 to 8 uppercase alphanumeric characters (e.g. AG001, RK07)");
+            }
+            const existing = await prisma.user.findFirst({
+              where: { agentCode: rawCode, id: { not: id } },
+            });
+            if (existing) {
+              throw new Error(`Agent code '${rawCode}' is already assigned to user '${existing.name}'`);
+            }
+          }
+        }
+
         const updateData: Prisma.UserUpdateInput = {
           ...(data.name !== undefined ? { name: String(data.name).trim() } : {}),
           ...(data.phone !== undefined ? { phone: String(data.phone).trim() } : {}),
@@ -950,6 +980,9 @@ export class CrudService {
             : {}),
           ...(data.buyerApproved !== undefined
             ? { buyerApproved: Boolean(data.buyerApproved) }
+            : {}),
+          ...(data.agentCode !== undefined
+            ? { agentCode: String(data.agentCode || "").trim().toUpperCase() || null }
             : {}),
           ...(data.active !== undefined ? { active: Boolean(data.active) } : {}),
         };
