@@ -18,7 +18,7 @@ const epilogue = Epilogue({
 export const metadata: Metadata = {
   metadataBase: new URL("https://jmdcart.com"),
   title: {
-    default: "JMD Cart — Saharsa Grocery & Bulk Wholesale | 30-Min Fast Delivery",
+    default: "JMD Cart — Saharsa Grocery & Bulk Wholesale",
     template: "%s | JMD Cart Saharsa",
   },
   description:
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     siteName: "JMD Cart",
     title: "JMD Cart — Saharsa Grocery & Bulk Wholesale",
     description:
-      "Direct distributor prices on daily staples, spices, edible oils & packaged foods in Saharsa. Rapid 30-minute delivery in town.",
+      "Direct distributor prices on daily staples, spices, edible oils & packaged foods in Saharsa.",
     images: [
       {
         url: "/brand/jmd-cart-logo.png",

@@ -134,36 +134,16 @@ export class BillingService {
     let creditBreachReasons: string[] = [];
 
     if (balanceDuePaise > 0) {
-      const isShopChannel = validated.channel === InvoiceChannel.SHOP;
-
-      if (!effectivePartyId) {
-        if (isShopChannel) {
-          // Open credit policy for Shop POS: find or create default Walk-in Credit Party
-          let defaultCreditParty = await prisma.party.findFirst({
-            where: { name: "Walk-in Credit Customer" },
-          });
-          if (!defaultCreditParty) {
-            defaultCreditParty = await prisma.party.create({
-              data: {
-                name: "Walk-in Credit Customer",
-                type: "CUSTOMER",
-                creditEnabled: true,
-                creditLimitPaise: 100000000,
-              },
-            });
-          }
-          effectivePartyId = defaultCreditParty.id;
-        } else {
-          throw new Error(
-            `Walk-in retail sales must be fully paid at checkout. Total: ₹${(
-              orderPricing.totalPaise / 100
-            ).toFixed(2)}, Paid: ₹${(totalPaidPaise / 100).toFixed(2)}`
-          );
-        }
+      if (!validated.partyId) {
+        throw new Error(
+          `Walk-in retail sales must be fully paid at checkout. Total: ₹${(
+            orderPricing.totalPaise / 100
+          ).toFixed(2)}, Paid: ₹${(totalPaidPaise / 100).toFixed(2)}`
+        );
       }
 
       const party = await prisma.party.findUnique({
-        where: { id: effectivePartyId },
+        where: { id: validated.partyId },
       });
 
       if (!party) {
@@ -171,19 +151,11 @@ export class BillingService {
       }
 
       const creditStatus = await partyRepository.checkPartyCreditStatus(
-        effectivePartyId,
+        validated.partyId,
         balanceDuePaise
       );
 
-      if (isShopChannel) {
-        // Credit is open for all parties/customers billed from Shop POS
-        creditOverrideApplied = true;
-        creditOverrideBy = actorId ?? null;
-        creditOverrideReason =
-          validated.creditOverride?.reason ||
-          validated.notes ||
-          "Shop POS Open Credit Policy";
-      } else if (!creditStatus.canProceedWithoutOverride) {
+      if (!creditStatus.canProceedWithoutOverride) {
         creditBreachReasons = creditStatus.breachReasons;
 
         const callerCanOverride = hasPermission(
@@ -303,96 +275,140 @@ export class BillingService {
           const prod = prodMap.get(line.productId);
           const packSize = prod?.packSize || 1;
 
-          if (isShopLocation && packSize > 1 && godownLocation) {
-            const cartons = Math.floor(line.qty / packSize);
-            const cartonPcs = cartons * packSize;
-            const loosePcs = line.qty % packSize;
-
-            // 1. Full cartons: Deduct from Godown (or fallback to Shop if shop has enough carton stock and godown does not)
-            if (cartonPcs > 0) {
-              const godownBal = await tx.stockBalance.findUnique({
-                where: {
-                  productId_locationId: {
-                    productId: line.productId,
-                    locationId: godownLocation.id,
-                  },
-                },
-              });
-              const godownQty = godownBal?.qty ?? 0;
-              const cartonSourceLocId =
-                godownQty >= cartonPcs ? godownLocation.id : validated.locationId;
-
-              await stockService.postMovement(
-                {
-                  type: MovementType.SALE,
+          if (isShopLocation && godownLocation) {
+            const godownBal = await tx.stockBalance.findUnique({
+              where: {
+                productId_locationId: {
                   productId: line.productId,
-                  fromLocationId: cartonSourceLocId,
-                  toLocationId: null,
-                  qty: cartonPcs,
-                  referenceType: "INVOICE",
-                  referenceId: invoice.id,
-                  reason: `Invoice #${invoiceNumber} (Cartons from ${
-                    cartonSourceLocId === godownLocation.id ? "Godown" : "Shop"
-                  })`,
-                  idempotencyKey: `${validated.idempotencyKey}_sale_ctn_${line.productId}`,
-                  actorId,
+                  locationId: godownLocation.id,
                 },
-                tx
-              );
-            }
+              },
+            });
+            const shopBal = await tx.stockBalance.findUnique({
+              where: {
+                productId_locationId: {
+                  productId: line.productId,
+                  locationId: validated.locationId,
+                },
+              },
+            });
 
-            // 2. Loose pieces: Deduct from Shop (auto-open shop cartons if loose on shelf is insufficient)
-            if (loosePcs > 0) {
-              const shopBal = await tx.stockBalance.findUnique({
-                where: {
-                  productId_locationId: {
+            const godownQty = godownBal?.qty ?? 0;
+            const shopQty = shopBal?.qty ?? 0;
+
+            if (packSize > 1) {
+              const cartons = Math.floor(line.qty / packSize);
+              const cartonPcs = cartons * packSize;
+              const loosePcs = line.qty % packSize;
+
+              // 1. Full cartons: Deduct from Godown (or fallback to Shop if shop has enough carton stock and godown does not)
+              if (cartonPcs > 0) {
+                const cartonSourceLocId =
+                  godownQty >= cartonPcs ? godownLocation.id : validated.locationId;
+
+                await stockService.postMovement(
+                  {
+                    type: MovementType.SALE,
                     productId: line.productId,
-                    locationId: validated.locationId,
+                    fromLocationId: cartonSourceLocId,
+                    toLocationId: null,
+                    qty: cartonPcs,
+                    referenceType: "INVOICE",
+                    referenceId: invoice.id,
+                    reason: `Invoice #${invoiceNumber} (Cartons from ${
+                      cartonSourceLocId === godownLocation.id ? "Godown" : "Shop"
+                    })`,
+                    idempotencyKey: `${validated.idempotencyKey}_sale_ctn_${line.productId}`,
+                    actorId,
                   },
-                },
-              });
-              const shopQtyBefore = shopBal?.qty ?? 0;
-              const shopLooseBefore = shopQtyBefore % packSize;
-
-              if (shopQtyBefore >= loosePcs && shopLooseBefore < loosePcs) {
-                const deficit = loosePcs - shopLooseBefore;
-                const cartonsOpened = Math.ceil(deficit / packSize);
-                await tx.auditLog.create({
-                  data: {
-                    actorId: actorId || null,
-                    action: "CARTON_AUTO_CONVERT",
-                    entity: "CartonConversion",
-                    entityId: line.productId,
-                    before: {
-                      cartonsAvailable: Math.floor(shopQtyBefore / packSize),
-                      looseAvailable: shopLooseBefore,
-                    },
-                    after: {
-                      productId: line.productId,
-                      locationId: validated.locationId,
-                      cartonsOpened,
-                      looseGenerated: cartonsOpened * packSize,
-                      looseUsed: loosePcs,
-                      reason: "auto-convert",
-                      referenceType: "INVOICE",
-                      referenceId: invoice.id,
-                      referenceNumber: invoiceNumber,
-                    },
-                  },
-                });
+                  tx
+                );
               }
 
+              // 2. Loose pieces: Deduct from Shop if available, else from Godown
+              if (loosePcs > 0) {
+                if (shopQty >= loosePcs) {
+                  const shopLooseBefore = shopQty % packSize;
+                  if (shopLooseBefore < loosePcs) {
+                    const deficit = loosePcs - shopLooseBefore;
+                    const cartonsOpened = Math.ceil(deficit / packSize);
+                    await tx.auditLog.create({
+                      data: {
+                        actorId: actorId || null,
+                        action: "CARTON_AUTO_CONVERT",
+                        entity: "CartonConversion",
+                        entityId: line.productId,
+                        before: {
+                          cartonsAvailable: Math.floor(shopQty / packSize),
+                          looseAvailable: shopLooseBefore,
+                        },
+                        after: {
+                          productId: line.productId,
+                          locationId: validated.locationId,
+                          cartonsOpened,
+                          looseGenerated: cartonsOpened * packSize,
+                          looseUsed: loosePcs,
+                          reason: "auto-convert",
+                          referenceType: "INVOICE",
+                          referenceId: invoice.id,
+                          referenceNumber: invoiceNumber,
+                        },
+                      },
+                    });
+                  }
+
+                  await stockService.postMovement(
+                    {
+                      type: MovementType.SALE,
+                      productId: line.productId,
+                      fromLocationId: validated.locationId,
+                      toLocationId: null,
+                      qty: loosePcs,
+                      referenceType: "INVOICE",
+                      referenceId: invoice.id,
+                      reason: `Invoice #${invoiceNumber} (Loose from Shop)`,
+                      idempotencyKey: `${validated.idempotencyKey}_sale_loose_${line.productId}`,
+                      actorId,
+                    },
+                    tx
+                  );
+                } else {
+                  // Shop shelf has 0 or insufficient pieces; fulfill loose pieces directly from Godown
+                  await stockService.postMovement(
+                    {
+                      type: MovementType.SALE,
+                      productId: line.productId,
+                      fromLocationId: godownLocation.id,
+                      toLocationId: null,
+                      qty: loosePcs,
+                      referenceType: "INVOICE",
+                      referenceId: invoice.id,
+                      reason: `Invoice #${invoiceNumber} (Loose from Godown)`,
+                      idempotencyKey: `${validated.idempotencyKey}_sale_loose_${line.productId}`,
+                      actorId,
+                    },
+                    tx
+                  );
+                }
+              }
+            } else {
+              // packSize === 1: Deduct from Shop if shop has stock, else from Godown
+              const sourceLocId =
+                shopQty >= line.qty ? validated.locationId : godownLocation.id;
+
               await stockService.postMovement(
                 {
                   type: MovementType.SALE,
                   productId: line.productId,
-                  fromLocationId: validated.locationId,
+                  fromLocationId: sourceLocId,
                   toLocationId: null,
-                  qty: loosePcs,
+                  qty: line.qty,
                   referenceType: "INVOICE",
                   referenceId: invoice.id,
-                  reason: `Invoice #${invoiceNumber} (Loose from Shop)`,
-                  idempotencyKey: `${validated.idempotencyKey}_sale_loose_${line.productId}`,
+                  reason: `Invoice #${invoiceNumber} (${
+                    sourceLocId === validated.locationId ? "Shop" : "Godown"
+                  })`,
+                  idempotencyKey: `${validated.idempotencyKey}_sale_${line.productId}`,
                   actorId,
                 },
                 tx

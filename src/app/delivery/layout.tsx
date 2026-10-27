@@ -6,7 +6,7 @@ import { ManagementShellServer } from "@/components/layout/management-shell-serv
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "JMD Cart • Delivery Operations",
+  title: "JMD Cart Management",
   description: "Order Delivery Execution & Payment Collection",
 };
 

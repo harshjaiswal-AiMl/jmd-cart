@@ -7,7 +7,7 @@ import { VanBottomNav } from "./van-nav";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "JMD Cart • Van Sales & Reconciliation",
+  title: "JMD Cart Management",
   description: "On-Van Billing, Distribution & Inventory System",
 };
 
