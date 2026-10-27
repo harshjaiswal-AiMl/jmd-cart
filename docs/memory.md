@@ -231,3 +231,9 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - `pnpm lint`: 0 errors (PASS).
   - Target Vitest suites: 5/5 test suites passed, 34/34 tests passed (PASS).
   - Next.js production build: 76/76 static & dynamic routes generated with zero errors (PASS).
+  - Git commit: 09dce8209821badd0a14ffc74e1ce57e2ae49d9f merged to main and pushed to origin/main.
+  - Cloud Build: d839db14-416d-4903-97fa-6a7ca3833a9d SUCCESS (container digest sha256:23de2099d1c9f764c05a20947c343648215f72879a2e17d75d08783c4bb9a39c).
+  - Migration Job: jmd-cart-migrate-85qwp completed successfully on Cloud SQL (applied migration 20261027170000_incentive_system_and_agent_backfill).
+  - Cloud Run: Revision jmd-cart-00043-99x serving 100% of traffic with annotation commit-sha=09dce8209821badd0a14ffc74e1ce57e2ae49d9f.
+  - Production Smoke Test: scripts/smoke-prod.ts 14 PASS, 0 FAIL.
+  - Endpoints & Redirects verified on live production: /admin/staff -> 308 /admin/crud/users, /admin/incentives-report -> 308 /admin/incentives, /admin/reports/agent-incentives -> 308 /admin/incentives. Authenticated paths redirect cleanly to /login.
