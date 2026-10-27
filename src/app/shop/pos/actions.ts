@@ -8,7 +8,7 @@ import { InvoiceChannel, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export async function calculateOrderPricingAction(
-  items: Array<{ productId: string; qty: number }>,
+  items: Array<{ productId: string; qty: number; unitPriceOverridePaise?: number }>,
   orderDiscountBp: number = 0,
   isInterState: boolean = false,
   partyId?: string | null,
@@ -39,8 +39,12 @@ export async function setAdminManualRateAction(input: {
     throw new Error("Unauthorized");
   }
 
-  if (session.user.role !== UserRole.SUPER_ADMIN && session.user.role !== UserRole.ADMIN) {
-    throw new Error("Only Admin or Super Admin can enter a manual rate for unpriced items.");
+  if (
+    session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.ADMIN &&
+    session.user.role !== UserRole.SHOP
+  ) {
+    throw new Error("Only Admin, Super Admin, or Cashier can enter a manual rate for items.");
   }
 
   const { prisma } = await import("@/lib/prisma");
@@ -87,7 +91,7 @@ export async function finalizeBillAction(input: {
   buyerType?: any;
   orderDiscountBp?: number;
   isInterState?: boolean;
-  items: Array<{ productId: string; qty: number }>;
+  items: Array<{ productId: string; qty: number; unitPriceOverridePaise?: number }>;
   payments: Array<{ mode: "CASH" | "UPI" | "CARD" | "CREDIT"; amountPaise: number }>;
   idempotencyKey: string;
   notes?: string;
@@ -314,3 +318,44 @@ export async function getPartyLastItemPurchaseAction(partyId: string, productId:
   }
 }
 
+
+export async function saveProductPriceAction(input: {
+  productId: string;
+  mrpPaise?: number;
+  ratePaise: number;
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error("Unauthorized");
+  }
+
+  if (
+    session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.ADMIN &&
+    session.user.role !== UserRole.SHOP
+  ) {
+    throw new Error("Only Admin, Super Admin, or Cashier can save product price.");
+  }
+
+  const product = await prisma.product.findUnique({
+    where: { id: input.productId },
+  });
+
+  if (!product) {
+    throw new Error("Product not found");
+  }
+
+  const effectiveMrp = input.mrpPaise && input.mrpPaise > 0 
+    ? input.mrpPaise 
+    : (product.mrpPaise && product.mrpPaise > 0 ? product.mrpPaise : input.ratePaise);
+
+  const updated = await prisma.product.update({
+    where: { id: input.productId },
+    data: {
+      mrpPaise: effectiveMrp,
+      priceCPaise: input.ratePaise,
+    },
+  });
+
+  return { success: true, product: updated };
+}

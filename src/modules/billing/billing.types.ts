@@ -16,6 +16,7 @@ import {
 export const invoiceItemInputSchema = z.object({
   productId: z.string().min(1, "Product ID is required"),
   qty: z.number().int().min(1, "Quantity must be at least 1 piece"),
+  unitPriceOverridePaise: z.number().int().min(0).optional(),
 });
 
 export type InvoiceItemInput = z.infer<typeof invoiceItemInputSchema>;

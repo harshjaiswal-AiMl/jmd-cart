@@ -329,7 +329,7 @@ export class PricingService {
         throw new Error(`Product not found with ID ${item.productId}`);
       }
 
-      const effectiveMrp =
+      const rawMrp =
         product.mrpPaise ??
         product.priceCPaise ??
         product.priceBPaise ??
@@ -346,7 +346,7 @@ export class PricingService {
 
       let quantitySlabPricePaise =
         rawSlabDiscountBp > 0
-          ? Math.round((effectiveMrp * (10000 - rawSlabDiscountBp)) / 10000)
+          ? Math.round((rawMrp * (10000 - rawSlabDiscountBp)) / 10000)
           : null;
       let effectiveSlabTier: BuyerTier | null = slabTier;
 
@@ -377,6 +377,9 @@ export class PricingService {
         item.unitPriceOverridePaise != null
           ? item.unitPriceOverridePaise
           : resolvedAbc.unitPricePaise;
+
+      // Ensure effectiveMrp is never less than baseUnitPricePaise so that unpriced items or manual rate entries calculate correctly
+      const effectiveMrp = Math.max(rawMrp, baseUnitPricePaise);
 
       // Convert resolved unit price into equivalent discountBp off effectiveMrp for GST engine compatibility
       const slabDiscountBp =

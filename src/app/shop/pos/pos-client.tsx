@@ -32,6 +32,7 @@ import {
   finalizeBillAction,
   checkPartyCreditStatusAction,
   setAdminManualRateAction,
+  saveProductPriceAction,
   createQuickPartyAction,
   getPartyBillHistoryAction,
   getPartyLastItemPurchaseAction,
@@ -86,6 +87,10 @@ export interface PosCartLine {
   qty: number;
   unit: "Pcs" | "Carton";
   lineDiscountPercent: number;
+  customRatePaise?: number | null;
+  customRateInput?: string;
+  customMrpPaise?: number | null;
+  isCustomRate?: boolean;
 }
 
 export interface PosBillTab {
@@ -320,10 +325,21 @@ export function PosClient({
 
     startPricingTransition(async () => {
       try {
-        const pricingItems = activeTab.cart.map((c) => ({
-          productId: c.productId,
-          qty: c.unit === "Carton" ? c.qty * Math.max(1, c.product.packSize) : c.qty,
-        }));
+        const pricingItems = activeTab.cart.map((c) => {
+          const packSize = Math.max(1, c.product.packSize);
+          const pcs = c.unit === "Carton" ? c.qty * packSize : c.qty;
+          let unitPriceOverridePaise: number | undefined = undefined;
+          if (c.customRatePaise != null && c.customRatePaise > 0) {
+            unitPriceOverridePaise = c.unit === "Carton"
+              ? Math.round(c.customRatePaise / packSize)
+              : c.customRatePaise;
+          }
+          return {
+            productId: c.productId,
+            qty: pcs,
+            unitPriceOverridePaise,
+          };
+        });
 
         const result = await calculateOrderPricingAction(
           pricingItems,
@@ -356,10 +372,10 @@ export function PosClient({
       effectiveTier
     );
 
-    if (resolved.isUnpriced || resolved.unitPricePaise <= 0) {
-      setErrorMessage(`Cannot add "${product.name}": Price is not set. Admin must enter manual rate.`);
-      return;
-    }
+    const packSize = Math.max(1, product.packSize);
+    const initialRatePaise = resolved.unitPricePaise > 0 
+      ? (unit === "Carton" ? resolved.unitPricePaise * packSize : resolved.unitPricePaise)
+      : 0;
 
     const existingIndex = activeTab.cart.findIndex(
       (item) => item.productId === product.id && item.unit === unit
@@ -378,6 +394,9 @@ export function PosClient({
         qty,
         unit,
         lineDiscountPercent: 0,
+        customRatePaise: initialRatePaise > 0 ? initialRatePaise : null,
+        customRateInput: initialRatePaise > 0 ? (initialRatePaise / 100).toFixed(2) : "",
+        isCustomRate: false,
       };
       newCart = [...activeTab.cart, newLine];
     }
@@ -400,11 +419,87 @@ export function PosClient({
     });
   };
 
-  const updateLineUnit = (lineId: string, newUnit: "Pcs" | "Carton") => {
+  const updateLineRate = (lineId: string, value: string) => {
+    const valNum = parseFloat(value);
+    const paise = !isNaN(valNum) && valNum >= 0 ? Math.round(valNum * 100) : 0;
+
     updateActiveTab({
       cart: activeTab.cart.map((item) =>
-        item.id === lineId ? { ...item, unit: newUnit } : item
+        item.id === lineId
+          ? {
+              ...item,
+              customRateInput: value,
+              customRatePaise: paise,
+              isCustomRate: true,
+            }
+          : item
       ),
+    });
+  };
+
+  const handleQuickSaveProductRate = async (line: PosCartLine) => {
+    if (line.customRatePaise == null || line.customRatePaise <= 0) {
+      setErrorMessage("Please enter a valid rate greater than 0 first.");
+      return;
+    }
+    const packSize = Math.max(1, line.product.packSize);
+    const ratePerPiecePaise = line.unit === "Carton" 
+      ? Math.round(line.customRatePaise / packSize)
+      : line.customRatePaise;
+
+    try {
+      const res = await saveProductPriceAction({
+        productId: line.productId,
+        ratePaise: ratePerPiecePaise,
+        mrpPaise: ratePerPiecePaise,
+      });
+      if (res.success) {
+        setProductsList((prev) =>
+          prev.map((p) =>
+            p.id === line.productId
+              ? { ...p, priceCPaise: ratePerPiecePaise, mrpPaise: ratePerPiecePaise }
+              : p
+          )
+        );
+        updateActiveTab({
+          cart: activeTab.cart.map((c) =>
+            c.productId === line.productId
+              ? {
+                  ...c,
+                  product: { ...c.product, priceCPaise: ratePerPiecePaise, mrpPaise: ratePerPiecePaise },
+                }
+              : c
+          ),
+        });
+        setErrorMessage(null);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to save rate to catalog");
+    }
+  };
+
+  const updateLineUnit = (lineId: string, newUnit: "Pcs" | "Carton") => {
+    updateActiveTab({
+      cart: activeTab.cart.map((item) => {
+        if (item.id !== lineId) return item;
+        const packSize = Math.max(1, item.product.packSize);
+        let newRatePaise = item.customRatePaise;
+
+        if (item.unit !== newUnit && item.customRatePaise != null && item.customRatePaise > 0) {
+          if (newUnit === "Carton") {
+            newRatePaise = item.customRatePaise * packSize;
+          } else {
+            newRatePaise = Math.round(item.customRatePaise / packSize);
+          }
+        }
+
+        return {
+          ...item,
+          unit: newUnit,
+          customRatePaise: newRatePaise,
+          customRateInput: newRatePaise && newRatePaise > 0 ? (newRatePaise / 100).toFixed(2) : "",
+        };
+      }),
     });
   };
 
@@ -674,10 +769,44 @@ export function PosClient({
     startFinalizeTransition(async () => {
       try {
         const idempotencyKey = `pos_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-        const finalizeItems = activeTab.cart.map((c) => ({
-          productId: c.productId,
-          qty: c.unit === "Carton" ? c.qty * Math.max(1, c.product.packSize) : c.qty,
-        }));
+        // Check if any item in cart has 0 rate or unpriced
+        const unpricedLine = activeTab.cart.find((c) => {
+          const resolved = resolvePrice(
+            {
+              mrpPaise: c.product.mrpPaise,
+              priceAPaise: c.product.priceAPaise,
+              priceBPaise: c.product.priceBPaise,
+              priceCPaise: c.product.priceCPaise,
+            },
+            effectiveTier
+          );
+          const rate = c.customRatePaise != null 
+            ? c.customRatePaise 
+            : (c.unit === "Carton" ? resolved.unitPricePaise * Math.max(1, c.product.packSize) : resolved.unitPricePaise);
+          return rate <= 0;
+        });
+
+        if (unpricedLine) {
+          setErrorMessage(`Please enter a valid selling Rate for "${unpricedLine.product.name}" before finalizing.`);
+          setHighlightedProductId(unpricedLine.productId);
+          return;
+        }
+
+        const finalizeItems = activeTab.cart.map((c) => {
+          const packSize = Math.max(1, c.product.packSize);
+          const pcs = c.unit === "Carton" ? c.qty * packSize : c.qty;
+          let unitPriceOverridePaise: number | undefined = undefined;
+          if (c.customRatePaise != null && c.customRatePaise > 0) {
+            unitPriceOverridePaise = c.unit === "Carton"
+              ? Math.round(c.customRatePaise / packSize)
+              : c.customRatePaise;
+          }
+          return {
+            productId: c.productId,
+            qty: pcs,
+            unitPriceOverridePaise,
+          };
+        });
 
         const res = await finalizeBillAction({
           locationId,
@@ -1142,9 +1271,15 @@ export function PosClient({
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-bold text-xs text-[#12355B]">
-                          ₹{(resolved.unitPricePaise / 100).toFixed(2)}/pc
-                        </span>
+                        {resolved.unitPricePaise > 0 ? (
+                          <span className="font-bold text-xs text-[#12355B]">
+                            ₹{(resolved.unitPricePaise / 100).toFixed(2)}/pc
+                          </span>
+                        ) : (
+                          <span className="font-bold text-[11px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                            Set Rate in Bill
+                          </span>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1210,15 +1345,20 @@ export function PosClient({
                       effectiveTier
                     );
 
-                    const ratePerUnitPaise =
-                      line.unit === "Carton"
-                        ? resolved.unitPricePaise * Math.max(1, line.product.packSize)
-                        : resolved.unitPricePaise;
+                    const packSize = Math.max(1, line.product.packSize);
+                    const defaultRatePaise = line.unit === "Carton"
+                      ? resolved.unitPricePaise * packSize
+                      : resolved.unitPricePaise;
 
-                    const mrpPerUnitPaise =
-                      line.unit === "Carton"
-                        ? (line.product.mrpPaise || resolved.unitPricePaise) * Math.max(1, line.product.packSize)
-                        : (line.product.mrpPaise || resolved.unitPricePaise);
+                    const ratePerUnitPaise = line.customRatePaise != null
+                      ? line.customRatePaise
+                      : defaultRatePaise;
+
+                    const baseMrp = (line.product.mrpPaise && line.product.mrpPaise > 0)
+                      ? line.product.mrpPaise
+                      : (ratePerUnitPaise > 0 ? (line.unit === "Carton" ? Math.round(ratePerUnitPaise / packSize) : ratePerUnitPaise) : 0);
+
+                    const mrpPerUnitPaise = line.unit === "Carton" ? baseMrp * packSize : baseMrp;
 
                     const lineDiscountMultiplier = 1 - (line.lineDiscountPercent || 0) / 100;
                     const lineAmountPaise = Math.round(line.qty * ratePerUnitPaise * lineDiscountMultiplier);
@@ -1228,7 +1368,7 @@ export function PosClient({
                         key={line.id}
                         onClick={() => setHighlightedProductId(line.productId)}
                         className={`transition-colors cursor-pointer ${
-                          isSelected ? "bg-amber-50/60 font-medium" : "hover:bg-slate-50"
+                          isSelected ? "bg-amber-50/70 font-medium" : "hover:bg-slate-50"
                         }`}
                       >
                         <td className="py-2 px-3 text-center text-slate-400 font-mono text-[11px]">
@@ -1236,13 +1376,43 @@ export function PosClient({
                         </td>
 
                         <td className="py-2 px-3">
-                          <div className="font-bold text-slate-900 truncate max-w-xs sm:max-w-md">
-                            {line.product.name}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-900 truncate max-w-xs sm:max-w-md">
+                              {line.product.name}
+                            </span>
+                            {line.isCustomRate && (
+                              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0">
+                                Manual Rate
+                              </span>
+                            )}
+                            {ratePerUnitPaise <= 0 && (
+                              <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded shrink-0">
+                                Enter Rate!
+                              </span>
+                            )}
                           </div>
-                          <div className="text-[11px] text-slate-500">
-                            {line.product.companyName} • <span className="font-mono">{line.product.shortCode}</span>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5 flex-wrap">
+                            <span>{line.product.companyName}</span>
+                            <span>•</span>
+                            <span className="font-mono">{line.product.shortCode}</span>
                             {line.product.packSize > 1 && (
-                              <span> • Pack: {line.product.packLabel || `${line.product.packSize} pcs`}</span>
+                              <>
+                                <span>•</span>
+                                <span>Pack: {line.product.packLabel || `${line.product.packSize} pcs`}</span>
+                              </>
+                            )}
+                            {(line.product.mrpPaise === 0 || !line.product.priceCPaise || line.isCustomRate) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleQuickSaveProductRate(line);
+                                }}
+                                title="Permanently save this rate as product price in catalog"
+                                className="ml-1 inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 transition"
+                              >
+                                Save to Catalog
+                              </button>
                             )}
                           </div>
                         </td>
@@ -1254,7 +1424,7 @@ export function PosClient({
                             min="1"
                             value={line.qty}
                             onChange={(e) => updateLineQty(line.id, parseInt(e.target.value, 10) || 1)}
-                            className="w-16 px-1.5 py-1 text-center font-bold text-xs bg-white border border-slate-300 rounded focus:ring-1 focus:ring-[#12355B]"
+                            className="w-16 px-1.5 py-1 text-center font-bold text-xs bg-white border border-slate-300 rounded focus:ring-2 focus:ring-[#12355B]"
                           />
                         </td>
 
@@ -1263,7 +1433,7 @@ export function PosClient({
                           <select
                             value={line.unit}
                             onChange={(e) => updateLineUnit(line.id, e.target.value as "Pcs" | "Carton")}
-                            className="w-20 px-1 py-1 text-xs font-bold bg-white border border-slate-300 rounded focus:ring-1 focus:ring-[#12355B]"
+                            className="w-20 px-1 py-1 text-xs font-bold bg-white border border-slate-300 rounded focus:ring-2 focus:ring-[#12355B]"
                           >
                             <option value="Pcs">Pcs</option>
                             <option value="Carton" disabled={line.product.packSize <= 1}>
@@ -1274,12 +1444,30 @@ export function PosClient({
 
                         {/* MRP */}
                         <td className="py-2 px-2 text-right text-slate-500 font-mono text-xs">
-                          ₹{(mrpPerUnitPaise / 100).toFixed(2)}
+                          {mrpPerUnitPaise > 0 ? `₹${(mrpPerUnitPaise / 100).toFixed(2)}` : <span className="text-[10px] text-slate-400 italic">No MRP</span>}
                         </td>
 
-                        {/* Rate */}
-                        <td className="py-2 px-2 text-right font-bold text-slate-900 font-mono text-xs">
-                          ₹{(ratePerUnitPaise / 100).toFixed(2)}
+                        {/* Rate (Editable Busy-Style Input) */}
+                        <td className="py-2 px-2 text-right">
+                          <div className="relative inline-flex items-center justify-end w-28">
+                            <span className="absolute left-2 text-slate-400 font-mono text-[11px] pointer-events-none">₹</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={line.customRateInput !== undefined ? line.customRateInput : (ratePerUnitPaise > 0 ? (ratePerUnitPaise / 100).toFixed(2) : "")}
+                              placeholder="0.00"
+                              onChange={(e) => updateLineRate(line.id, e.target.value)}
+                              title="Type here to change selling rate manually"
+                              className={`w-full pl-5 pr-2 py-1 text-right font-black text-xs rounded border transition-all ${
+                                ratePerUnitPaise <= 0
+                                  ? "border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-300 focus:ring-amber-500"
+                                  : line.isCustomRate
+                                  ? "border-emerald-500 bg-emerald-50/70 text-emerald-950 font-mono focus:ring-emerald-500"
+                                  : "border-slate-300 bg-white text-slate-900 font-mono focus:ring-[#12355B]"
+                              }`}
+                            />
+                          </div>
                         </td>
 
                         {/* Disc % */}
@@ -1292,7 +1480,7 @@ export function PosClient({
                             value={line.lineDiscountPercent || ""}
                             placeholder="0"
                             onChange={(e) => updateLineDiscount(line.id, parseFloat(e.target.value) || 0)}
-                            className="w-12 px-1 py-1 text-center font-bold text-xs bg-white border border-slate-300 rounded focus:ring-1 focus:ring-[#12355B]"
+                            className="w-14 px-1 py-1 text-center font-bold text-xs bg-white border border-slate-300 rounded focus:ring-2 focus:ring-[#12355B]"
                           />
                         </td>
 
