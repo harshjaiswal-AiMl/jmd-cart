@@ -5,6 +5,10 @@ import Link from "next/link";
 import { PaymentMode } from "@prisma/client";
 import {
   Search,
+  AlertTriangle,
+  Package,
+  Sparkles,
+  Percent,
   Plus,
   Minus,
   Trash2,
@@ -33,6 +37,7 @@ import {
   checkPartyCreditStatusAction,
   setAdminManualRateAction,
   saveProductPriceAction,
+  quickAddShopStockAction,
   createQuickPartyAction,
   getPartyBillHistoryAction,
   getPartyLastItemPurchaseAction,
@@ -89,6 +94,7 @@ export interface PosCartLine {
   lineDiscountPercent: number;
   customRatePaise?: number | null;
   customRateInput?: string;
+  customDiscInput?: string;
   customMrpPaise?: number | null;
   isCustomRate?: boolean;
 }
@@ -312,6 +318,44 @@ export function PosClient({
   const [isPricingLoading, startPricingTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Insufficient Stock Alert Dialog State
+  const [stockAlertInfo, setStockAlertInfo] = useState<{
+    isOpen: boolean;
+    productName: string;
+    shortCode: string;
+    productId: string;
+    lineId: string;
+    requestedPcs: number;
+    availableShopPcs: number;
+    availableGodownPcs: number;
+    availableGodownCtn: number;
+    packSize: number;
+    allInsufficient: Array<{
+      lineId: string;
+      productId: string;
+      productName: string;
+      shortCode: string;
+      requestedPcs: number;
+      availableShopPcs: number;
+      availableGodownCtn: number;
+    }>;
+  } | null>(null);
+
+  // Quick Stock Replenishment Modal State
+  const [quickStockModal, setQuickStockModal] = useState<{
+    isOpen: boolean;
+    product: ProductCatalogItem | null;
+    addQty: string;
+    unit: "Pcs" | "Carton";
+    isLoading: boolean;
+  }>({
+    isOpen: false,
+    product: null,
+    addQty: "",
+    unit: "Pcs",
+    isLoading: false,
+  });
+
   // Recalculate pricing on cart or discount or party changes
   useEffect(() => {
     if (activeTab.cart.length === 0) {
@@ -424,17 +468,212 @@ export function PosClient({
     const paise = !isNaN(valNum) && valNum >= 0 ? Math.round(valNum * 100) : 0;
 
     updateActiveTab({
-      cart: activeTab.cart.map((item) =>
-        item.id === lineId
-          ? {
-              ...item,
-              customRateInput: value,
-              customRatePaise: paise,
-              isCustomRate: true,
-            }
-          : item
-      ),
+      cart: activeTab.cart.map((item) => {
+        if (item.id !== lineId) return item;
+        const packSize = Math.max(1, item.product.packSize);
+        const resolved = resolvePrice(
+          {
+            mrpPaise: item.product.mrpPaise,
+            priceAPaise: item.product.priceAPaise,
+            priceBPaise: item.product.priceBPaise,
+            priceCPaise: item.product.priceCPaise,
+          },
+          effectiveTier
+        );
+        const defaultBaseRate = item.unit === "Carton" ? resolved.unitPricePaise * packSize : resolved.unitPricePaise;
+        const baseMrp = (item.product.mrpPaise && item.product.mrpPaise > 0)
+          ? item.product.mrpPaise
+          : (defaultBaseRate > 0 ? (item.unit === "Carton" ? Math.round(defaultBaseRate / packSize) : defaultBaseRate) : paise);
+        const mrpPerUnit = item.unit === "Carton" ? baseMrp * packSize : baseMrp;
+
+        const newDisc = mrpPerUnit > 0 && paise < mrpPerUnit
+          ? Math.round(((mrpPerUnit - paise) / mrpPerUnit) * 10000) / 100
+          : 0;
+
+        return {
+          ...item,
+          customRateInput: value,
+          customRatePaise: paise,
+          customDiscInput: newDisc > 0 ? newDisc.toFixed(1) : "0",
+          isCustomRate: true,
+        };
+      }),
     });
+  };
+
+  const updateLineDiscountPercent = (lineId: string, discInput: string) => {
+    const discNum = parseFloat(discInput);
+    updateActiveTab({
+      cart: activeTab.cart.map((item) => {
+        if (item.id !== lineId) return item;
+        const packSize = Math.max(1, item.product.packSize);
+        const resolved = resolvePrice(
+          {
+            mrpPaise: item.product.mrpPaise,
+            priceAPaise: item.product.priceAPaise,
+            priceBPaise: item.product.priceBPaise,
+            priceCPaise: item.product.priceCPaise,
+          },
+          effectiveTier
+        );
+        const defaultBaseRate = item.unit === "Carton" ? resolved.unitPricePaise * packSize : resolved.unitPricePaise;
+        const baseMrp = (item.product.mrpPaise && item.product.mrpPaise > 0)
+          ? item.product.mrpPaise
+          : (defaultBaseRate > 0 ? (item.unit === "Carton" ? Math.round(defaultBaseRate / packSize) : defaultBaseRate) : 0);
+        const mrpPerUnit = item.unit === "Carton" ? baseMrp * packSize : baseMrp;
+
+        if (isNaN(discNum) || discNum < 0) {
+          return {
+            ...item,
+            customDiscInput: discInput,
+          };
+        }
+
+        const safeDisc = Math.min(100, Math.max(0, discNum));
+        let newRatePaise = mrpPerUnit;
+        if (mrpPerUnit > 0) {
+          newRatePaise = Math.round(mrpPerUnit * (1 - safeDisc / 100));
+        }
+
+        return {
+          ...item,
+          customDiscInput: discInput,
+          customRatePaise: newRatePaise,
+          customRateInput: (newRatePaise / 100).toFixed(2),
+          isCustomRate: true,
+        };
+      }),
+    });
+  };
+
+  const handleSetQtyToAvailable = (line: PosCartLine) => {
+    const packSize = Math.max(1, line.product.packSize);
+    const availablePcs = line.product.shopStockQty ?? 0;
+    if (availablePcs <= 0) {
+      removeLine(line.id);
+      if (stockAlertInfo?.lineId === line.id) setStockAlertInfo(null);
+      return;
+    }
+
+    if (line.unit === "Carton") {
+      const maxCartons = Math.floor(availablePcs / packSize);
+      if (maxCartons >= 1) {
+        updateLineQty(line.id, maxCartons);
+      } else {
+        updateActiveTab({
+          cart: activeTab.cart.map((item) =>
+            item.id === line.id
+              ? {
+                  ...item,
+                  unit: "Pcs",
+                  qty: availablePcs,
+                  customRatePaise: item.customRatePaise ? Math.round(item.customRatePaise / packSize) : null,
+                  customRateInput: item.customRatePaise ? (Math.round(item.customRatePaise / packSize) / 100).toFixed(2) : "",
+                }
+              : item
+          ),
+        });
+      }
+    } else {
+      updateLineQty(line.id, availablePcs);
+    }
+    if (stockAlertInfo?.lineId === line.id) setStockAlertInfo(null);
+  };
+
+  const handleAdjustAllToAvailable = () => {
+    if (!stockAlertInfo) return;
+    updateActiveTab({
+      cart: activeTab.cart.map((line) => {
+        const packSize = Math.max(1, line.product.packSize);
+        const availablePcs = line.product.shopStockQty ?? 0;
+        const requestedPcs = line.unit === "Carton" ? line.qty * packSize : line.qty;
+
+        if (requestedPcs <= availablePcs) return line;
+
+        if (availablePcs <= 0) {
+          return null as any;
+        }
+
+        if (line.unit === "Carton") {
+          const maxCartons = Math.floor(availablePcs / packSize);
+          if (maxCartons >= 1) {
+            return { ...line, qty: maxCartons };
+          } else {
+            return {
+              ...line,
+              unit: "Pcs",
+              qty: availablePcs,
+              customRatePaise: line.customRatePaise ? Math.round(line.customRatePaise / packSize) : null,
+              customRateInput: line.customRatePaise ? (Math.round(line.customRatePaise / packSize) / 100).toFixed(2) : "",
+            };
+          }
+        } else {
+          return { ...line, qty: availablePcs };
+        }
+      }).filter(Boolean),
+    });
+    setStockAlertInfo(null);
+    setErrorMessage(null);
+  };
+
+  const openQuickStockModal = (product: ProductCatalogItem, suggestedQty?: number) => {
+    setQuickStockModal({
+      isOpen: true,
+      product,
+      addQty: suggestedQty ? String(suggestedQty) : "1",
+      unit: product.packSize > 1 ? "Carton" : "Pcs",
+      isLoading: false,
+    });
+  };
+
+  const handleExecuteQuickAddStock = async () => {
+    if (!quickStockModal.product) return;
+    const qtyNum = parseInt(quickStockModal.addQty, 10);
+    if (isNaN(qtyNum) || qtyNum <= 0) {
+      setErrorMessage("Please enter a valid stock quantity to add.");
+      return;
+    }
+
+    const packSize = Math.max(1, quickStockModal.product.packSize);
+    const addPieces = quickStockModal.unit === "Carton" ? qtyNum * packSize : qtyNum;
+
+    setQuickStockModal((prev) => ({ ...prev, isLoading: true }));
+    try {
+      const res = await quickAddShopStockAction({
+        productId: quickStockModal.product.id,
+        locationId,
+        qtyPcs: addPieces,
+        reason: "POS Quick Stock replenishment",
+      });
+
+      if (res.success) {
+        setProductsList((prev) =>
+          prev.map((p) =>
+            p.id === quickStockModal.product?.id
+              ? { ...p, shopStockQty: res.newShopQty }
+              : p
+          )
+        );
+        updateActiveTab({
+          cart: activeTab.cart.map((c) =>
+            c.productId === quickStockModal.product?.id
+              ? {
+                  ...c,
+                  product: { ...c.product, shopStockQty: res.newShopQty },
+                }
+              : c
+          ),
+        });
+        setQuickStockModal({ isOpen: false, product: null, addQty: "", unit: "Pcs", isLoading: false });
+        if (stockAlertInfo?.productId === quickStockModal.product.id) {
+          setStockAlertInfo(null);
+        }
+        setErrorMessage(null);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to add stock");
+      setQuickStockModal((prev) => ({ ...prev, isLoading: false }));
+    }
   };
 
   const handleQuickSaveProductRate = async (line: PosCartLine) => {
@@ -792,6 +1031,52 @@ export function PosClient({
           return;
         }
 
+        // Pre-flight check: Insufficient stock check before finalization
+        const insufficientItems = activeTab.cart.filter((c) => {
+          const packSize = Math.max(1, c.product.packSize);
+          const requestedPcs = c.unit === "Carton" ? c.qty * packSize : c.qty;
+          const availablePcs = c.product.shopStockQty ?? 0;
+          return requestedPcs > availablePcs;
+        });
+
+        if (insufficientItems.length > 0) {
+          const first = insufficientItems[0];
+          const packSize = Math.max(1, first.product.packSize);
+          const requestedPcs = first.unit === "Carton" ? first.qty * packSize : first.qty;
+          const availablePcs = first.product.shopStockQty ?? 0;
+
+          setStockAlertInfo({
+            isOpen: true,
+            productName: first.product.name,
+            shortCode: first.product.shortCode,
+            productId: first.productId,
+            lineId: first.id,
+            requestedPcs,
+            availableShopPcs: availablePcs,
+            availableGodownPcs: first.product.godownStockQty ?? 0,
+            availableGodownCtn: first.product.godownCartons ?? 0,
+            packSize,
+            allInsufficient: insufficientItems.map((item) => {
+              const ps = Math.max(1, item.product.packSize);
+              return {
+                lineId: item.id,
+                productId: item.productId,
+                productName: item.product.name,
+                shortCode: item.product.shortCode,
+                requestedPcs: item.unit === "Carton" ? item.qty * ps : item.qty,
+                availableShopPcs: item.product.shopStockQty ?? 0,
+                availableGodownCtn: item.product.godownCartons ?? 0,
+              };
+            }),
+          });
+
+          setErrorMessage(
+            `Insufficient stock for "${first.product.name}": Available in Shop: ${availablePcs} pcs, Requested: ${requestedPcs} pcs (Short by ${requestedPcs - availablePcs} pcs).`
+          );
+          setHighlightedProductId(first.productId);
+          return;
+        }
+
         const finalizeItems = activeTab.cart.map((c) => {
           const packSize = Math.max(1, c.product.packSize);
           const pcs = c.unit === "Carton" ? c.qty * packSize : c.qty;
@@ -821,6 +1106,33 @@ export function PosClient({
 
         if (!res.success || !res.invoice) {
           const msg = res.error || "Failed to finalize invoice";
+          if ((res as any).insufficientStock) {
+            const s = (res as any).insufficientStock;
+            setStockAlertInfo({
+              isOpen: true,
+              productName: s.productName,
+              shortCode: s.shortCode,
+              productId: s.productId,
+              lineId: activeTab.cart.find((c) => c.productId === s.productId)?.id || "",
+              requestedPcs: s.requestedQty,
+              availableShopPcs: s.availableQty,
+              availableGodownPcs: 0,
+              availableGodownCtn: 0,
+              packSize: 1,
+              allInsufficient: [{
+                lineId: activeTab.cart.find((c) => c.productId === s.productId)?.id || "",
+                productId: s.productId,
+                productName: s.productName,
+                shortCode: s.shortCode,
+                requestedPcs: s.requestedQty,
+                availableShopPcs: s.availableQty,
+                availableGodownCtn: 0,
+              }],
+            });
+            setErrorMessage(msg);
+            setHighlightedProductId(s.productId);
+            return;
+          }
           if (
             msg.includes("Credit sale blocked") ||
             msg.includes("Credit limit exceeded") ||
@@ -1213,11 +1525,11 @@ export function PosClient({
           {/* Quick Item Search Bar (Ctrl+K) */}
           <div className="p-3 border-b border-slate-200 bg-slate-50/70 relative shrink-0">
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 ref={itemSearchInputRef}
                 type="text"
-                placeholder="Search items by name, code, brand (Ctrl+K)... Press Enter to add"
+                placeholder="Search items by name, shortcode, brand (Ctrl+K)... Press Enter to add"
                 value={itemSearchTerm}
                 onChange={(e) => setItemSearchTerm(e.target.value)}
                 onKeyDown={(e) => {
@@ -1226,21 +1538,26 @@ export function PosClient({
                     addItemToCart(filteredProducts[0], "Pcs", 1);
                   }
                 }}
-                className="w-full pl-9 pr-8 py-2 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#12355B] shadow-xs"
+                className="w-full pl-11 pr-24 py-3 bg-white border-2 border-slate-300 rounded-2xl text-sm md:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#12355B] focus:border-[#12355B] shadow-sm transition"
               />
-              {itemSearchTerm && (
-                <button
-                  onClick={() => setItemSearchTerm("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
-                >
-                  ✕
-                </button>
-              )}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                {itemSearchTerm && (
+                  <button
+                    onClick={() => setItemSearchTerm("")}
+                    className="p-1 text-slate-400 hover:text-slate-600 text-xs font-black mr-1"
+                  >
+                    ✕
+                  </button>
+                )}
+                <span className="hidden sm:inline-block font-mono text-[11px] font-extrabold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  Ctrl+K
+                </span>
+              </div>
             </div>
 
-            {/* Autocomplete Dropdown */}
+            {/* Enhanced Autocomplete Dropdown with Live Stock Badges */}
             {filteredProducts.length > 0 && (
-              <div className="absolute left-3 right-3 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-30 max-h-64 overflow-y-auto divide-y divide-slate-100">
+              <div className="absolute left-3 right-3 top-full mt-2 bg-white border-2 border-slate-200 rounded-2xl shadow-2xl z-40 max-h-80 overflow-y-auto divide-y divide-slate-100">
                 {filteredProducts.map((p) => {
                   const resolved = resolvePrice(
                     {
@@ -1252,50 +1569,79 @@ export function PosClient({
                     effectiveTier
                   );
 
+                  const hasShopStock = (p.shopStockQty ?? 0) > 0;
+
                   return (
                     <div
                       key={p.id}
                       onClick={() => addItemToCart(p, "Pcs", 1)}
-                      className="p-2.5 hover:bg-slate-50 flex items-center justify-between gap-3 cursor-pointer transition-colors"
+                      className="p-3 hover:bg-blue-50/60 flex items-center justify-between gap-3 cursor-pointer transition-colors"
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-slate-900 truncate">{p.name}</span>
-                          <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-1 rounded">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-black text-sm md:text-base text-slate-900 truncate">{p.name}</span>
+                          <span className="text-xs text-blue-800 font-mono font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                             {p.shortCode}
                           </span>
+                          <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded font-semibold">
+                            {p.companyName || "General"}
+                          </span>
                         </div>
-                        <p className="text-[11px] text-slate-500">
-                          {p.companyName} • Pack: {p.packLabel || `${p.packSize} pcs`} • Shop: {p.shopStockQty} pcs | Godown: {p.godownCartons} ctn
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
+                          <span>Pack: <strong className="text-slate-800">{p.packLabel || `${p.packSize} pcs`}</strong></span>
+                          <span>•</span>
+                          {/* Live Stock Indicators */}
+                          {hasShopStock ? (
+                            <span className="font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              Shop Stock: {p.shopStockQty} pcs
+                            </span>
+                          ) : (
+                            <span className="font-black text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                              Shop: Out of Stock (0)
+                            </span>
+                          )}
+                          {p.godownCartons > 0 && (
+                            <span className="font-semibold text-slate-500">
+                              Godown: {p.godownCartons} ctn
+                            </span>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        {resolved.unitPricePaise > 0 ? (
-                          <span className="font-bold text-xs text-[#12355B]">
-                            ₹{(resolved.unitPricePaise / 100).toFixed(2)}/pc
-                          </span>
-                        ) : (
-                          <span className="font-bold text-[11px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
-                            Set Rate in Bill
-                          </span>
-                        )}
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <div className="text-right">
+                          {resolved.unitPricePaise > 0 ? (
+                            <>
+                              <span className="font-mono font-black text-sm md:text-base text-[#12355B] block">
+                                ₹{(resolved.unitPricePaise / 100).toFixed(2)}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-semibold">per piece</span>
+                            </>
+                          ) : (
+                            <span className="font-black text-xs text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                              Set Rate in Bill
+                            </span>
+                          )}
+                        </div>
+
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             addItemToCart(p, "Carton", 1);
                           }}
                           disabled={p.packSize <= 1}
-                          className="px-2 py-1 text-[11px] font-bold bg-[#12355B]/10 hover:bg-[#12355B]/20 text-[#12355B] rounded-lg transition disabled:opacity-30"
+                          className="px-3 py-1.5 text-xs font-black bg-[#12355B]/10 hover:bg-[#12355B]/20 text-[#12355B] rounded-xl transition disabled:opacity-30"
                         >
                           + 1 Ctn
                         </button>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             addItemToCart(p, "Pcs", 1);
                           }}
-                          className="px-2.5 py-1 text-[11px] font-bold bg-[#12355B] hover:bg-[#0E2843] text-white rounded-lg transition"
+                          className="px-3 py-1.5 text-xs font-black bg-[#12355B] hover:bg-[#0E2843] text-white rounded-xl shadow-sm transition"
                         >
                           + 1 Pc
                         </button>
@@ -1310,26 +1656,26 @@ export function PosClient({
           {/* Busy Sales Voucher Keyboard Grid */}
           <div className="flex-1 overflow-y-auto">
             {activeTab.cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-400 space-y-2">
-                <Receipt className="w-12 h-12 text-slate-300 stroke-1" />
-                <p className="font-semibold text-sm text-slate-600">No items in current bill</p>
-                <p className="text-xs text-slate-400 max-w-sm">
-                  Search by item name or code above (Ctrl+K) or select from catalog to begin billing.
+              <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-400 space-y-3">
+                <Receipt className="w-16 h-16 text-slate-300 stroke-1" />
+                <p className="font-extrabold text-base text-slate-700">No items in current bill</p>
+                <p className="text-xs text-slate-500 max-w-sm">
+                  Search by item name or code above <strong className="font-mono text-slate-800">[Ctrl+K]</strong> or scan barcode to begin billing.
                 </p>
               </div>
             ) : (
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-100 border-b border-slate-200 text-[11px] font-black uppercase text-slate-700 tracking-wider sticky top-0 z-10">
-                    <th className="py-2.5 px-3 w-10 text-center">#</th>
-                    <th className="py-2.5 px-3">Item Description</th>
-                    <th className="py-2.5 px-2 w-20 text-center">Qty</th>
-                    <th className="py-2.5 px-2 w-24 text-center">Unit</th>
-                    <th className="py-2.5 px-2 w-20 text-right">MRP</th>
-                    <th className="py-2.5 px-2 w-24 text-right">Rate</th>
-                    <th className="py-2.5 px-2 w-16 text-center">Disc%</th>
-                    <th className="py-2.5 px-3 w-28 text-right">Amount</th>
-                    <th className="py-2.5 px-2 w-10 text-center">Del</th>
+                  <tr className="bg-slate-100/90 border-b-2 border-slate-200 text-xs font-black uppercase text-slate-700 tracking-wider sticky top-0 z-10 shadow-xs backdrop-blur-xs">
+                    <th className="py-3 px-3 w-12 text-center">#</th>
+                    <th className="py-3 px-3 min-w-[280px]">Item Description</th>
+                    <th className="py-3 px-2 w-24 text-center">Qty</th>
+                    <th className="py-3 px-2 w-28 text-center">Unit</th>
+                    <th className="py-3 px-2 w-28 text-right">MRP</th>
+                    <th className="py-3 px-2 w-36 text-right">Rate (₹)</th>
+                    <th className="py-3 px-2 w-24 text-center">Disc %</th>
+                    <th className="py-3 px-3 w-36 text-right">Amount (₹)</th>
+                    <th className="py-3 px-2 w-12 text-center">Del</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1363,43 +1709,62 @@ export function PosClient({
                     const lineDiscountMultiplier = 1 - (line.lineDiscountPercent || 0) / 100;
                     const lineAmountPaise = Math.round(line.qty * ratePerUnitPaise * lineDiscountMultiplier);
 
+                    // Stock calculation
+                    const requestedPieces = line.unit === "Carton" ? line.qty * packSize : line.qty;
+                    const availablePieces = line.product.shopStockQty ?? 0;
+                    const isStockSufficient = requestedPieces <= availablePieces;
+                    const shortagePieces = Math.max(0, requestedPieces - availablePieces);
+                    const maxCartons = Math.floor(availablePieces / packSize);
+
+                    // Discount % calculation from MRP
+                    const effectiveDiscountPercent = mrpPerUnitPaise > 0 && ratePerUnitPaise < mrpPerUnitPaise
+                      ? Math.round(((mrpPerUnitPaise - ratePerUnitPaise) / mrpPerUnitPaise) * 10000) / 100
+                      : 0;
+
                     return (
                       <tr
                         key={line.id}
                         onClick={() => setHighlightedProductId(line.productId)}
-                        className={`transition-colors cursor-pointer ${
-                          isSelected ? "bg-amber-50/70 font-medium" : "hover:bg-slate-50"
+                        className={`transition-all cursor-pointer ${
+                          !isStockSufficient
+                            ? "bg-rose-50/70 hover:bg-rose-100/60 border-l-4 border-l-rose-500"
+                            : isSelected
+                            ? "bg-amber-50/70 hover:bg-amber-100/50 border-l-4 border-l-amber-500 font-medium"
+                            : "hover:bg-slate-50/80"
                         }`}
                       >
-                        <td className="py-2 px-3 text-center text-slate-400 font-mono text-[11px]">
+                        <td className="py-3 px-3 text-center text-slate-400 font-mono text-xs font-bold">
                           {index + 1}
                         </td>
 
-                        <td className="py-2 px-3">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-slate-900 truncate max-w-xs sm:max-w-md">
+                        <td className="py-3 px-3">
+                          {/* 1. Large Bold Product Title */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-black text-slate-900 text-sm sm:text-base leading-snug">
                               {line.product.name}
                             </span>
                             {line.isCustomRate && (
-                              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded shrink-0">
+                              <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
                                 Manual Rate
                               </span>
                             )}
                             {ratePerUnitPaise <= 0 && (
-                              <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-1.5 py-0.5 rounded shrink-0">
+                              <span className="text-[10px] font-black text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-300 animate-pulse">
                                 Enter Rate!
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5 flex-wrap">
-                            <span>{line.product.companyName}</span>
-                            <span>•</span>
-                            <span className="font-mono">{line.product.shortCode}</span>
+
+                          {/* 2. Sub-details: Brand, Code, Pack */}
+                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mt-1 flex-wrap">
+                            <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">
+                              {line.product.companyName || "General"}
+                            </span>
+                            <span className="font-mono bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-200">
+                              {line.product.shortCode}
+                            </span>
                             {line.product.packSize > 1 && (
-                              <>
-                                <span>•</span>
-                                <span>Pack: {line.product.packLabel || `${line.product.packSize} pcs`}</span>
-                              </>
+                              <span>Pack: {line.product.packLabel || `${line.product.packSize} pcs`}</span>
                             )}
                             {(line.product.mrpPaise === 0 || !line.product.priceCPaise || line.isCustomRate) && (
                               <button
@@ -1409,31 +1774,73 @@ export function PosClient({
                                   handleQuickSaveProductRate(line);
                                 }}
                                 title="Permanently save this rate as product price in catalog"
-                                className="ml-1 inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 transition"
+                                className="inline-flex items-center gap-1 text-[11px] font-extrabold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 transition"
                               >
                                 Save to Catalog
                               </button>
                             )}
                           </div>
+
+                          {/* 3. Real-Time Stock Status Badge */}
+                          <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                            {isStockSufficient ? (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Shop Stock: <strong className="text-emerald-950 font-black">{availablePieces} pcs</strong></span>
+                                {line.product.godownCartons > 0 && (
+                                  <span className="text-slate-500 font-normal">| Godown: {line.product.godownCartons} ctn</span>
+                                )}
+                              </span>
+                            ) : (
+                              <div className="inline-flex items-center gap-1.5 bg-rose-100 border border-rose-300 text-rose-900 px-2.5 py-0.5 rounded-md text-xs font-bold">
+                                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                                <span>
+                                  Only <strong className="underline text-rose-950 font-black">{availablePieces} pcs</strong> in Shop (Short by {shortagePieces} pcs)!
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetQtyToAvailable(line);
+                                  }}
+                                  className="ml-1 text-[11px] font-black text-blue-700 hover:text-blue-900 underline"
+                                  title="Adjust quantity to match shop stock"
+                                >
+                                  Set to {line.unit === "Carton" ? (maxCartons >= 1 ? `${maxCartons} Ctn` : `${availablePieces} Pcs`) : `${availablePieces} Pcs`}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openQuickStockModal(line.product, shortagePieces);
+                                  }}
+                                  className="ml-1 px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-black shadow-xs"
+                                  title="Quick Add counter stock"
+                                >
+                                  + Add Stock
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </td>
 
-                        {/* Qty Input */}
-                        <td className="py-2 px-2 text-center">
+                        {/* Qty Input (Large & Clear) */}
+                        <td className="py-3 px-2 text-center">
                           <input
                             type="number"
                             min="1"
                             value={line.qty}
                             onChange={(e) => updateLineQty(line.id, parseInt(e.target.value, 10) || 1)}
-                            className="w-16 px-1.5 py-1 text-center font-bold text-xs bg-white border border-slate-300 rounded focus:ring-2 focus:ring-[#12355B]"
+                            className="w-20 px-2 py-1.5 text-center font-black text-base sm:text-lg bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] focus:border-[#12355B] shadow-xs"
                           />
                         </td>
 
                         {/* Unit Selector (Pcs vs Carton) */}
-                        <td className="py-2 px-2 text-center">
+                        <td className="py-3 px-2 text-center">
                           <select
                             value={line.unit}
                             onChange={(e) => updateLineUnit(line.id, e.target.value as "Pcs" | "Carton")}
-                            className="w-20 px-1 py-1 text-xs font-bold bg-white border border-slate-300 rounded focus:ring-2 focus:ring-[#12355B]"
+                            className="w-24 px-2 py-1.5 text-sm sm:text-base font-bold bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] cursor-pointer"
                           >
                             <option value="Pcs">Pcs</option>
                             <option value="Carton" disabled={line.product.packSize <= 1}>
@@ -1442,15 +1849,28 @@ export function PosClient({
                           </select>
                         </td>
 
-                        {/* MRP */}
-                        <td className="py-2 px-2 text-right text-slate-500 font-mono text-xs">
-                          {mrpPerUnitPaise > 0 ? `₹${(mrpPerUnitPaise / 100).toFixed(2)}` : <span className="text-[10px] text-slate-400 italic">No MRP</span>}
+                        {/* MRP with Savings Badge */}
+                        <td className="py-3 px-2 text-right">
+                          {mrpPerUnitPaise > 0 ? (
+                            <div>
+                              <div className="font-mono font-bold text-sm sm:text-base text-slate-700">
+                                ₹{(mrpPerUnitPaise / 100).toFixed(2)}
+                              </div>
+                              {effectiveDiscountPercent > 0 && (
+                                <div className="text-[11px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 inline-block mt-0.5">
+                                  Save ₹{((mrpPerUnitPaise - ratePerUnitPaise) / 100).toFixed(0)}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">No MRP</span>
+                          )}
                         </td>
 
                         {/* Rate (Editable Busy-Style Input) */}
-                        <td className="py-2 px-2 text-right">
-                          <div className="relative inline-flex items-center justify-end w-28">
-                            <span className="absolute left-2 text-slate-400 font-mono text-[11px] pointer-events-none">₹</span>
+                        <td className="py-3 px-2 text-right">
+                          <div className="relative inline-flex items-center justify-end w-32">
+                            <span className="absolute left-2.5 text-slate-400 font-mono text-sm pointer-events-none font-bold">₹</span>
                             <input
                               type="number"
                               step="0.01"
@@ -1459,47 +1879,60 @@ export function PosClient({
                               placeholder="0.00"
                               onChange={(e) => updateLineRate(line.id, e.target.value)}
                               title="Type here to change selling rate manually"
-                              className={`w-full pl-5 pr-2 py-1 text-right font-black text-xs rounded border transition-all ${
+                              className={`w-full pl-6 pr-2.5 py-1.5 text-right font-mono font-black text-sm sm:text-base rounded-lg border-2 transition-all ${
                                 ratePerUnitPaise <= 0
                                   ? "border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-300 focus:ring-amber-500"
                                   : line.isCustomRate
-                                  ? "border-emerald-500 bg-emerald-50/70 text-emerald-950 font-mono focus:ring-emerald-500"
-                                  : "border-slate-300 bg-white text-slate-900 font-mono focus:ring-[#12355B]"
+                                  ? "border-emerald-500 bg-emerald-50/70 text-emerald-950 focus:ring-emerald-500"
+                                  : "border-slate-300 bg-white text-slate-900 focus:ring-[#12355B]"
                               }`}
                             />
                           </div>
                         </td>
 
-                        {/* Disc % */}
-                        <td className="py-2 px-2 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.5"
-                            value={line.lineDiscountPercent || ""}
-                            placeholder="0"
-                            onChange={(e) => updateLineDiscount(line.id, parseFloat(e.target.value) || 0)}
-                            className="w-14 px-1 py-1 text-center font-bold text-xs bg-white border border-slate-300 rounded focus:ring-2 focus:ring-[#12355B]"
-                          />
+                        {/* Disc % (Synchronized with Rate & MRP) */}
+                        <td className="py-3 px-2 text-center">
+                          <div className="relative inline-flex items-center justify-center w-22">
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={
+                                line.customDiscInput !== undefined
+                                  ? line.customDiscInput
+                                  : effectiveDiscountPercent > 0
+                                  ? effectiveDiscountPercent.toFixed(1)
+                                  : "0"
+                              }
+                              placeholder="0"
+                              onChange={(e) => updateLineDiscountPercent(line.id, e.target.value)}
+                              title="Discount % off MRP. Changing this automatically calculates selling rate."
+                              className="w-full px-2 py-1.5 text-center font-mono font-black text-sm sm:text-base rounded-lg border-2 border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-[#12355B]"
+                            />
+                            <span className="absolute right-2 text-slate-400 font-bold text-xs pointer-events-none">%</span>
+                          </div>
                         </td>
 
                         {/* Amount */}
-                        <td className="py-2 px-3 text-right font-black text-[#12355B] font-mono text-xs">
-                          ₹{(lineAmountPaise / 100).toFixed(2)}
+                        <td className="py-3 px-3 text-right">
+                          <span className="font-mono font-black text-base sm:text-lg text-[#12355B]">
+                            ₹{(lineAmountPaise / 100).toFixed(2)}
+                          </span>
                         </td>
 
                         {/* Delete Line */}
-                        <td className="py-2 px-2 text-center">
+                        <td className="py-3 px-2 text-center">
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               removeLine(line.id);
                             }}
                             title="Remove line (F9)"
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-5 h-5" />
                           </button>
                         </td>
                       </tr>
@@ -1511,46 +1944,60 @@ export function PosClient({
           </div>
 
           {/* Under-Grid Stock & Customer Last Purchase Indicator */}
-          <div className="p-2.5 bg-slate-100 border-t border-slate-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+          <div className="p-3 bg-slate-100 border-t border-slate-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
             {highlightedProduct ? (
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-slate-800 truncate max-w-xs">{highlightedProduct.name}:</span>
-                <span className="text-slate-600">
-                  Shop Stock: <strong className="text-slate-900">{highlightedProduct.shopStockQty} pcs</strong>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-extrabold text-slate-900 text-sm">{highlightedProduct.name}:</span>
+                <span className="text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold">
+                  Shop Stock: <strong className="text-emerald-700 font-black">{highlightedProduct.shopStockQty} pcs</strong>
                 </span>
-                <span className="text-slate-600">
-                  Godown: <strong className="text-slate-900">{highlightedProduct.godownCartons} ctn</strong> ({highlightedProduct.godownStockQty} pcs)
+                <span className="text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold">
+                  Godown: <strong className="text-slate-900 font-black">{highlightedProduct.godownCartons} ctn</strong> ({highlightedProduct.godownStockQty} pcs)
                 </span>
+                <button
+                  type="button"
+                  onClick={() => openQuickStockModal(highlightedProduct)}
+                  className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-xs inline-flex items-center gap-1 shadow-xs"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add Stock
+                </button>
               </div>
             ) : (
-              <span className="text-slate-400 italic">Select an item above to view real-time shop and warehouse stock.</span>
+              <span className="text-slate-500 italic">Select an item above to view real-time shop and warehouse stock.</span>
             )}
 
             {/* Last purchase for selected party */}
             {selectedParty && lastItemPurchase ? (
-              <div className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <div className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
                 Last bought: {lastItemPurchase.date ? new Date(lastItemPurchase.date).toLocaleDateString("en-IN") : "Earlier"} @ ₹{(lastItemPurchase.ratePaise / 100).toFixed(2)} ({lastItemPurchase.invoiceNumber})
               </div>
             ) : selectedParty && highlightedProduct ? (
-              <div className="text-[11px] text-slate-500 italic">No prior purchases for this customer.</div>
+              <div className="text-xs text-slate-500 italic">No prior purchases for this customer.</div>
             ) : null}
           </div>
         </section>
 
-        {/* Right Pane: Totals, Order Discount, Tender & Finalize (Busy style) */}
-        <aside className="w-full lg:w-96 bg-white flex flex-col justify-between p-4 space-y-4 shrink-0 shadow-sm overflow-y-auto">
+        {/* Right Pane: Totals, Order Discount, Tender & Finalize (Modern Enterprise Style) */}
+        <aside className="w-full lg:w-96 bg-white flex flex-col justify-between p-4 space-y-4 shrink-0 shadow-md border-l border-slate-200 overflow-y-auto">
           <div className="space-y-4">
-            {/* Error Message */}
+            {/* Error Message Banner */}
             {errorMessage && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between gap-2">
-                <span>{errorMessage}</span>
-                <button onClick={() => setErrorMessage(null)} className="text-xs font-bold">✕</button>
+              <div className="p-3.5 rounded-xl bg-rose-50 border-2 border-rose-300 text-rose-800 text-xs flex items-start justify-between gap-2 shadow-xs">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span className="font-semibold leading-relaxed">{errorMessage}</span>
+                </div>
+                <button onClick={() => setErrorMessage(null)} className="text-xs font-black text-rose-600 hover:text-rose-900 p-0.5">✕</button>
               </div>
             )}
 
             {/* Order Discount % */}
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <label className="font-bold text-slate-700">Order Discount %:</label>
+            <div className="flex items-center justify-between gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <label className="font-bold text-xs text-slate-700 flex items-center gap-1.5">
+                <Percent className="w-3.5 h-3.5 text-blue-600" />
+                <span>Order Discount %:</span>
+              </label>
               <div className="flex items-center gap-1">
                 <input
                   type="number"
@@ -1559,89 +2006,95 @@ export function PosClient({
                   step="0.1"
                   value={activeTab.orderDiscountPercent}
                   onChange={(e) => updateActiveTab({ orderDiscountPercent: e.target.value })}
-                  className="w-20 px-2 py-1 text-right font-bold text-xs bg-slate-50 border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#12355B]"
+                  className="w-20 px-2 py-1 text-right font-black text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B]"
                 />
-                <span className="text-slate-500 font-bold">%</span>
+                <span className="text-slate-500 font-bold text-xs">%</span>
               </div>
             </div>
 
-            {/* Totals Breakdown */}
-            <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-              <div className="flex justify-between text-slate-600">
+            {/* Totals Financial Breakdown */}
+            <div className="space-y-2 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200 text-xs">
+              <div className="flex justify-between text-slate-600 font-medium">
                 <span>Subtotal (MRP):</span>
-                <span className="font-mono">₹{(subtotalMrpPaise / 100).toFixed(2)}</span>
+                <span className="font-mono font-bold text-slate-800">₹{(subtotalMrpPaise / 100).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Discount on MRP:</span>
+              <div className="flex justify-between text-emerald-700 font-bold">
+                <span>Total Savings / Discount:</span>
                 <span className="font-mono text-emerald-700">-₹{(totalDiscountPaise / 100).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-slate-600 font-medium">
                 <span>Taxable Value:</span>
-                <span className="font-mono">₹{(taxablePaise / 100).toFixed(2)}</span>
+                <span className="font-mono font-bold text-slate-800">₹{(taxablePaise / 100).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-slate-600 font-medium">
                 <span>CGST / SGST:</span>
-                <span className="font-mono">₹{((cgstPaise + sgstPaise) / 100).toFixed(2)}</span>
+                <span className="font-mono font-bold text-slate-800">₹{((cgstPaise + sgstPaise) / 100).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-slate-600 font-medium">
                 <span>Round-off:</span>
-                <span className="font-mono">
+                <span className="font-mono font-bold">
                   {roundoffPaise >= 0 ? `+₹${(roundoffPaise / 100).toFixed(2)}` : `-₹${(Math.abs(roundoffPaise) / 100).toFixed(2)}`}
                 </span>
               </div>
-              <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
-                <span className="font-black text-slate-900 text-sm">Grand Total:</span>
-                <span className="font-black text-xl text-[#12355B] font-mono">
+            </div>
+
+            {/* Grand Total Hero Banner */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-[#0C2340] to-[#12355B] text-white shadow-lg space-y-1">
+              <div className="flex justify-between items-baseline">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Grand Total</span>
+                <span className="text-3xl sm:text-4xl font-black font-mono text-[#F4B41A] tracking-tight">
                   ₹{(totalAmountPaise / 100).toFixed(2)}
                 </span>
               </div>
               {amountInWords && (
-                <p className="text-[10px] text-slate-500 italic pt-1 border-t border-slate-200/60 leading-tight">
+                <p className="text-[11px] text-slate-300/90 italic pt-1 border-t border-white/10 leading-snug">
                   {amountInWords}
                 </p>
               )}
             </div>
 
-            {/* Payment Mode Buttons: Cash | UPI | Credit */}
+            {/* Payment Mode Selector */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-700 block">Payment Tender Mode</label>
+              <label className="text-xs font-extrabold text-slate-700 block uppercase tracking-wide">
+                Payment Tender Mode
+              </label>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => updateActiveTab({ paymentMode: PaymentMode.CASH })}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 border transition ${
+                  className={`py-2.5 px-2 rounded-xl text-xs font-black flex flex-col items-center gap-1 border-2 transition-all ${
                     activeTab.paymentMode === PaymentMode.CASH
-                      ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                      ? "bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]"
                       : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                   }`}
                 >
-                  <Banknote className="w-4 h-4" />
+                  <Banknote className="w-5 h-5" />
                   <span>Cash</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => updateActiveTab({ paymentMode: PaymentMode.UPI })}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 border transition ${
+                  className={`py-2.5 px-2 rounded-xl text-xs font-black flex flex-col items-center gap-1 border-2 transition-all ${
                     activeTab.paymentMode === PaymentMode.UPI
-                      ? "bg-sky-600 text-white border-sky-600 shadow-xs"
+                      ? "bg-sky-600 text-white border-sky-600 shadow-md scale-[1.02]"
                       : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                   }`}
                 >
-                  <Smartphone className="w-4 h-4" />
+                  <Smartphone className="w-5 h-5" />
                   <span>UPI</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => updateActiveTab({ paymentMode: PaymentMode.CREDIT })}
-                  className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1 border transition ${
+                  className={`py-2.5 px-2 rounded-xl text-xs font-black flex flex-col items-center gap-1 border-2 transition-all ${
                     activeTab.paymentMode === PaymentMode.CREDIT
-                      ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                      ? "bg-amber-600 text-white border-amber-600 shadow-md scale-[1.02]"
                       : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
                   }`}
                 >
-                  <CreditCard className="w-4 h-4" />
+                  <CreditCard className="w-5 h-5" />
                   <span>Credit</span>
                 </button>
               </div>
@@ -1654,24 +2107,48 @@ export function PosClient({
                 placeholder="Remarks (vehicle / notes / po)..."
                 value={activeTab.remarks}
                 onChange={(e) => updateActiveTab({ remarks: e.target.value })}
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-1 focus:ring-[#12355B]"
+                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#12355B]"
               />
             </div>
           </div>
 
-          {/* Finalize Action */}
+          {/* Finalize Action Section */}
           <div className="space-y-2 pt-2 border-t border-slate-100">
+            {/* Real-time insufficient stock alert indicator right above button */}
+            {(() => {
+              const insufficientCount = activeTab.cart.filter((c) => {
+                const ps = Math.max(1, c.product.packSize);
+                const req = c.unit === "Carton" ? c.qty * ps : c.qty;
+                return req > (c.product.shopStockQty ?? 0);
+              }).length;
+
+              if (insufficientCount === 0) return null;
+
+              return (
+                <div
+                  onClick={() => handleFinalizeBill()}
+                  className="p-2.5 bg-rose-50 border-2 border-rose-300 hover:bg-rose-100 rounded-xl cursor-pointer text-xs space-y-1 transition animate-pulse"
+                >
+                  <div className="flex items-center gap-1.5 font-black text-rose-800">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{insufficientCount} Item(s) Have Insufficient Stock!</span>
+                  </div>
+                  <p className="text-rose-700 text-[11px]">Click here to review shortage or adjust quantities.</p>
+                </div>
+              );
+            })()}
+
             <button
               onClick={() => handleFinalizeBill()}
               disabled={activeTab.cart.length === 0 || isFinalizing}
-              className="w-full py-3 px-4 rounded-xl font-black text-sm bg-[#12355B] hover:bg-[#0E2843] text-white shadow-md disabled:opacity-40 transition flex items-center justify-center gap-2"
+              className="w-full py-4 px-4 rounded-xl font-black text-base bg-[#12355B] hover:bg-[#0E2843] text-white shadow-xl hover:shadow-2xl disabled:opacity-40 transition-all flex items-center justify-center gap-2 group cursor-pointer"
             >
               {isFinalizing ? (
                 <span>Finalizing Invoice...</span>
               ) : (
                 <>
                   <span>Finalize & Print (F2)</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>
@@ -2033,6 +2510,200 @@ export function PosClient({
             >
               Start Next Bill (F3)
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Insufficient Stock Detailed Dialog Modal */}
+      {stockAlertInfo && stockAlertInfo.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
+          <div className="bg-white border-2 border-rose-300 rounded-3xl p-6 max-w-xl w-full space-y-5 shadow-2xl text-slate-900 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-rose-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg text-rose-900">Insufficient Stock Alert</h3>
+                  <p className="text-xs text-rose-700">The following item(s) cannot be fulfilled from current Shop stock:</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setStockAlertInfo(null)}
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              {stockAlertInfo.allInsufficient.map((item, idx) => {
+                const deficit = item.requestedPcs - item.availableShopPcs;
+                const cartLine = activeTab.cart.find((c) => c.id === item.lineId);
+
+                return (
+                  <div
+                    key={item.lineId || idx}
+                    className="p-3.5 rounded-2xl bg-rose-50/80 border border-rose-200 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-black text-sm text-slate-900">{item.productName}</h4>
+                        <span className="font-mono text-xs text-slate-500">{item.shortCode}</span>
+                      </div>
+                      <span className="text-xs font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-300">
+                        Short by {deficit} pcs
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs bg-white p-2.5 rounded-xl border border-rose-100">
+                      <div>
+                        <span className="text-slate-500 block">Available in Shop:</span>
+                        <strong className="text-slate-900 font-mono text-sm">{item.availableShopPcs} pcs</strong>
+                        {item.availableGodownCtn > 0 && (
+                          <span className="text-[11px] text-slate-500 block">Godown: {item.availableGodownCtn} ctn</span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Requested in Bill:</span>
+                        <strong className="text-rose-700 font-mono text-sm">{item.requestedPcs} pcs</strong>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      {cartLine && (
+                        <button
+                          type="button"
+                          onClick={() => handleSetQtyToAvailable(cartLine)}
+                          className="px-3 py-1.5 text-xs font-extrabold bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200 rounded-xl transition"
+                        >
+                          Set to Available ({item.availableShopPcs} pcs)
+                        </button>
+                      )}
+                      {cartLine && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStockAlertInfo(null);
+                            openQuickStockModal(cartLine.product, deficit);
+                          }}
+                          className="px-3 py-1.5 text-xs font-black bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs transition"
+                        >
+                          + Quick Add Stock
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={handleAdjustAllToAvailable}
+                className="px-4 py-2.5 rounded-xl text-xs font-black bg-blue-700 hover:bg-blue-800 text-white shadow-sm transition"
+              >
+                Set All Items to Available Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setStockAlertInfo(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
+              >
+                Close / Edit Bill
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Stock Modal (Counter Replenishment) */}
+      {quickStockModal.isOpen && quickStockModal.product && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl text-slate-900 animate-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900">Add Counter Stock</h3>
+                  <p className="text-xs text-slate-500 font-mono">{quickStockModal.product.shortCode}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setQuickStockModal({ isOpen: false, product: null, addQty: "", unit: "Pcs", isLoading: false })}
+                className="text-slate-400 hover:text-slate-700 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+              <p className="font-extrabold text-sm text-slate-900">{quickStockModal.product.name}</p>
+              <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
+                <span>Current Shop Stock: <strong>{quickStockModal.product.shopStockQty} pcs</strong></span>
+                <span>Godown: <strong>{quickStockModal.product.godownCartons} ctn</strong></span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="font-bold text-xs text-slate-700 block mb-1">Stock Quantity to Add:</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    autoFocus
+                    placeholder="Enter quantity..."
+                    value={quickStockModal.addQty}
+                    onChange={(e) => setQuickStockModal({ ...quickStockModal, addQty: e.target.value })}
+                    className="flex-1 px-3 py-2 text-base font-black border-2 border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#12355B]"
+                  />
+                  <select
+                    value={quickStockModal.unit}
+                    onChange={(e) => setQuickStockModal({ ...quickStockModal, unit: e.target.value as any })}
+                    className="w-28 px-2 py-2 text-sm font-bold border-2 border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#12355B]"
+                  >
+                    <option value="Pcs">Pcs</option>
+                    <option value="Carton" disabled={quickStockModal.product.packSize <= 1}>
+                      Carton ({quickStockModal.product.packSize} pcs)
+                    </option>
+                  </select>
+                </div>
+                {quickStockModal.unit === "Carton" && quickStockModal.product.packSize > 1 && (
+                  <p className="text-[11px] text-blue-700 font-bold mt-1">
+                    = {parseInt(quickStockModal.addQty || "0", 10) * quickStockModal.product.packSize} pieces will be added to Shop.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setQuickStockModal({ isOpen: false, product: null, addQty: "", unit: "Pcs", isLoading: false })}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteQuickAddStock}
+                disabled={quickStockModal.isLoading || !quickStockModal.addQty || parseInt(quickStockModal.addQty, 10) <= 0}
+                className="px-5 py-2.5 rounded-xl text-xs font-black bg-blue-700 hover:bg-blue-800 text-white shadow-md disabled:opacity-50 transition flex items-center gap-1.5"
+              >
+                {quickStockModal.isLoading ? (
+                  <span>Adding Stock...</span>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    <span>Confirm & Add to Shop</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

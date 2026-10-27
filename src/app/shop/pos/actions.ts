@@ -138,9 +138,52 @@ export async function finalizeBillAction(input: {
     };
   } catch (err: any) {
     console.error("[finalizeBillAction error]:", err);
+    let errorMessage = err.message || "Failed to finalize invoice";
+
+    // Enrich InsufficientStockError with human-readable Product name & Location details
+    if (err.name === "InsufficientStockError" || errorMessage.includes("Insufficient stock for product")) {
+      try {
+        const prodId = err.productId || errorMessage.match(/Insufficient stock for product ([^\s]+)/)?.[1];
+        const locId = err.locationId || errorMessage.match(/at location ([^\s\.]+)/)?.[1];
+        const available = err.availableQty !== undefined ? err.availableQty : Number(errorMessage.match(/Available:\s*(\d+)/)?.[1] || 0);
+        const requested = err.requestedQty !== undefined ? err.requestedQty : Number(errorMessage.match(/Requested:\s*(\d+)/)?.[1] || 0);
+
+        if (prodId) {
+          const product = await prisma.product.findUnique({
+            where: { id: prodId },
+            select: { name: true, shortCode: true, packSize: true, packLabel: true },
+          });
+          const location = locId ? await prisma.location.findUnique({
+            where: { id: locId },
+            select: { name: true, type: true },
+          }) : null;
+
+          const prodTitle = product ? `${product.name} (${product.shortCode})` : prodId;
+          const locTitle = location ? location.name : "Shop";
+          const deficit = Math.max(0, requested - available);
+          errorMessage = `Insufficient stock for "${prodTitle}" at ${locTitle}. Available: ${available} pcs, Requested: ${requested} pcs (Short by ${deficit} pcs).`;
+
+          return {
+            success: false,
+            error: errorMessage,
+            insufficientStock: {
+              productId: prodId,
+              productName: product?.name || prodId,
+              shortCode: product?.shortCode || "",
+              availableQty: Number(available),
+              requestedQty: Number(requested),
+              deficit,
+            },
+          };
+        }
+      } catch (enrichErr) {
+        console.error("Enrich stock error failed:", enrichErr);
+      }
+    }
+
     return {
       success: false,
-      error: err.message || "Failed to finalize invoice",
+      error: errorMessage,
     };
   }
 }
@@ -358,4 +401,47 @@ export async function saveProductPriceAction(input: {
   });
 
   return { success: true, product: updated };
+}
+export async function quickAddShopStockAction(input: {
+  productId: string;
+  locationId: string;
+  qtyPcs: number;
+  reason?: string;
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error("Unauthorized");
+  }
+
+  if (
+    session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.ADMIN &&
+    session.user.role !== UserRole.SHOP
+  ) {
+    throw new Error("Only Admin or Cashier can add stock.");
+  }
+
+  const { stockService } = await import("@/modules/stock/stock.service");
+  const { MovementType } = await import("@prisma/client");
+
+  await stockService.postMovement({
+    type: MovementType.ADJUSTMENT,
+    productId: input.productId,
+    toLocationId: input.locationId,
+    qty: input.qtyPcs,
+    reason: input.reason || "POS counter quick stock add",
+    idempotencyKey: `pos-stock-${input.productId}-${Date.now()}`,
+    actorId: session.user.id,
+  });
+
+  const balance = await prisma.stockBalance.findUnique({
+    where: {
+      productId_locationId: {
+        productId: input.productId,
+        locationId: input.locationId,
+      },
+    },
+  });
+
+  return { success: true, newShopQty: balance?.qty ?? input.qtyPcs };
 }
