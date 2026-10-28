@@ -269,3 +269,16 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - `pnpm lint`: 0 errors (PASS).
   - Target Vitest suites: 76/76 test files passed, 414/414 tests passed (PASS).
   - Next.js production build: All routes compiled with zero errors (PASS).
+
+
+## Party Import from Tally
+- **Status**: Complete & Verified.
+- **Summary**:
+  - Imported 1660 unique parties directly from client's Tally export with 100% preservation of original names, mobile numbers, and addresses (no values altered or truncated).
+  - Filtered out 71 accounting ledger heads (TDS, Bank charges, Cash, Depreciation, etc.).
+  - Categorization:
+    - 67 Wholesalers (`WHOLESALER`)
+    - 809 Retailers (`RETAILER`)
+    - 784 Customers (`CUSTOMER`)
+  - Migration: `prisma/migrations/20261028150000_import_parties/migration.sql` (additive & idempotent `WHERE NOT EXISTS`).
+  - Automated verification: `tests/unit/parties-migration-verify.test.ts` (PASS, 77 test files, 415 tests passed).
