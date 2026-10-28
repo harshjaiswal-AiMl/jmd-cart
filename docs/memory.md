@@ -318,3 +318,24 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
     - Unit dropdown updated with all 4 units always selectable: `Pcs`, `Carton (Crt)`, `Dozen (12)`, `Bag (Beg)`.
     - Pricing, stock deduction, and finalization updated to support Dozen (`qty * 12`) and Bag (`qty * packSize`).
   - Production deployed (revision `jmd-cart-00052-qbt`), 29/29 smoke tests passed.
+
+### 2026-10-28: Dozen/Bag Rate Multiplier Fix & Production DB Test Data Purge
+- **Dozen Pricing Issue & Resolution:**
+  - In `src/app/shop/pos/pos-client.tsx`, when selecting `Dozen (12)`, `updateLineUnit` was dividing `customRatePaise` by packSize instead of multiplying the piece rate by 12, resulting in rate becoming ~₹9.58 against MRP of ₹4,200 (showing 99.8% discount).
+  - Fixed `addItemToCart` and `updateLineUnit`: Unit multiplier is strictly defined (`Pcs` = 1, `Dozen` = 12, `Carton` = packSize, `Bag` = packSize).
+  - Rate is cleanly calculated as `resolved.unitPricePaise * multiplier` (or scaled proportionally if custom rate).
+  - Discount % remains strictly preserved at the natural tier discount (e.g. 14.3% retail discount for piece is identically 14.3% for dozen).
+  - Production deployed (revision `jmd-cart-00053-kmw`), 29/29 smoke tests passed.
+- **Production Database Test Data Cleaned (Cloud SQL):**
+  - Invoices & Items: Fully cleared (0)
+  - Orders & Items & Packages: Fully cleared (0)
+  - Carts & Items: Fully cleared (0)
+  - Credit Notes & Debit Notes: Fully cleared (0)
+  - Stock Movements: Fully cleared (0, trigger `trg_stock_movements_immutable` safely restored)
+  - Physical Stock Balances: All locations (Godown, Shop, Vans) reset to 0
+  - Van Operations (van_days, van_day_lines, cash_handovers): Fully cleared (0)
+  - Counter Pickups: Fully cleared (0)
+  - Payments: Fully cleared (0)
+  - Party Ledgers (`ledger_entries`): Fully cleared (0, all party balances reset to ₹0.00)
+  - Invoice & Order Sequences (`sequences`): Reset to 1 (Next invoice: `INV/26-27/000001`, Next order: `ORD/26-27/000001`)
+  - Preserved intact: 950 Catalog Products, 1702 Parties, 31 Companies, 4 Locations, Users and system configuration.
