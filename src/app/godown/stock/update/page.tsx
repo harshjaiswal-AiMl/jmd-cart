@@ -57,6 +57,7 @@ export default async function UpdateStockPage() {
       id: p.id,
       shortCode: p.shortCode,
       name: p.name,
+      weight: p.weight || null,
       packSize: p.packSize || 1,
       unitType: "PCS",
       companyId: p.companyId || "",

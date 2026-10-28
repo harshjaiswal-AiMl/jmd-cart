@@ -50,7 +50,7 @@ describe("Shop POS - Carton from Godown & Loose from Shop Stock Validation", () 
       product,
     };
 
-    const isCarton = cartLinePcs.unit === "Carton";
+    const isCarton = (cartLinePcs.unit as string) === "Carton";
     const requestedPieces = isCarton ? cartLinePcs.qty * product.packSize : cartLinePcs.qty;
     const availablePieces = isCarton ? product.godownStockQty : product.shopStockQty;
 

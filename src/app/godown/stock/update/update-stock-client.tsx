@@ -48,6 +48,7 @@ interface ProductOption {
   id: string;
   shortCode: string;
   name: string;
+  weight?: string | null;
   packSize: number;
   unitType: string;
   companyId?: string;
@@ -1158,7 +1159,7 @@ export function UpdateStockClient({
 
                           {/* Product Info */}
                           <td className="py-2.5 px-4">
-                            <div className="font-bold text-gray-900 leading-tight">{p.name}</div>
+                            <div className="font-bold text-gray-900 leading-tight flex items-center gap-1.5 flex-wrap">{p.name}{p.weight && (<span className="text-[10px] text-amber-800 font-bold bg-amber-50 px-1.5 rounded border border-amber-200">{p.weight}</span>)}</div>
                             <div className="flex items-center gap-2 mt-0.5">
                               {p.shortCode && (
                                 <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-gray-100 text-gray-600 border border-gray-200">

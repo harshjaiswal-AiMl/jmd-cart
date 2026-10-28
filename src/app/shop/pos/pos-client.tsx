@@ -93,7 +93,7 @@ export interface PosCartLine {
   productId: string;
   product: ProductCatalogItem;
   qty: number;
-  unit: "Pcs" | "Carton";
+  unit: "Pcs" | "Carton" | "Dozen" | "Bag";
   lineDiscountPercent: number;
   customRatePaise?: number | null;
   customRateInput?: string;
@@ -392,7 +392,10 @@ export function PosClient({
       try {
         const pricingItems = activeTab.cart.map((c) => {
           const packSize = Math.max(1, c.product.packSize);
-          const pcs = c.unit === "Carton" ? c.qty * packSize : c.qty;
+          const pcs = c.unit === "Carton" ? c.qty * packSize
+            : c.unit === "Dozen" ? c.qty * 12
+            : c.unit === "Bag" ? c.qty * packSize
+            : c.qty;
           let unitPriceOverridePaise: number | undefined = undefined;
           if (c.customRatePaise != null && c.customRatePaise > 0) {
             unitPriceOverridePaise = c.unit === "Carton"
@@ -426,7 +429,7 @@ export function PosClient({
   ]);
 
   // Add Item to active cart
-  const addItemToCart = (product: ProductCatalogItem, unit: "Pcs" | "Carton" = "Pcs", qty: number = 1) => {
+  const addItemToCart = (product: ProductCatalogItem, unit: "Pcs" | "Carton" | "Dozen" | "Bag" = "Pcs", qty: number = 1) => {
     const resolved = resolvePrice(
       {
         mrpPaise: product.mrpPaise,
@@ -501,11 +504,11 @@ export function PosClient({
           },
           effectiveTier
         );
-        const defaultBaseRate = item.unit === "Carton" ? resolved.unitPricePaise * packSize : resolved.unitPricePaise;
+        const defaultBaseRate = item.unit === "Carton" || item.unit === "Bag" ? resolved.unitPricePaise * packSize : item.unit === "Dozen" ? resolved.unitPricePaise * 12 : resolved.unitPricePaise;
         const baseMrp = (item.product.mrpPaise && item.product.mrpPaise > 0)
           ? item.product.mrpPaise
-          : (defaultBaseRate > 0 ? (item.unit === "Carton" ? Math.round(defaultBaseRate / packSize) : defaultBaseRate) : paise);
-        const mrpPerUnit = item.unit === "Carton" ? baseMrp * packSize : baseMrp;
+          : (defaultBaseRate > 0 ? (item.unit === "Carton" || item.unit === "Bag" ? Math.round(defaultBaseRate / packSize) : item.unit === "Dozen" ? Math.round(defaultBaseRate / 12) : defaultBaseRate) : paise);
+        const mrpPerUnit = item.unit === "Carton" || item.unit === "Bag" ? baseMrp * packSize : item.unit === "Dozen" ? baseMrp * 12 : baseMrp;
 
         const newDisc = mrpPerUnit > 0 && paise < mrpPerUnit
           ? Math.round(((mrpPerUnit - paise) / mrpPerUnit) * 10000) / 100
@@ -537,11 +540,11 @@ export function PosClient({
           },
           effectiveTier
         );
-        const defaultBaseRate = item.unit === "Carton" ? resolved.unitPricePaise * packSize : resolved.unitPricePaise;
+        const defaultBaseRate = item.unit === "Carton" || item.unit === "Bag" ? resolved.unitPricePaise * packSize : item.unit === "Dozen" ? resolved.unitPricePaise * 12 : resolved.unitPricePaise;
         const baseMrp = (item.product.mrpPaise && item.product.mrpPaise > 0)
           ? item.product.mrpPaise
-          : (defaultBaseRate > 0 ? (item.unit === "Carton" ? Math.round(defaultBaseRate / packSize) : defaultBaseRate) : 0);
-        const mrpPerUnit = item.unit === "Carton" ? baseMrp * packSize : baseMrp;
+          : (defaultBaseRate > 0 ? (item.unit === "Carton" || item.unit === "Bag" ? Math.round(defaultBaseRate / packSize) : item.unit === "Dozen" ? Math.round(defaultBaseRate / 12) : defaultBaseRate) : 0);
+        const mrpPerUnit = item.unit === "Carton" || item.unit === "Bag" ? baseMrp * packSize : item.unit === "Dozen" ? baseMrp * 12 : baseMrp;
 
         if (isNaN(discNum) || discNum < 0) {
           return {
@@ -710,7 +713,7 @@ export function PosClient({
     }
   };
 
-  const updateLineUnit = (lineId: string, newUnit: "Pcs" | "Carton") => {
+  const updateLineUnit = (lineId: string, newUnit: "Pcs" | "Carton" | "Dozen" | "Bag") => {
     updateActiveTab({
       cart: activeTab.cart.map((item) => {
         if (item.id !== lineId) return item;
@@ -1606,6 +1609,16 @@ export function PosClient({
                   if (e.key === "Enter" && filteredProducts.length > 0) {
                     e.preventDefault();
                     addItemToCart(filteredProducts[0], "Pcs", 1);
+                    // After adding, move focus back to search so user can type next item
+                    setTimeout(() => itemSearchInputRef.current?.focus(), 50);
+                  } else if (e.key === "ArrowDown" && activeTab.cart.length > 0) {
+                    // Move focus to qty input of last cart row so user can adjust without mouse
+                    e.preventDefault();
+                    const qtyInputs = document.querySelectorAll<HTMLInputElement>("table input[type='number']");
+                    if (qtyInputs.length > 0) {
+                      qtyInputs[qtyInputs.length - 1].focus();
+                      qtyInputs[qtyInputs.length - 1].select();
+                    }
                   }
                 }}
                 className="w-full pl-11 pr-24 py-3 bg-white border-2 border-slate-300 rounded-2xl text-sm md:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#12355B] focus:border-[#12355B] shadow-sm transition"
@@ -1767,8 +1780,10 @@ export function PosClient({
                     );
 
                     const packSize = Math.max(1, line.product.packSize);
-                    const defaultRatePaise = line.unit === "Carton"
+                    const defaultRatePaise = line.unit === "Carton" || line.unit === "Bag"
                       ? resolved.unitPricePaise * packSize
+                      : line.unit === "Dozen"
+                      ? resolved.unitPricePaise * 12
                       : resolved.unitPricePaise;
 
                     const ratePerUnitPaise = line.customRatePaise != null
@@ -1777,16 +1792,16 @@ export function PosClient({
 
                     const baseMrp = (line.product.mrpPaise && line.product.mrpPaise > 0)
                       ? line.product.mrpPaise
-                      : (ratePerUnitPaise > 0 ? (line.unit === "Carton" ? Math.round(ratePerUnitPaise / packSize) : ratePerUnitPaise) : 0);
+                      : (ratePerUnitPaise > 0 ? (line.unit === "Carton" || line.unit === "Bag" ? Math.round(ratePerUnitPaise / packSize) : line.unit === "Dozen" ? Math.round(ratePerUnitPaise / 12) : ratePerUnitPaise) : 0);
 
-                    const mrpPerUnitPaise = line.unit === "Carton" ? baseMrp * packSize : baseMrp;
+                    const mrpPerUnitPaise = line.unit === "Carton" || line.unit === "Bag" ? baseMrp * packSize : line.unit === "Dozen" ? baseMrp * 12 : baseMrp;
 
                     const lineDiscountMultiplier = 1 - (line.lineDiscountPercent || 0) / 100;
                     const lineAmountPaise = Math.round(line.qty * ratePerUnitPaise * lineDiscountMultiplier);
 
-                    // Stock calculation (Carton checks Godown stock, Pcs checks Shop counter stock)
-                    const isCarton = line.unit === "Carton";
-                    const requestedPieces = isCarton ? line.qty * packSize : line.qty;
+                    // Stock calculation (Carton/Bag checks Godown stock, Pcs/Dozen checks Shop counter stock)
+                    const isCarton = line.unit === "Carton" || line.unit === "Bag";
+                    const requestedPieces = line.unit === "Carton" || line.unit === "Bag" ? line.qty * packSize : line.unit === "Dozen" ? line.qty * 12 : line.qty;
                     const availablePieces = isCarton ? (line.product.godownStockQty ?? 0) : (line.product.shopStockQty ?? 0);
                     const availableCartons = line.product.godownCartons ?? Math.floor((line.product.godownStockQty ?? 0) / packSize);
                     const isStockSufficient = isCarton
@@ -1936,20 +1951,30 @@ export function PosClient({
                             min="1"
                             value={line.qty}
                             onChange={(e) => updateLineQty(line.id, parseInt(e.target.value, 10) || 1)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === "Tab") {
+                                e.preventDefault();
+                                itemSearchInputRef.current?.focus();
+                              }
+                            }}
                             className="w-20 px-2 py-1.5 text-center font-black text-base sm:text-lg bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] focus:border-[#12355B] shadow-xs"
                           />
                         </td>
 
-                        {/* Unit Selector (Pcs vs Carton) */}
+                        {/* Unit Selector */}
                         <td className="py-3 px-2 text-center">
                           <select
                             value={line.unit}
-                            onChange={(e) => updateLineUnit(line.id, e.target.value as "Pcs" | "Carton")}
-                            className="w-24 px-2 py-1.5 text-sm sm:text-base font-bold bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] cursor-pointer"
+                            onChange={(e) => updateLineUnit(line.id, e.target.value as "Pcs" | "Carton" | "Dozen" | "Bag")}
+                            className="w-28 px-2 py-1.5 text-sm sm:text-base font-bold bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] cursor-pointer"
                           >
-                            <option value="Pcs">Pcs</option>
+                            <option value="Pcs">Pcs (1)</option>
+                            <option value="Dozen">Dozen (12)</option>
+                            <option value="Bag" disabled={line.product.packSize <= 1}>
+                              Bag ({line.product.packSize})
+                            </option>
                             <option value="Carton" disabled={line.product.packSize <= 1}>
-                              Carton
+                              Carton ({line.product.packSize})
                             </option>
                           </select>
                         </td>
@@ -2300,7 +2325,7 @@ export function PosClient({
             {(() => {
               const insufficientCount = activeTab.cart.filter((c) => {
                 const ps = Math.max(1, c.product.packSize);
-                const req = c.unit === "Carton" ? c.qty * ps : c.qty;
+                const req = c.unit === "Carton" || c.unit === "Bag" ? c.qty * ps : c.unit === "Dozen" ? c.qty * 12 : c.qty;
                 if (c.unit === "Carton") {
                   return req > (c.product.godownStockQty ?? 0);
                 }
