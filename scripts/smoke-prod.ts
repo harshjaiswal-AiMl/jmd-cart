@@ -72,7 +72,7 @@ async function run() {
   });
 
   // 3a. Staff routes on storefront → 404
-  for (const staffPath of ['/admin', '/godown', '/setup']) {
+  for (const staffPath of ['/admin', '/godown', '/setup', '/app', '/accounts', '/van']) {
     await check(`3a. Storefront ${staffPath} → 404`, async () => {
       const r = await fetch(`${STOREFRONT}${staffPath}`);
       if (r.status !== 404) throw new Error(`Got ${r.status}, expected 404`);
@@ -149,6 +149,21 @@ async function run() {
       }
     }
   });
+
+  // 9. Role App Manifests
+  const roles = ['shop', 'godown', 'van', 'delivery', 'accounts', 'owner'];
+  for (const role of roles) {
+    await check(`9a. Management /app/${role}/manifest.webmanifest → 200 JSON`, async () => {
+      const r = await fetch(`${MANAGEMENT}/app/${role}/manifest.webmanifest`);
+      if (r.status !== 200) throw new Error(`Got ${r.status}`);
+      const j = await r.json();
+      if (!j.name || !j.start_url) throw new Error(`Invalid manifest for ${role}`);
+    });
+    await check(`9b. Storefront /app/${role}/manifest.webmanifest → 404`, async () => {
+      const r = await fetch(`${STOREFRONT}/app/${role}/manifest.webmanifest`);
+      if (r.status !== 404) throw new Error(`Got ${r.status}, expected 404`);
+    });
+  }
 
   console.log(`\nResults: ${passed} PASS, ${failed} FAIL`);
   if (failed > 0) process.exit(1);

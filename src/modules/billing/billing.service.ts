@@ -326,7 +326,7 @@ export class BillingService {
             })
           : null;
 
-        for (const line of orderPricing.lines) {
+        for (const [lineIdx, line] of orderPricing.lines.entries()) {
           const prod = prodMap.get(line.productId);
           const packSize = prod?.packSize || 1;
 
@@ -373,7 +373,7 @@ export class BillingService {
                     reason: `Invoice #${invoiceNumber} (Cartons from ${
                       cartonSourceLocId === godownLocation.id ? "Godown" : "Shop"
                     })`,
-                    idempotencyKey: `${validated.idempotencyKey}_sale_ctn_${line.productId}`,
+                    idempotencyKey: `${validated.idempotencyKey}_sale_ctn_${lineIdx}_${line.productId}`,
                     actorId,
                   },
                   tx
@@ -422,7 +422,7 @@ export class BillingService {
                       referenceType: "INVOICE",
                       referenceId: invoice.id,
                       reason: `Invoice #${invoiceNumber} (Loose from Shop)`,
-                      idempotencyKey: `${validated.idempotencyKey}_sale_loose_${line.productId}`,
+                      idempotencyKey: `${validated.idempotencyKey}_sale_loose_${lineIdx}_${line.productId}`,
                       actorId,
                     },
                     tx
@@ -463,7 +463,7 @@ export class BillingService {
                   reason: `Invoice #${invoiceNumber} (${
                     sourceLocId === validated.locationId ? "Shop" : "Godown"
                   })`,
-                  idempotencyKey: `${validated.idempotencyKey}_sale_${line.productId}`,
+                  idempotencyKey: `${validated.idempotencyKey}_sale_${lineIdx}_${line.productId}`,
                   actorId,
                 },
                 tx
@@ -481,7 +481,7 @@ export class BillingService {
                 referenceType: "INVOICE",
                 referenceId: invoice.id,
                 reason: `Invoice #${invoiceNumber}`,
-                idempotencyKey: `${validated.idempotencyKey}_sale_${line.productId}`,
+                idempotencyKey: `${validated.idempotencyKey}_sale_${lineIdx}_${line.productId}`,
                 actorId,
               },
               tx
@@ -533,36 +533,49 @@ export class BillingService {
         }
 
         // G. Create Warehouse Packing task so Godown Keeper is notified instantly with item details
-        const cashierUser = actorId
-          ? await tx.user.findUnique({ where: { id: actorId }, select: { name: true } })
-          : null;
+        // Rule: Only SHOP (counter) invoices with carton lines require warehouse packing.
+        // Loose-only shop counter bills are served directly from shop shelves.
+        // VAN sales are fulfilled directly from van stock on the road.
+        if (validated.channel === InvoiceChannel.SHOP) {
+          const cartonLines = orderPricing.lines.filter((line) => {
+            const prod = prodMap.get(line.productId);
+            const packSize = Math.max(1, prod?.packSize || 1);
+            return packSize > 1 && Math.floor(line.qty / packSize) > 0;
+          });
 
-        await tx.counterPickup.create({
-          data: {
-            invoiceId: invoice.id,
-            billNumber: invoiceNumber,
-            cashierName: cashierUser?.name || "Counter Cashier",
-            status: "PENDING",
-            items: orderPricing.lines.map((line) => {
-              const prod = prodMap.get(line.productId);
-              const packSize = prod?.packSize || 1;
-              const cartons = packSize > 1 ? Math.floor(line.qty / packSize) : 0;
-              const loose = packSize > 1 ? line.qty % packSize : line.qty;
-              return {
-                productId: line.productId,
-                productName: prod?.name || line.productId,
-                shortCode: prod?.shortCode || "",
-                packSize,
-                packLabel: prod?.packLabel || "Carton",
-                qty: line.qty,
-                cartons,
-                loose,
-                packed: false,
-              };
-            }),
-            notes: validated.notes || "Shop bill - warehouse packing required",
-          },
-        });
+          if (cartonLines.length > 0) {
+            const cashierUser = actorId
+              ? await tx.user.findUnique({ where: { id: actorId }, select: { name: true } })
+              : null;
+
+            await tx.counterPickup.create({
+              data: {
+                invoiceId: invoice.id,
+                billNumber: invoiceNumber,
+                cashierName: cashierUser?.name || "Counter Cashier",
+                status: "PENDING",
+                items: cartonLines.map((line) => {
+                  const prod = prodMap.get(line.productId);
+                  const packSize = Math.max(1, prod?.packSize || 1);
+                  const cartons = Math.floor(line.qty / packSize);
+                  const loose = line.qty % packSize;
+                  return {
+                    productId: line.productId,
+                    productName: prod?.name || line.productId,
+                    shortCode: prod?.shortCode || "",
+                    packSize,
+                    packLabel: prod?.packLabel || "Carton",
+                    qty: line.qty,
+                    cartons,
+                    loose,
+                    packed: false,
+                  };
+                }),
+                notes: validated.notes || "Shop bill - warehouse packing required",
+              },
+            });
+          }
+        }
 
         return invoice.id;
       },

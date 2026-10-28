@@ -237,3 +237,35 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Cloud Run: Revision jmd-cart-00043-99x serving 100% of traffic with annotation commit-sha=09dce8209821badd0a14ffc74e1ce57e2ae49d9f.
   - Production Smoke Test: scripts/smoke-prod.ts 14 PASS, 0 FAIL.
   - Endpoints & Redirects verified on live production: /admin/staff -> 308 /admin/crud/users, /admin/incentives-report -> 308 /admin/incentives, /admin/reports/agent-incentives -> 308 /admin/incentives. Authenticated paths redirect cleanly to /login.
+
+## Prompt #13 Session (Van Counter Fixes, Warehouse Queue Cleanup, Payment Done/Pending, Role Installable Apps)
+- **Status**: Complete & Verified (Gates A, B, C, D, E PASS).
+- **Summary of Changes**:
+  1. **Van Counter Fixes (Part A)**:
+     - `QtyUnitPicker` (`src/components/billing/qty-unit-picker.tsx`): Shared segmented toggle (`Pcs` | `Carton (Peti)`), quantity steppers, live carton/piece breakdown, per-unit price display, and over-stock prevention.
+     - Customer details in Van Billing (`src/app/van/billing/van-billing-client.tsx`, `page.tsx`): Prominently surfaces Customer Name, Mobile Number, and Address in header & bill summary, along with Credit Limit, Current Outstanding, and Remaining Credit.
+     - Mixed-unit support: Allows adding both Peti and Pcs lines for the same product without cart key collision.
+     - Brand cream theme (`src/app/van/layout.tsx`): Updated Van layout from dark slate to brand warm cream (`bg-[#FAF7F2] text-slate-900`) matching shop & print surfaces.
+  2. **Warehouse Queue Cleanup (Part B)**:
+     - Excluded `InvoiceChannel.VAN` from warehouse queue: Van sales are fulfilled from van load stock and NEVER create warehouse packing or dispatch tasks.
+     - Shop invoices filter: Only shop counter invoices containing at least one carton line (`cartons > 0`) enter the warehouse queue. Loose pieces only do not generate warehouse tickets.
+     - Line badges: Added "Fulfilled from: Godown" line-level badge on warehouse dispatch board (`src/app/godown/dispatch/dispatch-client.tsx`).
+     - Line index idempotency: Added `${lineIdx}` to stock movement idempotency keys (`${validated.idempotencyKey}_sale_${lineIdx}_${line.productId}`) preventing collisions on multi-unit lines.
+  3. **Payment Done / Pending for Cash and UPI (Part C)**:
+     - Payment status capture: Added `paymentStatus` (`PAID` vs `PENDING`) to `billingService.finalizeInvoice`, `vanInvoiceActionSchema`, and POS `finalizeBillAction`.
+     - Validation: When `PENDING` is selected for Cash or UPI, customer Name and 10-digit Mobile Number are mandatory.
+     - Invoice View-Model & Prints: Updated `invoice-view-model.ts`, `cash-receipt-slip.tsx`, `a5-invoice.tsx`, and `escpos-invoice.ts` to surface `Payment Pending: ₹X due` only when pending/unpaid.
+     - Accounts Module (`src/app/app/accounts/`): Added accounts server action (`receiveInvoicePaymentAction`) and UI to collect pending balances, update invoice payment status to PAID, and record receipts into ledger.
+  4. **Shared Shortcuts & Tests (Part D)**:
+     - `tests/unit/prompt13-van-warehouse-payment.test.ts`: 14 unit tests covering QtyUnitPicker, mixed units, van/warehouse separation, payment status, pending bill customer validation, and role app routing.
+     - Full Vitest suite: 76 test files passed, 414 tests passed (PASS).
+  5. **Role-Specific Installable PWA Apps (Part E)**:
+     - Host routing: Added `"/app"` and `"/accounts"` to `STAFF_ROUTES` in `src/lib/host-routing.ts` so role apps return 404 on storefront host (`jmdcart.com`) and are served on management host (`management.jmdcart.com`).
+     - Dynamic PWA Manifests: Built `/app/[role]/manifest.webmanifest` and `/app/[role]/manifest.json` providing distinct standalone manifests, names, start URLs, and theme colors for `shop`, `godown`, `van`, `delivery`, `accounts`, and `owner`.
+     - Role App Shell: Built `/app/layout.tsx` and `role-app-shell.tsx` featuring live sync status bar, bottom navigation, PWA install prompt button, and admin role switcher.
+     - Role Dashboards: Created dedicated home dashboards at `/app/shop`, `/app/godown`, `/app/van`, `/app/delivery`, `/app/accounts`, `/app/owner`, and `/app/` router.
+- **Verification Summary**:
+  - `pnpm typecheck`: 0 errors (PASS).
+  - `pnpm lint`: 0 errors (PASS).
+  - Target Vitest suites: 76/76 test files passed, 414/414 tests passed (PASS).
+  - Next.js production build: All routes compiled with zero errors (PASS).

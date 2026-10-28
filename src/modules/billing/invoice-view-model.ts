@@ -67,6 +67,10 @@ export interface InvoiceViewModel {
   isCash: boolean;
   isNonCash: boolean;
   isCredit: boolean;
+  paymentStatus: string;
+  isPaymentPending: boolean;
+  pendingAmountPaise: number;
+  pendingAmountFormatted: string;
 
   // Customer block
   customer: {
@@ -416,6 +420,10 @@ export function buildInvoiceViewModel(
     isCash,
     isNonCash: !isCash,
     isCredit,
+    paymentStatus: invoice.paymentStatus || (invoice.totalPaise > payments.reduce((s, p) => s + p.amountPaise, 0) ? "PENDING" : "PAID"),
+    isPaymentPending: (invoice.paymentStatus === "PENDING" || invoice.paymentStatus === "PARTIAL" || (invoice.paymentStatus as any) === "UNPAID") && (invoice.totalPaise - payments.reduce((s, p) => s + p.amountPaise, 0) > 0),
+    pendingAmountPaise: Math.max(0, invoice.totalPaise - payments.reduce((s, p) => s + p.amountPaise, 0)),
+    pendingAmountFormatted: (Math.max(0, invoice.totalPaise - payments.reduce((s, p) => s + p.amountPaise, 0)) / 100).toFixed(2),
 
     customer: {
       name: custName,

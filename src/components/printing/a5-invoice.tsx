@@ -247,6 +247,12 @@ export function A5Invoice({ invoice, business, options }: A5InvoiceProps) {
                       ₹{vm.totals.payableRupees}
                     </span>
                   </div>
+                  {vm.isPaymentPending && vm.pendingAmountPaise > 0 && (
+                    <div className="flex justify-between items-center text-xs font-black text-red-600 bg-red-50 border border-red-200 px-3 py-1 rounded mt-1.5">
+                      <span>Payment Pending:</span>
+                      <span className="font-mono">₹{vm.pendingAmountFormatted} due</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Amount in words */}

@@ -7,6 +7,8 @@ export const STAFF_ROUTES = [
   "/reports",
   "/setup",
   "/management",
+  "/accounts",
+  "/app",
 ];
 
 export function normalizeHost(rawHost?: string | null): string {

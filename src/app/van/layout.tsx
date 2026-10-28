@@ -36,7 +36,7 @@ export default async function VanLayout({
 
   return (
     <ManagementShellServer>
-      <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 sm:pb-10">
+      <div className="min-h-screen bg-[#FAF7F2] text-slate-900 pb-20 sm:pb-10">
         {children}
         <VanBottomNav />
       </div>

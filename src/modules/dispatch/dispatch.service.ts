@@ -205,7 +205,12 @@ export class DispatchService {
         take: 50,
       }),
       // Live feed of shop counter sales & packing queue
+      // Only SHOP and ONLINE finalized invoices — VAN invoices NEVER appear in warehouse queue
       prisma.invoice.findMany({
+        where: {
+          channel: { not: InvoiceChannel.VAN },
+          status: InvoiceStatus.FINAL,
+        },
         orderBy: { createdAt: "desc" },
         take: 50,
         include: {

@@ -127,6 +127,35 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
 
   const { loadSummary, orders, runs, counterPickups, recentShopSales, shopBalances } = boardData;
 
+  // Prompt #13 Part B: Warehouse queue shows only godown-fulfilled lines:
+  // - Channel VAN: NEVER shown in warehouse queue
+  // - Channel SHOP: show only carton lines (cartons come from godown; loose-only bills hidden)
+  // - Channel ONLINE: show carton and loose lines (fulfilled from godown for delivery)
+  const warehouseQueueInvoices = React.useMemo(() => {
+    if (!recentShopSales) return [];
+    return (recentShopSales as any[])
+      .filter((sale) => {
+        if (sale.channel === "VAN") return false;
+        if (sale.channel === "SHOP") {
+          return sale.items?.some((item: any) => {
+            const packSize = Math.max(1, item.product?.packSize || 1);
+            return packSize > 1 && Math.floor(item.qty / packSize) > 0;
+          });
+        }
+        return true;
+      })
+      .map((sale) => {
+        if (sale.channel === "SHOP") {
+          const cartonItems = (sale.items || []).filter((item: any) => {
+            const packSize = Math.max(1, item.product?.packSize || 1);
+            return packSize > 1 && Math.floor(item.qty / packSize) > 0;
+          });
+          return { ...sale, items: cartonItems };
+        }
+        return sale;
+      });
+  }, [recentShopSales]);
+
   const toggleOrderSelection = (id: string) => {
     setSelectedOrders((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -769,7 +798,7 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
                   : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
               }`}
             >
-              All ({recentShopSales.length})
+              All ({warehouseQueueInvoices.length})
             </button>
             <button
               type="button"
@@ -780,7 +809,7 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
                   : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
               }`}
             >
-              🟡 Needs Packing ({recentShopSales.filter((s: any) => getPackingState(s).status === "PENDING").length})
+              🟡 Needs Packing ({warehouseQueueInvoices.filter((s: any) => getPackingState(s).status === "PENDING").length})
             </button>
             <button
               type="button"
@@ -791,7 +820,7 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
                   : "bg-blue-50 text-blue-800 hover:bg-blue-100 border border-blue-200"
               }`}
             >
-              🔵 Packing In Progress ({recentShopSales.filter((s: any) => getPackingState(s).status === "PACKING").length})
+              🔵 Packing In Progress ({warehouseQueueInvoices.filter((s: any) => getPackingState(s).status === "PACKING").length})
             </button>
             <button
               type="button"
@@ -802,7 +831,7 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
                   : "bg-purple-50 text-purple-800 hover:bg-purple-100 border border-purple-200"
               }`}
             >
-              🟣 Packed &amp; Ready ({recentShopSales.filter((s: any) => getPackingState(s).status === "PACKED").length})
+              🟣 Packed &amp; Ready ({warehouseQueueInvoices.filter((s: any) => getPackingState(s).status === "PACKED").length})
             </button>
             <button
               type="button"
@@ -813,14 +842,14 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
                   : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200"
               }`}
             >
-              🟢 Handed Over ({recentShopSales.filter((s: any) => getPackingState(s).status === "COMPLETED").length})
+              🟢 Handed Over ({warehouseQueueInvoices.filter((s: any) => getPackingState(s).status === "COMPLETED").length})
             </button>
           </div>
 
           {/* Packing Orders Cards Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
-              {recentShopSales.filter((s: any) => {
+              {warehouseQueueInvoices.filter((s: any) => {
                 if (packingFilter === "ALL") return true;
                 return getPackingState(s).status === packingFilter;
               }).length === 0 ? (
@@ -830,7 +859,7 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
                   <p className="text-xs text-gray-400 mt-1">Switch filter to &apos;All&apos; or wait for new bills from the shop</p>
                 </div>
               ) : (
-                recentShopSales
+                warehouseQueueInvoices
                   .filter((s: any) => {
                     if (packingFilter === "ALL") return true;
                     return getPackingState(s).status === packingFilter;
@@ -919,9 +948,12 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
                                       <div className={`text-sm font-semibold ${isChecked ? "text-gray-500 line-through" : "text-gray-900"}`}>
                                         {item.product?.name || item.productId}
                                       </div>
-                                      <div className="text-xs text-gray-400 font-mono">
-                                        Code: {item.product?.shortCode || item.product?.sku || "N/A"}
-                                        {item.product?.packSize > 1 && ` • ${item.product.packSize} pcs/${item.product.packLabel || "Carton"}`}
+                                      <div className="text-xs text-gray-400 font-mono flex items-center gap-2 mt-0.5">
+                                        <span>Code: {item.product?.shortCode || item.product?.sku || "N/A"}</span>
+                                        {item.product?.packSize > 1 && <span>• {item.product.packSize} pcs/{item.product.packLabel || "Carton"}</span>}
+                                        <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                          Fulfilled from: Godown
+                                        </span>
                                       </div>
                                     </div>
                                   </div>

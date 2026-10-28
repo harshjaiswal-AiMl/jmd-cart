@@ -115,6 +115,8 @@ export default async function VanBillingPage() {
     select: {
       id: true,
       name: true,
+      phone: true,
+      address: true,
       creditEnabled: true,
       creditLimitPaise: true,
       ledgerEntries: {
@@ -133,6 +135,8 @@ export default async function VanBillingPage() {
     return {
       id: p.id,
       name: p.name,
+      phone: p.phone,
+      address: p.address,
       creditEnabled: p.creditEnabled,
       creditLimitPaise: p.creditLimitPaise,
       currentOutstandingPaise: totalDebit - totalCredit,
@@ -145,13 +149,13 @@ export default async function VanBillingPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/van"
-            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
+            className="p-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-slate-900 shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-black text-white">Van Sales Counter</h1>
-            <p className="text-xs text-slate-400">
+            <h1 className="text-xl font-black text-slate-900">Van Sales Counter</h1>
+            <p className="text-xs text-slate-500">
               {van.name} • Load Sheet #{stockSummary.activeVanDay.issueSheetNo}
             </p>
           </div>
@@ -159,7 +163,7 @@ export default async function VanBillingPage() {
 
         <Link
           href="/van/bills"
-          className="text-xs font-semibold text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800"
+          className="text-xs font-bold text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs"
         >
           View Invoices
         </Link>

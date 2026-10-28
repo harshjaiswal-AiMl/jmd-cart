@@ -145,6 +145,13 @@ export function CashReceiptSlip({ invoice, business, options }: CashReceiptSlipP
         {vm.totals.amountInWords}
       </div>
 
+      {/* Payment Pending notice if unpaid */}
+      {vm.isPaymentPending && vm.pendingAmountPaise > 0 && (
+        <div className="text-[10.5px] font-black text-center text-red-600 py-1 border-b border-dashed border-gray-400">
+          Payment Pending: ₹{vm.pendingAmountFormatted} due
+        </div>
+      )}
+
       {/* Agent Code if setting is enabled */}
       {vm.agent.showOnBill && (
         <div className="text-[9px] font-mono text-gray-600 text-center py-0.5">

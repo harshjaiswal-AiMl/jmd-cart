@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
-import { UserRole, InvoiceChannel, PaymentMode } from "@prisma/client";
+import { UserRole, InvoiceChannel, PaymentMode, PaymentStatus } from "@prisma/client";
 import { billingService } from "@/modules/billing/billing.service";
 import { settingsService } from "@/modules/settings/settings.service";
 import { authService } from "@/modules/auth/auth.service";
@@ -38,7 +38,8 @@ const vanInvoiceActionSchema = z.object({
         amountPaise: z.number().int().nonnegative(),
       })
     )
-    .min(1, "At least one payment tender is required"),
+    .default([]),
+  paymentStatus: z.enum(["PAID", "PENDING", "PARTIAL"]).optional(),
 });
 
 export type VanInvoiceActionInput = z.input<typeof vanInvoiceActionSchema>;
@@ -73,6 +74,7 @@ export async function createVanInvoiceAction(input: VanInvoiceActionInput) {
         orderDiscountBp: validated.orderDiscountBp,
         items: validated.items,
         payments: actualPayments,
+        paymentStatus: validated.paymentStatus as PaymentStatus | undefined,
         notes: validated.notes,
         creditOverride: validated.creditOverride,
       },
@@ -86,7 +88,13 @@ export async function createVanInvoiceAction(input: VanInvoiceActionInput) {
         number: invoice.number,
         totalPaise: invoice.totalPaise,
         buyerType: invoice.buyerType,
+        status: invoice.status,
+        channel: invoice.channel,
         paymentStatus: invoice.paymentStatus,
+        paymentMode:
+          invoice.payments.find((p) => p.mode === "CREDIT")?.mode ||
+          invoice.payments[0]?.mode ||
+          (validated.paymentStatus === "PENDING" ? "PENDING" : "CASH"),
       },
     };
   } catch (error) {
@@ -151,10 +159,5 @@ export async function verifyOwnerOverrideForVanAction(
   phoneOrEmail: string,
   password: string
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return { success: false, error: "Authentication required" };
-  }
-
   return authService.verifyOwnerCredentials(phoneOrEmail, password);
 }

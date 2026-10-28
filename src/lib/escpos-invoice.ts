@@ -132,6 +132,13 @@ export function formatInvoiceForEscPos(
   builder.line(`Rupees: ${vm.amountInWords}`);
   builder.rule("-", width);
 
+  if (vm.isPaymentPending && vm.pendingAmountPaise > 0) {
+    builder.bold(true);
+    builder.line(`Payment Pending: Rs ${vm.pendingAmountFormatted} due`);
+    builder.normal();
+    builder.rule("-", width);
+  }
+
   // 6. Payment Information
   const cashPayments = invoice.payments
     .filter((p) => p.mode === "CASH")

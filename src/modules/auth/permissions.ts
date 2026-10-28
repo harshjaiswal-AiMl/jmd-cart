@@ -162,8 +162,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
  * Route prefixes allowed for each role.
  */
 export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
-  SUPER_ADMIN: ["/admin", "/godown", "/shop", "/van", "/delivery", "/accounts", "/reports"],
-  ADMIN: ["/admin", "/godown", "/shop", "/van", "/delivery", "/accounts", "/reports"],
+  SUPER_ADMIN: ["/admin", "/godown", "/shop", "/van", "/delivery", "/accounts", "/reports", "/app"],
+  ADMIN: ["/admin", "/godown", "/shop", "/van", "/delivery", "/accounts", "/reports", "/app"],
   WAREHOUSE_MANAGER: [
     "/godown",
     "/van",
@@ -175,6 +175,7 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
     "/reports",
     "/shop/invoices",
     "/admin/orders",
+    "/app/godown",
   ],
   GODOWN: [
     "/godown",
@@ -184,11 +185,12 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
     "/admin/crud/products",
     "/admin/reports",
     "/reports",
+    "/app/godown",
   ],
-  SHOP: ["/shop", "/admin/parties"],
-  SALESPERSON: ["/van"],
-  DELIVERY: ["/delivery"],
-  ACCOUNTS: ["/accounts", "/admin/reports", "/admin/parties", "/godown/returns", "/reports"],
+  SHOP: ["/shop", "/admin/parties", "/app/shop"],
+  SALESPERSON: ["/van", "/app/van"],
+  DELIVERY: ["/delivery", "/app/delivery"],
+  ACCOUNTS: ["/accounts", "/admin/reports", "/admin/parties", "/godown/returns", "/reports", "/app/accounts"],
   CUSTOMER: ["/store"],
 };
 
@@ -240,6 +242,7 @@ export function getDefaultDashboard(role?: UserRole): string {
     case UserRole.SUPER_ADMIN:
     case UserRole.ADMIN:
       return "/admin";
+    case UserRole.WAREHOUSE_MANAGER:
     case UserRole.GODOWN:
       return "/godown";
     case UserRole.SHOP:
@@ -250,6 +253,32 @@ export function getDefaultDashboard(role?: UserRole): string {
       return "/delivery";
     case UserRole.ACCOUNTS:
       return "/accounts";
+    case UserRole.CUSTOMER:
+      return "/store";
+    default:
+      return "/login";
+  }
+}
+
+/**
+ * Return installable mobile app route for each role (Prompt #13 Part E)
+ */
+export function getDefaultAppForRole(role?: UserRole): string {
+  switch (role) {
+    case UserRole.SUPER_ADMIN:
+    case UserRole.ADMIN:
+      return "/app/owner";
+    case UserRole.WAREHOUSE_MANAGER:
+    case UserRole.GODOWN:
+      return "/app/godown";
+    case UserRole.SHOP:
+      return "/app/shop";
+    case UserRole.SALESPERSON:
+      return "/app/van";
+    case UserRole.DELIVERY:
+      return "/app/delivery";
+    case UserRole.ACCOUNTS:
+      return "/app/accounts";
     case UserRole.CUSTOMER:
       return "/store";
     default:

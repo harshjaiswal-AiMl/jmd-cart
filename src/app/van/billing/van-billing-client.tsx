@@ -31,6 +31,7 @@ import { createVanInvoiceAction, checkVanPartyCreditStatusAction } from "./actio
 import { createQuickPartyAction } from "@/app/shop/pos/actions";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
+import { QtyUnitPicker } from "@/components/billing/qty-unit-picker";
 import { PaymentMode } from "@prisma/client";
 
 interface VanProduct {
@@ -61,6 +62,8 @@ interface PartyOption {
 interface CartLine {
   product: VanProduct;
   qty: number;
+  unit: "PCS" | "CARTON";
+  unitQty: number;
 }
 
 interface VanBillingClientProps {
@@ -90,6 +93,7 @@ export function VanBillingClient({
   const [walkInMobile, setWalkInMobile] = useState<string>("");
   const [walkInAddress, setWalkInAddress] = useState<string>("");
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(PaymentMode.CASH);
+  const [paymentCollected, setPaymentCollected] = useState<boolean>(true);
   const [isOnline, setIsOnline] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{
@@ -249,53 +253,46 @@ export function VanBillingClient({
 
   const totalPaise = subtotalPaise; // Dynamic slabs can be refined by pricing engine on server
 
-  // Add / adjust cart items
-  const addToCart = (product: VanProduct, addQty = 1) => {
+  // Add / adjust cart items with unit support
+  const addToCart = (
+    product: VanProduct,
+    addPieces: number,
+    unit: "PCS" | "CARTON" = "PCS",
+    unitQty: number = addPieces
+  ) => {
     setCart((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id);
-      const currentQty = existing ? existing.qty : 0;
-      const targetQty = currentQty + addQty;
+      // Find line with same product AND same unit
+      const existing = prev.find((i) => i.product.id === product.id && i.unit === unit);
+      const otherPieces = prev
+        .filter((i) => i.product.id === product.id && i.unit !== unit)
+        .reduce((sum, i) => sum + i.qty, 0);
 
-      if (targetQty > product.availablePieces) {
+      const currentUnitPieces = existing ? existing.qty : 0;
+      const targetUnitPieces = currentUnitPieces + addPieces;
+
+      if (targetUnitPieces + otherPieces > product.availablePieces) {
         setStatusMessage({
           type: "warning",
-          text: `Cannot add more than ${product.availablePieces} pcs available on van`,
+          text: `Cannot add: exceeds total ${product.availablePieces} pcs available on van`,
         });
         return prev;
       }
 
       if (existing) {
         return prev.map((i) =>
-          i.product.id === product.id ? { ...i, qty: targetQty } : i
+          i.product.id === product.id && i.unit === unit
+            ? { ...i, qty: targetUnitPieces, unitQty: (existing.unitQty || existing.qty) + unitQty }
+            : i
         );
       }
-      return [...prev, { product, qty: targetQty }];
+      return [...prev, { product, qty: targetUnitPieces, unit, unitQty }];
     });
   };
 
-  const updateCartQty = (productId: string, newQty: number) => {
-    if (newQty <= 0) {
-      removeFromCart(productId);
-      return;
-    }
-
+  const removeFromCart = (productId: string, unit?: "PCS" | "CARTON") => {
     setCart((prev) =>
-      prev.map((i) => {
-        if (i.product.id !== productId) return i;
-        if (newQty > i.product.availablePieces) {
-          setStatusMessage({
-            type: "warning",
-            text: `Max available pieces for ${i.product.name} is ${i.product.availablePieces}`,
-          });
-          return { ...i, qty: i.product.availablePieces };
-        }
-        return { ...i, qty: newQty };
-      })
+      prev.filter((i) => !(i.product.id === productId && (!unit || i.unit === unit)))
     );
-  };
-
-  const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((i) => i.product.id !== productId));
   };
 
   const clearCart = () => {
@@ -309,6 +306,19 @@ export function VanBillingClient({
     if (cart.length === 0) {
       setStatusMessage({ type: "error", text: "Cart is empty" });
       return;
+    }
+
+    if (!paymentCollected && (paymentMode === PaymentMode.CASH || paymentMode === PaymentMode.UPI)) {
+      const hasCustomerInfo =
+        selectedPartyId ||
+        (walkInName.trim().length > 0 && walkInMobile.trim().length >= 10);
+      if (!hasCustomerInfo) {
+        setStatusMessage({
+          type: "error",
+          text: "Customer Name and 10-digit Mobile are mandatory when Payment Pending is selected.",
+        });
+        return;
+      }
     }
 
     const overrideToUse = explicitOverride || approvedCreditOverride;
@@ -401,7 +411,8 @@ export function VanBillingClient({
         customerAddress: selectedPartyId ? undefined : walkInAddress.trim() || undefined,
         idempotencyKey,
         items: cart.map((i) => ({ productId: i.product.id, qty: i.qty })),
-        payments: [{ mode: paymentMode, amountPaise: totalPaise }],
+        payments: paymentCollected && paymentMode !== PaymentMode.CREDIT ? [{ mode: paymentMode, amountPaise: totalPaise }] : [],
+        paymentStatus: (!paymentCollected || paymentMode === PaymentMode.CREDIT) ? "PENDING" : "PAID",
         creditOverride: overrideToUse || undefined,
       });
 
@@ -627,33 +638,20 @@ export function VanBillingClient({
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {inCart ? (
-                        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                          <button
-                            onClick={() => updateCartQty(p.id, inCart.qty - 1)}
-                            className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-white"
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="w-7 text-center font-bold text-xs text-[#12355B]">
-                            {inCart.qty}
-                          </span>
-                          <button
-                            onClick={() => addToCart(p, 1)}
-                            className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-white"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => addToCart(p, 1)}
-                          disabled={p.availablePieces <= 0}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#12355B] hover:bg-[#0E2843] text-white disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-all"
-                        >
-                          + Add
-                        </button>
-                      )}
+                      <QtyUnitPicker
+                        productId={p.id}
+                        productName={p.name}
+                        packSize={p.packSize}
+                        packLabel={p.packLabel}
+                        mrpPaise={p.mrpPaise}
+                        availablePieces={p.availablePieces}
+                        onAdd={(qty, unit) => {
+                          const packSize = Math.max(1, p.packSize || 1);
+                          const pieces = unit === "CARTON" ? qty * packSize : qty;
+                          addToCart(p, pieces, unit, qty);
+                        }}
+                        disabled={p.availablePieces <= 0}
+                      />
                     </div>
                   </div>
                 );
@@ -692,7 +690,16 @@ export function VanBillingClient({
               />
 
               {selectedParty && (
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] space-y-1">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] space-y-1.5 shadow-xs">
+                  <div className="border-b border-slate-200/80 pb-1.5 mb-1">
+                    <div className="font-bold text-slate-900 text-xs">{selectedParty.name}</div>
+                    {selectedParty.phone && (
+                      <div className="text-[11px] text-slate-600 font-mono mt-0.5">📱 {selectedParty.phone}</div>
+                    )}
+                    {selectedParty.address && (
+                      <div className="text-[11px] text-slate-600 font-normal mt-0.5">📍 {selectedParty.address}</div>
+                    )}
+                  </div>
                   <div className="flex justify-between text-slate-500">
                     <span>Credit Limit:</span>
                     <span className="text-slate-900 font-mono font-bold">
@@ -777,15 +784,24 @@ export function VanBillingClient({
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                  {cart.map((line) => (
+                  {cart.map((line, idx) => (
                     <div
-                      key={line.product.id}
+                      key={`${line.product.id}_${line.unit}_${idx}`}
                       className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="font-bold text-slate-900 truncate">{line.product.name}</p>
-                        <p className="text-[10px] text-slate-500 font-mono">
-                          {line.qty} pcs @ ₹{(line.product.mrpPaise / 100).toFixed(2)}
+                        <p className="text-[10px] text-slate-600 font-medium">
+                          {line.unit === "CARTON" ? (
+                            <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded text-[10px]">
+                              📦 {line.unitQty} {line.product.packLabel || "Carton"}(s) ({line.qty} pcs)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded text-[10px]">
+                              🛍 {line.qty} pcs
+                            </span>
+                          )}{" "}
+                          @ ₹{(line.product.mrpPaise / 100).toFixed(2)}/pc
                         </p>
                       </div>
 
@@ -794,7 +810,8 @@ export function VanBillingClient({
                           ₹{((line.qty * line.product.mrpPaise) / 100).toFixed(2)}
                         </span>
                         <button
-                          onClick={() => removeFromCart(line.product.id)}
+                          type="button"
+                          onClick={() => removeFromCart(line.product.id, line.unit)}
                           className="p-1 text-slate-400 hover:text-rose-600 rounded"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -851,6 +868,42 @@ export function VanBillingClient({
                 </button>
               </div>
             </div>
+
+            {/* Payment Status (Cash and UPI only) */}
+            {(paymentMode === PaymentMode.CASH || paymentMode === PaymentMode.UPI) && (
+              <div className="space-y-1.5 pt-0.5">
+                <label className="text-xs font-bold text-slate-700">Payment Status</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentCollected(true)}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      paymentCollected
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span>✓ Payment Done</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentCollected(false)}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      !paymentCollected
+                        ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span>⏳ Payment Pending</span>
+                  </button>
+                </div>
+                {!paymentCollected && (
+                  <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-1.5 font-medium">
+                    Customer Name and Mobile are mandatory when Payment Pending is selected so staff can follow up.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Bill Summary */}
             <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs">

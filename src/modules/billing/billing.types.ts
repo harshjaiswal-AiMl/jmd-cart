@@ -48,6 +48,7 @@ export const finalizeInvoiceInputSchema = z.object({
   isInterState: z.boolean().default(false),
   items: z.array(invoiceItemInputSchema).min(1, "At least one item is required"),
   payments: z.array(paymentInputSchema).default([]),
+  paymentStatus: z.nativeEnum(PaymentStatus).optional(),
   idempotencyKey: z.string().min(1, "Idempotency key is required"),
   notes: z.string().optional(),
   creditOverride: creditOverrideInputSchema.optional(),

@@ -96,6 +96,7 @@ export async function finalizeBillAction(input: {
   isInterState?: boolean;
   items: Array<{ productId: string; qty: number; unitPriceOverridePaise?: number }>;
   payments: Array<{ mode: "CASH" | "UPI" | "CARD" | "CREDIT"; amountPaise: number }>;
+  paymentStatus?: "PAID" | "PENDING" | "PARTIAL";
   idempotencyKey: string;
   notes?: string;
   creditOverride?: { approvedByUserId: string; reason: string };
@@ -120,6 +121,7 @@ export async function finalizeBillAction(input: {
         isInterState: input.isInterState ?? false,
         items: input.items,
         payments: input.payments,
+        paymentStatus: input.paymentStatus as any,
         idempotencyKey: input.idempotencyKey,
         notes: input.notes,
         creditOverride: input.creditOverride,

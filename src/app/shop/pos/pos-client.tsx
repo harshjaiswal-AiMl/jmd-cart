@@ -116,6 +116,7 @@ export interface PosBillTab {
   walkInName?: string;
   walkInMobile?: string;
   walkInAddress?: string;
+  paymentCollected?: boolean;
 }
 
 interface PosClientProps {
@@ -982,7 +983,16 @@ export function PosClient({
     // Build payments array
     let payments: Array<{ mode: "CASH" | "UPI" | "CARD" | "CREDIT"; amountPaise: number }> = [];
 
-    if (activeTab.paymentMode === PaymentMode.CASH) {
+    const isPaymentPending = activeTab.paymentCollected === false && (activeTab.paymentMode === PaymentMode.CASH || activeTab.paymentMode === PaymentMode.UPI);
+
+    if (isPaymentPending) {
+      const hasCustomerInfo = activeTab.partyId || (activeTab.walkInName?.trim() && (activeTab.walkInMobile?.trim().length || 0) >= 10);
+      if (!hasCustomerInfo) {
+        setErrorMessage("Customer Name and 10-digit Mobile are mandatory when Payment Pending is selected.");
+        return;
+      }
+      payments = [];
+    } else if (activeTab.paymentMode === PaymentMode.CASH) {
       payments = [{ mode: "CASH", amountPaise: totalPaise }];
     } else if (activeTab.paymentMode === PaymentMode.UPI) {
       payments = [{ mode: "UPI", amountPaise: totalPaise }];
@@ -2152,6 +2162,42 @@ export function PosClient({
                 </button>
               </div>
             </div>
+
+            {/* Payment Status (Cash and UPI only) */}
+            {(activeTab.paymentMode === PaymentMode.CASH || activeTab.paymentMode === PaymentMode.UPI) && (
+              <div className="space-y-1 pt-1">
+                <label className="text-xs font-bold text-slate-700">Payment Status</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => updateActiveTab({ paymentCollected: true })}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      activeTab.paymentCollected !== false
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span>✓ Payment Done</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateActiveTab({ paymentCollected: false })}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                      activeTab.paymentCollected === false
+                        ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    <span>⏳ Payment Pending</span>
+                  </button>
+                </div>
+                {activeTab.paymentCollected === false && (
+                  <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-1.5 font-medium">
+                    Customer Name and Mobile are mandatory when Payment Pending is selected.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Remarks Input */}
             <div>
