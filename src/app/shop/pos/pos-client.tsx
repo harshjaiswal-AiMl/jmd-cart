@@ -27,6 +27,7 @@ import {
   History,
   ArrowRight,
   PauseCircle,
+  Calendar,
 } from "lucide-react";
 
 import { OrderPriceResult } from "@/modules/pricing/pricing.types";
@@ -118,6 +119,7 @@ export interface PosBillTab {
   walkInMobile?: string;
   walkInAddress?: string;
   paymentCollected?: boolean;
+  billDate?: string;
 }
 
 interface PosClientProps {
@@ -145,6 +147,16 @@ export function PosClient({
   companies,
   parties,
 }: PosClientProps) {
+  // Admin check for backdated billing
+  const isAdmin = cashierRole === "SUPER_ADMIN" || cashierRole === "ADMIN";
+  const todayStr = useMemo(() => {
+    try {
+      return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    } catch {
+      return new Date().toISOString().split("T")[0];
+    }
+  }, []);
+
   // Products and parties state
   const [productsList, setProductsList] = useState<ProductCatalogItem[]>(products);
   const [localParties, setLocalParties] = useState<PartyItem[]>(parties);
@@ -171,6 +183,7 @@ export function PosClient({
       splitUpiPaise: "",
       remarks: "",
       isHeld: false,
+      billDate: isAdmin ? todayStr : undefined,
     },
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("tab-1");
@@ -226,6 +239,7 @@ export function PosClient({
         splitUpiPaise: "",
         remarks: "",
         isHeld: false,
+      billDate: isAdmin ? todayStr : undefined,
       }
     );
   }, [tabs, activeTabId]);
@@ -793,6 +807,7 @@ export function PosClient({
       splitUpiPaise: "",
       remarks: "",
       isHeld: false,
+      billDate: isAdmin ? todayStr : undefined,
     };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
@@ -839,6 +854,7 @@ export function PosClient({
         splitUpiPaise: "",
         remarks: "",
         isHeld: false,
+      billDate: isAdmin ? todayStr : undefined,
       };
       setTabs([resetTab]);
       setActiveTabId(resetTab.id);
@@ -1121,6 +1137,7 @@ export function PosClient({
           payments,
           idempotencyKey,
           creditOverride: overrideToUse || undefined,
+          invoiceDate: isAdmin && activeTab.billDate ? `${activeTab.billDate}T12:00:00` : undefined,
         });
 
         if (!res.success || !res.invoice) {
@@ -1266,6 +1283,12 @@ export function PosClient({
             </div>
             <div className="text-[11px] text-white/70">
               Cashier: <strong className="text-white">{cashierName}</strong>
+              {isAdmin && activeTab.billDate && activeTab.billDate !== todayStr && (
+                <span className="ml-2 inline-flex items-center gap-1 bg-amber-400 text-amber-950 px-2 py-0.5 rounded font-black text-[10px] uppercase tracking-wider shadow-xs border border-amber-500 animate-pulse">
+                  <Calendar className="w-3 h-3" />
+                  Backdated: {activeTab.billDate}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -2211,6 +2234,47 @@ export function PosClient({
                 {activeTab.paymentCollected === false && (
                   <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-1.5 font-medium">
                     Customer Name and Mobile are mandatory when Payment Pending is selected.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Bill Date Selector (Admin Only) */}
+            {isAdmin && (
+              <div className="p-2.5 rounded-xl border border-amber-300 bg-amber-50/70 space-y-1.5 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Bill Date (Admin Only)</span>
+                  </label>
+                  {activeTab.billDate && activeTab.billDate !== todayStr && (
+                    <span className="text-[10px] font-black bg-amber-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                      Backdated
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    max={todayStr}
+                    value={activeTab.billDate || todayStr}
+                    onChange={(e) => updateActiveTab({ billDate: e.target.value })}
+                    className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-amber-300 rounded-lg font-mono text-slate-900 focus:ring-2 focus:ring-amber-500 font-bold"
+                  />
+                  {activeTab.billDate && activeTab.billDate !== todayStr && (
+                    <button
+                      type="button"
+                      onClick={() => updateActiveTab({ billDate: todayStr })}
+                      title="Reset to today"
+                      className="px-2 py-1.5 text-[11px] font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs"
+                    >
+                      Today
+                    </button>
+                  )}
+                </div>
+                {activeTab.billDate && activeTab.billDate !== todayStr && (
+                  <p className="text-[10px] text-amber-900 font-semibold">
+                    Invoice will be sealed on: <strong>{activeTab.billDate}</strong>
                   </p>
                 )}
               </div>

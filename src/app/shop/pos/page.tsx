@@ -12,7 +12,11 @@ export default async function ShopPosPage() {
     redirect("/login");
   }
 
-  if (session.user.role !== UserRole.SHOP && session.user.role !== UserRole.SUPER_ADMIN) {
+  if (
+    session.user.role !== UserRole.SHOP &&
+    session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.ADMIN
+  ) {
     redirect("/login");
   }
 

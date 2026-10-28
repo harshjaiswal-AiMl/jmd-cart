@@ -64,6 +64,18 @@ export class BillingService {
 
     const validated = finalizeInvoiceInputSchema.parse(input);
 
+    if (validated.invoiceDate) {
+      if (role !== UserRole.SUPER_ADMIN && role !== UserRole.ADMIN) {
+        throw new ForbiddenError("Only Administrator can create backdated invoices");
+      }
+      const tenMinutesFromNow = new Date(Date.now() + 10 * 60 * 1000);
+      if (validated.invoiceDate > tenMinutesFromNow) {
+        throw new Error("Invoice date cannot be in the future");
+      }
+    }
+
+    const effectiveDate = validated.invoiceDate ? new Date(validated.invoiceDate) : new Date();
+
     // 1b. Idempotency deduplication: if already created with this idempotencyKey, return existing invoice
     if (validated.idempotencyKey) {
       const existingInvoice = await prisma.invoice.findUnique({
@@ -209,7 +221,8 @@ export class BillingService {
         // A. Assign gapless sequence number
         const { number: invoiceNumber, fy } = await getNextSequenceNumber(
           tx,
-          "INV"
+          "INV",
+          effectiveDate
         );
 
         // B. Determine payment status
@@ -298,7 +311,8 @@ export class BillingService {
             totalPaise: orderPricing.totalPaise,
             paymentStatus,
             createdBy: actorId ?? null,
-            finalizedAt: new Date(),
+            createdAt: effectiveDate,
+            finalizedAt: effectiveDate,
             items: {
               create: orderPricing.lines.map((line) => ({
                 productId: line.productId,
@@ -499,6 +513,7 @@ export class BillingService {
               mode: payment.mode,
               amountPaise: payment.amountPaise,
               receivedBy: actorId ?? null,
+              createdAt: effectiveDate,
             },
           });
         }
@@ -512,6 +527,7 @@ export class BillingService {
               kind: LedgerKind.INVOICE,
               debitPaise: orderPricing.totalPaise,
               creditPaise: 0,
+              createdAt: effectiveDate,
               referenceType: "INVOICE",
               referenceId: invoice.id,
             },
@@ -525,6 +541,7 @@ export class BillingService {
                 kind: LedgerKind.RECEIPT,
                 debitPaise: 0,
                 creditPaise: totalPaidPaise,
+                createdAt: effectiveDate,
                 referenceType: "INVOICE",
                 referenceId: invoice.id,
               },

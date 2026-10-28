@@ -100,6 +100,7 @@ export async function finalizeBillAction(input: {
   idempotencyKey: string;
   notes?: string;
   creditOverride?: { approvedByUserId: string; reason: string };
+  invoiceDate?: string | Date;
 }) {
   const session = await auth();
   if (!session?.user) {
@@ -125,6 +126,7 @@ export async function finalizeBillAction(input: {
         idempotencyKey: input.idempotencyKey,
         notes: input.notes,
         creditOverride: input.creditOverride,
+        invoiceDate: input.invoiceDate ? new Date(input.invoiceDate) : undefined,
       },
       session.user.id
     );

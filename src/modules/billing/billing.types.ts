@@ -52,6 +52,7 @@ export const finalizeInvoiceInputSchema = z.object({
   idempotencyKey: z.string().min(1, "Idempotency key is required"),
   notes: z.string().optional(),
   creditOverride: creditOverrideInputSchema.optional(),
+  invoiceDate: z.coerce.date().optional(),
 });
 
 export type FinalizeInvoiceInput = z.input<typeof finalizeInvoiceInputSchema>;
