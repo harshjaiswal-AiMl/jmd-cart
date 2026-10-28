@@ -442,8 +442,9 @@ export function PosClient({
     );
 
     const packSize = Math.max(1, product.packSize);
+    const multiplier = unit === "Carton" || unit === "Bag" ? packSize : unit === "Dozen" ? 12 : 1;
     const initialRatePaise = resolved.unitPricePaise > 0 
-      ? (unit === "Carton" ? resolved.unitPricePaise * packSize : resolved.unitPricePaise)
+      ? resolved.unitPricePaise * multiplier
       : 0;
 
     const existingIndex = activeTab.cart.findIndex(
@@ -719,21 +720,42 @@ export function PosClient({
       cart: activeTab.cart.map((item) => {
         if (item.id !== lineId) return item;
         const packSize = Math.max(1, item.product.packSize);
-        let newRatePaise = item.customRatePaise;
+        const resolved = resolvePrice(
+          {
+            mrpPaise: item.product.mrpPaise,
+            priceAPaise: item.product.priceAPaise,
+            priceBPaise: item.product.priceBPaise,
+            priceCPaise: item.product.priceCPaise,
+          },
+          effectiveTier
+        );
 
-        if (item.unit !== newUnit && item.customRatePaise != null && item.customRatePaise > 0) {
-          if (newUnit === "Carton") {
-            newRatePaise = item.customRatePaise * packSize;
-          } else {
-            newRatePaise = Math.round(item.customRatePaise / packSize);
-          }
+        const oldMultiplier = item.unit === "Carton" || item.unit === "Bag" ? packSize : item.unit === "Dozen" ? 12 : 1;
+        const newMultiplier = newUnit === "Carton" || newUnit === "Bag" ? packSize : newUnit === "Dozen" ? 12 : 1;
+
+        let newRatePaise: number | null = null;
+        if (item.isCustomRate && item.customRatePaise != null && item.customRatePaise > 0) {
+          const pieceRate = item.customRatePaise / oldMultiplier;
+          newRatePaise = Math.round(pieceRate * newMultiplier);
+        } else if (resolved.unitPricePaise > 0) {
+          newRatePaise = resolved.unitPricePaise * newMultiplier;
         }
+
+        const baseMrp = (item.product.mrpPaise && item.product.mrpPaise > 0)
+          ? item.product.mrpPaise
+          : (resolved.unitPricePaise > 0 ? resolved.unitPricePaise : (newRatePaise ? Math.round(newRatePaise / newMultiplier) : 0));
+        const mrpPerUnit = baseMrp * newMultiplier;
+
+        const effectiveDisc = (mrpPerUnit > 0 && newRatePaise != null && newRatePaise < mrpPerUnit)
+          ? Math.round(((mrpPerUnit - newRatePaise) / mrpPerUnit) * 10000) / 100
+          : 0;
 
         return {
           ...item,
           unit: newUnit,
           customRatePaise: newRatePaise,
           customRateInput: newRatePaise && newRatePaise > 0 ? (newRatePaise / 100).toFixed(2) : "",
+          customDiscInput: effectiveDisc > 0 ? effectiveDisc.toFixed(1) : "0",
         };
       }),
     });
