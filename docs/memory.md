@@ -299,3 +299,22 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - `src/app/godown/dispatch/dispatch-client.tsx`:
     - For `sale.channel === "SHOP"`, warehouse queue filters out loose items and displays only carton lines (`qty = cartons * packSize`), showing `📦 <N> Cartons` and 0 loose pieces.
   - Automated tests: `tests/unit/pos-carton-godown-stock.test.ts` added and passed. Production deployed (revision `jmd-cart-00050-kc9`), 29/29 smoke tests passed.
+
+### 2026-10-28: POS Busy-Style Complete Keyboard Workflow & Multi-Unit Options (Pcs, Carton, Dozen, Bag)
+- **Problem:**
+  1. Pressing `Ctrl+K` on `/shop/pos` was opening the Global Command Palette modal from `management-shell.tsx` instead of focusing the POS Item Search Bar.
+  2. In Item Search autocomplete dropdown, cashier could not use `↑` (ArrowUp) and `↓` (ArrowDown) to browse suggestions and press `Enter` to select.
+  3. Cashiers had to use a mouse to navigate between Qty, Unit, Rate, and Discount fields.
+  4. Unit dropdown only had `Pcs` and `Carton` (Carton/Bag were disabled if packSize <= 1). User requested all 4 units (`Pcs`, `Carton (Crt)`, `Dozen (12)`, `Bag (Beg)`) always selectable with full automated rate, discount, and stock calculation.
+  5. Stock Update page needed product weight displayed next to the product name.
+- **Changes:**
+  - `src/components/layout/management-shell.tsx`:
+    - Disabled global `Ctrl+K` command palette when `pathname` starts with `/shop/pos`, letting POS handle `Ctrl+K` for high-speed item search.
+  - `src/app/shop/pos/pos-client.tsx`:
+    - Added `searchSelectedIndex` state: `ArrowDown` and `ArrowUp` navigate through autocomplete suggestions with auto-scrolling (`scrollIntoView({ block: 'nearest' })`) and amber highlight.
+    - Pressing `Enter` in Search Bar selects the highlighted item and immediately focuses the newly created row's `Qty` input with text selected.
+    - Busy-style voucher entry flow via `Enter`: Qty (`Enter`) -> Unit (`Enter`) -> Rate (`Enter`) -> Disc % (`Enter`) -> automatically jumps back to Search Bar for the next item. Pressing `Esc` at any step returns focus to Search Bar.
+    - Keyboard shortcuts: `F1` or `Ctrl+K` (focus Search Bar), `F2` (Finalize Bill), `F9` (Delete row), `Esc` (Cancel/Return to Search).
+    - Unit dropdown updated with all 4 units always selectable: `Pcs`, `Carton (Crt)`, `Dozen (12)`, `Bag (Beg)`.
+    - Pricing, stock deduction, and finalization updated to support Dozen (`qty * 12`) and Bag (`qty * packSize`).
+  - Production deployed (revision `jmd-cart-00052-qbt`), 29/29 smoke tests passed.
