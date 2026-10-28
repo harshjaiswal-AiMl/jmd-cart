@@ -569,34 +569,20 @@ export function PosClient({
 
   const handleSetQtyToAvailable = (line: PosCartLine) => {
     const packSize = Math.max(1, line.product.packSize);
-    const availablePcs = line.product.shopStockQty ?? 0;
-    if (availablePcs <= 0) {
-      removeLine(line.id);
-      if (stockAlertInfo?.lineId === line.id) setStockAlertInfo(null);
-      return;
-    }
-
     if (line.unit === "Carton") {
-      const maxCartons = Math.floor(availablePcs / packSize);
-      if (maxCartons >= 1) {
-        updateLineQty(line.id, maxCartons);
+      const availableCtn = line.product.godownCartons ?? Math.floor((line.product.godownStockQty ?? 0) / packSize);
+      if (availableCtn <= 0) {
+        removeLine(line.id);
       } else {
-        updateActiveTab({
-          cart: activeTab.cart.map((item) =>
-            item.id === line.id
-              ? {
-                  ...item,
-                  unit: "Pcs",
-                  qty: availablePcs,
-                  customRatePaise: item.customRatePaise ? Math.round(item.customRatePaise / packSize) : null,
-                  customRateInput: item.customRatePaise ? (Math.round(item.customRatePaise / packSize) / 100).toFixed(2) : "",
-                }
-              : item
-          ),
-        });
+        updateLineQty(line.id, availableCtn);
       }
     } else {
-      updateLineQty(line.id, availablePcs);
+      const availablePcs = line.product.shopStockQty ?? 0;
+      if (availablePcs <= 0) {
+        removeLine(line.id);
+      } else {
+        updateLineQty(line.id, availablePcs);
+      }
     }
     if (stockAlertInfo?.lineId === line.id) setStockAlertInfo(null);
   };
@@ -606,29 +592,15 @@ export function PosClient({
     updateActiveTab({
       cart: activeTab.cart.map((line) => {
         const packSize = Math.max(1, line.product.packSize);
-        const availablePcs = line.product.shopStockQty ?? 0;
-        const requestedPcs = line.unit === "Carton" ? line.qty * packSize : line.qty;
-
-        if (requestedPcs <= availablePcs) return line;
-
-        if (availablePcs <= 0) {
-          return null as any;
-        }
-
         if (line.unit === "Carton") {
-          const maxCartons = Math.floor(availablePcs / packSize);
-          if (maxCartons >= 1) {
-            return { ...line, qty: maxCartons };
-          } else {
-            return {
-              ...line,
-              unit: "Pcs",
-              qty: availablePcs,
-              customRatePaise: line.customRatePaise ? Math.round(line.customRatePaise / packSize) : null,
-              customRateInput: line.customRatePaise ? (Math.round(line.customRatePaise / packSize) / 100).toFixed(2) : "",
-            };
-          }
+          const availableCtn = line.product.godownCartons ?? Math.floor((line.product.godownStockQty ?? 0) / packSize);
+          if (line.qty <= availableCtn) return line;
+          if (availableCtn <= 0) return null as any;
+          return { ...line, qty: availableCtn };
         } else {
+          const availablePcs = line.product.shopStockQty ?? 0;
+          if (line.qty <= availablePcs) return line;
+          if (availablePcs <= 0) return null as any;
           return { ...line, qty: availablePcs };
         }
       }).filter(Boolean),
@@ -1063,19 +1035,26 @@ export function PosClient({
           return;
         }
 
-        // Pre-flight check: Insufficient stock check before finalization
+        // Pre-flight check: Insufficient stock check before finalization (Cartons check Godown, Pcs check Shop)
         const insufficientItems = activeTab.cart.filter((c) => {
           const packSize = Math.max(1, c.product.packSize);
-          const requestedPcs = c.unit === "Carton" ? c.qty * packSize : c.qty;
-          const availablePcs = c.product.shopStockQty ?? 0;
-          return requestedPcs > availablePcs;
+          if (c.unit === "Carton") {
+            const requestedPcs = c.qty * packSize;
+            const availableGodownPcs = c.product.godownStockQty ?? 0;
+            return requestedPcs > availableGodownPcs;
+          } else {
+            const requestedPcs = c.qty;
+            const availableShopPcs = c.product.shopStockQty ?? 0;
+            return requestedPcs > availableShopPcs;
+          }
         });
 
         if (insufficientItems.length > 0) {
           const first = insufficientItems[0];
           const packSize = Math.max(1, first.product.packSize);
-          const requestedPcs = first.unit === "Carton" ? first.qty * packSize : first.qty;
-          const availablePcs = first.product.shopStockQty ?? 0;
+          const isCarton = first.unit === "Carton";
+          const requestedPcs = isCarton ? first.qty * packSize : first.qty;
+          const availablePcs = isCarton ? (first.product.godownStockQty ?? 0) : (first.product.shopStockQty ?? 0);
 
           setStockAlertInfo({
             isOpen: true,
@@ -1084,18 +1063,19 @@ export function PosClient({
             productId: first.productId,
             lineId: first.id,
             requestedPcs,
-            availableShopPcs: availablePcs,
+            availableShopPcs: first.product.shopStockQty ?? 0,
             availableGodownPcs: first.product.godownStockQty ?? 0,
             availableGodownCtn: first.product.godownCartons ?? 0,
             packSize,
             allInsufficient: insufficientItems.map((item) => {
               const ps = Math.max(1, item.product.packSize);
+              const itemIsCarton = item.unit === "Carton";
               return {
                 lineId: item.id,
                 productId: item.productId,
                 productName: item.product.name,
                 shortCode: item.product.shortCode,
-                requestedPcs: item.unit === "Carton" ? item.qty * ps : item.qty,
+                requestedPcs: itemIsCarton ? item.qty * ps : item.qty,
                 availableShopPcs: item.product.shopStockQty ?? 0,
                 availableGodownCtn: item.product.godownCartons ?? 0,
               };
@@ -1103,7 +1083,9 @@ export function PosClient({
           });
 
           setErrorMessage(
-            `Insufficient stock for "${first.product.name}": Available in Shop: ${availablePcs} pcs, Requested: ${requestedPcs} pcs (Short by ${requestedPcs - availablePcs} pcs).`
+            isCarton
+              ? `Insufficient stock for "${first.product.name}": Available in Godown: ${first.product.godownCartons ?? 0} ctn (${availablePcs} pcs), Requested: ${first.qty} ctn.`
+              : `Insufficient stock for "${first.product.name}": Available in Shop: ${availablePcs} pcs, Requested: ${requestedPcs} pcs (Short by ${requestedPcs - availablePcs} pcs).`
           );
           setHighlightedProductId(first.productId);
           return;
@@ -1802,12 +1784,17 @@ export function PosClient({
                     const lineDiscountMultiplier = 1 - (line.lineDiscountPercent || 0) / 100;
                     const lineAmountPaise = Math.round(line.qty * ratePerUnitPaise * lineDiscountMultiplier);
 
-                    // Stock calculation
-                    const requestedPieces = line.unit === "Carton" ? line.qty * packSize : line.qty;
-                    const availablePieces = line.product.shopStockQty ?? 0;
-                    const isStockSufficient = requestedPieces <= availablePieces;
+                    // Stock calculation (Carton checks Godown stock, Pcs checks Shop counter stock)
+                    const isCarton = line.unit === "Carton";
+                    const requestedPieces = isCarton ? line.qty * packSize : line.qty;
+                    const availablePieces = isCarton ? (line.product.godownStockQty ?? 0) : (line.product.shopStockQty ?? 0);
+                    const availableCartons = line.product.godownCartons ?? Math.floor((line.product.godownStockQty ?? 0) / packSize);
+                    const isStockSufficient = isCarton
+                      ? (line.qty <= availableCartons || requestedPieces <= availablePieces)
+                      : (requestedPieces <= availablePieces);
                     const shortagePieces = Math.max(0, requestedPieces - availablePieces);
-                    const maxCartons = Math.floor(availablePieces / packSize);
+                    const shortageCartons = Math.max(0, line.qty - availableCartons);
+                    const maxCartons = isCarton ? availableCartons : Math.floor(availablePieces / packSize);
 
                     // Discount % calculation from MRP
                     const effectiveDiscountPercent = mrpPerUnitPaise > 0 && ratePerUnitPaise < mrpPerUnitPaise
@@ -1889,16 +1876,29 @@ export function PosClient({
                             {isStockSufficient ? (
                               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Shop Stock: <strong className="text-emerald-950 font-black">{availablePieces} pcs</strong></span>
-                                {line.product.godownCartons > 0 && (
-                                  <span className="text-slate-500 font-normal">| Godown: {line.product.godownCartons} ctn</span>
+                                {isCarton ? (
+                                  <span>
+                                    Godown Stock: <strong className="text-emerald-950 font-black">{availableCartons} ctn</strong> ({line.product.godownStockQty ?? 0} pcs)
+                                    <span className="text-slate-500 font-normal ml-1">| Shop: {line.product.shopStockQty ?? 0} pcs</span>
+                                  </span>
+                                ) : (
+                                  <span>
+                                    Shop Stock: <strong className="text-emerald-950 font-black">{line.product.shopStockQty ?? 0} pcs</strong>
+                                    {line.product.godownCartons > 0 && (
+                                      <span className="text-slate-500 font-normal ml-1">| Godown: {line.product.godownCartons} ctn</span>
+                                    )}
+                                  </span>
                                 )}
                               </span>
                             ) : (
                               <div className="inline-flex items-center gap-1.5 bg-rose-100 border border-rose-300 text-rose-900 px-2.5 py-0.5 rounded-md text-xs font-bold">
                                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                                 <span>
-                                  Only <strong className="underline text-rose-950 font-black">{availablePieces} pcs</strong> in Shop (Short by {shortagePieces} pcs)!
+                                  {isCarton ? (
+                                    <>Only <strong className="underline text-rose-950 font-black">{availableCartons} ctn</strong> in Godown (Short by {shortageCartons} ctn)!</>
+                                  ) : (
+                                    <>Only <strong className="underline text-rose-950 font-black">{line.product.shopStockQty ?? 0} pcs</strong> in Shop (Short by {shortagePieces} pcs)!</>
+                                  )}
                                 </span>
                                 <button
                                   type="button"
@@ -1907,21 +1907,23 @@ export function PosClient({
                                     handleSetQtyToAvailable(line);
                                   }}
                                   className="ml-1 text-[11px] font-black text-blue-700 hover:text-blue-900 underline"
-                                  title="Adjust quantity to match shop stock"
+                                  title="Adjust quantity to match available stock"
                                 >
-                                  Set to {line.unit === "Carton" ? (maxCartons >= 1 ? `${maxCartons} Ctn` : `${availablePieces} Pcs`) : `${availablePieces} Pcs`}
+                                  Set to {isCarton ? `${availableCartons} Ctn` : `${line.product.shopStockQty ?? 0} Pcs`}
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openQuickStockModal(line.product, shortagePieces);
-                                  }}
-                                  className="ml-1 px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-black shadow-xs"
-                                  title="Quick Add counter stock"
-                                >
-                                  + Add Stock
-                                </button>
+                                {!isCarton && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openQuickStockModal(line.product, shortagePieces);
+                                    }}
+                                    className="ml-1 px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-black shadow-xs"
+                                    title="Quick Add counter stock"
+                                  >
+                                    + Add Stock
+                                  </button>
+                                )}
                               </div>
                             )}
                           </div>
@@ -2299,6 +2301,9 @@ export function PosClient({
               const insufficientCount = activeTab.cart.filter((c) => {
                 const ps = Math.max(1, c.product.packSize);
                 const req = c.unit === "Carton" ? c.qty * ps : c.qty;
+                if (c.unit === "Carton") {
+                  return req > (c.product.godownStockQty ?? 0);
+                }
                 return req > (c.product.shopStockQty ?? 0);
               }).length;
 

@@ -373,7 +373,7 @@ export class BillingService {
               // 1. Full cartons: Deduct from Godown (or fallback to Shop if shop has enough carton stock and godown does not)
               if (cartonPcs > 0) {
                 const cartonSourceLocId =
-                  godownQty >= cartonPcs ? godownLocation.id : validated.locationId;
+                  godownLocation.id;
 
                 await stockService.postMovement(
                   {
@@ -384,9 +384,9 @@ export class BillingService {
                     qty: cartonPcs,
                     referenceType: "INVOICE",
                     referenceId: invoice.id,
-                    reason: `Invoice #${invoiceNumber} (Cartons from ${
-                      cartonSourceLocId === godownLocation.id ? "Godown" : "Shop"
-                    })`,
+                    reason: `Invoice #${invoiceNumber} (Cartons from Godown)`,
+
+
                     idempotencyKey: `${validated.idempotencyKey}_sale_ctn_${lineIdx}_${line.productId}`,
                     actorId,
                   },
@@ -582,9 +582,9 @@ export class BillingService {
                     shortCode: prod?.shortCode || "",
                     packSize,
                     packLabel: prod?.packLabel || "Carton",
-                    qty: line.qty,
+                    qty: cartons * packSize,
                     cartons,
-                    loose,
+                    loose: 0,
                     packed: false,
                   };
                 }),

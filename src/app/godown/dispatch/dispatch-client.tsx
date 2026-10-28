@@ -146,11 +146,18 @@ export function DispatchClient({ boardData, vans, deliveryStaff, userRole }: Pro
       })
       .map((sale) => {
         if (sale.channel === "SHOP") {
-          const cartonItems = (sale.items || []).filter((item: any) => {
+          const cartonItems = ((sale.items || []) as any[]).filter((item: any) => {
             const packSize = Math.max(1, item.product?.packSize || 1);
             return packSize > 1 && Math.floor(item.qty / packSize) > 0;
           });
-          return { ...sale, items: cartonItems };
+          return {
+            ...sale,
+            items: cartonItems.map((item: any) => {
+              const packSize = Math.max(1, item.product?.packSize || 1);
+              const cartons = Math.floor(item.qty / packSize);
+              return { ...item, qty: cartons * packSize };
+            }),
+          };
         }
         return sale;
       });

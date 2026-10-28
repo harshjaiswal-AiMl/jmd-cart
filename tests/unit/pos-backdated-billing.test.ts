@@ -110,10 +110,11 @@ describe("Shop POS Backdated Billing - RBAC & Guard Logic", () => {
 
 describe("Shop POS Backdated Billing - Cashier vs Admin UI Contract", () => {
   it("only enables backdated billing options for SUPER_ADMIN and ADMIN", () => {
-    const isSuperAdminRole = UserRole.SUPER_ADMIN === UserRole.SUPER_ADMIN || UserRole.SUPER_ADMIN === UserRole.ADMIN;
-    const isAdminRole = UserRole.ADMIN === UserRole.SUPER_ADMIN || UserRole.ADMIN === UserRole.ADMIN;
-    const isCashierShop = UserRole.SHOP === UserRole.SUPER_ADMIN || UserRole.SHOP === UserRole.ADMIN;
-    const isSalesperson = UserRole.SALESPERSON === UserRole.SUPER_ADMIN || UserRole.SALESPERSON === UserRole.ADMIN;
+    const checkIsAdmin = (role: UserRole) => role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN;
+    const isSuperAdminRole = checkIsAdmin(UserRole.SUPER_ADMIN);
+    const isAdminRole = checkIsAdmin(UserRole.ADMIN);
+    const isCashierShop = checkIsAdmin(UserRole.SHOP);
+    const isSalesperson = checkIsAdmin(UserRole.SALESPERSON);
 
     expect(isSuperAdminRole).toBe(true);
     expect(isAdminRole).toBe(true);
