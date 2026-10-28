@@ -50,6 +50,7 @@ export interface ProductCatalogItem {
   id: string;
   name: string;
   shortCode: string;
+  weight?: string | null;
   companyId: string | null;
   companyName: string | null;
   categoryId: string | null;
@@ -301,6 +302,7 @@ export function PosClient({
         (p) =>
           p.name.toLowerCase().includes(term) ||
           p.shortCode.toLowerCase().includes(term) ||
+          (p.weight && p.weight.toLowerCase().includes(term)) ||
           (p.companyName && p.companyName.toLowerCase().includes(term))
       )
       .slice(0, 10);
@@ -1643,6 +1645,11 @@ export function PosClient({
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-black text-sm md:text-base text-slate-900 truncate">{p.name}</span>
+                          {p.weight && (
+                            <span className="text-xs text-amber-900 font-extrabold bg-amber-50 px-2 py-0.5 rounded border border-amber-300 shadow-sm">
+                              {p.weight}
+                            </span>
+                          )}
                           <span className="text-xs text-blue-800 font-mono font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
                             {p.shortCode}
                           </span>
@@ -1806,6 +1813,11 @@ export function PosClient({
                             <span className="font-black text-slate-900 text-sm sm:text-base leading-snug">
                               {line.product.name}
                             </span>
+                            {line.product.weight && (
+                              <span className="text-xs text-amber-900 font-extrabold bg-amber-50 px-2 py-0.5 rounded border border-amber-300">
+                                {line.product.weight}
+                              </span>
+                            )}
                             {line.isCustomRate && (
                               <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
                                 Manual Rate
@@ -1823,6 +1835,11 @@ export function PosClient({
                             <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">
                               {line.product.companyName || "General"}
                             </span>
+                            {line.product.weight && (
+                              <span className="font-extrabold bg-amber-50 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300">
+                                {line.product.weight}
+                              </span>
+                            )}
                             <span className="font-mono bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-200">
                               {line.product.shortCode}
                             </span>

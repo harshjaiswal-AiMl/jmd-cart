@@ -261,12 +261,7 @@ export function A5Invoice({ invoice, business, options }: A5InvoiceProps) {
                   {vm.totals.amountInWords}
                 </div>
 
-                {/* Agent Code if enabled */}
-                {vm.agent.showOnBill && (
-                  <div className="text-[9px] font-mono text-slate-500 pb-1">
-                    Agent: {vm.agent.code}
-                  </div>
-                )}
+
 
                 {/* Footer */}
                 <div className="border-t border-[#FC830D] pt-2 text-center text-[9.5px] text-slate-600 uppercase tracking-wide space-y-0.5">

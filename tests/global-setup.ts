@@ -51,12 +51,12 @@ export async function setup() {
   }
 
   // Run migrations and reference seed on the isolated test database
-  execSync("npx prisma migrate deploy", {
+  execSync("pnpm exec prisma migrate deploy", {
     env: { ...process.env, DATABASE_URL: testUrl },
     stdio: "inherit",
   });
 
-  execSync("npx tsx prisma/seed.ts", {
+  execSync("pnpm exec tsx prisma/seed.ts", {
     env: { ...process.env, DATABASE_URL: testUrl },
     stdio: "inherit",
   });

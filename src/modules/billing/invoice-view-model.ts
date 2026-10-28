@@ -18,6 +18,7 @@ export interface InvoiceItemViewModel {
   id: string;
   productId: string;
   name: string;
+  weight?: string | null;
   shortCode: string;
   hsn: string;
   gstRatePct: number;
@@ -281,6 +282,11 @@ export function buildInvoiceViewModel(
   >();
 
   const items: InvoiceItemViewModel[] = invoice.items.map((item, idx) => {
+    const rawWeight = item.product?.weight?.trim() || null;
+    const baseName = item.product?.name || "Unknown Product";
+    const name = rawWeight && !baseName.toLowerCase().includes(rawWeight.toLowerCase())
+      ? `${baseName} (${rawWeight})`
+      : baseName;
     const packSize = item.product?.packSize || 1;
     const isFullCarton =
       packSize > 1 && item.qty >= packSize && item.qty % packSize === 0;
@@ -340,7 +346,8 @@ export function buildInvoiceViewModel(
       index: idx + 1,
       id: item.id,
       productId: item.productId,
-      name: item.product?.name || "Item",
+      name,
+      weight: rawWeight,
       shortCode: item.product?.shortCode || "",
       hsn: hsnCode,
       gstRatePct: item.gstRateBp / 100,

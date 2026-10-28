@@ -152,12 +152,7 @@ export function CashReceiptSlip({ invoice, business, options }: CashReceiptSlipP
         </div>
       )}
 
-      {/* Agent Code if setting is enabled */}
-      {vm.agent.showOnBill && (
-        <div className="text-[9px] font-mono text-gray-600 text-center py-0.5">
-          Agent: {vm.agent.code}
-        </div>
-      )}
+
 
       {/* 6. Footer: Dynamic thank you & door delivery lines with phone from settings */}
       <div className="text-center font-bold text-[10px] space-y-0.5 pt-1 uppercase tracking-wide">

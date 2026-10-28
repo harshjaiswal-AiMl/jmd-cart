@@ -40,6 +40,7 @@ interface VanProduct {
   phone?: string | null;
   address?: string | null;
   shortCode: string;
+  weight?: string | null;
   packSize: number;
   packLabel: string;
   mrpPaise: number;
@@ -223,6 +224,7 @@ export function VanBillingClient({
       (p) =>
         p.name.toLowerCase().includes(term) ||
         p.shortCode.toLowerCase().includes(term) ||
+        (p.weight && p.weight.toLowerCase().includes(term)) ||
         p.companyName.toLowerCase().includes(term)
     );
   }, [products, searchTerm]);
@@ -623,6 +625,11 @@ export function VanBillingClient({
                     <div className="min-w-0">
                       <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
                         {p.name}
+                        {p.weight && (
+                          <span className="ml-1.5 text-[11px] font-extrabold text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-300">
+                            {p.weight}
+                          </span>
+                        )}
                       </h4>
                       <p className="text-[11px] text-slate-500 mt-0.5">
                         {p.companyName} • <span className="font-mono text-slate-600">{p.shortCode}</span>

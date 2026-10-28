@@ -86,6 +86,7 @@ export default async function ShopPosPage() {
       id: p.id,
       name: p.name,
       shortCode: p.shortCode,
+      weight: p.weight?.trim() || null,
       companyId: p.companyId,
       companyName: p.company?.name ?? null,
       categoryId: p.categoryId,

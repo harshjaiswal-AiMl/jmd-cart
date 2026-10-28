@@ -75,6 +75,7 @@ export interface InvoiceWithDetails extends Invoice {
       id: string;
       name: string;
       shortCode: string;
+      weight?: string | null;
       packSize: number;
       packLabel: string;
     };

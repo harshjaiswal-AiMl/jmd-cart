@@ -31,6 +31,7 @@ export class BillingRepository {
                 id: true,
                 name: true,
                 shortCode: true,
+                weight: true,
                 packSize: true,
                 packLabel: true,
               },
