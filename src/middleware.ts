@@ -41,6 +41,11 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(decision.destination, req.url));
   }
 
+  // Role manifests are fetched by browsers anonymously during PWA install
+  if (pathname.endsWith("/manifest.webmanifest") || pathname.endsWith("/manifest.json")) {
+    return NextResponse.next();
+  }
+
   // Public storefront catalogue & cart browsing, management hub, public storefront APIs, and legal/information pages
   if (
     pathname.startsWith("/store") ||
