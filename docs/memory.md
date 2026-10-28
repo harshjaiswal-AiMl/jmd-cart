@@ -282,3 +282,20 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
     - 784 Customers (`CUSTOMER`)
   - Migration: `prisma/migrations/20261028150000_import_parties/migration.sql` (additive & idempotent `WHERE NOT EXISTS`).
   - Automated verification: `tests/unit/parties-migration-verify.test.ts` (PASS, 77 test files, 415 tests passed).
+
+### 2026-10-28: Shop POS Carton vs Loose Stock Separation & Warehouse Dispatch Queue
+- **Problem:**
+  1. In Shop POS (`/shop/pos`), when a product line unit was set to `Carton`, it was comparing against `shopStockQty` (displaying "Shop Stock: X pcs") and throwing shortage errors if shop pieces were insufficient, even when godown carton stock was abundant.
+  2. For Shop bills, warehouse packing queue on the Dispatch Board (`/godown/dispatch`) was displaying loose piece items and loose piece counts, confusing godown packing workers since counter customers take loose items directly from shop shelves.
+- **Changes:**
+  - `src/app/shop/pos/pos-client.tsx`:
+    - Decoupled stock sufficiency and shortage calculation by unit: `Carton` checks against `godownStockQty` (`godownCartons`); `Pcs` checks against `shopStockQty`.
+    - Badge display updated: when `Carton` is selected, shows `Godown Stock: <X> ctn (<Y> pcs) | Shop: <Z> pcs`. When `Pcs` is selected, shows `Shop Stock: <Z> pcs | Godown: <X> ctn`.
+    - "Set to available" and "Adjust all" actions respect unit selection.
+    - Real-time pre-flight shortage count and checkout validation check Godown stock for cartons and Shop stock for pieces.
+  - `src/modules/billing/billing.service.ts`:
+    - For shop sales, carton stock strictly deducts from Godown (`godownLocation.id`), and loose pieces deduct from Shop (`validated.locationId`).
+    - Warehouse counter pickup records only full carton quantities (`cartons * packSize`) and 0 loose pieces.
+  - `src/app/godown/dispatch/dispatch-client.tsx`:
+    - For `sale.channel === "SHOP"`, warehouse queue filters out loose items and displays only carton lines (`qty = cartons * packSize`), showing `📦 <N> Cartons` and 0 loose pieces.
+  - Automated tests: `tests/unit/pos-carton-godown-stock.test.ts` added and passed. Production deployed (revision `jmd-cart-00050-kc9`), 29/29 smoke tests passed.
