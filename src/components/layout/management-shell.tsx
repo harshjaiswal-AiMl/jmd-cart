@@ -222,9 +222,10 @@ export function ManagementShell({
     }
   };
 
-  // Ctrl+K shortcut for Command Palette
+  // Ctrl+K shortcut for Command Palette (disabled on /shop/pos to allow dedicated POS item search)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (pathname === "/shop/pos" || pathname.startsWith("/shop/pos")) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setCmdOpen((prev) => !prev);
@@ -236,7 +237,7 @@ export function ManagementShell({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [pathname]);
 
   // Close mobile drawer on route change
   useEffect(() => {

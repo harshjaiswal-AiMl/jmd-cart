@@ -299,6 +299,7 @@ export function PosClient({
   // Item Search and Highlighting
   const [itemSearchTerm, setItemSearchTerm] = useState("");
   const [highlightedProductId, setHighlightedProductId] = useState<string | null>(null);
+  const [searchSelectedIndex, setSearchSelectedIndex] = useState(0);
   const [lastItemPurchase, setLastItemPurchase] = useState<{
     ratePaise: number;
     qty: number;
@@ -1096,11 +1097,17 @@ export function PosClient({
 
         const finalizeItems = activeTab.cart.map((c) => {
           const packSize = Math.max(1, c.product.packSize);
-          const pcs = c.unit === "Carton" ? c.qty * packSize : c.qty;
+          const pcs = (c.unit === "Carton" || c.unit === "Bag")
+            ? c.qty * packSize
+            : c.unit === "Dozen"
+            ? c.qty * 12
+            : c.qty;
           let unitPriceOverridePaise: number | undefined = undefined;
           if (c.customRatePaise != null && c.customRatePaise > 0) {
-            unitPriceOverridePaise = c.unit === "Carton"
+            unitPriceOverridePaise = (c.unit === "Carton" || c.unit === "Bag")
               ? Math.round(c.customRatePaise / packSize)
+              : c.unit === "Dozen"
+              ? Math.round(c.customRatePaise / 12)
               : c.customRatePaise;
           }
           return {
@@ -1201,7 +1208,11 @@ export function PosClient({
   // Keyboard Shortcuts Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "F2") {
+      if (e.key === "F1") {
+        e.preventDefault();
+        itemSearchInputRef.current?.focus();
+        itemSearchInputRef.current?.select();
+      } else if (e.key === "F2") {
         e.preventDefault();
         handleFinalizeBill();
       } else if (e.key === "F3") {
@@ -1602,22 +1613,52 @@ export function PosClient({
               <input
                 ref={itemSearchInputRef}
                 type="text"
-                placeholder="Search items by name, shortcode, brand (Ctrl+K)... Press Enter to add"
+                placeholder="Search items (Ctrl+K)... Use ↑/↓ to navigate, Enter to add"
                 value={itemSearchTerm}
-                onChange={(e) => setItemSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setItemSearchTerm(e.target.value);
+                  setSearchSelectedIndex(0);
+                }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && filteredProducts.length > 0) {
-                    e.preventDefault();
-                    addItemToCart(filteredProducts[0], "Pcs", 1);
-                    // After adding, move focus back to search so user can type next item
-                    setTimeout(() => itemSearchInputRef.current?.focus(), 50);
-                  } else if (e.key === "ArrowDown" && activeTab.cart.length > 0) {
-                    // Move focus to qty input of last cart row so user can adjust without mouse
-                    e.preventDefault();
-                    const qtyInputs = document.querySelectorAll<HTMLInputElement>("table input[type='number']");
-                    if (qtyInputs.length > 0) {
-                      qtyInputs[qtyInputs.length - 1].focus();
-                      qtyInputs[qtyInputs.length - 1].select();
+                  if (e.key === "ArrowDown") {
+                    if (filteredProducts.length > 0) {
+                      e.preventDefault();
+                      setSearchSelectedIndex((prev) => (prev + 1) % filteredProducts.length);
+                    } else if (activeTab.cart.length > 0) {
+                      e.preventDefault();
+                      const qtyInputs = document.querySelectorAll<HTMLInputElement>("table input[data-pos-field='qty']");
+                      if (qtyInputs.length > 0) {
+                        qtyInputs[qtyInputs.length - 1].focus();
+                        qtyInputs[qtyInputs.length - 1].select();
+                      }
+                    }
+                  } else if (e.key === "ArrowUp") {
+                    if (filteredProducts.length > 0) {
+                      e.preventDefault();
+                      setSearchSelectedIndex((prev) => (prev - 1 + filteredProducts.length) % filteredProducts.length);
+                    }
+                  } else if (e.key === "Enter") {
+                    if (filteredProducts.length > 0) {
+                      e.preventDefault();
+                      const chosenProduct = filteredProducts[searchSelectedIndex] || filteredProducts[0];
+                      addItemToCart(chosenProduct, "Pcs", 1);
+                      setItemSearchTerm("");
+                      setSearchSelectedIndex(0);
+                      // Busy-style workflow: immediately focus the Qty field of the newly added row
+                      setTimeout(() => {
+                        const qtyInputs = document.querySelectorAll<HTMLInputElement>("table input[data-pos-field='qty']");
+                        if (qtyInputs.length > 0) {
+                          const lastInput = qtyInputs[qtyInputs.length - 1];
+                          lastInput.focus();
+                          lastInput.select();
+                        }
+                      }, 50);
+                    }
+                  } else if (e.key === "Escape") {
+                    if (itemSearchTerm) {
+                      e.preventDefault();
+                      setItemSearchTerm("");
+                      setSearchSelectedIndex(0);
                     }
                   }
                 }}
@@ -1641,7 +1682,8 @@ export function PosClient({
             {/* Enhanced Autocomplete Dropdown with Live Stock Badges */}
             {filteredProducts.length > 0 && (
               <div className="absolute left-3 right-3 top-full mt-2 bg-white border-2 border-slate-200 rounded-2xl shadow-2xl z-40 max-h-80 overflow-y-auto divide-y divide-slate-100">
-                {filteredProducts.map((p) => {
+                {filteredProducts.map((p, pIdx) => {
+                  const isHighlighted = pIdx === searchSelectedIndex;
                   const resolved = resolvePrice(
                     {
                       mrpPaise: p.mrpPaise,
@@ -1657,8 +1699,25 @@ export function PosClient({
                   return (
                     <div
                       key={p.id}
-                      onClick={() => addItemToCart(p, "Pcs", 1)}
-                      className="p-3 hover:bg-blue-50/60 flex items-center justify-between gap-3 cursor-pointer transition-colors"
+                      ref={isHighlighted ? (el) => el?.scrollIntoView({ block: "nearest" }) : undefined}
+                      onClick={() => {
+                        addItemToCart(p, "Pcs", 1);
+                        setItemSearchTerm("");
+                        setSearchSelectedIndex(0);
+                        setTimeout(() => {
+                          const qtyInputs = document.querySelectorAll<HTMLInputElement>("table input[data-pos-field='qty']");
+                          if (qtyInputs.length > 0) {
+                            const lastInput = qtyInputs[qtyInputs.length - 1];
+                            lastInput.focus();
+                            lastInput.select();
+                          }
+                        }, 50);
+                      }}
+                      className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                        isHighlighted
+                          ? "bg-amber-100 border-l-4 border-l-[#12355B] shadow-xs"
+                          : "hover:bg-blue-50/60"
+                      }`}
                     >
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1947,14 +2006,25 @@ export function PosClient({
                         {/* Qty Input (Large & Clear) */}
                         <td className="py-3 px-2 text-center">
                           <input
+                            data-pos-field="qty"
                             type="number"
                             min="1"
                             value={line.qty}
                             onChange={(e) => updateLineQty(line.id, parseInt(e.target.value, 10) || 1)}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === "Tab") {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const row = (e.target as HTMLElement).closest("tr");
+                                const unitSelect = row?.querySelector<HTMLSelectElement>("select[data-pos-field='unit']");
+                                if (unitSelect) {
+                                  unitSelect.focus();
+                                } else {
+                                  itemSearchInputRef.current?.focus();
+                                }
+                              } else if (e.key === "Escape") {
                                 e.preventDefault();
                                 itemSearchInputRef.current?.focus();
+                                itemSearchInputRef.current?.select();
                               }
                             }}
                             className="w-20 px-2 py-1.5 text-center font-black text-base sm:text-lg bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] focus:border-[#12355B] shadow-xs"
@@ -1964,18 +2034,32 @@ export function PosClient({
                         {/* Unit Selector */}
                         <td className="py-3 px-2 text-center">
                           <select
+                            data-pos-field="unit"
                             value={line.unit}
                             onChange={(e) => updateLineUnit(line.id, e.target.value as "Pcs" | "Carton" | "Dozen" | "Bag")}
-                            className="w-28 px-2 py-1.5 text-sm sm:text-base font-bold bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] cursor-pointer"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const row = (e.target as HTMLElement).closest("tr");
+                                const rateInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='rate']");
+                                if (rateInput) {
+                                  rateInput.focus();
+                                  rateInput.select();
+                                } else {
+                                  itemSearchInputRef.current?.focus();
+                                }
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                itemSearchInputRef.current?.focus();
+                                itemSearchInputRef.current?.select();
+                              }
+                            }}
+                            className="w-32 px-2 py-1.5 text-sm sm:text-base font-bold bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] cursor-pointer"
                           >
-                            <option value="Pcs">Pcs (1)</option>
+                            <option value="Pcs">Pcs</option>
+                            <option value="Carton">Carton (Crt)</option>
                             <option value="Dozen">Dozen (12)</option>
-                            <option value="Bag" disabled={line.product.packSize <= 1}>
-                              Bag ({line.product.packSize})
-                            </option>
-                            <option value="Carton" disabled={line.product.packSize <= 1}>
-                              Carton ({line.product.packSize})
-                            </option>
+                            <option value="Bag">Bag (Beg)</option>
                           </select>
                         </td>
 
@@ -2008,6 +2092,24 @@ export function PosClient({
                               value={line.customRateInput !== undefined ? line.customRateInput : (ratePerUnitPaise > 0 ? (ratePerUnitPaise / 100).toFixed(2) : "")}
                               placeholder="0.00"
                               onChange={(e) => updateLineRate(line.id, e.target.value)}
+                              data-pos-field="rate"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  const row = (e.target as HTMLElement).closest("tr");
+                                  const discInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='disc']");
+                                  if (discInput) {
+                                    discInput.focus();
+                                    discInput.select();
+                                  } else {
+                                    itemSearchInputRef.current?.focus();
+                                  }
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  itemSearchInputRef.current?.focus();
+                                  itemSearchInputRef.current?.select();
+                                }
+                              }}
                               title="Type here to change selling rate manually"
                               className={`w-full pl-6 pr-2.5 py-1.5 text-right font-mono font-black text-sm sm:text-base rounded-lg border-2 transition-all ${
                                 ratePerUnitPaise <= 0
@@ -2037,6 +2139,19 @@ export function PosClient({
                               }
                               placeholder="0"
                               onChange={(e) => updateLineDiscountPercent(line.id, e.target.value)}
+                              data-pos-field="disc"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  // Row complete! Jump back to Item Search for next product
+                                  itemSearchInputRef.current?.focus();
+                                  itemSearchInputRef.current?.select();
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  itemSearchInputRef.current?.focus();
+                                  itemSearchInputRef.current?.select();
+                                }
+                              }}
                               title="Discount % off MRP. Changing this automatically calculates selling rate."
                               className="w-full px-2 py-1.5 text-center font-mono font-black text-sm sm:text-base rounded-lg border-2 border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-[#12355B]"
                             />
