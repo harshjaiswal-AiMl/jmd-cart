@@ -372,8 +372,7 @@ export class BillingService {
 
               // 1. Full cartons: Deduct from Godown (or fallback to Shop if shop has enough carton stock and godown does not)
               if (cartonPcs > 0) {
-                const cartonSourceLocId =
-                  godownLocation.id;
+                const cartonSourceLocId = godownQty >= cartonPcs ? godownLocation.id : (shopQty >= cartonPcs ? validated.locationId : godownLocation.id);
 
                 await stockService.postMovement(
                   {
