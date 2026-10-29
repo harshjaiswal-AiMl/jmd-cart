@@ -5,6 +5,7 @@ import { autoConvertService } from "@/modules/godown/auto-convert.service";
 import { getNextSequenceNumber } from "@/lib/invoice-number";
 import {
   CreateVanIssueSheetInput,
+  UpdateVanIssueSheetInput,
   VanDayWithDetails,
   VanStockSummary,
   VanStockItem,
@@ -340,6 +341,350 @@ export class VanRepository {
       });
 
       return result;
+    };
+
+    if (txClient) {
+      return execute(txClient);
+    }
+    return prisma.$transaction(execute);
+  }
+
+  async updateVanIssueSheet(
+    actorId: string,
+    input: UpdateVanIssueSheetInput,
+    txClient?: Prisma.TransactionClient
+  ): Promise<VanDayWithDetails> {
+    const execute = async (tx: Prisma.TransactionClient) => {
+      // 1. Fetch VanDay
+      const vanDay = await tx.vanDay.findUnique({
+        where: { id: input.vanDayId },
+        include: {
+          vanLocation: true,
+          salesperson: true,
+          lines: {
+            include: { product: true },
+          },
+        },
+      });
+
+      if (!vanDay) {
+        throw new Error(`Van issue sheet '${input.vanDayId}' not found.`);
+      }
+
+      if (vanDay.status !== VanDayStatus.OPEN) {
+        throw new Error(
+          `Cannot edit load sheet ${vanDay.issueSheetNo} because its status is ${vanDay.status}. Only OPEN load sheets can be modified.`
+        );
+      }
+
+      // 2. Fetch Central Godown
+      const godown = await tx.location.findFirst({
+        where: { type: LocationType.GODOWN, active: true },
+        orderBy: { createdAt: "asc" },
+      });
+
+      if (!godown) {
+        throw new CentralGodownNotFoundError();
+      }
+
+      // 3. Map existing lines by productId
+      const existingLineMap = new Map<string, (typeof vanDay.lines)[0]>();
+      for (const line of vanDay.lines) {
+        existingLineMap.set(line.productId, line);
+      }
+
+      // 4. Products map: collect all productIds (existing lines + incoming items)
+      const allProductIds = new Set<string>();
+      vanDay.lines.forEach((l) => allProductIds.add(l.productId));
+      input.items.forEach((i) => allProductIds.add(i.productId));
+
+      const products = await tx.product.findMany({
+        where: { id: { in: Array.from(allProductIds) } },
+      });
+      const productMap = new Map<string, Product>();
+      products.forEach((p) => productMap.set(p.id, p));
+
+      // 5. Incoming items map by productId
+      const incomingItemMap = new Map<string, { cartons: number; pieces: number }>();
+      for (const item of input.items) {
+        incomingItemMap.set(item.productId, {
+          cartons: Math.max(0, item.cartons || 0),
+          pieces: Math.max(0, item.pieces || 0),
+        });
+      }
+
+      const timestamp = Date.now();
+
+      // 6. Process incoming items (additions or modifications)
+      for (const [productId, counts] of incomingItemMap.entries()) {
+        const product = productMap.get(productId);
+        if (!product) {
+          throw new Error(`Product '${productId}' not found`);
+        }
+
+        const newTotalPieces = counts.cartons * product.packSize + counts.pieces;
+        const existingLine = existingLineMap.get(productId);
+
+        if (existingLine) {
+          const oldTotalPieces = existingLine.issuedQty;
+          const delta = newTotalPieces - oldTotalPieces;
+
+          if (delta > 0) {
+            // Need more from godown -> transfer Godown -> Van
+            const godownBal = await tx.stockBalance.findUnique({
+              where: {
+                productId_locationId: {
+                  productId: product.id,
+                  locationId: godown.id,
+                },
+              },
+            });
+            const godownQtyBefore = godownBal?.qty ?? 0;
+            if (godownQtyBefore < delta) {
+              throw new Error(
+                `Insufficient Godown stock for '${product.name}'. Required additional: ${delta} pcs, Available: ${godownQtyBefore} pcs.`
+              );
+            }
+
+            // Auto conversion check if loose pieces requested
+            const requestedLoose = counts.pieces > 0 ? counts.pieces : delta % product.packSize;
+            if (requestedLoose > 0 && product.packSize > 1) {
+              await autoConvertService.checkAndRecordAutoConvertInTx(tx, {
+                productId: product.id,
+                productName: product.name,
+                shortCode: product.shortCode,
+                packSize: product.packSize,
+                godownLocationId: godown.id,
+                godownBalanceBefore: godownQtyBefore,
+                requestedLoosePieces: requestedLoose,
+                referenceType: "VAN_ISSUE",
+                referenceId: vanDay.id,
+                referenceNumber: vanDay.issueSheetNo,
+                actorId,
+              });
+            }
+
+            // Update line issuedQty
+            await tx.vanDayLine.update({
+              where: { id: existingLine.id },
+              data: { issuedQty: newTotalPieces },
+            });
+
+            // Post TRANSFER movement Godown -> Van
+            const randSuffix = Math.random().toString(36).substring(2, 7);
+            await stockService.postMovement(
+              {
+                type: MovementType.TRANSFER,
+                productId: product.id,
+                fromLocationId: godown.id,
+                toLocationId: vanDay.vanLocationId,
+                qty: delta,
+                referenceType: "VAN_ISSUE",
+                referenceId: vanDay.id,
+                reason: `Van Load Edit (+${delta} pcs): ${vanDay.issueSheetNo}`,
+                idempotencyKey: `VAN_ISSUE_EDIT_${vanDay.id}_${product.id}_${timestamp}_${randSuffix}_ADD`,
+                actorId,
+              },
+              tx
+            );
+          } else if (delta < 0) {
+            // Decreased qty -> return from Van -> Godown
+            const returnQty = -delta;
+
+            // Check if already sold
+            if (newTotalPieces < existingLine.soldQty) {
+              throw new Error(
+                `Cannot reduce '${product.name}' to ${newTotalPieces} pcs because ${existingLine.soldQty} pcs have already been sold from the van!`
+              );
+            }
+
+            // Check Van stock balance
+            const vanBal = await tx.stockBalance.findUnique({
+              where: {
+                productId_locationId: {
+                  productId: product.id,
+                  locationId: vanDay.vanLocationId,
+                },
+              },
+            });
+            const vanQtyAvailable = vanBal?.qty ?? 0;
+            if (vanQtyAvailable < returnQty) {
+              throw new Error(
+                `Cannot return ${returnQty} pcs of '${product.name}' to Godown. Van only has ${vanQtyAvailable} pcs available.`
+              );
+            }
+
+            if (newTotalPieces === 0) {
+              // Line completely removed
+              await tx.vanDayLine.delete({
+                where: { id: existingLine.id },
+              });
+            } else {
+              await tx.vanDayLine.update({
+                where: { id: existingLine.id },
+                data: { issuedQty: newTotalPieces },
+              });
+            }
+
+            // Post TRANSFER movement Van -> Godown
+            const randSuffix = Math.random().toString(36).substring(2, 7);
+            await stockService.postMovement(
+              {
+                type: MovementType.TRANSFER,
+                productId: product.id,
+                fromLocationId: vanDay.vanLocationId,
+                toLocationId: godown.id,
+                qty: returnQty,
+                referenceType: "VAN_ISSUE",
+                referenceId: vanDay.id,
+                reason: `Van Load Edit (-${returnQty} pcs): ${vanDay.issueSheetNo}`,
+                idempotencyKey: `VAN_ISSUE_EDIT_${vanDay.id}_${product.id}_${timestamp}_${randSuffix}_SUB`,
+                actorId,
+              },
+              tx
+            );
+          }
+        } else {
+          // New product line added
+          if (newTotalPieces > 0) {
+            const godownBal = await tx.stockBalance.findUnique({
+              where: {
+                productId_locationId: {
+                  productId: product.id,
+                  locationId: godown.id,
+                },
+              },
+            });
+            const godownQtyBefore = godownBal?.qty ?? 0;
+            if (godownQtyBefore < newTotalPieces) {
+              throw new Error(
+                `Insufficient Godown stock for '${product.name}'. Required: ${newTotalPieces} pcs, Available: ${godownQtyBefore} pcs.`
+              );
+            }
+
+            const requestedLoose = counts.pieces > 0 ? counts.pieces : newTotalPieces % product.packSize;
+            if (requestedLoose > 0 && product.packSize > 1) {
+              await autoConvertService.checkAndRecordAutoConvertInTx(tx, {
+                productId: product.id,
+                productName: product.name,
+                shortCode: product.shortCode,
+                packSize: product.packSize,
+                godownLocationId: godown.id,
+                godownBalanceBefore: godownQtyBefore,
+                requestedLoosePieces: requestedLoose,
+                referenceType: "VAN_ISSUE",
+                referenceId: vanDay.id,
+                referenceNumber: vanDay.issueSheetNo,
+                actorId,
+              });
+            }
+
+            await tx.vanDayLine.create({
+              data: {
+                vanDayId: vanDay.id,
+                productId: product.id,
+                issuedQty: newTotalPieces,
+                soldQty: 0,
+                returnedQty: 0,
+                shortageQty: 0,
+                excessQty: 0,
+              },
+            });
+
+            const randSuffix = Math.random().toString(36).substring(2, 7);
+            await stockService.postMovement(
+              {
+                type: MovementType.TRANSFER,
+                productId: product.id,
+                fromLocationId: godown.id,
+                toLocationId: vanDay.vanLocationId,
+                qty: newTotalPieces,
+                referenceType: "VAN_ISSUE",
+                referenceId: vanDay.id,
+                reason: `Van Load Edit (New item +${newTotalPieces} pcs): ${vanDay.issueSheetNo}`,
+                idempotencyKey: `VAN_ISSUE_EDIT_${vanDay.id}_${product.id}_${timestamp}_${randSuffix}_NEW`,
+                actorId,
+              },
+              tx
+            );
+          }
+        }
+      }
+
+      // 7. Check for removed lines: products in existingLineMap that are not in incomingItemMap
+      for (const [productId, existingLine] of existingLineMap.entries()) {
+        if (!incomingItemMap.has(productId)) {
+          const product = productMap.get(productId);
+          const prodName = product?.name || productId;
+
+          if (existingLine.soldQty > 0) {
+            throw new Error(
+              `Cannot remove '${prodName}' from load sheet because ${existingLine.soldQty} pcs have already been sold!`
+            );
+          }
+
+          const vanBal = await tx.stockBalance.findUnique({
+            where: {
+              productId_locationId: {
+                productId,
+                locationId: vanDay.vanLocationId,
+              },
+            },
+          });
+          const vanQtyAvailable = vanBal?.qty ?? 0;
+          if (vanQtyAvailable < existingLine.issuedQty) {
+            throw new Error(
+              `Cannot return ${existingLine.issuedQty} pcs of '${prodName}' to Godown. Van only has ${vanQtyAvailable} pcs available.`
+            );
+          }
+
+          // Delete line
+          await tx.vanDayLine.delete({
+            where: { id: existingLine.id },
+          });
+
+          // Post TRANSFER movement Van -> Godown
+          const randSuffix = Math.random().toString(36).substring(2, 7);
+          await stockService.postMovement(
+            {
+              type: MovementType.TRANSFER,
+              productId,
+              fromLocationId: vanDay.vanLocationId,
+              toLocationId: godown.id,
+              qty: existingLine.issuedQty,
+              referenceType: "VAN_ISSUE",
+              referenceId: vanDay.id,
+              reason: `Van Load Edit (Removed item ${existingLine.issuedQty} pcs): ${vanDay.issueSheetNo}`,
+              idempotencyKey: `VAN_ISSUE_EDIT_${vanDay.id}_${productId}_${timestamp}_${randSuffix}_REM`,
+              actorId,
+            },
+            tx
+          );
+        }
+      }
+
+      // 8. Update notes if provided
+      if (input.notes !== undefined) {
+        await tx.vanDay.update({
+          where: { id: vanDay.id },
+          data: { notes: input.notes.trim() || null },
+        });
+      }
+
+      // 9. Return updated VanDayWithDetails
+      const updated = await tx.vanDay.findUniqueOrThrow({
+        where: { id: vanDay.id },
+        include: {
+          vanLocation: true,
+          salesperson: true,
+          lines: {
+            include: { product: true },
+            orderBy: { product: { name: "asc" } },
+          },
+        },
+      });
+
+      return updated;
     };
 
     if (txClient) {

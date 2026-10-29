@@ -105,14 +105,22 @@ export default async function VanIssuesPage() {
                             {vd.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right space-x-2">
+                        <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
                           {vd.status === "OPEN" ? (
-                            <Link
-                              href={`/godown/van-issues/${vd.id}/reconcile`}
-                              className="text-xs text-amber-700 hover:text-amber-900 font-semibold px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 border border-amber-200"
-                            >
-                              🔄 Reconcile Return
-                            </Link>
+                            <>
+                              <Link
+                                href={`/godown/van-issues/${vd.id}/edit`}
+                                className="text-xs text-blue-700 hover:text-blue-900 font-semibold px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 border border-blue-200"
+                              >
+                                ✏️ Edit Load
+                              </Link>
+                              <Link
+                                href={`/godown/van-issues/${vd.id}/reconcile`}
+                                className="text-xs text-amber-700 hover:text-amber-900 font-semibold px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 border border-amber-200"
+                              >
+                                🔄 Reconcile Return
+                              </Link>
+                            </>
                           ) : (
                             <Link
                               href={`/godown/van-issues/${vd.id}/reconcile`}

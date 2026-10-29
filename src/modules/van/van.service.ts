@@ -3,6 +3,8 @@ import { vanRepository } from "./van.repository";
 import {
   createVanIssueSheetSchema,
   CreateVanIssueSheetInput,
+  updateVanIssueSheetSchema,
+  UpdateVanIssueSheetInput,
   VanDayWithDetails,
   VanStockSummary,
   reconcileVanDaySchema,
@@ -52,6 +54,32 @@ export class VanService {
     await auditService.log({
       actorId,
       action: "VAN_ISSUE_SHEET_CREATE",
+      entity: "van_day",
+      entityId: vanDay.id,
+      after: {
+        issueSheetNo: vanDay.issueSheetNo,
+        vanLocationId: vanDay.vanLocationId,
+        salespersonId: vanDay.salespersonId,
+        lineCount: vanDay.lines.length,
+      },
+    });
+
+    return vanDay;
+  }
+
+  async updateVanIssueSheet(
+    role: UserRole,
+    actorId: string,
+    input: UpdateVanIssueSheetInput
+  ): Promise<VanDayWithDetails> {
+    assertPermission(role, Permission.VAN_ISSUE_LOAD);
+    const parsed = updateVanIssueSheetSchema.parse(input);
+
+    const vanDay = await vanRepository.updateVanIssueSheet(actorId, parsed);
+
+    await auditService.log({
+      actorId,
+      action: "VAN_ISSUE_SHEET_UPDATE",
       entity: "van_day",
       entityId: vanDay.id,
       after: {

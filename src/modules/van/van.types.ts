@@ -22,6 +22,20 @@ export const createVanIssueSheetSchema = z.object({
 
 export type CreateVanIssueSheetInput = z.input<typeof createVanIssueSheetSchema>;
 
+export const updateVanIssueItemSchema = z.object({
+  productId: z.string().min(1, "Product ID is required"),
+  cartons: z.number().int().min(0).default(0),
+  pieces: z.number().int().min(0).default(0),
+});
+
+export const updateVanIssueSheetSchema = z.object({
+  vanDayId: z.string().min(1, "Van day ID is required"),
+  notes: z.string().max(500).optional(),
+  items: z.array(updateVanIssueItemSchema),
+});
+
+export type UpdateVanIssueSheetInput = z.infer<typeof updateVanIssueSheetSchema>;
+
 export interface VanDayLineWithProduct extends VanDayLine {
   product: Product;
 }
