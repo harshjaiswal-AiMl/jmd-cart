@@ -94,7 +94,17 @@ export async function finalizeBillAction(input: {
   buyerType?: any;
   orderDiscountBp?: number;
   isInterState?: boolean;
-  items: Array<{ productId: string; qty: number; unitPriceOverridePaise?: number }>;
+  items: Array<{
+    productId: string;
+    qty: number;
+    unitPriceOverridePaise?: number;
+    unitLabel?: string;
+    originalMrpPaise?: number;
+    mrpOverridden?: boolean;
+    rateOverridden?: boolean;
+    mrpOverridePaise?: number;
+    updateMasterMrp?: boolean;
+  }>;
   payments: Array<{ mode: "CASH" | "UPI" | "CARD" | "CREDIT"; amountPaise: number }>;
   paymentStatus?: "PAID" | "PENDING" | "PARTIAL";
   idempotencyKey: string;
@@ -454,4 +464,99 @@ export async function quickAddShopStockAction(input: {
   });
 
   return { success: true, newShopQty: balance?.qty ?? input.qtyPcs };
+}
+
+export async function updatePartyNameAndContactAction(input: {
+  partyId: string;
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+  reason?: string | null;
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Authentication required. Please sign in." };
+  }
+
+  const role = session.user.role;
+  const isAuthorized =
+    role === UserRole.SUPER_ADMIN ||
+    role === UserRole.ADMIN ||
+    role === UserRole.ACCOUNTS ||
+    role === UserRole.SHOP ||
+    role === UserRole.SALESPERSON;
+
+  if (!isAuthorized) {
+    return { success: false, error: "Not authorized to update party details." };
+  }
+
+  try {
+    const party = await prisma.party.findUnique({
+      where: { id: input.partyId },
+    });
+    if (!party) {
+      return { success: false, error: "Party not found." };
+    }
+
+    if ((role === UserRole.SHOP || role === UserRole.SALESPERSON) && party.tallyRef && party.creditEnabled) {
+      return {
+        success: false,
+        error: "This party has a locked Tally ledger reference. Contact Accounts to rename.",
+      };
+    }
+
+    const trimmedName = input.name.trim();
+    if (!trimmedName) {
+      return { success: false, error: "Party name cannot be empty." };
+    }
+
+    const trimmedPhone = input.phone?.trim() || null;
+    const trimmedAddress = input.address?.trim() || null;
+
+    await prisma.partyNameHistory.create({
+      data: {
+        partyId: party.id,
+        oldName: party.name,
+        newName: trimmedName,
+        oldPhone: party.phone,
+        newPhone: trimmedPhone,
+        oldAddress: party.address,
+        newAddress: trimmedAddress,
+        reason: input.reason?.trim() || "POS/Van Modification",
+        changedById: session.user.id,
+      },
+    });
+
+    const updated = await prisma.party.update({
+      where: { id: party.id },
+      data: {
+        name: trimmedName,
+        phone: trimmedPhone,
+        address: trimmedAddress,
+      },
+    });
+
+    const { auditService } = await import("@/modules/audit/audit.service");
+    await auditService.log({
+      actorId: session.user.id,
+      action: "PARTY_UPDATE",
+      entity: "party",
+      entityId: party.id,
+      before: { name: party.name, phone: party.phone, address: party.address },
+      after: { name: trimmedName, phone: trimmedPhone, address: trimmedAddress, reason: input.reason },
+    });
+
+    return {
+      success: true,
+      party: {
+        id: updated.id,
+        name: updated.name,
+        phone: updated.phone,
+        address: updated.address,
+      },
+    };
+  } catch (err: any) {
+    console.error("updatePartyNameAndContactAction error:", err);
+    return { success: false, error: err.message || "Failed to update party" };
+  }
 }

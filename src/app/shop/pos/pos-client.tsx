@@ -42,6 +42,7 @@ import {
   createQuickPartyAction,
   getPartyBillHistoryAction,
   getPartyLastItemPurchaseAction,
+  updatePartyNameAndContactAction,
 } from "./actions";
 import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
@@ -99,6 +100,8 @@ export interface PosCartLine {
   customRateInput?: string;
   customDiscInput?: string;
   customMrpPaise?: number | null;
+  customMrpInput?: string;
+  updateMasterMrp?: boolean;
   isCustomRate?: boolean;
 }
 
@@ -156,6 +159,94 @@ export function PosClient({
       return new Date().toISOString().split("T")[0];
     }
   }, []);
+
+  // Party edit state & modal
+  const [editPartyModalOpen, setEditPartyModalOpen] = useState(false);
+  const [editPartyName, setEditPartyName] = useState("");
+  const [editPartyPhone, setEditPartyPhone] = useState("");
+  const [editPartyAddress, setEditPartyAddress] = useState("");
+  const [editPartyReason, setEditPartyReason] = useState("");
+  const [isEditingParty, setIsEditingParty] = useState(false);
+
+  const openPartyEditModal = () => {
+    if (!selectedParty) return;
+    setEditPartyName(selectedParty.name || "");
+    setEditPartyPhone(selectedParty.phone || "");
+    setEditPartyAddress(selectedParty.address || "");
+    setEditPartyReason("");
+    setEditPartyModalOpen(true);
+  };
+
+  const handleSavePartyEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedParty) return;
+    if (!editPartyName.trim()) {
+      alert("Customer name cannot be empty");
+      return;
+    }
+    setIsEditingParty(true);
+    try {
+      const res = await updatePartyNameAndContactAction({
+        partyId: selectedParty.id,
+        name: editPartyName,
+        phone: editPartyPhone || undefined,
+        address: editPartyAddress || undefined,
+        reason: editPartyReason || "POS Quick Edit",
+      });
+      if (res.success && res.party) {
+        setLocalParties((prev) =>
+          prev.map((p) =>
+            p.id === selectedParty.id
+              ? { ...p, name: res.party!.name, phone: res.party!.phone, address: res.party!.address }
+              : p
+          )
+        );
+        setEditPartyModalOpen(false);
+      } else {
+        alert(res.error || "Failed to update party");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to update party");
+    } finally {
+      setIsEditingParty(false);
+    }
+  };
+
+  // Line MRP editing & master MRP flag
+  const updateLineMrp = (lineId: string, value: string) => {
+    const valNum = parseFloat(value);
+    const paise = !isNaN(valNum) && valNum >= 0 ? Math.round(valNum * 100) : 0;
+
+    updateActiveTab({
+      cart: activeTab.cart.map((item) => {
+        if (item.id !== lineId) return item;
+        const packSize = Math.max(1, item.product.packSize);
+        const bagSize = (item.product as any).bagSize || packSize;
+        const mult = item.unit === "Carton" ? packSize : item.unit === "Bag" ? bagSize : item.unit === "Dozen" ? 12 : 1;
+        const pieceMrp = mult > 0 ? Math.round(paise / mult) : paise;
+
+        const currentRate = item.customRatePaise ?? 0;
+        const newDisc = paise > 0 && currentRate < paise
+          ? Math.round(((paise - currentRate) / paise) * 10000) / 100
+          : 0;
+
+        return {
+          ...item,
+          customMrpInput: value,
+          customMrpPaise: pieceMrp,
+          customDiscInput: newDisc > 0 ? newDisc.toFixed(1) : item.customDiscInput,
+        };
+      }),
+    });
+  };
+
+  const toggleUpdateMasterMrp = (lineId: string) => {
+    updateActiveTab({
+      cart: activeTab.cart.map((item) =>
+        item.id === lineId ? { ...item, updateMasterMrp: !item.updateMasterMrp } : item
+      ),
+    });
+  };
 
   // Products and parties state
   const [productsList, setProductsList] = useState<ProductCatalogItem[]>(products);
@@ -1119,23 +1210,35 @@ export function PosClient({
 
         const finalizeItems = activeTab.cart.map((c) => {
           const packSize = Math.max(1, c.product.packSize);
-          const pcs = (c.unit === "Carton" || c.unit === "Bag")
+          const bagSize = (c.product as any).bagSize || packSize;
+          const pcs = c.unit === "Carton"
             ? c.qty * packSize
+            : c.unit === "Bag"
+            ? c.qty * bagSize
             : c.unit === "Dozen"
             ? c.qty * 12
             : c.qty;
           let unitPriceOverridePaise: number | undefined = undefined;
           if (c.customRatePaise != null && c.customRatePaise > 0) {
-            unitPriceOverridePaise = (c.unit === "Carton" || c.unit === "Bag")
+            unitPriceOverridePaise = c.unit === "Carton"
               ? Math.round(c.customRatePaise / packSize)
+              : c.unit === "Bag"
+              ? Math.round(c.customRatePaise / bagSize)
               : c.unit === "Dozen"
               ? Math.round(c.customRatePaise / 12)
               : c.customRatePaise;
           }
+          const pieceMrp = c.customMrpPaise != null && c.customMrpPaise > 0 ? c.customMrpPaise : (c.product.mrpPaise ?? 0);
           return {
             productId: c.productId,
             qty: pcs,
             unitPriceOverridePaise,
+            unitLabel: c.unit,
+            originalMrpPaise: c.product.mrpPaise ?? 0,
+            mrpOverridden: Boolean(c.customMrpPaise && c.customMrpPaise !== c.product.mrpPaise),
+            rateOverridden: Boolean(c.isCustomRate),
+            mrpOverridePaise: pieceMrp,
+            updateMasterMrp: Boolean(c.updateMasterMrp),
           };
         });
 
@@ -1516,6 +1619,31 @@ export function PosClient({
               C
             </button>
           </div>
+
+          {/* Owner Note: Party Card with direct edit */}
+          {selectedParty && (
+            <div className="flex items-center gap-2 bg-blue-50/90 border border-blue-200 px-3 py-1 rounded-xl shadow-2xs">
+              <div className="text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-black text-xs text-blue-950">{selectedParty.name}</span>
+                  <button
+                    type="button"
+                    onClick={openPartyEditModal}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-white text-blue-700 hover:bg-blue-100 border border-blue-300 transition"
+                    title="Edit customer name, phone, address"
+                  >
+                    ✏️ Edit
+                  </button>
+                </div>
+                {(selectedParty.phone || selectedParty.address) && (
+                  <div className="text-[10px] text-blue-800 flex items-center gap-1.5 truncate max-w-xs">
+                    {selectedParty.phone && <span>📞 {selectedParty.phone}</span>}
+                    {selectedParty.address && <span>📍 {selectedParty.address}</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Party Balance Chip */}
           {selectedParty && (
@@ -2063,6 +2191,12 @@ export function PosClient({
                               if (e.key === "Enter") {
                                 e.preventDefault();
                                 const row = (e.target as HTMLElement).closest("tr");
+                                const mrpInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='mrp']");
+                                if (mrpInput) {
+                                  mrpInput.focus();
+                                  mrpInput.select();
+                                  return;
+                                }
                                 const rateInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='rate']");
                                 if (rateInput) {
                                   rateInput.focus();
@@ -2085,22 +2219,56 @@ export function PosClient({
                           </select>
                         </td>
 
-                        {/* MRP with Savings Badge */}
+                        {/* MRP (Editable Input from Owner's Handwritten Note) */}
                         <td className="py-3 px-2 text-right">
-                          {mrpPerUnitPaise > 0 ? (
-                            <div>
-                              <div className="font-mono font-bold text-sm sm:text-base text-slate-700">
-                                ₹{(mrpPerUnitPaise / 100).toFixed(2)}
-                              </div>
-                              {effectiveDiscountPercent > 0 && (
-                                <div className="text-[11px] font-black text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 inline-block mt-0.5">
-                                  Save ₹{((mrpPerUnitPaise - ratePerUnitPaise) / 100).toFixed(0)}
-                                </div>
-                              )}
+                          <div className="flex flex-col items-end">
+                            <div className="relative inline-flex items-center justify-end w-28">
+                              <span className="absolute left-2 text-slate-400 font-mono text-xs pointer-events-none font-bold">₹</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={
+                                  line.customMrpInput !== undefined
+                                    ? line.customMrpInput
+                                    : mrpPerUnitPaise > 0
+                                    ? (mrpPerUnitPaise / 100).toFixed(2)
+                                    : ""
+                                }
+                                placeholder="0.00"
+                                onChange={(e) => updateLineMrp(line.id, e.target.value)}
+                                data-pos-field="mrp"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    const row = (e.target as HTMLElement).closest("tr");
+                                    const rateInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='rate']");
+                                    if (rateInput) {
+                                      rateInput.focus();
+                                      rateInput.select();
+                                    }
+                                  } else if (e.key === "Escape") {
+                                    e.preventDefault();
+                                    itemSearchInputRef.current?.focus();
+                                    itemSearchInputRef.current?.select();
+                                  }
+                                }}
+                                title="Editable Line MRP"
+                                className="w-full pl-5 pr-2 py-1.5 text-right font-mono font-bold text-sm sm:text-base rounded-lg border-2 border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-blue-600"
+                              />
                             </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 italic">No MRP</span>
-                          )}
+                            {isAdmin && (
+                              <label className="flex items-center gap-1 text-[10px] font-bold text-slate-500 mt-1 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(line.updateMasterMrp)}
+                                  onChange={() => toggleUpdateMasterMrp(line.id)}
+                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
+                                />
+                                <span>Master</span>
+                              </label>
+                            )}
+                          </div>
                         </td>
 
                         {/* Rate (Editable Busy-Style Input) */}
@@ -2163,7 +2331,7 @@ export function PosClient({
                               onChange={(e) => updateLineDiscountPercent(line.id, e.target.value)}
                               data-pos-field="disc"
                               onKeyDown={(e) => {
-                                if (e.key === "Enter") {
+                                if (e.key === "Enter" || e.key === "ArrowDown") {
                                   e.preventDefault();
                                   // Row complete! Jump back to Item Search for next product
                                   itemSearchInputRef.current?.focus();

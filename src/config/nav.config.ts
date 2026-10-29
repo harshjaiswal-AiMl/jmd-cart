@@ -14,16 +14,12 @@ export interface NavItem {
 export type NavGroupName =
   | "Dashboard"
   | "Sales"
+  | "Orders & Dispatch"
   | "Inventory"
-  | "Dispatch"
-  | "Van"
   | "Catalog"
   | "Parties"
-  | "Delivery"
-  | "Accounts"
-  | "Reports"
-  | "People"
-  | "Admin";
+  | "Accounts & Reports"
+  | "Settings & People";
 
 export interface NavGroup {
   name: NavGroupName;
@@ -45,7 +41,7 @@ const GODOWN_AND_ADMIN: UserRole[] = [
 ];
 
 export const NAV_ITEMS: NavItem[] = [
-  // 1. Dashboard
+  // 1. Dashboard (Admin, Accounts, Godown)
   {
     id: "dash-owner",
     group: "Dashboard",
@@ -63,7 +59,7 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...GODOWN_AND_ADMIN],
   },
 
-  // 2. Sales
+  // 2. Sales (Shop, Salesperson, Admin, Accounts)
   {
     id: "sales-pos",
     group: "Sales",
@@ -90,15 +86,97 @@ export const NAV_ITEMS: NavItem[] = [
     badgeKey: "pendingOrders",
   },
   {
+    id: "sales-van-home",
+    group: "Sales",
+    label: "Van Operations Portal",
+    icon: "Truck",
+    href: "/van",
+    roles: [UserRole.SALESPERSON],
+  },
+  {
+    id: "sales-van-billing",
+    group: "Sales",
+    label: "Van Billing",
+    icon: "Receipt",
+    href: "/van/billing",
+    roles: [UserRole.SALESPERSON],
+  },
+  {
     id: "sales-van",
     group: "Sales",
-    label: "Van Sales",
+    label: "Van Bills & Invoices",
     icon: "Truck",
     href: "/van/bills",
-    roles: [...ADMIN_ROLES, UserRole.SALESPERSON, UserRole.ACCOUNTS],
+    roles: [...ADMIN_ROLES, UserRole.SALESPERSON],
+  },
+  {
+    id: "sales-van-cash",
+    group: "Sales",
+    label: "Van Cash Collections",
+    icon: "Banknote",
+    href: "/van/collections",
+    roles: [...ADMIN_ROLES, UserRole.SALESPERSON],
+  },
+  {
+    id: "sales-van-reconcile",
+    group: "Sales",
+    label: "Van Reconciliation",
+    icon: "CheckCircle2",
+    href: "/van/reconciliation",
+    roles: [...ADMIN_ROLES, UserRole.SALESPERSON],
+  },
+  {
+    id: "sales-my-incentives",
+    group: "Sales",
+    label: "My Incentives",
+    icon: "Award",
+    href: "/shop/my-incentives",
+    roles: [UserRole.SHOP, UserRole.SALESPERSON, UserRole.DELIVERY, ...ADMIN_ROLES],
   },
 
-  // 3. Inventory
+  // 3. Orders & Dispatch
+  {
+    id: "dispatch-board",
+    group: "Orders & Dispatch",
+    label: "Dispatch Board",
+    icon: "Truck",
+    href: "/godown/dispatch",
+    roles: [...GODOWN_AND_ADMIN],
+  },
+  {
+    id: "dispatch-create-order",
+    group: "Orders & Dispatch",
+    label: "+ Create Order",
+    icon: "PackageOpen",
+    href: "/godown/dispatch/new-order",
+    roles: [...WAREHOUSE_ROLES],
+  },
+  {
+    id: "del-orders",
+    group: "Orders & Dispatch",
+    label: "Delivery Orders",
+    icon: "MapPin",
+    href: "/delivery",
+    roles: [...ADMIN_ROLES, UserRole.DELIVERY],
+  },
+  {
+    id: "del-zones",
+    group: "Orders & Dispatch",
+    label: "Delivery Zones",
+    icon: "Map",
+    href: "/admin/crud/delivery_zones",
+    roles: [...ADMIN_ROLES],
+  },
+  {
+    id: "del-rules",
+    group: "Orders & Dispatch",
+    label: "Delivery Charge Rules",
+    icon: "Calculator",
+    href: "/admin/crud/delivery_charge_rules",
+    roles: [...ADMIN_ROLES],
+  },
+
+  // 4. Inventory
   {
     id: "inv-overview",
     group: "Inventory",
@@ -110,10 +188,10 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "inv-update",
     group: "Inventory",
-    label: "Update Stock & Excel Upload",
+    label: "Update Stock & Excel",
     icon: "FileSpreadsheet",
     href: "/godown/stock/update",
-    roles: [...GODOWN_AND_ADMIN],
+    roles: [...ADMIN_ROLES],
   },
   {
     id: "inv-operations",
@@ -130,7 +208,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Stock Movements",
     icon: "History",
     href: "/admin/stock",
-    roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS],
+    roles: [...ADMIN_ROLES],
   },
   {
     id: "inv-purchases",
@@ -138,7 +216,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Purchases / GRN",
     icon: "ClipboardCheck",
     href: "/godown/purchases",
-    roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS],
+    roles: [...GODOWN_AND_ADMIN],
   },
   {
     id: "inv-receive-goods",
@@ -146,70 +224,25 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Receive Goods (Scan Bill)",
     icon: "FileUp",
     href: "/godown/receive-goods",
-    roles: [...GODOWN_AND_ADMIN],
-  },
-
-  // 4. Dispatch
-  {
-    id: "dispatch-board",
-    group: "Dispatch",
-    label: "Dispatch Board",
-    icon: "Truck",
-    href: "/godown/dispatch",
-    roles: [...GODOWN_AND_ADMIN],
+    roles: [...ADMIN_ROLES],
   },
   {
-    id: "dispatch-create-order",
-    group: "Dispatch",
-    label: "+ Create Order",
-    icon: "PlusCircle",
-    href: "/godown/dispatch/new-order",
-    roles: [...WAREHOUSE_ROLES],
-  },
-
-  // 5. Van
-  {
-    id: "van-morning",
-    group: "Van",
-    label: "Morning Issue",
+    id: "van-issues",
+    group: "Inventory",
+    label: "Van Morning & Return",
     icon: "Sun",
-    href: "/godown/van-issues/new",
+    href: "/godown/van-issues",
     roles: [...GODOWN_AND_ADMIN],
   },
-  {
-    id: "van-evening",
-    group: "Van",
-    label: "Evening Return",
-    icon: "Sunset",
-    href: "/godown/van-issues",
-    roles: [...GODOWN_AND_ADMIN, UserRole.SALESPERSON],
-  },
-  {
-    id: "van-reconcile",
-    group: "Van",
-    label: "Reconciliation",
-    icon: "CheckCircle2",
-    href: "/van/reconciliation",
-    roles: [...GODOWN_AND_ADMIN, UserRole.SALESPERSON, UserRole.ACCOUNTS],
-  },
-  {
-    id: "van-cash",
-    group: "Van",
-    label: "Van Cash",
-    icon: "Banknote",
-    href: "/van/collections",
-    roles: [...ADMIN_ROLES, UserRole.SALESPERSON, UserRole.ACCOUNTS],
-  },
 
-  // 6. Catalog
+  // 5. Catalog
   {
     id: "cat-products",
     group: "Catalog",
     label: "Products",
     icon: "Package",
     href: "/admin/catalog",
-    roles: [...GODOWN_AND_ADMIN],
-    readOnlyForRoles: [UserRole.GODOWN],
+    roles: [...ADMIN_ROLES],
   },
   {
     id: "cat-companies",
@@ -217,8 +250,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Brands / Companies",
     icon: "Building2",
     href: "/admin/crud/companies",
-    roles: [...GODOWN_AND_ADMIN],
-    readOnlyForRoles: [UserRole.GODOWN],
+    roles: [...ADMIN_ROLES],
   },
   {
     id: "cat-categories",
@@ -226,8 +258,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Categories",
     icon: "Tags",
     href: "/admin/crud/categories",
-    roles: [...GODOWN_AND_ADMIN],
-    readOnlyForRoles: [UserRole.GODOWN],
+    roles: [...ADMIN_ROLES],
   },
   {
     id: "cat-price-lists",
@@ -264,27 +295,11 @@ export const NAV_ITEMS: NavItem[] = [
 
   // 6. Parties
   {
-    id: "party-customers",
+    id: "party-all",
     group: "Parties",
-    label: "Customers",
+    label: "Customers & Retailers",
     icon: "Users",
-    href: "/admin/parties?type=CUSTOMER",
-    roles: [...ADMIN_ROLES, UserRole.SHOP, UserRole.ACCOUNTS],
-  },
-  {
-    id: "party-retailers",
-    group: "Parties",
-    label: "Retailers (List B)",
-    icon: "Store",
-    href: "/admin/parties?type=RETAILER",
-    roles: [...ADMIN_ROLES, UserRole.SHOP, UserRole.ACCOUNTS],
-  },
-  {
-    id: "party-wholesalers",
-    group: "Parties",
-    label: "Wholesalers (List A)",
-    icon: "Building",
-    href: "/admin/parties?type=WHOLESALER",
+    href: "/admin/parties",
     roles: [...ADMIN_ROLES, UserRole.SHOP, UserRole.ACCOUNTS],
   },
   {
@@ -293,7 +308,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Suppliers",
     icon: "Factory",
     href: "/admin/parties?type=SUPPLIER",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+    roles: [...ADMIN_ROLES],
   },
   {
     id: "party-credit",
@@ -301,7 +316,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Credit & Limits",
     icon: "CreditCard",
     href: "/admin/crud/parties",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+    roles: [...ADMIN_ROLES],
   },
   {
     id: "party-import",
@@ -312,160 +327,84 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...ADMIN_ROLES],
   },
 
-  // 7. Delivery
-  {
-    id: "del-orders",
-    group: "Delivery",
-    label: "Delivery Orders",
-    icon: "MapPin",
-    href: "/delivery",
-    roles: [...ADMIN_ROLES, UserRole.DELIVERY],
-  },
-  {
-    id: "del-zones",
-    group: "Delivery",
-    label: "Zones",
-    icon: "Map",
-    href: "/admin/crud/delivery_zones",
-    roles: [...ADMIN_ROLES],
-  },
-  {
-    id: "del-rules",
-    group: "Delivery",
-    label: "Delivery Charge Rules",
-    icon: "Calculator",
-    href: "/admin/crud/delivery_charge_rules",
-    roles: [...ADMIN_ROLES],
-  },
-  {
-    id: "del-staff",
-    group: "Delivery",
-    label: "Delivery Staff",
-    icon: "Bike",
-    href: "/admin/crud/users?filterRole=DELIVERY",
-    roles: [...ADMIN_ROLES],
-  },
-
-  // 8. Accounts
+  // 7. Accounts & Reports
   {
     id: "acc-receipts",
-    group: "Accounts",
-    label: "Receipts",
+    group: "Accounts & Reports",
+    label: "Receipts & Payments",
     icon: "ArrowDownLeft",
     href: "/admin/crud/receipts",
     roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
   },
   {
     id: "acc-payments",
-    group: "Accounts",
+    group: "Accounts & Reports",
     label: "Payments",
     icon: "ArrowUpRight",
     href: "/admin/crud/payments",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+    roles: [...ADMIN_ROLES],
   },
   {
     id: "acc-ledger",
-    group: "Accounts",
+    group: "Accounts & Reports",
     label: "Party Ledger",
     icon: "BookOpen",
     href: "/admin/parties",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+    roles: [...ADMIN_ROLES],
   },
   {
-    id: "acc-outstanding",
-    group: "Accounts",
-    label: "Outstanding",
-    icon: "Clock",
-    href: "/reports?tab=outstanding",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
-  },
-  {
-    id: "acc-daybook",
-    group: "Accounts",
-    label: "Day Book",
+    id: "acc-reports",
+    group: "Accounts & Reports",
+    label: "Reports & Day Book",
     icon: "Calendar",
     href: "/reports?tab=daybook",
     roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
   },
   {
-    id: "acc-cashbook",
-    group: "Accounts",
-    label: "Cash Book",
-    icon: "Wallet",
-    href: "/reports?tab=cashbook",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+    id: "acc-outstanding",
+    group: "Accounts & Reports",
+    label: "Outstanding Balances",
+    icon: "Clock",
+    href: "/reports?tab=outstanding",
+    roles: [...ADMIN_ROLES],
   },
   {
     id: "acc-gst",
-    group: "Accounts",
-    label: "GST Reports",
-    icon: "FileSpreadsheet",
+    group: "Accounts & Reports",
+    label: "GST & Tally Export",
+    icon: "Download",
     href: "/reports?tab=gst",
     roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
   },
   {
-    id: "acc-tally",
-    group: "Accounts",
-    label: "Tally Export",
-    icon: "Download",
-    href: "/reports?tab=tally",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
-  },
-
-  // 9. Reports
-  {
     id: "rep-sales",
-    group: "Reports",
-    label: "Sales Reports",
+    group: "Accounts & Reports",
+    label: "Sales Analytics",
     icon: "BarChart3",
     href: "/reports?tab=sales",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
-  },
-  {
-    id: "rep-stock",
-    group: "Reports",
-    label: "Stock Reports",
-    icon: "Boxes",
-    href: "/reports?tab=stock",
-    roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS],
-  },
-  {
-    id: "rep-van",
-    group: "Reports",
-    label: "Van Reports",
-    icon: "Truck",
-    href: "/reports?tab=van",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
-  },
-  {
-    id: "rep-returns",
-    group: "Reports",
-    label: "Returns & Debit Notes",
-    icon: "RotateCcw",
-    href: "/godown/returns",
-    roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS],
-  },
-  {
-    id: "rep-staff",
-    group: "Reports",
-    label: "Staff Performance",
-    icon: "Award",
-    href: "/reports?tab=staff",
     roles: [...ADMIN_ROLES],
   },
   {
     id: "rep-agent-sales",
-    group: "Reports",
+    group: "Accounts & Reports",
     label: "Agent Sales (Incentives)",
-    icon: "BadgePercent",
+    icon: "Award",
     href: "/admin/reports/agent-sales",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+    roles: [...ADMIN_ROLES],
+  },
+  {
+    id: "rep-returns",
+    group: "Accounts & Reports",
+    label: "Returns & Debit Notes",
+    icon: "RotateCcw",
+    href: "/godown/returns",
+    roles: [...ADMIN_ROLES],
   },
 
-  // 10. People & Incentives
+  // 8. Settings & People
   {
     id: "people-users",
-    group: "People",
+    group: "Settings & People",
     label: "Staff & Users",
     icon: "UserCog",
     href: "/admin/crud/users",
@@ -473,89 +412,39 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "people-incentives-dash",
-    group: "People",
+    group: "Settings & People",
     label: "Incentives Dashboard",
     icon: "Award",
     href: "/admin/incentives",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+    roles: [...ADMIN_ROLES],
   },
   {
     id: "people-incentives-rules",
-    group: "People",
-    label: "Rules & Calculator",
+    group: "Settings & People",
+    label: "Incentive Rules",
     icon: "Percent",
     href: "/admin/incentives/rules",
     roles: [...ADMIN_ROLES],
   },
   {
-    id: "people-incentives-ledger",
-    group: "People",
-    label: "Incentives Ledger",
-    icon: "BookOpen",
-    href: "/admin/incentives/ledger",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
-  },
-  {
-    id: "people-incentives-statements",
-    group: "People",
-    label: "Monthly Statements",
-    icon: "Calendar",
-    href: "/admin/incentives/statements",
-    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
-  },
-  {
-    id: "people-incentives-backfill",
-    group: "People",
-    label: "Historical Backfill",
-    icon: "History",
-    href: "/admin/incentives/backfill",
-    roles: [...ADMIN_ROLES],
-  },
-  {
-    id: "people-incentives-settings",
-    group: "People",
-    label: "Incentive Settings",
-    icon: "Settings",
-    href: "/admin/incentives/settings",
-    roles: [...ADMIN_ROLES],
-  },
-  {
-    id: "sales-my-incentives",
-    group: "Sales",
-    label: "My Incentives",
-    icon: "Award",
-    href: "/shop/my-incentives",
-    roles: [UserRole.SHOP, UserRole.SALESPERSON, UserRole.DELIVERY, ...ADMIN_ROLES],
-  },
-
-  // 11. Admin
-  {
     id: "adm-crud-hub",
-    group: "Admin",
-    label: "Master Data CRUD Hub",
+    group: "Settings & People",
+    label: "Master Data Hub",
     icon: "Database",
     href: "/admin/crud",
     roles: [...ADMIN_ROLES],
   },
   {
-    id: "adm-users",
-    group: "Admin",
-    label: "Users & Roles",
-    icon: "UserCog",
-    href: "/admin/crud/users",
-    roles: [...ADMIN_ROLES],
-  },
-  {
     id: "adm-business",
-    group: "Admin",
-    label: "Business Details",
+    group: "Settings & People",
+    label: "Business Settings",
     icon: "Building2",
     href: "/admin/settings?tab=business",
     roles: [...ADMIN_ROLES],
   },
   {
     id: "adm-invoice",
-    group: "Admin",
+    group: "Settings & People",
     label: "Invoice Settings",
     icon: "FileCheck",
     href: "/admin/settings?tab=invoice",
@@ -563,7 +452,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "adm-discounts",
-    group: "Admin",
+    group: "Settings & People",
     label: "Discount Limits",
     icon: "Percent",
     href: "/admin/crud/discount_limits",
@@ -571,7 +460,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "adm-locations",
-    group: "Admin",
+    group: "Settings & People",
     label: "Locations",
     icon: "MapPin",
     href: "/admin/crud/locations",
@@ -579,7 +468,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "adm-storefront",
-    group: "Admin",
+    group: "Settings & People",
     label: "Storefront Settings",
     icon: "Globe",
     href: "/admin/crud/storefront_settings",
@@ -587,7 +476,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "adm-audit",
-    group: "Admin",
+    group: "Settings & People",
     label: "Audit Log",
     icon: "ShieldCheck",
     href: "/admin/crud/audit_logs",
@@ -595,7 +484,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     id: "adm-backup",
-    group: "Admin",
+    group: "Settings & People",
     label: "Backup & Export",
     icon: "HardDriveDownload",
     href: "/admin/settings?tab=backup",
@@ -606,21 +495,18 @@ export const NAV_ITEMS: NavItem[] = [
 export const NAV_GROUP_ORDER: Array<{ name: NavGroupName; icon: string }> = [
   { name: "Dashboard", icon: "LayoutDashboard" },
   { name: "Sales", icon: "Receipt" },
+  { name: "Orders & Dispatch", icon: "Truck" },
   { name: "Inventory", icon: "Boxes" },
-  { name: "Dispatch", icon: "Truck" },
-  { name: "Van", icon: "Navigation" },
   { name: "Catalog", icon: "Package" },
   { name: "Parties", icon: "Users" },
-  { name: "Delivery", icon: "MapPin" },
-  { name: "Accounts", icon: "Wallet" },
-  { name: "Reports", icon: "BarChart3" },
-  { name: "People", icon: "UserCog" },
-  { name: "Admin", icon: "Settings" },
+  { name: "Accounts & Reports", icon: "Wallet" },
+  { name: "Settings & People", icon: "Settings" },
 ];
 
 /**
  * Returns the grouped navigation items visible to a given UserRole.
  * For SUPER_ADMIN and ADMIN, every group and every item is visible.
+ * For non-admin roles, each role sees at most 6 focused operational items.
  */
 export function getNavGroupsForRole(role: UserRole | string): NavGroup[] {
   const isSuperOrAdmin =

@@ -31,7 +31,7 @@ import { createVanInvoiceAction, checkVanPartyCreditStatusAction } from "./actio
 import { createQuickPartyAction } from "@/app/shop/pos/actions";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
-import { QtyUnitPicker } from "@/components/billing/qty-unit-picker";
+import { QtyUnitPicker, PickerUnit } from "@/components/billing/qty-unit-picker";
 import { PaymentMode } from "@prisma/client";
 
 interface VanProduct {
@@ -63,7 +63,7 @@ interface PartyOption {
 interface CartLine {
   product: VanProduct;
   qty: number;
-  unit: "PCS" | "CARTON";
+  unit: PickerUnit;
   unitQty: number;
 }
 
@@ -258,12 +258,22 @@ export function VanBillingClient({
   // Add / adjust cart items with unit support
   const addToCart = (
     product: VanProduct,
-    addPieces: number,
-    unit: "PCS" | "CARTON" = "PCS",
-    unitQty: number = addPieces
+    addQty: number,
+    unit: PickerUnit = "PCS"
   ) => {
+    const packSize = Math.max(1, product.packSize || 1);
+    const bagSize = (product as any).bagSize || packSize;
+    const pieceMultiplier =
+      unit === "CARTON"
+        ? packSize
+        : unit === "BAG"
+        ? bagSize
+        : unit === "DOZEN"
+        ? 12
+        : 1;
+    const addPieces = addQty * pieceMultiplier;
+
     setCart((prev) => {
-      // Find line with same product AND same unit
       const existing = prev.find((i) => i.product.id === product.id && i.unit === unit);
       const otherPieces = prev
         .filter((i) => i.product.id === product.id && i.unit !== unit)
@@ -283,15 +293,15 @@ export function VanBillingClient({
       if (existing) {
         return prev.map((i) =>
           i.product.id === product.id && i.unit === unit
-            ? { ...i, qty: targetUnitPieces, unitQty: (existing.unitQty || existing.qty) + unitQty }
+            ? { ...i, qty: targetUnitPieces, unitQty: (existing.unitQty || 0) + addQty }
             : i
         );
       }
-      return [...prev, { product, qty: targetUnitPieces, unit, unitQty }];
+      return [...prev, { product, qty: targetUnitPieces, unit, unitQty: addQty }];
     });
   };
 
-  const removeFromCart = (productId: string, unit?: "PCS" | "CARTON") => {
+  const removeFromCart = (productId: string, unit?: PickerUnit) => {
     setCart((prev) =>
       prev.filter((i) => !(i.product.id === productId && (!unit || i.unit === unit)))
     );
@@ -592,6 +602,24 @@ export function VanBillingClient({
         </div>
       )}
 
+      {/* 3-Step Stepper Header (Prompt #14 - Drastically simplified field flow) */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs">
+        <div className="grid grid-cols-3 gap-2 text-center text-xs font-black">
+          <div className="py-2 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 flex items-center justify-center gap-1.5">
+            <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center">1</span>
+            <span>Customer</span>
+          </div>
+          <div className="py-2 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 flex items-center justify-center gap-1.5">
+            <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center">2</span>
+            <span>Items &amp; Units</span>
+          </div>
+          <div className="py-2 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 flex items-center justify-center gap-1.5">
+            <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] flex items-center justify-center">3</span>
+            <span>Tender &amp; Print</span>
+          </div>
+        </div>
+      </div>
+
       {/* Main Grid: Catalog Left / Cart Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left: Product Catalog */}
@@ -649,13 +677,12 @@ export function VanBillingClient({
                         productId={p.id}
                         productName={p.name}
                         packSize={p.packSize}
+                        bagSize={(p as any).bagSize || p.packSize}
                         packLabel={p.packLabel}
                         mrpPaise={p.mrpPaise}
                         availablePieces={p.availablePieces}
                         onAdd={(qty, unit) => {
-                          const packSize = Math.max(1, p.packSize || 1);
-                          const pieces = unit === "CARTON" ? qty * packSize : qty;
-                          addToCart(p, pieces, unit, qty);
+                          addToCart(p, qty, unit);
                         }}
                         disabled={p.availablePieces <= 0}
                       />
@@ -802,6 +829,14 @@ export function VanBillingClient({
                           {line.unit === "CARTON" ? (
                             <span className="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded text-[10px]">
                               📦 {line.unitQty} {line.product.packLabel || "Carton"}(s) ({line.qty} pcs)
+                            </span>
+                          ) : line.unit === "DOZEN" ? (
+                            <span className="inline-flex items-center gap-1 font-bold text-blue-800 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded text-[10px]">
+                              📦 {line.unitQty} Dozen ({line.qty} pcs)
+                            </span>
+                          ) : line.unit === "BAG" ? (
+                            <span className="inline-flex items-center gap-1 font-bold text-purple-800 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded text-[10px]">
+                              🛍 {line.unitQty} Bag ({line.qty} pcs)
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.2 rounded text-[10px]">

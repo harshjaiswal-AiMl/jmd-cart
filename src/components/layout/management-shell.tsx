@@ -174,6 +174,7 @@ export function ManagementShell({
   const router = useRouter();
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [density, setDensity] = useState<"comfortable" | "compact">("comfortable");
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -196,6 +197,10 @@ export function ManagementShell({
       } else {
         const savedCollapsed = localStorage.getItem("jmd_sidebar_collapsed");
         if (savedCollapsed === "1") setSidebarCollapsed(true);
+      }
+      const savedDensity = localStorage.getItem("jmd_mgmt_density");
+      if (savedDensity === "compact" || savedDensity === "comfortable") {
+        setDensity(savedDensity);
       }
       const savedGroups = localStorage.getItem("jmd_sidebar_groups");
       if (savedGroups) {
@@ -330,14 +335,14 @@ export function ManagementShell({
     const isCollapsed = !isMobile && sidebarCollapsed;
 
     return (
-      <div className="flex flex-col h-full overflow-hidden bg-[#790E11] text-[#FEFDF7] select-none">
+      <div className="flex flex-col h-full overflow-hidden bg-slate-900 text-slate-200 select-none border-r border-slate-800">
         {/* Brand Header */}
-        <div className="h-16 px-4 flex items-center justify-between border-b border-white/15 shrink-0">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800 shrink-0">
           <Link
             href={user.role === "GODOWN" ? "/godown" : "/admin"}
             className="flex items-center gap-2.5 overflow-hidden"
           >
-            <div className="w-9 h-9 rounded-xl bg-[#FC830D] text-white font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
               JMD
             </div>
             {!isCollapsed && (
@@ -345,7 +350,7 @@ export function ManagementShell({
                 <div className="font-black text-sm tracking-tight leading-none text-white">
                   JMD CART
                 </div>
-                <div className="text-[10px] text-[#FDAF18] font-bold uppercase tracking-wider mt-0.5">
+                <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wider mt-0.5">
                   Saharsa Distribution
                 </div>
               </div>
@@ -390,7 +395,7 @@ export function ManagementShell({
                   <button
                     type="button"
                     onClick={() => toggleGroup(group.name)}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 text-[11px] font-black uppercase tracking-wider text-[#FDAF18]/90 hover:text-white transition"
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 text-[11px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-200 transition"
                   >
                     <span className="flex items-center gap-1.5">
                       <GroupIcon className="w-3.5 h-3.5 opacity-80" />
@@ -430,8 +435,8 @@ export function ManagementShell({
                           }
                           className={`flex items-center justify-between gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition ${
                             active
-                              ? "bg-[#FC830D] text-white shadow-xs font-bold"
-                              : "text-white/85 hover:bg-white/10 hover:text-white"
+                              ? "bg-blue-600 text-white shadow-xs font-bold"
+                              : "text-slate-300 hover:bg-slate-800 hover:text-white"
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -533,7 +538,7 @@ export function ManagementShell({
 
             <nav aria-label="Breadcrumb" className="min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-gray-500 font-semibold truncate">
-                <span className="text-[#790E11] font-bold">
+                <span className="text-blue-700 font-bold">
                   {activeNavItem?.group || "Management"}
                 </span>
                 <span>/</span>
@@ -580,6 +585,23 @@ export function ManagementShell({
                 </select>
               </div>
             )}
+
+            {/* Density Mode Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = density === "comfortable" ? "compact" : "comfortable";
+                setDensity(next);
+                try {
+                  localStorage.setItem("jmd_mgmt_density", next);
+                } catch {}
+              }}
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-gray-200 hover:bg-gray-100 text-xs font-semibold text-gray-700 transition"
+              title={`Switch to ${density === "comfortable" ? "compact" : "comfortable"} density`}
+            >
+              <Layers className="w-3.5 h-3.5 text-blue-600" />
+              <span className="capitalize">{density}</span>
+            </button>
 
             {/* Notifications Bell */}
             <div className="relative">

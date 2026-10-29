@@ -41,6 +41,46 @@ body {
   font-feature-settings: "tnum" 1;
 }
 
+/* Management App Theme Scope (Direction A: Executive Slate Precision) */
+[data-app="management"] {
+  --mgmt-bg: #f8fafc;
+  --mgmt-surface: #ffffff;
+  --mgmt-surface-subtle: #f1f5f9;
+  --mgmt-surface-hover: #e2e8f0;
+  --mgmt-text-primary: #0f172a;
+  --mgmt-text-secondary: #475569;
+  --mgmt-text-muted: #94a3b8;
+  --mgmt-primary: #0f172a;
+  --mgmt-primary-hover: #1e293b;
+  --mgmt-accent: #2563eb;
+  --mgmt-accent-hover: #1d4ed8;
+  --mgmt-accent-subtle: #eff6ff;
+  --mgmt-border: #e2e8f0;
+  --mgmt-border-subtle: #cbd5e1;
+  --mgmt-sidebar-bg: #0b1329;
+  --mgmt-sidebar-text: #94a3b8;
+  --mgmt-sidebar-text-hover: #f8fafc;
+  --mgmt-sidebar-active-bg: #1e293b;
+  --mgmt-sidebar-active-text: #ffffff;
+  --mgmt-sidebar-border: #1e293b;
+  --mgmt-success: #16a34a;
+  --mgmt-success-bg: #f0fdf4;
+  --mgmt-warning: #d97706;
+  --mgmt-warning-bg: #fffbeb;
+  --mgmt-danger: #dc2626;
+  --mgmt-danger-bg: #fef2f2;
+  --mgmt-row-py: 0.5rem;
+  --mgmt-row-px: 0.75rem;
+  background-color: var(--mgmt-bg);
+  color: var(--mgmt-text-primary);
+}
+
+[data-app="management"][data-density="compact"] {
+  --mgmt-row-py: 0.25rem;
+  --mgmt-row-px: 0.5rem;
+  font-size: 0.8125rem;
+}
+
 /* Hide scrollbar for category pills and carousels */
 .scrollbar-none::-webkit-scrollbar {
   display: none;

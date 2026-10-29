@@ -314,17 +314,24 @@ export class BillingService {
             createdAt: effectiveDate,
             finalizedAt: effectiveDate,
             items: {
-              create: orderPricing.lines.map((line) => ({
-                productId: line.productId,
-                qty: line.qty,
-                mrpPaise: line.mrpPaise,
-                discountBp: line.effectiveDiscountBp,
-                unitPricePaise: line.unitPricePaise,
-                taxablePaise: line.taxablePaise,
-                gstRateBp: line.gstRateBp,
-                taxPaise: line.taxPaise,
-                hsn: hsnMap.get(line.productId) || "21069099",
-              })),
+              create: orderPricing.lines.map((line, idx) => {
+                const orig = validated.items[idx];
+                return {
+                  productId: line.productId,
+                  qty: line.qty,
+                  mrpPaise: orig?.mrpOverridePaise ?? line.mrpPaise,
+                  originalMrpPaise: orig?.originalMrpPaise ?? line.mrpPaise,
+                  mrpOverridden: Boolean(orig?.mrpOverridden),
+                  rateOverridden: Boolean(orig?.rateOverridden),
+                  unitLabel: orig?.unitLabel || "Pcs",
+                  discountBp: line.effectiveDiscountBp,
+                  unitPricePaise: line.unitPricePaise,
+                  taxablePaise: line.taxablePaise,
+                  gstRateBp: line.gstRateBp,
+                  taxPaise: line.taxPaise,
+                  hsn: hsnMap.get(line.productId) || "21069099",
+                };
+              }),
             },
           },
         });
@@ -341,6 +348,13 @@ export class BillingService {
           : null;
 
         for (const [lineIdx, line] of orderPricing.lines.entries()) {
+          const inputItem = validated.items[lineIdx];
+          if (inputItem?.updateMasterMrp && inputItem.mrpOverridePaise && (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN)) {
+            await tx.product.update({
+              where: { id: line.productId },
+              data: { mrpPaise: inputItem.mrpOverridePaise },
+            });
+          }
           const prod = prodMap.get(line.productId);
           const packSize = prod?.packSize || 1;
 

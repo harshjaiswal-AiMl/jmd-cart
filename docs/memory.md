@@ -339,3 +339,42 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Party Ledgers (`ledger_entries`): Fully cleared (0, all party balances reset to ₹0.00)
   - Invoice & Order Sequences (`sequences`): Reset to 1 (Next invoice: `INV/26-27/000001`, Next order: `ORD/26-27/000001`)
   - Preserved intact: 950 Catalog Products, 1702 Parties, 31 Companies, 4 Locations, Users and system configuration.
+
+### 2026-10-29: Prompt #14 — Management Panel Redesign (Stitch Direction A), Simplified Van App, POS Upgrades & Busy-Style Keyboard Flow
+
+- **Executive Summary:**
+  - Implemented Prompt #14 delivering:
+    1. Redesigned Management Theme (Direction A: "Executive Slate Precision") with scoped tokens under `[data-app="management"]` and responsive density modes (comfortable/compact). Storefront (`jmdcart.com`) remains pixel-identical and isolated.
+    2. Role-specific Sidebar Clean-up: Admin navigation consolidated into exactly 8 top-level groups (`Dashboard`, `Sales`, `Orders & Dispatch`, `Inventory`, `Catalog`, `Parties`, `Accounts & Reports`, `Settings & People`). Non-admin roles capped at ≤6 operational items (Shop: 6, Godown: 6, Van: 6, Delivery: 2, Accounts: 6). Zero 404s verified across all roles.
+    3. Drastically Simplified Van App: Redesigned `/van` dashboard with bold high-contrast KPIs (Today's Sales, Cash in Hand, Available Stock, Pending Deliveries) and 3 HUGE primary buttons: `1. 🛒 NEW SALE`, `2. 📦 MY STOCK`, `3. 🏁 END OF DAY`. Redesigned `/van/billing` with visible 3-step stepper (`1. Customer` -> `2. Items & Units` -> `3. Tender & Print`) and multi-unit selector (`QtyUnitPicker`) supporting Dozen and Bag.
+    4. POS Upgrades from Owner Handwritten Note:
+       - Customer Party Card displaying Name, Phone, Address, and direct Edit button.
+       - Party Name/Contact Modification: Cashiers (`SHOP`), Van Salespeople (`SALESPERSON`), `ACCOUNTS`, `ADMIN`, and `SUPER_ADMIN` can edit customer details with audit history tracked in `PartyNameHistory`.
+       - Line MRP & Rate Edit: Line MRP is now an editable field for all customer tiers. Changing MRP recalculates Disc %; changing Rate recalculates Disc %; changing Disc % recalculates Rate. Admin has a "Master" checkbox (`updateMasterMrp`) to sync edited MRP back to the product master.
+       - Busy-Style Keyboard Billing: `Ctrl+K` exclusively focuses POS product search without shell popup interference; `ArrowDown`/`ArrowUp` navigates suggestions; `Enter` adds item and tabs into `qty` -> `unit` -> `mrp` -> `rate` -> `disc` -> `Enter` jumps directly to search next item.
+       - Multi-unit options: Full support for `Dozen` (12 pcs) and `Bag` (`bagSize`) for ₹1–₹100 items with live rate calculation based on piece discount.
+       - Product weight badge displayed next to product short code/name in POS lines and search.
+
+- **Git Diff --stat Justification:**
+  - `prisma/schema.prisma`: Added `weightValue`, `weightUnit`, `bagSize` to `Product`; added `PartyNameHistory` audit table; added `unitLabel`, `originalMrpPaise`, `mrpOverridden`, `rateOverridden` to `InvoiceItem`.
+  - `prisma/migrations/20261029190000_party_history_units_weight/migration.sql`: Additive database migration.
+  - `src/app/globals.css`: Added CSS variables for Executive Slate Precision theme under `[data-app="management"]` with density variants.
+  - `src/components/layout/management-shell.tsx`: Scoped shell with `data-app="management"` and `data-density`, added density switcher pill, bypassed global `Ctrl+K` on `/shop/pos`.
+  - `src/config/nav.config.ts`: Streamlined admin navigation to 8 groups and enforced ≤6 items for non-admin roles.
+  - `src/modules/billing/billing.types.ts`: Extended invoice item input schema with unit label and MRP override metadata.
+  - `src/modules/billing/billing.service.ts`: Handled invoice item creation with unit override metadata and optional admin master MRP sync.
+  - `src/app/shop/pos/actions.ts`: Added `updatePartyNameAndContactAction` recording name history.
+  - `src/app/shop/pos/pos-client.tsx`: Implemented Party card, edit modal, editable line MRP/rate with Enter key flow, product weight badge, and Dozen/Bag units.
+  - `src/components/billing/qty-unit-picker.tsx`: Added Dozen (12 pcs) and Bag options.
+  - `src/app/van/page.tsx`: Transformed van home into 4 big bold KPI cards + 3 HUGE touch buttons.
+  - `src/app/van/billing/van-billing-client.tsx`: Added 3-step sale workflow header and integrated Dozen/Bag units.
+  - `tests/integration/nav-routes.test.ts`: Verified zero broken routes and enforced nav group limits.
+  - `tests/unit/prompt14-pos-van-upgrades.test.ts`: Added unit test suite covering party history, unit multipliers, and MRP overrides.
+
+- **Verification & Proof Layer:**
+  - `pnpm typecheck`: Passed with 0 errors.
+  - `pnpm lint`: Passed with 0 errors.
+  - Vitest test suite: 81 test files, 437 tests passed (100% green).
+  - Next.js production build (`pnpm build`): Compiled successfully across 83 static & dynamic routes.
+  - Storefront Isolation: Verified `jmdcart.com` routes and styling remain untouched and pixel-identical.
+

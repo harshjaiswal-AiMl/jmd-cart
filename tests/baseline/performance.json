@@ -1,0 +1,35 @@
+{
+  "firstLoadSharedJsKb": 87.3,
+  "middlewareKb": 98.5,
+  "routes": {
+    "/shop/pos": {
+      "sizeKb": 20.3,
+      "totalKb": 150
+    },
+    "/van/billing": {
+      "sizeKb": 11.8,
+      "totalKb": 139
+    },
+    "/godown/stock/update": {
+      "sizeKb": 13.5,
+      "totalKb": 108
+    },
+    "/godown/operations": {
+      "sizeKb": 10.9,
+      "totalKb": 105
+    },
+    "/admin": {
+      "sizeKb": 2.1,
+      "totalKb": 96.5
+    },
+    "/godown/van-issues/[id]/edit": {
+      "sizeKb": 4.63,
+      "totalKb": 98.8
+    }
+  },
+  "throttledLoadTimeSecTarget": {
+    "dashboard": 1.2,
+    "pos": 1.4,
+    "van_home": 1.1
+  }
+}

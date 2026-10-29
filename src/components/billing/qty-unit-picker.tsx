@@ -3,14 +3,17 @@
 import React, { useState } from "react";
 import { Package, ShoppingBag } from "lucide-react";
 
+export type PickerUnit = "PCS" | "CARTON" | "DOZEN" | "BAG";
+
 export interface QtyUnitPickerProps {
   productId: string;
   productName: string;
   packSize: number;
+  bagSize?: number | null;
   packLabel?: string | null;
   mrpPaise: number;
   availablePieces: number;
-  onAdd: (qty: number, unit: "PCS" | "CARTON") => void;
+  onAdd: (qty: number, unit: PickerUnit) => void;
   disabled?: boolean;
 }
 
@@ -18,31 +21,52 @@ export function QtyUnitPicker({
   productId,
   productName,
   packSize,
+  bagSize,
   packLabel,
   mrpPaise,
   availablePieces,
   onAdd,
   disabled,
 }: QtyUnitPickerProps) {
-  const [unit, setUnit] = useState<"PCS" | "CARTON">("PCS");
+  const [unit, setUnit] = useState<PickerUnit>("PCS");
   const [qty, setQty] = useState(1);
   const [open, setOpen] = useState(false);
 
   const effectivePackSize = Math.max(1, packSize || 1);
+  const effectiveBagSize = Math.max(1, bagSize || effectivePackSize);
   const cartonAvailable = effectivePackSize > 1 ? Math.floor(availablePieces / effectivePackSize) : 0;
+  const bagAvailable = Math.floor(availablePieces / effectiveBagSize);
+  const dozenAvailable = Math.floor(availablePieces / 12);
   const looseAvailable = effectivePackSize > 1 ? availablePieces % effectivePackSize : availablePieces;
   const label = packLabel || "Carton";
 
-  const piecesNeeded = unit === "CARTON" ? qty * effectivePackSize : qty;
+  // Allow Dozen and Bag for items with MRP between ₹1 and ₹100
+  const isDozenBagEligible = !mrpPaise || (mrpPaise >= 100 && mrpPaise <= 10000);
+
+  const unitMultiplier =
+    unit === "CARTON"
+      ? effectivePackSize
+      : unit === "BAG"
+      ? effectiveBagSize
+      : unit === "DOZEN"
+      ? 12
+      : 1;
+
+  const piecesNeeded = qty * unitMultiplier;
   const isOverStock = piecesNeeded > availablePieces;
   const cartonDisabled = effectivePackSize <= 1 || cartonAvailable === 0;
+  const bagDisabled = bagAvailable === 0;
+  const dozenDisabled = dozenAvailable === 0;
 
-  const pricePerUnit =
+  const pricePerUnit = (mrpPaise * unitMultiplier) / 100;
+  const maxAllowed =
     unit === "CARTON"
-      ? (mrpPaise * effectivePackSize) / 100
-      : mrpPaise / 100;
-
-  const maxAllowed = unit === "CARTON" ? cartonAvailable : availablePieces;
+      ? cartonAvailable
+      : unit === "BAG"
+      ? bagAvailable
+      : unit === "DOZEN"
+      ? dozenAvailable
+      : availablePieces;
 
   const handleAdd = () => {
     if (isOverStock || maxAllowed <= 0) return;
@@ -56,7 +80,7 @@ export function QtyUnitPicker({
       <button
         type="button"
         onClick={() => {
-          setUnit(cartonDisabled ? "PCS" : "PCS");
+          setUnit("PCS");
           setQty(1);
           setOpen(true);
         }}
@@ -69,7 +93,7 @@ export function QtyUnitPicker({
   }
 
   return (
-    <div className="flex flex-col gap-2 bg-white border border-slate-200 rounded-xl p-2.5 shadow-lg min-w-[210px] text-slate-900">
+    <div className="flex flex-col gap-2 bg-white border border-slate-200 rounded-xl p-2.5 shadow-lg min-w-[240px] text-slate-900">
       {/* Unit Segmented Toggle */}
       <div className="flex rounded-lg overflow-hidden border border-slate-200 text-[11px] font-bold">
         <button
@@ -101,8 +125,46 @@ export function QtyUnitPicker({
               : "bg-white text-slate-600 hover:bg-slate-50"
           }`}
         >
-          <Package className="w-3 h-3" /> {label} (Peti)
+          <Package className="w-3 h-3" /> {label}
         </button>
+        {isDozenBagEligible && (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                if (!dozenDisabled) {
+                  setUnit("DOZEN");
+                  setQty(1);
+                }
+              }}
+              disabled={dozenDisabled}
+              className={`flex-1 py-1 px-1 flex items-center justify-center gap-0.5 transition-colors disabled:opacity-35 disabled:cursor-not-allowed ${
+                unit === "DOZEN"
+                  ? "bg-[#12355B] text-white"
+                  : "bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Dzn(12)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!bagDisabled) {
+                  setUnit("BAG");
+                  setQty(1);
+                }
+              }}
+              disabled={bagDisabled}
+              className={`flex-1 py-1 px-1 flex items-center justify-center gap-0.5 transition-colors disabled:opacity-35 disabled:cursor-not-allowed ${
+                unit === "BAG"
+                  ? "bg-[#12355B] text-white"
+                  : "bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              Bag
+            </button>
+          </>
+        )}
       </div>
 
       {/* Stock Information */}
@@ -112,7 +174,7 @@ export function QtyUnitPicker({
 
       {/* Price info */}
       <div className="text-[11px] font-bold text-[#12355B] text-center">
-        ₹{pricePerUnit.toFixed(2)} / {unit === "CARTON" ? `${label} (${effectivePackSize} pcs)` : "pc"}
+        ₹{pricePerUnit.toFixed(2)} / {unit === "CARTON" ? `${label} (${effectivePackSize} pcs)` : unit === "DOZEN" ? "Dozen (12 pcs)" : unit === "BAG" ? `Bag (${effectiveBagSize} pcs)` : "pc"}
       </div>
 
       {/* Quantity Stepper */}
@@ -148,7 +210,7 @@ export function QtyUnitPicker({
       {/* Over-stock Warning */}
       {isOverStock && (
         <p className="text-[10px] text-rose-600 font-semibold text-center">
-          Only {maxAllowed} {unit === "CARTON" ? `${label}(s)` : "pcs"} available
+          Only {maxAllowed} {unit} available
         </p>
       )}
 
@@ -170,7 +232,7 @@ export function QtyUnitPicker({
           disabled={isOverStock || maxAllowed <= 0}
           className="flex-1 py-1 text-[11px] font-bold text-white bg-[#12355B] hover:bg-[#0E2843] rounded-lg disabled:opacity-40"
         >
-          Add {unit === "CARTON" ? label : "Pcs"}
+          Add {unit}
         </button>
       </div>
     </div>

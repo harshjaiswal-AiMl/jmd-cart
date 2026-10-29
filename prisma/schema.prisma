@@ -224,6 +224,7 @@ model User {
   incentiveRules         IncentiveRule[]
   incentiveEntries       IncentiveEntry[]
   incentivePayouts       IncentivePayout[]
+  partyNameChanges       PartyNameHistory[] @relation("PartyNameChanger")
 
   @@map("users")
 }
@@ -294,6 +295,9 @@ model Product {
   name         String
   shortCode    String   @unique @map("short_code")
   weight       String?  @map("weight")
+  weightValue  Float?   @map("weight_value")
+  weightUnit   String?  @map("weight_unit")
+  bagSize      Int?     @map("bag_size")
   companyId    String?  @map("company_id")
   categoryId   String?  @map("category_id")
   hsn          String   @default("0000")
@@ -458,6 +462,7 @@ model Party {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
+  nameHistory   PartyNameHistory[]
   company       Company?      @relation("CompanySupplier", fields: [companyId], references: [id], onDelete: SetNull)
   invoices      Invoice[]
   purchases     Purchase[]
@@ -595,6 +600,10 @@ model InvoiceItem {
   gstRateBp      Int    @map("gst_rate_bp")
   taxPaise       Int    @map("tax_paise")
   hsn            String
+  unitLabel      String? @default("Pcs") @map("unit_label")
+  originalMrpPaise Int?   @map("original_mrp_paise")
+  mrpOverridden  Boolean @default(false) @map("mrp_overridden")
+  rateOverridden Boolean @default(false) @map("rate_overridden")
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -1278,4 +1287,24 @@ model IncentiveEntry {
   @@index([orderId])
   @@index([payoutId])
   @@map("incentive_entries")
+}
+
+model PartyNameHistory {
+  id          String   @id @default(cuid())
+  partyId     String   @map("party_id")
+  oldName     String   @map("old_name")
+  newName     String   @map("new_name")
+  oldPhone    String?  @map("old_phone")
+  newPhone    String?  @map("new_phone")
+  oldAddress  String?  @map("old_address")
+  newAddress  String?  @map("new_address")
+  reason      String?  @map("reason")
+  changedById String   @map("changed_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  party     Party @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  changedBy User  @relation("PartyNameChanger", fields: [changedById], references: [id])
+
+  @@index([partyId])
+  @@map("party_name_histories")
 }

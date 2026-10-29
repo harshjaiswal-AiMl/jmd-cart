@@ -1,0 +1,50 @@
+{
+  "counter_bill_3_items": {
+    "name": "Counter bill with 3 items (Shop POS)",
+    "baselineClicks": 4,
+    "baselineKeystrokes": 18,
+    "targetClicks": 0,
+    "targetKeystrokes": 14,
+    "unit": "keystrokes + clicks"
+  },
+  "van_sale_workflow": {
+    "name": "Van Sale (Customer -> Items -> Payment -> Receipt)",
+    "baselineSteps": 6,
+    "baselineTaps": 12,
+    "targetSteps": 3,
+    "targetTaps": 6
+  },
+  "receive_stock_grn": {
+    "name": "Receive Goods / Stock GRN Creation",
+    "baselineClicks": 6,
+    "baselineKeystrokes": 22,
+    "targetClicks": 3
+  },
+  "carton_dispatch_order": {
+    "name": "Pack and handover carton order on Dispatch board",
+    "baselineClicks": 5,
+    "targetClicks": 3
+  },
+  "collect_pending_payment": {
+    "name": "Record pending party collection",
+    "baselineClicks": 4,
+    "baselineKeystrokes": 10,
+    "targetClicks": 2
+  },
+  "add_catalog_product": {
+    "name": "Add product to catalog",
+    "baselineClicks": 8,
+    "baselineKeystrokes": 35,
+    "targetClicks": 5
+  },
+  "find_party_ledger": {
+    "name": "Find party ledger",
+    "baselineClicks": 3,
+    "targetClicks": 1
+  },
+  "run_day_end": {
+    "name": "Run Van Day-End Reconciliation",
+    "baselineSteps": 4,
+    "targetSteps": 2
+  }
+}

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { formatISTDateTime } from "@/lib/date";
 import { VanStockView } from "./van-stock-view";
 import { VanHandedOverDeliveries } from "@/components/van/van-handed-over-deliveries";
-import { Truck, FileText, ShoppingCart, ArrowRight, AlertCircle, CheckCircle2, PackageCheck } from "lucide-react";
+import { Truck, FileText, ShoppingCart, Boxes, CheckCircle2, AlertCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +73,34 @@ export default async function SalespersonVanPage() {
   );
   const pendingCashPaise = pendingDeliveries.reduce((sum, o) => sum + o.totalPaise, 0);
 
+  // Today's Van Sales & Cash Collection metrics
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todayInvoices = van
+    ? await prisma.invoice.findMany({
+        where: {
+          locationId: van.id,
+          createdAt: { gte: todayStart },
+          status: "FINAL",
+        },
+        select: { totalPaise: true },
+      })
+    : [];
+  const todaySalesPaise = todayInvoices.reduce((sum, inv) => sum + inv.totalPaise, 0);
+
+  const todayPayments = van
+    ? await prisma.payment.findMany({
+        where: {
+          invoice: { locationId: van.id },
+          mode: "CASH",
+          createdAt: { gte: todayStart },
+        },
+        select: { amountPaise: true },
+      })
+    : [];
+  const cashInHandPaise = todayPayments.reduce((sum, p) => sum + p.amountPaise, 0);
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 sm:px-6 space-y-6">
       {/* Top Banner & Vehicle Header */}
@@ -83,14 +111,14 @@ export default async function SalespersonVanPage() {
             <span>/</span>
             <span>Handheld Sales Portal</span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#12355B] tracking-tight flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <span>{van ? van.name : "Unassigned Van"}</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
               Saharsa Division
             </span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-            Logged in as <strong className="text-slate-900">{session.user.name}</strong> • Daily route loading, customer deliveries & mobile billing
+            Logged in as <strong className="text-slate-900">{session.user.name}</strong> • Daily route loading, customer deliveries &amp; mobile billing
           </p>
         </div>
 
@@ -105,13 +133,54 @@ export default async function SalespersonVanPage() {
             </Link>
             <Link
               href="/van/billing"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#12355B] hover:bg-[#0E2843] transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
             >
               <ShoppingCart className="w-3.5 h-3.5" />
               <span>Start Billing</span>
             </Link>
           </div>
         )}
+      </div>
+
+      {/* 3 HUGE PRIMARY BUTTONS FOR VAN OPERATIONS (Prompt #14) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 1. NEW SALE */}
+        <Link
+          href="/van/billing"
+          className="flex flex-col items-center justify-center p-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-3xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 text-center group border-2 border-emerald-500"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+            <ShoppingCart className="w-7 h-7 text-white" />
+          </div>
+          <span className="text-xl sm:text-2xl font-black tracking-tight">1. 🛒 NEW SALE</span>
+          <span className="text-xs text-emerald-100 font-bold mt-1">Start 3-Step Field Invoice</span>
+        </Link>
+
+        {/* 2. MY STOCK */}
+        <a
+          href="#van-stock-matrix"
+          className="flex flex-col items-center justify-center p-6 bg-slate-900 hover:bg-slate-800 text-white rounded-3xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 text-center group border-2 border-slate-700"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+            <Boxes className="w-7 h-7 text-blue-400" />
+          </div>
+          <span className="text-xl sm:text-2xl font-black tracking-tight">2. 📦 MY STOCK</span>
+          <span className="text-xs text-slate-300 font-bold mt-1">
+            {stockSummary?.totalPieces || 0} pcs loaded ({stockSummary?.inventory.length || 0} products)
+          </span>
+        </a>
+
+        {/* 3. END OF DAY */}
+        <Link
+          href="/van/reconciliation"
+          className="flex flex-col items-center justify-center p-6 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-3xl shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 text-center group border-2 border-amber-400"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-black/10 flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+            <CheckCircle2 className="w-7 h-7 text-slate-950" />
+          </div>
+          <span className="text-xl sm:text-2xl font-black tracking-tight">3. 🏁 END OF DAY</span>
+          <span className="text-xs text-amber-950 font-bold mt-1">Daily Reconciliation &amp; Cash Handover</span>
+        </Link>
       </div>
 
       {/* Handed-Over Customer Deliveries Section */}
@@ -136,7 +205,7 @@ export default async function SalespersonVanPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="font-bold text-[#12355B] text-sm">
+                  <span className="font-bold text-slate-900 text-sm">
                     Active Morning Load: {stockSummary.activeVanDay.issueSheetNo}
                   </span>
                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -155,10 +224,9 @@ export default async function SalespersonVanPage() {
               <div className="flex items-center gap-2">
                 <Link
                   href="/van/billing"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-[#12355B] hover:bg-[#0E2843] text-white transition-colors shadow-xs"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow-xs"
                 >
                   <span>Create Bill</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
             </div>
@@ -175,42 +243,45 @@ export default async function SalespersonVanPage() {
               </div>
               <Link
                 href="/godown/van-issues"
-                className="hidden sm:inline-flex text-xs font-semibold text-[#12355B] hover:underline"
+                className="hidden sm:inline-flex text-xs font-semibold text-blue-600 hover:underline"
               >
-                Godown Dispatch →
+                Godown Dispatch &rarr;
               </Link>
             </div>
           )}
 
-          {/* Quick Metrics Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {/* Key Today Metrics Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
               <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
-                Loaded Products
+                Today&apos;s Sales
               </p>
-              <p className="text-2xl font-black text-[#12355B] mt-1">
-                {stockSummary?.inventory.length || 0}
-              </p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
-                Available Pieces
-              </p>
-              <p className="text-2xl font-black text-[#1B998B] mt-1">
-                {stockSummary?.totalPieces || 0} pcs
-              </p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
-                Stock Valuation
-              </p>
-              <p className="text-2xl font-black text-slate-900 mt-1">
-                ₹{((stockSummary?.totalValuationPaise || 0) / 100).toLocaleString("en-IN", {
+              <p className="text-2xl font-black text-slate-900 mt-1 font-mono">
+                ₹{(todaySalesPaise / 100).toLocaleString("en-IN", {
                   minimumFractionDigits: 0,
                   maximumFractionDigits: 0,
                 })}
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-xs bg-emerald-50/20">
+              <p className="text-[11px] text-emerald-800 uppercase font-bold tracking-wider">
+                Cash In Hand
+              </p>
+              <p className="text-2xl font-black text-emerald-700 mt-1 font-mono">
+                ₹{(cashInHandPaise / 100).toLocaleString("en-IN", {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
+                })}
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+              <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
+                Available Stock
+              </p>
+              <p className="text-2xl font-black text-blue-600 mt-1">
+                {stockSummary?.totalPieces || 0} pcs
               </p>
             </div>
 
@@ -228,33 +299,16 @@ export default async function SalespersonVanPage() {
                 })}
               </p>
             </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <p className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
-                Van Status
-              </p>
-              <div className="flex items-center gap-1.5 mt-2">
-                {stockSummary?.activeVanDay ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span className="text-xs font-bold text-slate-900 uppercase">On Route</span>
-                  </>
-                ) : (
-                  <>
-                    <Truck className="w-4 h-4 text-slate-400" />
-                    <span className="text-xs font-bold text-slate-600 uppercase">At Godown</span>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Interactive Searchable Stock Matrix */}
-          <VanStockView
-            inventory={stockSummary?.inventory || []}
-            vanName={van.name}
-            hasActiveLoad={!!stockSummary?.activeVanDay}
-          />
+          <div id="van-stock-matrix">
+            <VanStockView
+              inventory={stockSummary?.inventory || []}
+              vanName={van.name}
+              hasActiveLoad={!!stockSummary?.activeVanDay}
+            />
+          </div>
         </>
       )}
     </div>

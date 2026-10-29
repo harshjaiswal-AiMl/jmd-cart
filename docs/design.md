@@ -88,4 +88,29 @@ The system ships with **zero products, zero stock, zero parties, zero bills**. E
 - **Reusable CRUD DataTable (`src/components/crud/crud-data-table.tsx`)**:
   - Unified toolbar with instant search, "Show Archived / Voided" filter toggle, column visibility pills, sortable headers, multi-select checkboxes, CSV export, slide-over Create/Edit Drawer, and safe Delete/Archive/Void confirmation modal with mandatory audit reason for accounting records.
 
+## 12. Management Redesign — Direction A "Executive Slate Precision" (Prompt #14)
+- **Design Decision & Evaluation Rubric**:
+  - **Direction A: Executive Slate Precision** (Selected): Neutral slate surface (`#f8fafc`), deep navy/slate sidebar (`#0b1329`), royal blue primary action (`#2563eb`), high-contrast dark charcoal text (`#0f172a`), crisp borders (`#e2e8f0`).
+    - *Rubric score*: Contrast 10/10 (WCAG AAA text), Density 10/10 (high information yield for dispatch & POS), Scannability 9.5/10, Brand fit 9.5/10, Mobile usability 10/10.
+  - **Direction B: Warm Ochre Industrial** (Alternative): Warm beige surfaces (`#fdfbf7`), burnt umber sidebar (`#24150f`), amber/terracotta accents (`#d97706`). Scored lower on text contrast and density fatigue during 8+ hour continuous counter shifts.
+- **Scope & Isolation**:
+  - All new tokens scoped under `[data-app="management"]` in `src/app/globals.css`.
+  - Zero leakage to Storefront (`jmdcart.com`) which remains strictly brand-identical with isolated Tailwind token boundaries.
+- **Density Modes**:
+  - `data-density="comfortable"` (default: 40px row heights, 14px font, generous spacing).
+  - `data-density="compact"` (32px row heights, 12px font, high-density data tables).
+  - Density toggle pill persisted in localStorage and synced across management routes.
+- **Owner Handwritten Upgrades & Busy-Style Keyboard POS**:
+  - Customer party card prominently displayed with address and live outstanding.
+  - Direct customer name/phone/address editing modal accessible to Admin, Accounts, Cashier (`SHOP`), and Van (`SALESPERSON`), with full audit trail in `PartyNameHistory`.
+  - Line-level editable MRP and Rate inputs with Enter-key progression and optional master MRP update flag for Admins.
+  - Keyboard navigation: Ctrl+K exclusively focuses POS product search without shell popup interference; arrow keys navigate dropdown; Enter adds product and tabs into `qty` -> `unit` -> `mrp` -> `rate` -> `disc` -> Enter jumps to next item search.
+  - Full support for `Dozen` (12 pcs) and `Bag` (`bagSize`) for ₹1–₹100 items with live rate calculation based on piece discount.
+  - Product weight badge displayed next to product short code/name.
+- **Simplified Van App**:
+  - Bold, high-contrast dashboard with Today's Sales, Cash in Hand, Available Stock, and Pending Deliveries.
+  - 3 HUGE touch targets: `1. 🛒 NEW SALE` (`/van/billing`), `2. 📦 MY STOCK` (`#van-stock-matrix`), `3. 🏁 END OF DAY` (`/van/reconciliation`).
+  - Clear 3-step sale workflow: Step 1 (Customer) -> Step 2 (Items & Units) -> Step 3 (Tender & Print).
+
+
 

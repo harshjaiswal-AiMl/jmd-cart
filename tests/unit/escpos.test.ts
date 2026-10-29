@@ -191,6 +191,10 @@ describe("Task 2.5: ESC/POS Command Encoder & Receipt Formatter", () => {
           gstRateBp: 500,
           taxPaise: 2629,
           hsn: "21069099",
+          unitLabel: "Pcs",
+          originalMrpPaise: null,
+          mrpOverridden: false,
+          rateOverridden: false,
           product: {
             id: "prod-1",
             name: "Bikaji Bhujia 400g Pouch",

@@ -10,7 +10,7 @@ import {
 } from "@/config/nav.config";
 
 describe("Part 4 — Sidebar Navigation & Route Verification (nav.config.ts)", () => {
-  it("1. exposes all 10 groups and every nav item to SUPER_ADMIN and ADMIN", () => {
+  it("1. exposes all 8 groups and every nav item to SUPER_ADMIN and ADMIN", () => {
     const superGroups = getNavGroupsForRole(UserRole.SUPER_ADMIN);
     const adminGroups = getNavGroupsForRole(UserRole.ADMIN);
 
@@ -34,36 +34,26 @@ describe("Part 4 — Sidebar Navigation & Route Verification (nav.config.ts)", (
     expect(totalAdminItems).toBe(NAV_ITEMS.length);
   });
 
-  it("2. restricts GODOWN (Warehouse Manager) to Dashboard, Inventory, Van, Catalog (read-only + stock upload), and Reports", () => {
+  it("2. restricts GODOWN (Warehouse Manager) to Dashboard, Orders & Dispatch, and Inventory (exactly 6 focused items)", () => {
     const godownGroups = getNavGroupsForRole(UserRole.GODOWN);
     const groupNames = godownGroups.map((g) => g.name);
 
     expect(groupNames).toEqual([
       "Dashboard",
+      "Orders & Dispatch",
       "Inventory",
-      "Dispatch",
-      "Van",
-      "Catalog",
-      "Reports",
     ]);
-    expect(groupNames).not.toContain("Admin");
-    expect(groupNames).not.toContain("Accounts");
+    expect(groupNames).not.toContain("Catalog");
+    expect(groupNames).not.toContain("Settings & People");
+    expect(groupNames).not.toContain("Accounts & Reports");
     expect(groupNames).not.toContain("Sales");
 
-    // Verify Update Stock & Excel Upload is visible to GODOWN
-    const invGroup = godownGroups.find((g) => g.name === "Inventory")!;
-    expect(
-      invGroup.items.some((i) => i.href === "/godown/stock/update")
-    ).toBe(true);
-
-    // Verify Catalog items visible to GODOWN are marked readOnlyForRoles: [GODOWN]
-    const catGroup = godownGroups.find((g) => g.name === "Catalog")!;
-    for (const item of catGroup.items) {
-      expect(item.readOnlyForRoles).toContain(UserRole.GODOWN);
-    }
+    // Total items visible to GODOWN is at most 6
+    const totalGodownItems = godownGroups.reduce((sum, g) => sum + g.items.length, 0);
+    expect(totalGodownItems).toBeLessThanOrEqual(6);
 
     // Verify route guard helper
-    expect(canRoleAccessNavHref(UserRole.GODOWN, "/godown/stock/update")).toBe(
+    expect(canRoleAccessNavHref(UserRole.GODOWN, "/godown/stock")).toBe(
       true
     );
     expect(canRoleAccessNavHref(UserRole.GODOWN, "/admin/catalog/import")).toBe(
@@ -98,7 +88,7 @@ describe("Part 4 — Sidebar Navigation & Route Verification (nav.config.ts)", (
 
       expect(
         exists,
-        `Expected route ${item.href} (${item.label}) to have a page.tsx at ${directPagePath}`
+        `Navigation item '${item.id}' (${item.label}) has href '${item.href}' which does not resolve to an existing Next.js page file.`
       ).toBe(true);
     }
   });

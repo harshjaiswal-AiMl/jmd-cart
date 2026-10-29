@@ -1,0 +1,826 @@
+{
+  "capturedAt": "2026-10-29T12:56:40.331Z",
+  "totalRoutes": 99,
+  "routes": [
+    "/",
+    "/admin",
+    "/admin/banners",
+    "/admin/catalog",
+    "/admin/catalog/data-quality",
+    "/admin/catalog/import",
+    "/admin/catalog/price-lists",
+    "/admin/crud",
+    "/admin/crud/[entity]",
+    "/admin/incentives",
+    "/admin/incentives/backfill",
+    "/admin/incentives/ledger",
+    "/admin/incentives/rules",
+    "/admin/incentives/settings",
+    "/admin/incentives/statements",
+    "/admin/orders",
+    "/admin/orders/[id]",
+    "/admin/orders/[id]/pick-list",
+    "/admin/parties",
+    "/admin/parties/[id]/ledger",
+    "/admin/parties/import",
+    "/admin/pricing",
+    "/admin/reports",
+    "/admin/reports/agent-sales",
+    "/admin/settings",
+    "/admin/stock",
+    "/app",
+    "/app/accounts",
+    "/app/delivery",
+    "/app/godown",
+    "/app/owner",
+    "/app/shop",
+    "/app/van",
+    "/change-password",
+    "/cookie-policy",
+    "/delivery",
+    "/forgot-password",
+    "/godown",
+    "/godown/dispatch",
+    "/godown/dispatch/new-order",
+    "/godown/operations",
+    "/godown/purchases",
+    "/godown/purchases/new",
+    "/godown/receive-goods",
+    "/godown/receive-goods/[id]",
+    "/godown/receive-goods/new",
+    "/godown/returns",
+    "/godown/returns/[id]",
+    "/godown/returns/[id]/print",
+    "/godown/returns/new",
+    "/godown/stock",
+    "/godown/stock/[productId]",
+    "/godown/stock/update",
+    "/godown/van-issues",
+    "/godown/van-issues/[id]/edit",
+    "/godown/van-issues/[id]/print",
+    "/godown/van-issues/[id]/reconcile",
+    "/godown/van-issues/new",
+    "/login",
+    "/management",
+    "/offline",
+    "/privacy",
+    "/refund-policy",
+    "/register",
+    "/reports",
+    "/setup",
+    "/shop",
+    "/shop/invoices",
+    "/shop/invoices/[id]",
+    "/shop/invoices/[id]/print",
+    "/shop/invoices/sample/preview",
+    "/shop/my-incentives",
+    "/shop/pos",
+    "/store",
+    "/store/account",
+    "/store/cart",
+    "/store/checkout",
+    "/store/orders",
+    "/store/orders/[id]",
+    "/store/orders/[id]/invoice",
+    "/store/products/[id]",
+    "/store/wholesale",
+    "/store/wishlist",
+    "/terms",
+    "/van",
+    "/van/billing",
+    "/van/bills",
+    "/van/collections",
+    "/van/reconciliation",
+    "[API] /api/auth/[...nextauth]",
+    "[API] /api/bills/[scanId]/image/[page]",
+    "[API] /api/health",
+    "[API] /api/store/geo/reverse",
+    "[API] /api/store/search",
+    "[API] /api/upload",
+    "[API] /app/[role]/manifest.json",
+    "[API] /app/[role]/manifest.webmanifest",
+    "[API] /logout",
+    "[API] /media/[...key]"
+  ],
+  "totalServerActionFiles": 37,
+  "serverActions": [
+    {
+      "file": "src/app/(auth)/change-password/actions.ts",
+      "actions": [
+        "changePasswordAction"
+      ]
+    },
+    {
+      "file": "src/app/(auth)/forgot-password/actions.ts",
+      "actions": [
+        "requestResetOtpAction",
+        "resetPasswordWithOtpAction"
+      ]
+    },
+    {
+      "file": "src/app/(auth)/login/actions.ts",
+      "actions": [
+        "loginAction"
+      ]
+    },
+    {
+      "file": "src/app/(auth)/register/actions.ts",
+      "actions": [
+        "registerAction",
+        "verifyEmailOtpAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/banners/actions.ts",
+      "actions": [
+        "saveBannersAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/catalog/actions.ts",
+      "actions": [
+        "createProductAction",
+        "updateProductAction",
+        "updateProductImageAction",
+        "updateProductPricesInlineAction",
+        "bulkSetPricesPercentOffMrpAction",
+        "toggleQuantityTierPricingAction",
+        "deleteProductAction",
+        "bulkDeleteProductsAction",
+        "bulkUpdateProductsAction",
+        "bulkCreateProductsAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/catalog/data-quality/actions.ts",
+      "actions": [
+        "bulkDeactivateProductsAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/catalog/import/actions.ts",
+      "actions": [
+        "importCatalogAction",
+        "previewBrandWorkbookAction",
+        "commitBrandWorkbookAction",
+        "downloadBlankCatalogTemplateAction",
+        "downloadReviewReportAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/crud/actions.ts",
+      "actions": [
+        "crudCreateAction",
+        "crudUpdateAction",
+        "crudDeleteOrArchiveAction",
+        "crudRestoreAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/incentives/actions.ts",
+      "actions": [
+        "createRuleAction",
+        "updateRuleAction",
+        "deleteRuleAction",
+        "testCalculationAction",
+        "saveIncentiveSettingsAction",
+        "approvePayoutAction",
+        "markPayoutPaidAction",
+        "recordAdjustmentAction",
+        "previewBackfillAction",
+        "applyBackfillAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/orders/actions.ts",
+      "actions": [
+        "updateOrderStatusAction",
+        "generateOrderInvoiceAction",
+        "assignDeliveryStaffAction",
+        "recordDeliveryPaymentAction",
+        "getDeliveryStaffListAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/parties/actions.ts",
+      "actions": [
+        "createPartyAction",
+        "updatePartyAction",
+        "importPartiesFromTallyAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/pricing/actions.ts",
+      "actions": [
+        "getPricingSlabsAction",
+        "createPricingSlabAction",
+        "deletePricingSlabAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/reports/agent-sales/actions.ts",
+      "actions": [
+        "getAgentReportAction",
+        "reassignAgentAction",
+        "getNextAgentCodeAction",
+        "listAgentsAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/reports/tally-actions.ts",
+      "actions": [
+        "exportTallyVouchersAction"
+      ]
+    },
+    {
+      "file": "src/app/admin/settings/actions.ts",
+      "actions": [
+        "updateBusinessDetailsAction",
+        "updateRoleDiscountLimitsAction",
+        "updateVerificationSettingsAction",
+        "updateDeliverySettingsAction",
+        "updatePaymentModeSettingsAction",
+        "updateEInvoiceSettingsAction"
+      ]
+    },
+    {
+      "file": "src/app/app/accounts/actions.ts",
+      "actions": [
+        "receiveInvoicePaymentAction"
+      ]
+    },
+    {
+      "file": "src/app/godown/dispatch/actions.ts",
+      "actions": [
+        "createDispatchRunAction",
+        "handoverDispatchRunAction",
+        "handleFailedDeliveryAction",
+        "completeCounterPickupAction",
+        "updatePackingStatusAction",
+        "createManualOrderAction"
+      ]
+    },
+    {
+      "file": "src/app/godown/operations/actions.ts",
+      "actions": [
+        "manualConvertGodownAction",
+        "reverseConversionAction",
+        "transferStockAction",
+        "transferBatchStockAction",
+        "cartonBreakAction",
+        "recordDamageAction",
+        "adjustStockAction"
+      ]
+    },
+    {
+      "file": "src/app/godown/purchases/actions.ts",
+      "actions": [
+        "recordPurchaseAction",
+        "cancelPurchaseAction",
+        "updatePurchaseAction"
+      ]
+    },
+    {
+      "file": "src/app/godown/receive-goods/actions.ts",
+      "actions": [
+        "createBillScanAction",
+        "updateLineCountAction",
+        "updateLineBilledQtyAction",
+        "deleteLineAction",
+        "confirmAllAsBilledAction",
+        "postGoodsReceiptAction"
+      ]
+    },
+    {
+      "file": "src/app/godown/returns/actions.ts",
+      "actions": [
+        "createDebitNoteAction"
+      ]
+    },
+    {
+      "file": "src/app/godown/stock/actions.ts",
+      "actions": [
+        "getStockBalancesAction",
+        "getStockKPIsAction"
+      ]
+    },
+    {
+      "file": "src/app/godown/stock/update/actions.ts",
+      "actions": [
+        "enterOpeningStockAction",
+        "setStockCountAction",
+        "adjustStockAction",
+        "bulkStockCsvAction",
+        "uploadStockExcelAction",
+        "undoStockUploadBatchAction",
+        "downloadCurrentStockExcelAction",
+        "bulkUpdateStockAction",
+        "updateProductStockBothLocationsAction",
+        "bulkUpdateProductsStockBothLocationsAction"
+      ]
+    },
+    {
+      "file": "src/app/godown/van-issues/actions.ts",
+      "actions": [
+        "createVanIssueSheetAction",
+        "updateVanIssueSheetAction"
+      ]
+    },
+    {
+      "file": "src/app/setup/actions.ts",
+      "actions": [
+        "completeSetupAction"
+      ]
+    },
+    {
+      "file": "src/app/shop/invoices/actions.ts",
+      "actions": [
+        "cancelInvoiceAction"
+      ]
+    },
+    {
+      "file": "src/app/shop/pos/actions.ts",
+      "actions": [
+        "calculateOrderPricingAction",
+        "setAdminManualRateAction",
+        "finalizeBillAction",
+        "createQuickPartyAction",
+        "checkPartyCreditStatusAction",
+        "verifyOwnerOverrideAction",
+        "getPartyBillHistoryAction",
+        "getPartyLastItemPurchaseAction",
+        "saveProductPriceAction",
+        "quickAddShopStockAction"
+      ]
+    },
+    {
+      "file": "src/app/store/account/actions.ts",
+      "actions": [
+        "updateProfileAction",
+        "changeUserPasswordAction"
+      ]
+    },
+    {
+      "file": "src/app/store/cart/actions.ts",
+      "actions": [
+        "addToCartAction",
+        "updateCartQtyAction",
+        "removeFromCartAction",
+        "clearCartAction"
+      ]
+    },
+    {
+      "file": "src/app/store/checkout/actions.ts",
+      "actions": [
+        "checkoutCartAction"
+      ]
+    },
+    {
+      "file": "src/app/store/checkout/address-actions.ts",
+      "actions": [
+        "getUserAddressesAction",
+        "saveUserAddressAction",
+        "deleteUserAddressAction",
+        "setDefaultAddressAction"
+      ]
+    },
+    {
+      "file": "src/app/store/orders/actions.ts",
+      "actions": [
+        "reorderOrderAction"
+      ]
+    },
+    {
+      "file": "src/app/store/wishlist/actions.ts",
+      "actions": [
+        "toggleWishlistAction",
+        "removeFromWishlistAction",
+        "moveToCartAction",
+        "getWishlistSummaryAction"
+      ]
+    },
+    {
+      "file": "src/app/van/billing/actions.ts",
+      "actions": [
+        "createVanInvoiceAction",
+        "getInvoiceForPrintAction",
+        "getBusinessDetailsForPrintAction",
+        "checkVanPartyCreditStatusAction",
+        "verifyOwnerOverrideForVanAction"
+      ]
+    },
+    {
+      "file": "src/app/van/collections/actions.ts",
+      "actions": [
+        "recordCollectionAction",
+        "getCollectionForPrintAction",
+        "getPartyLedgerAction"
+      ]
+    },
+    {
+      "file": "src/app/van/reconciliation/actions.ts",
+      "actions": [
+        "reconcileVanDayAction",
+        "confirmCashHandoverAction"
+      ]
+    }
+  ],
+  "totalApiRoutes": 6,
+  "apiRoutes": [
+    {
+      "path": "/api/auth/[...nextauth]",
+      "methods": []
+    },
+    {
+      "path": "/api/bills/[scanId]/image/[page]",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/health",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/store/geo/reverse",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/store/search",
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/api/upload",
+      "methods": [
+        "POST"
+      ]
+    }
+  ],
+  "roleNav": {
+    "SUPER_ADMIN": {
+      "totalItems": 66,
+      "groups": {
+        "Dashboard": [
+          "Owner Overview (/admin)",
+          "Godown Overview (/godown)"
+        ],
+        "Sales": [
+          "Shop Billing (POS) (/shop/pos)",
+          "Invoices (/shop/invoices)",
+          "Online Orders (/admin/orders)",
+          "Van Sales (/van/bills)",
+          "My Incentives (/shop/my-incentives)"
+        ],
+        "Inventory": [
+          "Stock Overview (/godown/stock)",
+          "Update Stock & Excel Upload (/godown/stock/update)",
+          "Operations & Transfers (/godown/operations)",
+          "Stock Movements (/admin/stock)",
+          "Purchases / GRN (/godown/purchases)",
+          "Receive Goods (Scan Bill) (/godown/receive-goods)"
+        ],
+        "Dispatch": [
+          "Dispatch Board (/godown/dispatch)",
+          "+ Create Order (/godown/dispatch/new-order)"
+        ],
+        "Van": [
+          "Morning Issue (/godown/van-issues/new)",
+          "Evening Return (/godown/van-issues)",
+          "Reconciliation (/van/reconciliation)",
+          "Van Cash (/van/collections)"
+        ],
+        "Catalog": [
+          "Products (/admin/catalog)",
+          "Brands / Companies (/admin/crud/companies)",
+          "Categories (/admin/crud/categories)",
+          "Price Lists (A/B/C) (/admin/catalog/price-lists)",
+          "Price Slabs (/admin/pricing)",
+          "Import Products & Prices (/admin/catalog/import)",
+          "Storefront Banners (/admin/banners)"
+        ],
+        "Parties": [
+          "Customers (/admin/parties?type=CUSTOMER)",
+          "Retailers (List B) (/admin/parties?type=RETAILER)",
+          "Wholesalers (List A) (/admin/parties?type=WHOLESALER)",
+          "Suppliers (/admin/parties?type=SUPPLIER)",
+          "Credit & Limits (/admin/crud/parties)",
+          "Party Import (/admin/parties/import)"
+        ],
+        "Delivery": [
+          "Delivery Orders (/delivery)",
+          "Zones (/admin/crud/delivery_zones)",
+          "Delivery Charge Rules (/admin/crud/delivery_charge_rules)",
+          "Delivery Staff (/admin/crud/users?filterRole=DELIVERY)"
+        ],
+        "Accounts": [
+          "Receipts (/admin/crud/receipts)",
+          "Payments (/admin/crud/payments)",
+          "Party Ledger (/admin/parties)",
+          "Outstanding (/reports?tab=outstanding)",
+          "Day Book (/reports?tab=daybook)",
+          "Cash Book (/reports?tab=cashbook)",
+          "GST Reports (/reports?tab=gst)",
+          "Tally Export (/reports?tab=tally)"
+        ],
+        "Reports": [
+          "Sales Reports (/reports?tab=sales)",
+          "Stock Reports (/reports?tab=stock)",
+          "Van Reports (/reports?tab=van)",
+          "Returns & Debit Notes (/godown/returns)",
+          "Staff Performance (/reports?tab=staff)",
+          "Agent Sales (Incentives) (/admin/reports/agent-sales)"
+        ],
+        "People": [
+          "Staff & Users (/admin/crud/users)",
+          "Incentives Dashboard (/admin/incentives)",
+          "Rules & Calculator (/admin/incentives/rules)",
+          "Incentives Ledger (/admin/incentives/ledger)",
+          "Monthly Statements (/admin/incentives/statements)",
+          "Historical Backfill (/admin/incentives/backfill)",
+          "Incentive Settings (/admin/incentives/settings)"
+        ],
+        "Admin": [
+          "Master Data CRUD Hub (/admin/crud)",
+          "Users & Roles (/admin/crud/users)",
+          "Business Details (/admin/settings?tab=business)",
+          "Invoice Settings (/admin/settings?tab=invoice)",
+          "Discount Limits (/admin/crud/discount_limits)",
+          "Locations (/admin/crud/locations)",
+          "Storefront Settings (/admin/crud/storefront_settings)",
+          "Audit Log (/admin/crud/audit_logs)",
+          "Backup & Export (/admin/settings?tab=backup)"
+        ]
+      }
+    },
+    "ADMIN": {
+      "totalItems": 66,
+      "groups": {
+        "Dashboard": [
+          "Owner Overview (/admin)",
+          "Godown Overview (/godown)"
+        ],
+        "Sales": [
+          "Shop Billing (POS) (/shop/pos)",
+          "Invoices (/shop/invoices)",
+          "Online Orders (/admin/orders)",
+          "Van Sales (/van/bills)",
+          "My Incentives (/shop/my-incentives)"
+        ],
+        "Inventory": [
+          "Stock Overview (/godown/stock)",
+          "Update Stock & Excel Upload (/godown/stock/update)",
+          "Operations & Transfers (/godown/operations)",
+          "Stock Movements (/admin/stock)",
+          "Purchases / GRN (/godown/purchases)",
+          "Receive Goods (Scan Bill) (/godown/receive-goods)"
+        ],
+        "Dispatch": [
+          "Dispatch Board (/godown/dispatch)",
+          "+ Create Order (/godown/dispatch/new-order)"
+        ],
+        "Van": [
+          "Morning Issue (/godown/van-issues/new)",
+          "Evening Return (/godown/van-issues)",
+          "Reconciliation (/van/reconciliation)",
+          "Van Cash (/van/collections)"
+        ],
+        "Catalog": [
+          "Products (/admin/catalog)",
+          "Brands / Companies (/admin/crud/companies)",
+          "Categories (/admin/crud/categories)",
+          "Price Lists (A/B/C) (/admin/catalog/price-lists)",
+          "Price Slabs (/admin/pricing)",
+          "Import Products & Prices (/admin/catalog/import)",
+          "Storefront Banners (/admin/banners)"
+        ],
+        "Parties": [
+          "Customers (/admin/parties?type=CUSTOMER)",
+          "Retailers (List B) (/admin/parties?type=RETAILER)",
+          "Wholesalers (List A) (/admin/parties?type=WHOLESALER)",
+          "Suppliers (/admin/parties?type=SUPPLIER)",
+          "Credit & Limits (/admin/crud/parties)",
+          "Party Import (/admin/parties/import)"
+        ],
+        "Delivery": [
+          "Delivery Orders (/delivery)",
+          "Zones (/admin/crud/delivery_zones)",
+          "Delivery Charge Rules (/admin/crud/delivery_charge_rules)",
+          "Delivery Staff (/admin/crud/users?filterRole=DELIVERY)"
+        ],
+        "Accounts": [
+          "Receipts (/admin/crud/receipts)",
+          "Payments (/admin/crud/payments)",
+          "Party Ledger (/admin/parties)",
+          "Outstanding (/reports?tab=outstanding)",
+          "Day Book (/reports?tab=daybook)",
+          "Cash Book (/reports?tab=cashbook)",
+          "GST Reports (/reports?tab=gst)",
+          "Tally Export (/reports?tab=tally)"
+        ],
+        "Reports": [
+          "Sales Reports (/reports?tab=sales)",
+          "Stock Reports (/reports?tab=stock)",
+          "Van Reports (/reports?tab=van)",
+          "Returns & Debit Notes (/godown/returns)",
+          "Staff Performance (/reports?tab=staff)",
+          "Agent Sales (Incentives) (/admin/reports/agent-sales)"
+        ],
+        "People": [
+          "Staff & Users (/admin/crud/users)",
+          "Incentives Dashboard (/admin/incentives)",
+          "Rules & Calculator (/admin/incentives/rules)",
+          "Incentives Ledger (/admin/incentives/ledger)",
+          "Monthly Statements (/admin/incentives/statements)",
+          "Historical Backfill (/admin/incentives/backfill)",
+          "Incentive Settings (/admin/incentives/settings)"
+        ],
+        "Admin": [
+          "Master Data CRUD Hub (/admin/crud)",
+          "Users & Roles (/admin/crud/users)",
+          "Business Details (/admin/settings?tab=business)",
+          "Invoice Settings (/admin/settings?tab=invoice)",
+          "Discount Limits (/admin/crud/discount_limits)",
+          "Locations (/admin/crud/locations)",
+          "Storefront Settings (/admin/crud/storefront_settings)",
+          "Audit Log (/admin/crud/audit_logs)",
+          "Backup & Export (/admin/settings?tab=backup)"
+        ]
+      }
+    },
+    "WAREHOUSE_MANAGER": {
+      "totalItems": 20,
+      "groups": {
+        "Dashboard": [
+          "Godown Overview (/godown)"
+        ],
+        "Sales": [
+          "Invoices (/shop/invoices)"
+        ],
+        "Inventory": [
+          "Stock Overview (/godown/stock)",
+          "Update Stock & Excel Upload (/godown/stock/update)",
+          "Operations & Transfers (/godown/operations)",
+          "Stock Movements (/admin/stock)",
+          "Purchases / GRN (/godown/purchases)",
+          "Receive Goods (Scan Bill) (/godown/receive-goods)"
+        ],
+        "Dispatch": [
+          "Dispatch Board (/godown/dispatch)",
+          "+ Create Order (/godown/dispatch/new-order)"
+        ],
+        "Van": [
+          "Morning Issue (/godown/van-issues/new)",
+          "Evening Return (/godown/van-issues)",
+          "Reconciliation (/van/reconciliation)"
+        ],
+        "Catalog": [
+          "Products (/admin/catalog)",
+          "Brands / Companies (/admin/crud/companies)",
+          "Categories (/admin/crud/categories)",
+          "Price Lists (A/B/C) (/admin/catalog/price-lists)",
+          "Import Products & Prices (/admin/catalog/import)"
+        ],
+        "Reports": [
+          "Stock Reports (/reports?tab=stock)",
+          "Returns & Debit Notes (/godown/returns)"
+        ]
+      }
+    },
+    "GODOWN": {
+      "totalItems": 16,
+      "groups": {
+        "Dashboard": [
+          "Godown Overview (/godown)"
+        ],
+        "Inventory": [
+          "Stock Overview (/godown/stock)",
+          "Update Stock & Excel Upload (/godown/stock/update)",
+          "Operations & Transfers (/godown/operations)",
+          "Stock Movements (/admin/stock)",
+          "Purchases / GRN (/godown/purchases)",
+          "Receive Goods (Scan Bill) (/godown/receive-goods)"
+        ],
+        "Dispatch": [
+          "Dispatch Board (/godown/dispatch)"
+        ],
+        "Van": [
+          "Morning Issue (/godown/van-issues/new)",
+          "Evening Return (/godown/van-issues)",
+          "Reconciliation (/van/reconciliation)"
+        ],
+        "Catalog": [
+          "Products (/admin/catalog)",
+          "Brands / Companies (/admin/crud/companies)",
+          "Categories (/admin/crud/categories)"
+        ],
+        "Reports": [
+          "Stock Reports (/reports?tab=stock)",
+          "Returns & Debit Notes (/godown/returns)"
+        ]
+      }
+    },
+    "SHOP": {
+      "totalItems": 8,
+      "groups": {
+        "Sales": [
+          "Shop Billing (POS) (/shop/pos)",
+          "Invoices (/shop/invoices)",
+          "Online Orders (/admin/orders)",
+          "My Incentives (/shop/my-incentives)"
+        ],
+        "Inventory": [
+          "Stock Overview (/godown/stock)"
+        ],
+        "Parties": [
+          "Customers (/admin/parties?type=CUSTOMER)",
+          "Retailers (List B) (/admin/parties?type=RETAILER)",
+          "Wholesalers (List A) (/admin/parties?type=WHOLESALER)"
+        ]
+      }
+    },
+    "SALESPERSON": {
+      "totalItems": 5,
+      "groups": {
+        "Sales": [
+          "Van Sales (/van/bills)",
+          "My Incentives (/shop/my-incentives)"
+        ],
+        "Van": [
+          "Evening Return (/godown/van-issues)",
+          "Reconciliation (/van/reconciliation)",
+          "Van Cash (/van/collections)"
+        ]
+      }
+    },
+    "DELIVERY": {
+      "totalItems": 2,
+      "groups": {
+        "Delivery": [
+          "Delivery Orders (/delivery)"
+        ],
+        "Sales": [
+          "My Incentives (/shop/my-incentives)"
+        ]
+      }
+    },
+    "ACCOUNTS": {
+      "totalItems": 28,
+      "groups": {
+        "Dashboard": [
+          "Owner Overview (/admin)"
+        ],
+        "Sales": [
+          "Invoices (/shop/invoices)",
+          "Van Sales (/van/bills)"
+        ],
+        "Inventory": [
+          "Stock Movements (/admin/stock)",
+          "Purchases / GRN (/godown/purchases)"
+        ],
+        "Van": [
+          "Reconciliation (/van/reconciliation)",
+          "Van Cash (/van/collections)"
+        ],
+        "Parties": [
+          "Customers (/admin/parties?type=CUSTOMER)",
+          "Retailers (List B) (/admin/parties?type=RETAILER)",
+          "Wholesalers (List A) (/admin/parties?type=WHOLESALER)",
+          "Suppliers (/admin/parties?type=SUPPLIER)",
+          "Credit & Limits (/admin/crud/parties)"
+        ],
+        "Accounts": [
+          "Receipts (/admin/crud/receipts)",
+          "Payments (/admin/crud/payments)",
+          "Party Ledger (/admin/parties)",
+          "Outstanding (/reports?tab=outstanding)",
+          "Day Book (/reports?tab=daybook)",
+          "Cash Book (/reports?tab=cashbook)",
+          "GST Reports (/reports?tab=gst)",
+          "Tally Export (/reports?tab=tally)"
+        ],
+        "Reports": [
+          "Sales Reports (/reports?tab=sales)",
+          "Stock Reports (/reports?tab=stock)",
+          "Van Reports (/reports?tab=van)",
+          "Returns & Debit Notes (/godown/returns)",
+          "Agent Sales (Incentives) (/admin/reports/agent-sales)"
+        ],
+        "People": [
+          "Incentives Dashboard (/admin/incentives)",
+          "Incentives Ledger (/admin/incentives/ledger)",
+          "Monthly Statements (/admin/incentives/statements)"
+        ]
+      }
+    },
+    "CUSTOMER": {
+      "totalItems": 0,
+      "groups": {}
+    }
+  }
+}

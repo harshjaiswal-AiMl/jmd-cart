@@ -87,6 +87,10 @@ describe("Prompt #12 Part A: Receipt and Invoice Tweaks", () => {
         gstRateBp: 500,
         taxPaise: 1143,
         hsn: "0000",
+        unitLabel: "Pcs",
+        originalMrpPaise: null,
+        mrpOverridden: false,
+        rateOverridden: false,
         product: {
           id: "prod-1",
           name: "Parle-G 250g",
