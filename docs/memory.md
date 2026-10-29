@@ -378,3 +378,4 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Next.js production build (`pnpm build`): Compiled successfully across 83 static & dynamic routes.
   - Storefront Isolation: Verified `jmdcart.com` routes and styling remain untouched and pixel-identical.
 
+  - Production Deployment: Cloud Run revision `jmd-cart-00055-4kx` deployed with 100% traffic; Cloud SQL migration `20261029190000_party_history_units_weight` applied; all 29/29 production smoke tests passed against `https://management.jmdcart.com` and `https://jmdcart.com`.
