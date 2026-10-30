@@ -558,7 +558,7 @@ export function PosClient({
   ]);
 
   // Add Item to active cart
-  const addItemToCart = (product: ProductCatalogItem, unit: "Pcs" | "Carton" | "Dozen" | "Bag" = "Pcs", qty: number = 1) => {
+  const addItemToCart = (product: ProductCatalogItem, unit: "Pcs" | "Carton" | "Dozen" | "Bag" = "Pcs", qty: number = 1): string => {
     const resolved = resolvePrice(
       {
         mrpPaise: product.mrpPaise,
@@ -579,14 +579,17 @@ export function PosClient({
       (item) => item.productId === product.id && item.unit === unit
     );
 
+    let targetLineId: string;
     let newCart: PosCartLine[];
     if (existingIndex >= 0) {
+      targetLineId = activeTab.cart[existingIndex].id;
       newCart = activeTab.cart.map((item, idx) =>
         idx === existingIndex ? { ...item, qty: item.qty + qty } : item
       );
     } else {
+      targetLineId = `line-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
       const newLine: PosCartLine = {
-        id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        id: targetLineId,
         productId: product.id,
         product,
         qty,
@@ -603,6 +606,7 @@ export function PosClient({
     setHighlightedProductId(product.id);
     setItemSearchTerm("");
     setErrorMessage(null);
+    return targetLineId;
   };
 
   const updateLineQty = (lineId: string, newQty: number) => {
@@ -1392,6 +1396,7 @@ export function PosClient({
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         itemSearchInputRef.current?.focus();
+        itemSearchInputRef.current?.select();
       } else if (e.key === "Escape") {
         setShowHeldModal(false);
         setQuickCustomerModalOpen(false);
@@ -1948,18 +1953,20 @@ export function PosClient({
                     if (filteredProducts.length > 0) {
                       e.preventDefault();
                       const chosenProduct = filteredProducts[searchSelectedIndex] || filteredProducts[0];
-                      addItemToCart(chosenProduct, "Pcs", 1);
+                      const targetLineId = addItemToCart(chosenProduct, "Pcs", 1);
                       setItemSearchTerm("");
                       setSearchSelectedIndex(0);
-                      // Busy-style workflow: immediately focus the Qty field of the newly added row
+                      // Keyboard-first billing: immediately focus Qty field of the added/updated row with number selected
                       setTimeout(() => {
-                        const qtyInputs = document.querySelectorAll<HTMLInputElement>("table input[data-pos-field='qty']");
-                        if (qtyInputs.length > 0) {
-                          const lastInput = qtyInputs[qtyInputs.length - 1];
-                          lastInput.focus();
-                          lastInput.select();
+                        const targetQty = targetLineId
+                          ? document.querySelector<HTMLInputElement>(`tr[data-line-id='${targetLineId}'] input[data-pos-field='qty']`)
+                          : null;
+                        const qtyInput = targetQty || document.querySelector<HTMLInputElement>("table tr:last-child input[data-pos-field='qty']");
+                        if (qtyInput) {
+                          qtyInput.focus();
+                          qtyInput.select();
                         }
-                      }, 50);
+                      }, 30);
                     }
                   } else if (e.key === "Escape") {
                     if (itemSearchTerm) {
@@ -2006,24 +2013,30 @@ export function PosClient({
                   return (
                     <div
                       key={p.id}
-                      ref={isHighlighted ? (el) => el?.scrollIntoView({ block: "nearest" }) : undefined}
+                      ref={(el) => {
+                        if (isHighlighted && el) {
+                          el.scrollIntoView({ block: "nearest" });
+                        }
+                      }}
                       onClick={() => {
-                        addItemToCart(p, "Pcs", 1);
+                        const targetLineId = addItemToCart(p, "Pcs", 1);
                         setItemSearchTerm("");
                         setSearchSelectedIndex(0);
                         setTimeout(() => {
-                          const qtyInputs = document.querySelectorAll<HTMLInputElement>("table input[data-pos-field='qty']");
-                          if (qtyInputs.length > 0) {
-                            const lastInput = qtyInputs[qtyInputs.length - 1];
-                            lastInput.focus();
-                            lastInput.select();
+                          const targetQty = targetLineId
+                            ? document.querySelector<HTMLInputElement>(`tr[data-line-id='${targetLineId}'] input[data-pos-field='qty']`)
+                            : null;
+                          const qtyInput = targetQty || document.querySelector<HTMLInputElement>("table tr:last-child input[data-pos-field='qty']");
+                          if (qtyInput) {
+                            qtyInput.focus();
+                            qtyInput.select();
                           }
-                        }, 50);
+                        }, 30);
                       }}
                       className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                         isHighlighted
-                          ? "bg-amber-100 border-l-4 border-l-[#12355B] shadow-xs"
-                          : "hover:bg-blue-50/60"
+                          ? "bg-amber-100 border-l-4 border-l-[#FC830D] ring-2 ring-amber-400/50 shadow-md font-semibold"
+                          : "hover:bg-slate-50"
                       }`}
                     >
                       <div className="min-w-0 space-y-1">
@@ -2185,6 +2198,7 @@ export function PosClient({
                     return (
                       <tr
                         key={line.id}
+                        data-line-id={line.id}
                         onClick={() => setHighlightedProductId(line.productId)}
                         className={`transition-all cursor-pointer ${
                           !isStockSufficient
@@ -2318,6 +2332,7 @@ export function PosClient({
                             min="1"
                             value={line.qty}
                             onChange={(e) => updateLineQty(line.id, parseInt(e.target.value, 10) || 1)}
+                            onFocus={(e) => e.target.select()}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
@@ -2326,7 +2341,14 @@ export function PosClient({
                                 if (unitSelect) {
                                   unitSelect.focus();
                                 } else {
-                                  itemSearchInputRef.current?.focus();
+                                  const rateInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='rate']");
+                                  if (rateInput) {
+                                    rateInput.focus();
+                                    rateInput.select();
+                                  } else {
+                                    itemSearchInputRef.current?.focus();
+                                    itemSearchInputRef.current?.select();
+                                  }
                                 }
                               } else if (e.key === "Escape") {
                                 e.preventDefault();
@@ -2348,18 +2370,13 @@ export function PosClient({
                               if (e.key === "Enter") {
                                 e.preventDefault();
                                 const row = (e.target as HTMLElement).closest("tr");
-                                const mrpInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='mrp']");
-                                if (mrpInput) {
-                                  mrpInput.focus();
-                                  mrpInput.select();
-                                  return;
-                                }
                                 const rateInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='rate']");
                                 if (rateInput) {
                                   rateInput.focus();
                                   rateInput.select();
                                 } else {
                                   itemSearchInputRef.current?.focus();
+                                  itemSearchInputRef.current?.select();
                                 }
                               } else if (e.key === "Escape") {
                                 e.preventDefault();
@@ -2394,6 +2411,7 @@ export function PosClient({
                                 }
                                 placeholder="0.00"
                                 onChange={(e) => updateLineMrp(line.id, e.target.value)}
+                                onFocus={(e) => e.target.select()}
                                 data-pos-field="mrp"
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
@@ -2439,6 +2457,7 @@ export function PosClient({
                               value={line.customRateInput !== undefined ? line.customRateInput : (ratePerUnitPaise > 0 ? (ratePerUnitPaise / 100).toFixed(2) : "")}
                               placeholder="0.00"
                               onChange={(e) => updateLineRate(line.id, e.target.value)}
+                              onFocus={(e) => e.target.select()}
                               data-pos-field="rate"
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {
@@ -2450,6 +2469,7 @@ export function PosClient({
                                     discInput.select();
                                   } else {
                                     itemSearchInputRef.current?.focus();
+                                    itemSearchInputRef.current?.select();
                                   }
                                 } else if (e.key === "Escape") {
                                   e.preventDefault();
@@ -2486,6 +2506,7 @@ export function PosClient({
                               }
                               placeholder="0"
                               onChange={(e) => updateLineDiscountPercent(line.id, e.target.value)}
+                              onFocus={(e) => e.target.select()}
                               data-pos-field="disc"
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === "ArrowDown") {
