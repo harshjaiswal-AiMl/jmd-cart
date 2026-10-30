@@ -393,3 +393,4 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - `pnpm lint`: Passed with 0 errors.
   - Vitest test suite: 81 test files, 437 tests passed (100% green).
   - Next.js production build (`pnpm build`): Compiled successfully across 83 static & dynamic routes.
+  - Production Deployment: Cloud Run revision `jmd-cart-00056-v7n` deployed with 100% traffic; all 29/29 production smoke tests passed against `https://management.jmdcart.com` and `https://jmdcart.com`.
