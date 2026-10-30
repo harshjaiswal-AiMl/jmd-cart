@@ -1,6 +1,7 @@
 import { InvoiceWithDetails } from "./billing.types";
 import { BusinessDetails } from "../settings/settings.types";
 import { amountInWords } from "@/lib/number-to-words";
+import { getIstParts } from "@/lib/datetime";
 
 export interface InvoiceViewModelOptions {
   showAgentCode?: boolean;
@@ -161,22 +162,17 @@ function formatDateIST(date: Date | string | null | undefined): {
   const d = typeof date === "string" ? new Date(date) : date;
   if (isNaN(d.getTime())) return { date: "-", time: "-", full: "-" };
 
-  // IST is UTC+5:30
-  const utcMs = d.getTime() + d.getTimezoneOffset() * 60000;
-  const istDate = new Date(utcMs + 5.5 * 3600000);
+  const { year, month, day, hours, minutes } = getIstParts(d);
+  const dd = String(day).padStart(2, "0");
+  const mm = String(month).padStart(2, "0");
 
-  const day = String(istDate.getDate()).padStart(2, "0");
-  const month = String(istDate.getMonth() + 1).padStart(2, "0");
-  const year = istDate.getFullYear();
-
-  let hours = istDate.getHours();
-  const minutes = String(istDate.getMinutes()).padStart(2, "0");
   const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12;
-  const hoursStr = String(hours).padStart(2, "0");
+  const h12 = hours % 12 || 12;
+  const hoursStr = String(h12).padStart(2, "0");
+  const minutesStr = String(minutes).padStart(2, "0");
 
-  const dateStr = `${day}-${month}-${year}`;
-  const timeStr = `${hoursStr}:${minutes} ${ampm}`;
+  const dateStr = `${dd}-${mm}-${year}`;
+  const timeStr = `${hoursStr}:${minutesStr} ${ampm}`;
   return {
     date: dateStr,
     time: timeStr,
@@ -197,7 +193,8 @@ export function buildInvoiceViewModel(
   business?: Partial<BusinessDetails> | null,
   options: InvoiceViewModelOptions = {}
 ): InvoiceViewModel {
-  const dates = formatDateIST(invoice.createdAt);
+  const effectiveDate = invoice.invoiceDate || invoice.createdAt;
+  const dates = formatDateIST(effectiveDate);
 
   // Clean invoice number: e.g. "INV-2026-000123" -> "123" or original if standard
   const cleanInvoiceNumber =

@@ -190,15 +190,22 @@ export class InvoiceEditService {
       // Check date validity if date is changing
       let targetDate = invoice.invoiceDate || invoice.createdAt;
       if (input.invoiceDate) {
-        const parsedDate = new Date(input.invoiceDate);
-        const dateCheck = validateManualDate({
-          date: parsedDate,
-          maxBackDays: role === UserRole.SHOP ? 7 : 30,
-        });
-        if (!dateCheck.valid) {
-          throw new Error(dateCheck.error);
+        const existingDateStr = toIstDateString(targetDate);
+        if (input.invoiceDate !== existingDateStr) {
+          const originalParts = getIstParts(targetDate);
+          const hh = String(originalParts.hours).padStart(2, '0');
+          const mm = String(originalParts.minutes).padStart(2, '0');
+          const ss = String(originalParts.seconds).padStart(2, '0');
+          const parsedDate = new Date(`${input.invoiceDate}T${hh}:${mm}:${ss}+05:30`);
+          const dateCheck = validateManualDate({
+            date: parsedDate,
+            maxBackDays: role === UserRole.SHOP ? 7 : 30,
+          });
+          if (!dateCheck.valid) {
+            throw new Error(dateCheck.error);
+          }
+          targetDate = parsedDate;
         }
-        targetDate = parsedDate;
       }
 
       // Snapshot before edit

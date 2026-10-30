@@ -74,7 +74,8 @@ export class BillingService {
       }
     }
 
-    const effectiveDate = validated.invoiceDate ? new Date(validated.invoiceDate) : new Date();
+    const now = new Date();
+    const effectiveDate = validated.invoiceDate ? new Date(validated.invoiceDate) : now;
 
     // 1b. Idempotency deduplication: if already created with this idempotencyKey, return existing invoice
     if (validated.idempotencyKey) {
@@ -311,8 +312,9 @@ export class BillingService {
             totalPaise: orderPricing.totalPaise,
             paymentStatus,
             createdBy: actorId ?? null,
-            createdAt: effectiveDate,
+            createdAt: now,
             finalizedAt: effectiveDate,
+            invoiceDate: validated.invoiceDate ? effectiveDate : now,
             items: {
               create: orderPricing.lines.map((line, idx) => {
                 const orig = validated.items[idx];

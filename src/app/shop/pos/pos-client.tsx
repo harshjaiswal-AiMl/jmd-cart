@@ -228,7 +228,7 @@ export function PosClient({
       splitUpiPaise: "",
       remarks: "",
       isHeld: false,
-      billDate: isAdmin ? todayStr : undefined,
+      billDate: undefined,
     },
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("tab-1");
@@ -284,7 +284,7 @@ export function PosClient({
         splitUpiPaise: "",
         remarks: "",
         isHeld: false,
-      billDate: isAdmin ? todayStr : undefined,
+      billDate: undefined,
       }
     );
   }, [tabs, activeTabId]);
@@ -937,7 +937,7 @@ export function PosClient({
       splitUpiPaise: "",
       remarks: "",
       isHeld: false,
-      billDate: isAdmin ? todayStr : undefined,
+      billDate: undefined,
     };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newId);
@@ -984,7 +984,7 @@ export function PosClient({
         splitUpiPaise: "",
         remarks: "",
         isHeld: false,
-      billDate: isAdmin ? todayStr : undefined,
+      billDate: undefined,
       };
       setTabs([resetTab]);
       setActiveTabId(resetTab.id);
@@ -1295,7 +1295,15 @@ export function PosClient({
           payments,
           idempotencyKey,
           creditOverride: overrideToUse || undefined,
-          invoiceDate: isAdmin && activeTab.billDate ? `${activeTab.billDate}T12:00:00` : undefined,
+          invoiceDate: (() => {
+            const isBackdated = isAdmin && Boolean(activeTab.billDate) && activeTab.billDate !== todayStr;
+            if (!isBackdated) return undefined;
+            const now = new Date();
+            const hh = String(now.getHours()).padStart(2, "0");
+            const mm = String(now.getMinutes()).padStart(2, "0");
+            const ss = String(now.getSeconds()).padStart(2, "0");
+            return `${activeTab.billDate}T${hh}:${mm}:${ss}`;
+          })(),
         });
 
         if (!res.success || !res.invoice) {
@@ -2768,23 +2776,27 @@ export function PosClient({
                     type="date"
                     max={todayStr}
                     value={activeTab.billDate || todayStr}
-                    onChange={(e) => updateActiveTab({ billDate: e.target.value })}
+                    onChange={(e) => updateActiveTab({ billDate: e.target.value === todayStr ? undefined : e.target.value })}
                     className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-amber-300 rounded-lg font-mono text-slate-900 focus:ring-2 focus:ring-amber-500 font-bold"
                   />
                   {activeTab.billDate && activeTab.billDate !== todayStr && (
                     <button
                       type="button"
-                      onClick={() => updateActiveTab({ billDate: todayStr })}
-                      title="Reset to today"
+                      onClick={() => updateActiveTab({ billDate: undefined })}
+                      title="Reset to real-time today"
                       className="px-2 py-1.5 text-[11px] font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs"
                     >
                       Today
                     </button>
                   )}
                 </div>
-                {activeTab.billDate && activeTab.billDate !== todayStr && (
+                {activeTab.billDate && activeTab.billDate !== todayStr ? (
                   <p className="text-[10px] text-amber-900 font-semibold">
                     Invoice will be sealed on: <strong>{activeTab.billDate}</strong>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-emerald-700 font-medium flex items-center gap-1">
+                    <span>🟢 Real-time system date & time will be captured</span>
                   </p>
                 )}
               </div>
