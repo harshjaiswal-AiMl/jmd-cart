@@ -1,5 +1,7 @@
 "use client";
 
+import { FontSizeToggle } from "@/components/common/font-size-provider";
+
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
@@ -703,6 +705,9 @@ export function ManagementShell({
                 </div>
               )}
             </div>
+
+            {/* Font Size Toggle */}
+            <FontSizeToggle />
 
             {/* User Menu */}
             <div className="relative">

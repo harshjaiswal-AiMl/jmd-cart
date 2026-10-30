@@ -67,6 +67,11 @@ export function InvoiceDetailClient({
               >
                 {invoice.status}
               </span>
+              {invoice.isRevised && (
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold uppercase bg-purple-100 text-purple-900 border border-purple-300">
+                  Revised (Rev {invoice.version})
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500">
               Created on {formatISTDateTime(invoice.createdAt)}
@@ -75,6 +80,14 @@ export function InvoiceDetailClient({
         </div>
 
         <div className="flex items-center gap-2">
+          {invoice.status !== "CANCELLED" && (
+            <Link
+              href={`/shop/invoices/${invoice.id}/edit`}
+              className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-lg shadow-sm flex items-center gap-1.5 transition"
+            >
+              ✏️ Edit Invoice
+            </Link>
+          )}
           <Link
             href={`/shop/invoices/${invoice.id}/print?format=cash_receipt`}
             target="_blank"

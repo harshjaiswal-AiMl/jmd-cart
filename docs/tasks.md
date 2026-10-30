@@ -175,3 +175,15 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
   - Incentive System: Complete multi-tier engine with cascade precedence (Agent+Product > Agent+Brand > Agent+Category > Product > Brand > Category > Agent Default > Global Default), append-only ledger (`IncentiveEntry`), and monthly statements/payouts (`IncentivePayout`). Admin screens at `/admin/incentives/*` and staff view at `/shop/my-incentives`.
   - Navigation & POS: Consolidated navigation into 12 groups with 301 redirects in `next.config.mjs`. POS multi-tab hold/resume, split payments, stock alerts, and keyboard shortcuts.
   - Baseline verification: `pnpm typecheck` (0 errors), `pnpm lint` (0 errors), 5 targeted test suites (34/34 tests passed), `pnpm build` (76/76 static and dynamic routes compiled).
+
+
+- 2026-10-30: Prompt #15 Complete - Owner Note 30/10/26 Implementation & Verification.
+  - [x] Item 1: Manual invoice date with role windows (30 days Admin/Super Admin/Accounts, 7 days Shop), mandatory audit reason, accounts lock date protection, and future date prohibition.
+  - [x] Item 2: Root font size context (`FontSizeProvider`) with presets (Small 87.5%, Default 100%, Large 112.5%, Extra Large 125%), persisted in cookie/localStorage, with header `A- / A+` toggle.
+  - [x] Item 3: Quick access to items by weight via `STANDARD_WEIGHT_BANDS` quick-filter chips and rapid tap-to-add Weight View grouping.
+  - [x] Item 4: Date issue resolved via centralized `src/lib/datetime.ts` (`Asia/Kolkata` IST timezone formatting and day range boundaries), eliminating UTC midnight drift.
+  - [x] Item 5: Comprehensive invoice modification (`/shop/invoices/[id]/edit`) with optimistic locking, append-only stock delta movements, ledger balancing, and `InvoiceRevision` before/after tracking.
+  - [x] Item 6: Product master modification with `ProductRevision` audit trail, pack size change stock guards, and bulk edit with undo snapshot.
+  - [x] Item 7: Item Stock Statement report (`/admin/reports/item-statement`) with `Opening + In - Out = Closing` invariant, sales channel breakdown (Shop, Van, Online), and CSV export.
+  - [x] Item 8: Invoice query totals summary bar on `/shop/invoices` computing Count, Total Invoiced, Taxable, Tax, Discount, Paid, Pending, and Average Bill.
+  - Verification: 86/86 test suites passed (450 tests), zero typecheck errors, zero lint errors, Next.js production build succeeded with all routes active.

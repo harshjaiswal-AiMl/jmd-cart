@@ -1,3 +1,4 @@
+import { FontSizeProvider } from "@/components/common/font-size-provider";
 import type { Metadata } from "next";
 import { Inter, Epilogue } from "next/font/google";
 import "./globals.css";
@@ -147,7 +148,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-surface font-body text-on-surface antialiased">
-        {children}
+        <FontSizeProvider>{children}</FontSizeProvider>
       </body>
     </html>
   );

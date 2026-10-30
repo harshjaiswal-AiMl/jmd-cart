@@ -251,6 +251,14 @@ export function ReportsClient({
           Day-End Cash Register
         </button>
 
+        <Link
+          href="/admin/reports/item-statement"
+          className="px-4 py-3 border-b-2 border-transparent text-blue-700 hover:text-blue-900 transition flex items-center gap-1.5 font-black bg-blue-50/60 rounded-t-lg"
+        >
+          <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+          <span>Item Stock Statement</span>
+        </Link>
+
         <button
           type="button"
           onClick={() => handleTabSwitch("stock")}

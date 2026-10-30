@@ -394,3 +394,41 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Vitest test suite: 81 test files, 437 tests passed (100% green).
   - Next.js production build (`pnpm build`): Compiled successfully across 83 static & dynamic routes.
   - Production Deployment: Cloud Run revision `jmd-cart-00056-v7n` deployed with 100% traffic; all 29/29 production smoke tests passed against `https://management.jmdcart.com` and `https://jmdcart.com`.
+
+### 2026-10-30: Prompt #15 — Owner's Note 30/10/26 Implementation & Verification
+
+- **Owner Note Items (Verbatim Intent):**
+  1. Date set manually
+  2. Font size
+  3. Quick access to all items according to weight
+  4. Date issue
+  5. Invoice modification: all columns (party name, date, item, qty, amount)
+  6. Item details modification
+  7. All items' stock details with sales and purchases
+  8. All invoices' amount in total
+
+- **Human Inputs Confirmed:**
+  - Date Issue Symptom: Confirmed date shifts or prints previous day near midnight due to UTC/IST boundary mismatches.
+  - Backdate Window: 30-day max backdate for Admin/Super Admin/Accounts, 7 days for Shop; future dates strictly forbidden. Mandatory reason required for dates other than today.
+  - Invoice Edit Permissions: Admin, Super Admin, Accounts, and Shop can edit invoices within their own shift (configurable in settings).
+  - Safety & Invariants: All stock movements remain append-only via `stock.postMovement()`. No deletion/modification of existing movements. Negative stock prevented. Invoices tracked via `InvoiceRevision` and optimistic locking `version`.
+
+- **Existing State Mapping:**
+  - Invoices: Use `createdAt` with occasional `invoiceDate` fallbacks. Need centralized `invoiceDate` (IST semantics) and `effectiveDate` on movements/ledger.
+  - Date helpers: `src/lib/date.ts` exists but uses ad-hoc formatting in parts of the app. Creating `src/lib/datetime.ts` with comprehensive IST helpers (`nowIst`, `toIstDateString`, `startOfIstDay`, `endOfIstDay`, `parseDmy`, `formatDmy`, `formatDmyHm`, `fyOf`).
+  - Weight fields: `weight`, `weightValue`, `weightUnit`, `bagSize` exist on `Product`. Need quick-filter chips (50g, 100g, 250g, 500g, 1kg, 5kg+, No Weight), weight grouping view, and sort-by-weight across POS, Van, Create Order, Stock.
+  - Revisions: Creating `InvoiceRevision` and `ProductRevision` tables with JSON before/after snapshots and diffs.
+  - Reports: Adding `Reports → Item Stock Statement` (`Opening + In - Out = Closing` invariant) with sales split by channel and purchases.
+  - Totals bar: Adding full-query aggregate totals bar on Invoices list and related tables (Total, Taxable, Tax, Discount, Paid, Pending, Average Bill).
+
+- **Prompt #15 Implementation Summary & Verification:**
+  - Root Cause of Date Issue: UTC vs IST midnight boundary shifts. Server environments running in UTC evaluate `new Date().toISOString().slice(0, 10)` as the previous day between 00:00 and 05:29 IST. Resolved by standardizing all date parsing, range bounding, and display through `src/lib/datetime.ts` using `Intl.DateTimeFormat` with `timeZone: "Asia/Kolkata"`.
+  - Manual Date: Shop POS and billing allow date selection with backdate validation (enforcing reason requirement, rejecting future dates, blocking edits past accounts lock date).
+  - Font Size: Persistent font scale context (`FontSizeProvider`) with presets (Small 87.5%, Default 100%, Large 112.5%, Extra Large 125%) stored in cookie and localStorage, with `A- / A+` toggle in top header and POS header.
+  - Weight Access: Fast-access weight filter bar (`STANDARD_WEIGHT_BANDS`: All, 50g, 100g, 200g, 250g, 500g, 1kg, 5kg+, ml/L, No Weight) and Weight View grouping toggle for rapid tap-to-add billing.
+  - Invoice Modification: Complete edit workflow (`/shop/invoices/[id]/edit`) allowing modification of party, date, items, qty, unit, MRP, rate, discount, and notes. Employs append-only stock delta movements (`SALE` / `SALE_CANCEL`) satisfying the `trg_stock_movements_immutable` trigger, financial ledger reconciliation, and `InvoiceRevision` diff tracking with optimistic locking.
+  - Item Modification: `ProductEditService` with `ProductRevision` tracking, pack size change stock protection, and bulk update with undo snapshot.
+  - Item Stock Statement: Dedicated report at `/admin/reports/item-statement` strictly proving `Opening + In - Out = Closing` invariant, broken down by channel (Shop, Van, Online) and purchases, with CSV export.
+  - Invoice Totals Bar: Database aggregate totals bar on `/shop/invoices` computing Count, Total Billed, Taxable, Tax, Discount, Paid, Pending, Average Bill, and Cancelled count across the active query filter.
+  - Verified with 86 passing test files (450 passing tests), clean typecheck, clean lint, and production `next build` success.
+

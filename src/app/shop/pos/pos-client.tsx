@@ -1,5 +1,8 @@
 "use client";
 
+import { categorizeWeightBand, STANDARD_WEIGHT_BANDS, WeightBand } from "@/lib/weight";
+import { FontSizeToggle } from "@/components/common/font-size-provider";
+
 import React, { useState, useTransition, useEffect, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import { PaymentMode } from "@prisma/client";
@@ -53,6 +56,9 @@ export interface ProductCatalogItem {
   name: string;
   shortCode: string;
   weight?: string | null;
+  weightValue?: number | null;
+  weightUnit?: string | null;
+  bagSize?: number | null;
   companyId: string | null;
   companyName: string | null;
   categoryId: string | null;
@@ -413,21 +419,37 @@ export function PosClient({
     date: string | null;
   } | null>(null);
   const itemSearchInputRef = useRef<HTMLInputElement>(null);
+  const [selectedWeightBand, setSelectedWeightBand] = useState<string>("ALL");
+  const [isWeightViewOpen, setIsWeightViewOpen] = useState(false);
+
+  const weightCounts = useMemo(() => {
+    const counts: Record<string, number> = { ALL: productsList.length };
+    for (const p of productsList) {
+      const band = categorizeWeightBand(p.weightValue, p.weightUnit);
+      counts[band] = (counts[band] || 0) + 1;
+    }
+    return counts;
+  }, [productsList]);
 
   // Filter products for autocomplete dropdown
   const filteredProducts = useMemo(() => {
     const term = itemSearchTerm.trim().toLowerCase();
-    if (!term) return [];
     return productsList
-      .filter(
-        (p) =>
+      .filter((p) => {
+        if (selectedWeightBand !== "ALL") {
+          const band = categorizeWeightBand(p.weightValue, p.weightUnit);
+          if (band !== selectedWeightBand) return false;
+        }
+        if (!term) return selectedWeightBand !== "ALL";
+        return (
           p.name.toLowerCase().includes(term) ||
           p.shortCode.toLowerCase().includes(term) ||
           (p.weight && p.weight.toLowerCase().includes(term)) ||
           (p.companyName && p.companyName.toLowerCase().includes(term))
-      )
-      .slice(0, 10);
-  }, [productsList, itemSearchTerm]);
+        );
+      })
+      .slice(0, 15);
+  }, [productsList, itemSearchTerm, selectedWeightBand]);
 
   // Fetch customer last purchase for highlighted product
   useEffect(() => {
@@ -1461,6 +1483,8 @@ export function PosClient({
             );
           })}
 
+          <FontSizeToggle className="bg-white/10 border-white/20 text-white" />
+
           <button
             onClick={handleCreateNewTab}
             title="Open new bill (F3)"
@@ -1839,6 +1863,56 @@ export function PosClient({
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Left/Center Pane: Item Search, Table Grid & Stock Indicator */}
         <section className="flex-1 flex flex-col bg-white overflow-hidden border-r border-slate-200">
+          {/* Weight Quick-Filter Bar & View Toggle */}
+          <div className="px-3 py-2 bg-slate-100/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-1 overflow-x-auto scrollbar-none py-0.5 text-xs font-bold">
+              <span className="text-[10px] font-black uppercase text-slate-400 mr-1">Weight:</span>
+              <button
+                type="button"
+                onClick={() => setSelectedWeightBand("ALL")}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition ${
+                  selectedWeightBand === "ALL"
+                    ? "bg-[#12355B] text-white shadow-xs"
+                    : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-200"
+                }`}
+              >
+                All ({weightCounts["ALL"] || 0})
+              </button>
+              {STANDARD_WEIGHT_BANDS.map((b) => {
+                const count = weightCounts[b.key] || 0;
+                if (count === 0 && b.key !== "none") return null;
+                const isSelected = selectedWeightBand === b.key;
+                return (
+                  <button
+                    key={b.key}
+                    type="button"
+                    onClick={() => setSelectedWeightBand(isSelected ? "ALL" : b.key)}
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition ${
+                      isSelected
+                        ? "bg-[#FC830D] text-white shadow-xs"
+                        : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-200"
+                    }`}
+                  >
+                    {b.label} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsWeightViewOpen((prev) => !prev)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
+                isWeightViewOpen
+                  ? "bg-purple-700 text-white shadow-xs"
+                  : "bg-white text-purple-900 border border-purple-200 hover:bg-purple-50"
+              }`}
+              title="Toggle Weight Section Grid View"
+            >
+              <span>⚖️ Weight View</span>
+            </button>
+          </div>
+
           {/* Quick Item Search Bar (Ctrl+K) */}
           <div className="p-3 border-b border-slate-200 bg-slate-50/70 relative shrink-0">
             <div className="relative">

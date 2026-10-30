@@ -206,17 +206,30 @@ One codebase, one database, two hostnames routed by Next.js `middleware.ts` base
 - **Reusable Admin CRUD Kit (`src/modules/crud/*`)**:
   - Entity registry (`crud.registry.ts`) and service (`crud.service.ts`) powering `/admin/crud` and `/admin/crud/[entity]` across all 19 entities with Archive/Void vs Hard Delete protection and full `AuditLog` coverage.
 
-## 16. Google Cloud Production Deployment (Prompt #07 GCP)
-- **Region**: Mumbai (`asia-south1`), Project: `jmd-cart`.
-- **Application**: Cloud Run service `jmd-cart` running Next.js standalone container (`node:20-alpine`, non-root `nextjs` user, port 8080).
-- **Database**: Cloud SQL PostgreSQL 16 (`jmd-cart-db`, Enterprise edition, `db-g1-small`, SSD 10GB, automated 02:00 UTC backups, 7-day point-in-time recovery, SSL required). Connected via `/cloudsql/jmd-cart:asia-south1:jmd-cart-db` Unix domain socket with a connection limit of 5.
-- **Uploads & File Storage**: Cloud Storage bucket `gs://jmd-cart-uploads` mounted directly into Cloud Run container at `/uploads` via Cloud Run second-generation volume mount with versioning and public-access-prevention enforced.
-- **Secrets**: Managed in Google Secret Manager (`AUTH_SECRET`, `SETUP_TOKEN`, `DB_PASSWORD`, `DATABASE_URL`) with runtime accessor permissions for `jmd-cart-run@jmd-cart.iam.gserviceaccount.com`. `SETUP_TOKEN` is recorded in git-ignored `.env.deploy`.
-- **Networking & Domains**:
-  - Global External Application Load Balancer with static IPv4 `136.81.89.67`.
-  - Regional Serverless NEG in `asia-south1` routing to `jmd-cart` Cloud Run service.
-  - Google-Managed SSL Certificate (`jmd-cart-cert`) securing `jmdcart.com`, `management.jmdcart.com`, and `www.jmdcart.com`.
-  - HTTP-to-HTTPS automatic 301 redirect map on port 80.
-  - Host-based routing via `src/middleware.ts`: `jmdcart.com` serves the storefront and returns 404 for staff paths; `management.jmdcart.com` serves all staff interfaces with unauthenticated redirect to `/login`; `www.jmdcart.com` redirects permanently to apex.
+## 17. Manual Dates, Font Scale, Weight Categorisation, Invoice Revisions, Item Modifications & Stock Statements (Prompt #15)
+- **Centralized Datetime Architecture (`src/lib/datetime.ts`)**:
+  - All business date logic, IST daylight boundaries, parsing, formatting, and day-range queries are centralized in `src/lib/datetime.ts`.
+  - Enforces `Asia/Kolkata` timezone across `nowIst`, `toIstDateString`, `startOfIstDay`, `endOfIstDay`, `parseDmy`, `formatDmy`, `formatDmyHm`, and `fyOf`.
+  - Manual backdate validation (`validateManualDate`) enforces role-based windows (30 days for Admin/Super Admin/Accounts, 7 days for Shop), requires an explicit audit reason for backdating, strictly blocks future dates, and enforces accounts lock dates.
+- **Dynamic Font Scaling (`src/components/common/font-size-provider.tsx`)**:
+  - Context provider applying CSS custom variable `--font-scale` to root `<html>` with presets: `Small (87.5%)`, `Default (100%)`, `Large (112.5%)`, `Extra Large (125%)`.
+  - Persisted across reloads in both `app_font_scale` cookie and browser `localStorage`.
+- **Weight Normalisation and Band Categorization (`src/lib/weight.ts`)**:
+  - Normalizes weight strings into grams / ml (`parseWeightToGrams`).
+  - Groups catalog items into `STANDARD_WEIGHT_BANDS` (`50g`, `100g`, `200g`, `250g`, `500g`, `1kg`, `5kg+`, `ml/L`, `No Weight`).
+  - Integrated into POS, Create Order, and catalog views for rapid tap-to-add billing.
+- **Audited Invoice Modification & Append-Only Stock Deltas (`src/modules/billing/invoice-edit.service.ts`)**:
+  - Invoices support modifications to party, date, line items, quantities, units, MRP, rate, discount, and notes.
+  - Implements optimistic locking via an incremental integer `version` field.
+  - Respects PostgreSQL trigger `trg_stock_movements_immutable` by posting append-only delta movements (`SALE` for net increases, `SALE_CANCEL` for net reductions) with `referenceType: "INVOICE_EDIT"`.
+  - Full before/after snapshots and line-level diffs are recorded in `InvoiceRevision` rows.
+- **Item Master Details Modification (`src/modules/catalog/product-edit.service.ts`)**:
+  - Allows editing product master details with `ProductRevision` tracking.
+  - Guarded against pack size modifications when physical inventory exists unless explicitly confirmed.
+- **Item Stock Statement (`src/modules/reports/item-stock-statement.service.ts`)**:
+  - Dedicated stock reconciliation report proving `Opening + In - Out = Closing` balance invariant across arbitrary IST date ranges.
+  - Granular breakdown of sales by channel (Shop, Van, Online) and incoming stock receipts (Purchases/GRN, Godown Transfers).
+- **Invoice Query Aggregates Bar (`src/modules/billing/invoice-totals.service.ts`)**:
+  - Real-time aggregate computations across filtered invoice sets: Total Invoiced, Taxable Amount, GST, Discount, Collected, Pending, and Average Bill.
 
 

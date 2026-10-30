@@ -95,6 +95,7 @@ export class StockRepository {
         meta: input.meta ? (input.meta as Prisma.InputJsonValue) : Prisma.JsonNull,
         idempotencyKey: input.idempotencyKey,
         createdBy: input.actorId ?? null,
+        effectiveDate: input.effectiveDate ?? null,
       },
     });
 

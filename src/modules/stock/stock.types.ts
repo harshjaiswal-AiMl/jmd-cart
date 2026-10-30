@@ -15,6 +15,7 @@ export interface PostMovementInput {
   idempotencyKey: string;
   actorId?: string | null;
   branchId?: number;
+  effectiveDate?: Date | null;
 }
 
 export interface StockMovementResult {
@@ -27,6 +28,7 @@ export interface StockMovementResult {
   qty: number;
   referenceType: string | null;
   referenceId: string | null;
+  effectiveDate?: Date | null;
   reason: string | null;
   meta: unknown;
   idempotencyKey: string;

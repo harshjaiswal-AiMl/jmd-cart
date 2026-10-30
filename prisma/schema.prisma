@@ -225,6 +225,9 @@ model User {
   incentiveEntries       IncentiveEntry[]
   incentivePayouts       IncentivePayout[]
   partyNameChanges       PartyNameHistory[] @relation("PartyNameChanger")
+  fontSizePreference     String?            @default("DEFAULT") @map("font_size_preference")
+  editedInvoices         InvoiceRevision[]  @relation("EditorInvoiceRevisions")
+  editedProducts         ProductRevision[]  @relation("EditorProductRevisions")
 
   @@map("users")
 }
@@ -331,6 +334,7 @@ model Product {
   stockReservations   StockReservation[]
   shopRequestLines    ShopRequestLine[]
   incentiveRules      IncentiveRule[]
+  revisions           ProductRevision[]
 
   @@index([name])
   @@index([companyId])
@@ -367,6 +371,7 @@ model StockMovement {
   meta           Json?
   idempotencyKey String       @unique @map("idempotency_key")
   createdBy      String?      @map("created_by")
+  effectiveDate  DateTime?    @map("effective_date")
   createdAt      DateTime     @default(now()) @map("created_at")
 
   product      Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -485,6 +490,7 @@ model LedgerEntry {
   creditPaise   Int        @default(0) @map("credit_paise")
   referenceType String?    @map("reference_type")
   referenceId   String?    @map("reference_id")
+  effectiveDate DateTime?  @map("effective_date")
   createdAt     DateTime   @default(now()) @map("created_at")
 
   party Party @relation(fields: [partyId], references: [id], onDelete: Restrict)
@@ -567,6 +573,10 @@ model Invoice {
   customerAddress      String?        @map("customer_address")
   agentUserId          String?        @map("agent_user_id")
   agentCodeSnapshot    String?        @map("agent_code_snapshot")
+  invoiceDate          DateTime?      @map("invoice_date")
+  version              Int            @default(1)
+  isRevised            Boolean        @default(false) @map("is_revised")
+  dateChangeReason     String?        @map("date_change_reason")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
 
@@ -581,6 +591,7 @@ model Invoice {
   order              Order?
   counterPickups     CounterPickup[]
   incentiveEntries   IncentiveEntry[]
+  revisions          InvoiceRevision[]
 
   @@index([locationId, createdAt])
   @@index([partyId, createdAt])
@@ -622,6 +633,7 @@ model Payment {
   notes         String?
   vanLocationId String?     @map("van_location_id")
   receivedBy    String?     @map("received_by")
+  effectiveDate DateTime?   @map("effective_date")
   createdAt     DateTime    @default(now()) @map("created_at")
 
   invoice     Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -1307,4 +1319,42 @@ model PartyNameHistory {
 
   @@index([partyId])
   @@map("party_name_histories")
+}
+
+model InvoiceRevision {
+  id             String   @id @default(cuid())
+  invoiceId      String   @map("invoice_id")
+  revisionNumber Int      @map("revision_number")
+  beforeSnapshot Json     @map("before_snapshot")
+  afterSnapshot  Json     @map("after_snapshot")
+  diff           Json?
+  reason         String
+  editorUserId   String?  @map("editor_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  editor  User?   @relation("EditorInvoiceRevisions", fields: [editorUserId], references: [id], onDelete: SetNull)
+
+  @@unique([invoiceId, revisionNumber])
+  @@index([invoiceId])
+  @@index([editorUserId])
+  @@map("invoice_revisions")
+}
+
+model ProductRevision {
+  id             String   @id @default(cuid())
+  productId      String   @map("product_id")
+  beforeSnapshot Json     @map("before_snapshot")
+  afterSnapshot  Json     @map("after_snapshot")
+  diff           Json?
+  reason         String?
+  editorUserId   String?  @map("editor_user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  editor  User?   @relation("EditorProductRevisions", fields: [editorUserId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([editorUserId])
+  @@map("product_revisions")
 }

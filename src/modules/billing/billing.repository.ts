@@ -40,6 +40,10 @@ export class BillingRepository {
         },
         payments: true,
         creditNotes: true,
+        revisions: {
+          include: { editor: { select: { id: true, name: true, role: true } } },
+          orderBy: { revisionNumber: "desc" },
+        },
       },
     });
 

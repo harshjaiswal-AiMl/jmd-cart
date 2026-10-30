@@ -1,7 +1,10 @@
 /**
  * Utility functions for formatting dates and times in Indian Standard Time (IST, Asia/Kolkata).
  * Ensures consistency across the entire application per project requirements.
+ * Re-exports centralized functions from ./datetime
  */
+
+export * from "./datetime";
 
 const IST_TIME_ZONE = "Asia/Kolkata";
 
@@ -89,4 +92,3 @@ export function getISTDayRange(dateStr?: string): {
     dateStr: targetDateStr,
   };
 }
-

@@ -11,6 +11,7 @@ import {
   Location,
   Party,
   User,
+  InvoiceRevision,
 } from "@prisma/client";
 
 export const invoiceItemInputSchema = z.object({
@@ -89,6 +90,9 @@ export interface InvoiceWithDetails extends Invoice {
   })[];
   payments: Payment[];
   creditNotes: CreditNote[];
+  revisions?: (InvoiceRevision & {
+    editor?: Pick<User, "id" | "name" | "role"> | null;
+  })[];
 }
 
 export interface InvoiceListFilters {
