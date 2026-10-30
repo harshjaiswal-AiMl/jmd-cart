@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma, UserRole, InvoiceStatus, PaymentStatus, LedgerKind, MovementType } from "@prisma/client";
 import { stockService } from "@/modules/stock/stock.service";
 import { calculateLineGst, calculateInvoiceTotals } from "@/lib/gst";
-import { validateManualDate } from "@/lib/datetime";
+import { validateManualDate, toIstDateString, getIstParts } from "@/lib/datetime";
 
 export interface EditInvoiceItemInput {
   productId: string;
