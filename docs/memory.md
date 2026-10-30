@@ -432,3 +432,26 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Invoice Totals Bar: Database aggregate totals bar on `/shop/invoices` computing Count, Total Billed, Taxable, Tax, Discount, Paid, Pending, Average Bill, and Cancelled count across the active query filter.
   - Verified with 86 passing test files (450 passing tests), clean typecheck, clean lint, and production `next build` success.
 
+
+### 2026-10-31: Opening Stock Baseline (18-Oct), Test Invoice Purge & Stock Restoration, POS Crash Fix
+
+- **Owner Request:**
+  1. Clear all test bills/invoices created so far and restore stock back to initial baseline before bills.
+  2. Create a dedicated "Opening Stock" section in the management panel where opening stock values are fixed/preserved per product, and can be viewed, edited, and added.
+  3. Set all stock as Opening Stock with baseline date 18 October 2026.
+  4. Fix Server Component render error on POS (Image 1).
+- **Implementation & Fixes:**
+  - **POS Server Component Error (Image 1):**
+    - Root cause: Stale carts in browser `localStorage` (`jmd_pos_bill_tabs`) contained deleted/obsolete product IDs. When POS mounted, `calculateOrderPricingAction` threw unhandled `Product not found with ID ...` inside server action, triggering Next.js 500 error boundary.
+    - Fix: Sanitized cart against the live catalog on POS mount in `pos-client.tsx`, dropping obsolete products and re-linking live catalog products. Wrapped `calculateOrderPricingAction` in `try/catch` with safe fallback to `null`. Added pre-validation in `finalizeBillAction`.
+  - **Database Additive Migration (`20261031040000_product_opening_stock_and_reset`):**
+    - Added columns to `Product`: `openingStockQty`, `openingStockGodownQty`, `openingStockShopQty`, `openingStockDate`.
+    - Restored `stock_balances` from all `SALE` movements: `sb.qty = sb.qty + sale_qty`.
+    - Deleted test invoice records: `stock_movements` (type `SALE`), `party_ledger_entries` (ref `INVOICE`), `incentive_entries`, `invoice_revisions`, `counter_pickups`, `payments`, `invoice_items`, `invoices`.
+    - Reset invoice sequence to 1 (`next_value = 1` for `INV`).
+    - Stored restored balances into `openingStockGodownQty`, `openingStockShopQty`, and `openingStockQty` with baseline date `2026-10-18`.
+    - Shifted initial stock movements to `2026-10-18 00:00:00+05:30` with `reference_type = 'OPENING_STOCK'`.
+  - **Opening Stock Module & UI:**
+    - `src/modules/stock/opening-stock.service.ts`: Query and atomic update functions for opening stock, calculating cartons, loose pieces, valuation at MRP, and KPIs.
+    - `src/app/admin/inventory/opening-stock/`: Complete enterprise opening stock dashboard with KPI summary cards, search, brand/category filters, CSV export, quick edit modal, and "Add Opening Stock" item modal.
+    - Navigation: Added `Opening Stock (18-Oct)` and `Item Stock Statement` directly under the `Inventory` menu group in `src/config/nav.config.ts`.

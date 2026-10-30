@@ -186,6 +186,22 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...GODOWN_AND_ADMIN, UserRole.SHOP],
   },
   {
+    id: "inv-opening-stock",
+    group: "Inventory",
+    label: "Opening Stock (18-Oct)",
+    icon: "PackageCheck",
+    href: "/admin/inventory/opening-stock",
+    roles: [...ADMIN_ROLES, UserRole.GODOWN],
+  },
+  {
+    id: "inv-item-statement",
+    group: "Inventory",
+    label: "Item Stock Statement",
+    icon: "FileSpreadsheet",
+    href: "/admin/reports/item-statement",
+    roles: [...ADMIN_ROLES, UserRole.GODOWN, UserRole.ACCOUNTS],
+  },
+  {
     id: "inv-update",
     group: "Inventory",
     label: "Update Stock & Excel",

@@ -19,14 +19,23 @@ export async function calculateOrderPricingAction(
     throw new Error("Unauthorized");
   }
 
-  return pricingService.calculateOrderPricing({
-    items,
-    partyId: partyId ?? null,
-    buyerType: buyerType ?? null,
-    orderDiscountBp,
-    isInterState,
-    userRole: session.user.role,
-  });
+  if (!items || items.length === 0) {
+    return null;
+  }
+
+  try {
+    return await pricingService.calculateOrderPricing({
+      items,
+      partyId: partyId ?? null,
+      buyerType: buyerType ?? null,
+      orderDiscountBp,
+      isInterState,
+      userRole: session.user.role,
+    });
+  } catch (err: any) {
+    console.warn("[calculateOrderPricingAction fallback]:", err?.message);
+    return null;
+  }
 }
 
 export async function setAdminManualRateAction(input: {
@@ -118,6 +127,21 @@ export async function finalizeBillAction(input: {
   }
 
   try {
+    // Validate all items exist in catalog before finalizing
+    const productIds = input.items.map((i) => i.productId);
+    const existingProducts = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, name: true },
+    });
+    const existingSet = new Set(existingProducts.map((p) => p.id));
+    const missing = input.items.find((i) => !existingSet.has(i.productId));
+    if (missing) {
+      return {
+        success: false,
+        error: "One or more items in the cart are no longer in the catalog. Please remove them and re-add.",
+      };
+    }
+
     const invoice = await billingService.finalizeInvoice(
       session.user.role,
       {

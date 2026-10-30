@@ -234,7 +234,7 @@ export function PosClient({
   const [activeTabId, setActiveTabId] = useState<string>("tab-1");
   const [isStorageLoaded, setIsStorageLoaded] = useState(false);
 
-  // Load tabs from localStorage on mount
+  // Load tabs from localStorage on mount and sanitize against live catalog
   useEffect(() => {
     try {
       const saved = localStorage.getItem("jmd_pos_bill_tabs");
@@ -242,11 +242,21 @@ export function PosClient({
       if (saved) {
         const parsed: PosBillTab[] = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setTabs(parsed);
-          if (savedActive && parsed.some((t) => t.id === savedActive)) {
+          const productMap = new Map(products.map((p) => [p.id, p]));
+          const sanitized: PosBillTab[] = parsed.map((tab) => ({
+            ...tab,
+            cart: (tab.cart || []).filter((line) => {
+              const liveProd = productMap.get(line.productId);
+              if (!liveProd) return false;
+              line.product = liveProd;
+              return true;
+            }),
+          }));
+          setTabs(sanitized);
+          if (savedActive && sanitized.some((t) => t.id === savedActive)) {
             setActiveTabId(savedActive);
           } else {
-            setActiveTabId(parsed[0].id);
+            setActiveTabId(sanitized[0].id);
           }
         }
       }
@@ -255,7 +265,7 @@ export function PosClient({
     } finally {
       setIsStorageLoaded(true);
     }
-  }, []);
+  }, [products]);
 
   // Save tabs to localStorage on change
   useEffect(() => {
