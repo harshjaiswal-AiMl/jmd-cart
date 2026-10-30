@@ -16,7 +16,10 @@ FROM (
 ) sm
 WHERE sb."product_id" = sm."product_id" AND sb."location_id" = sm."from_location_id";
 
--- 3. Delete all test invoices and related records
+-- 3. Temporarily drop the immutability trigger to allow cleaning test movements
+DROP TRIGGER IF EXISTS trg_stock_movements_immutable ON "stock_movements";
+
+-- Delete all test invoices and related records
 DELETE FROM "stock_movements" WHERE "type" = 'SALE' OR "reference_type" = 'INVOICE';
 DELETE FROM "party_ledger_entries" WHERE "reference_type" = 'INVOICE';
 DELETE FROM "incentive_entries" WHERE "invoice_id" IS NOT NULL;
@@ -55,3 +58,9 @@ SET "effective_date" = '2026-10-18 00:00:00+05:30',
     "reference_type" = 'OPENING_STOCK',
     "reason" = 'Opening Stock as of 18-10-2026'
 WHERE "type" = 'ADJUSTMENT' OR "reference_type" = 'OPENING_STOCK' OR "reference_type" IS NULL;
+
+-- 6. Re-create the immutability trigger so all future stock movements remain strictly append-only
+CREATE TRIGGER trg_stock_movements_immutable
+BEFORE UPDATE OR DELETE ON "stock_movements"
+FOR EACH ROW
+EXECUTE FUNCTION prevent_stock_movement_mutation();

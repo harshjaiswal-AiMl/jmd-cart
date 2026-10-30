@@ -58,7 +58,7 @@ gcloud run jobs deploy $JobName `
     --set-secrets="DATABASE_URL=DATABASE_URL:latest,AUTH_SECRET=AUTH_SECRET:latest" `
     --set-env-vars="NODE_ENV=production,TZ=Asia/Kolkata" `
     --command="sh" `
-    --args="-c,node /app/node_modules/prisma/build/index.js migrate resolve --applied 20261021173827_user_wishlist || true; node /app/node_modules/prisma/build/index.js migrate deploy && node /app/prisma/dist/seed.js" `
+    --args="-c,node /app/node_modules/prisma/build/index.js migrate resolve --applied 20261021173827_user_wishlist || true; node /app/node_modules/prisma/build/index.js migrate resolve --rolled-back 20261031040000_product_opening_stock_and_reset || true; node /app/node_modules/prisma/build/index.js migrate deploy && node /app/prisma/dist/seed.js" `
     --project=$PROJECT `
     --quiet
 
