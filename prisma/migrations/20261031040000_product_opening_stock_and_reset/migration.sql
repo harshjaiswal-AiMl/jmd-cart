@@ -21,10 +21,11 @@ DROP TRIGGER IF EXISTS trg_stock_movements_immutable ON "stock_movements";
 
 -- Delete all test invoices and related records
 DELETE FROM "stock_movements" WHERE "type" = 'SALE' OR "reference_type" = 'INVOICE';
-DELETE FROM "party_ledger_entries" WHERE "reference_type" = 'INVOICE';
+DELETE FROM "ledger_entries" WHERE "reference_type" = 'INVOICE';
 DELETE FROM "incentive_entries" WHERE "invoice_id" IS NOT NULL;
 DELETE FROM "invoice_revisions";
-DELETE FROM "counter_pickups";
+DELETE FROM "credit_notes" WHERE "invoice_id" IS NOT NULL;
+DELETE FROM "counter_pickups" WHERE "invoice_id" IS NOT NULL;
 DELETE FROM "payments" WHERE "invoice_id" IS NOT NULL;
 DELETE FROM "invoice_items";
 DELETE FROM "invoices";
