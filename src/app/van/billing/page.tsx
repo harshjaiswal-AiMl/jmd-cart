@@ -88,26 +88,35 @@ export default async function VanBillingPage() {
   });
   const companyMap = new Map(productsWithCompany.map((p) => [p.id, p.company?.name || "General"]));
 
-  const billingProducts = stockSummary.inventory
-    .map((item) => ({
-      id: item.product.id,
-      name: item.product.name,
-      shortCode: item.product.shortCode,
-      weight: item.product.weight?.trim() || null,
-      packSize: item.product.packSize,
-      packLabel: item.product.packLabel,
-      mrpPaise: item.product.mrpPaise ?? item.product.priceCPaise ?? 0,
-      availablePieces: item.qty,
-      cartons: item.cartons,
-      loosePieces: item.loosePieces,
-      companyName: companyMap.get(item.product.id) || "General",
-    }))
-    .sort((a, b) => {
-      const aIn = a.availablePieces > 0 ? 1 : 0;
-      const bIn = b.availablePieces > 0 ? 1 : 0;
-      if (aIn !== bIn) return bIn - aIn;
-      return a.name.localeCompare(b.name);
-    });
+  // Morning Load sheet items mapping
+  const morningLoadedLines = stockSummary.activeVanDay.lines || [];
+  const morningLoadedMap = new Map(morningLoadedLines.map((l) => [l.productId, l]));
+
+  // Strictly filter to items loaded in today's morning load sheet that have available stock (>0)
+  const loadedInventory = stockSummary.inventory.filter(
+    (item) => (morningLoadedMap.size === 0 || morningLoadedMap.has(item.product.id)) && item.qty > 0
+  );
+
+  const billingProducts = loadedInventory
+    .map((item) => {
+      const loadLine = morningLoadedMap.get(item.product.id);
+      return {
+        id: item.product.id,
+        name: item.product.name,
+        shortCode: item.product.shortCode,
+        weight: item.product.weight?.trim() || null,
+        packSize: item.product.packSize,
+        packLabel: item.product.packLabel,
+        mrpPaise: item.product.mrpPaise ?? item.product.priceCPaise ?? 0,
+        availablePieces: item.qty,
+        cartons: item.cartons,
+        loosePieces: item.loosePieces,
+        companyName: companyMap.get(item.product.id) || "General",
+        morningIssuedQty: loadLine?.issuedQty ?? item.qty,
+        morningSoldQty: loadLine?.soldQty ?? 0,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
 
   // Fetch active customer parties and their live balances

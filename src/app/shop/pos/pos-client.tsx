@@ -160,58 +160,6 @@ export function PosClient({
     }
   }, []);
 
-  // Party edit state & modal
-  const [editPartyModalOpen, setEditPartyModalOpen] = useState(false);
-  const [editPartyName, setEditPartyName] = useState("");
-  const [editPartyPhone, setEditPartyPhone] = useState("");
-  const [editPartyAddress, setEditPartyAddress] = useState("");
-  const [editPartyReason, setEditPartyReason] = useState("");
-  const [isEditingParty, setIsEditingParty] = useState(false);
-
-  const openPartyEditModal = () => {
-    if (!selectedParty) return;
-    setEditPartyName(selectedParty.name || "");
-    setEditPartyPhone(selectedParty.phone || "");
-    setEditPartyAddress(selectedParty.address || "");
-    setEditPartyReason("");
-    setEditPartyModalOpen(true);
-  };
-
-  const handleSavePartyEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedParty) return;
-    if (!editPartyName.trim()) {
-      alert("Customer name cannot be empty");
-      return;
-    }
-    setIsEditingParty(true);
-    try {
-      const res = await updatePartyNameAndContactAction({
-        partyId: selectedParty.id,
-        name: editPartyName,
-        phone: editPartyPhone || undefined,
-        address: editPartyAddress || undefined,
-        reason: editPartyReason || "POS Quick Edit",
-      });
-      if (res.success && res.party) {
-        setLocalParties((prev) =>
-          prev.map((p) =>
-            p.id === selectedParty.id
-              ? { ...p, name: res.party!.name, phone: res.party!.phone, address: res.party!.address }
-              : p
-          )
-        );
-        setEditPartyModalOpen(false);
-      } else {
-        alert(res.error || "Failed to update party");
-      }
-    } catch (err: any) {
-      alert(err.message || "Failed to update party");
-    } finally {
-      setIsEditingParty(false);
-    }
-  };
-
   // Line MRP editing & master MRP flag
   const updateLineMrp = (lineId: string, value: string) => {
     const valNum = parseFloat(value);
@@ -348,6 +296,73 @@ export function PosClient({
   const selectedParty = useMemo(() => {
     return localParties.find((p) => p.id === activeTab.partyId) || null;
   }, [localParties, activeTab.partyId]);
+
+  // Inline Party details edit state
+  const [inlinePartyName, setInlinePartyName] = useState("");
+  const [inlinePartyPhone, setInlinePartyPhone] = useState("");
+  const [inlinePartyAddress, setInlinePartyAddress] = useState("");
+  const [isPartyDirty, setIsPartyDirty] = useState(false);
+  const [isSavingInlineParty, setIsSavingInlineParty] = useState(false);
+  const [partySaveSuccess, setPartySaveSuccess] = useState(false);
+
+  // Sync inline party fields when selectedParty changes
+  useEffect(() => {
+    if (selectedParty) {
+      setInlinePartyName(selectedParty.name || "");
+      setInlinePartyPhone(selectedParty.phone || "");
+      setInlinePartyAddress(selectedParty.address || "");
+      setIsPartyDirty(false);
+      setPartySaveSuccess(false);
+    } else {
+      setInlinePartyName("");
+      setInlinePartyPhone("");
+      setInlinePartyAddress("");
+      setIsPartyDirty(false);
+      setPartySaveSuccess(false);
+    }
+  }, [selectedParty?.id, selectedParty?.name, selectedParty?.phone, selectedParty?.address]);
+
+  const handleSaveInlineParty = async () => {
+    if (!selectedParty) return;
+    if (!inlinePartyName.trim()) {
+      alert("Customer name cannot be empty");
+      return;
+    }
+    setIsSavingInlineParty(true);
+    try {
+      const res = await updatePartyNameAndContactAction({
+        partyId: selectedParty.id,
+        name: inlinePartyName.trim(),
+        phone: inlinePartyPhone.trim() || undefined,
+        address: inlinePartyAddress.trim() || undefined,
+        reason: "POS Quick Inline Edit",
+      });
+      if (res.success && res.party) {
+        setLocalParties((prev) =>
+          prev.map((p) =>
+            p.id === selectedParty.id
+              ? {
+                  ...p,
+                  name: res.party!.name,
+                  phone: res.party!.phone,
+                  address: res.party!.address,
+                }
+              : p
+          )
+        );
+        updateActiveTab({ tabTitle: res.party.name });
+        setIsPartyDirty(false);
+        setPartySaveSuccess(true);
+        setTimeout(() => setPartySaveSuccess(false), 2500);
+      } else {
+        alert(res.error || "Failed to update party");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to update party");
+    } finally {
+      setIsSavingInlineParty(false);
+    }
+  };
 
   // Dynamic Effective Pricing Tier:
   const effectiveTier = useMemo(() => {
@@ -1573,6 +1588,92 @@ export function PosClient({
           </div>
         )}
 
+        {/* Selected Customer Inline Details Strip (Click/press to change, Save button to update DB) */}
+        {selectedParty && (
+          <div className="w-full flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/80 text-xs bg-blue-50/50 p-2.5 rounded-xl border border-blue-200">
+            <span className="font-black text-blue-900 uppercase tracking-wider text-[11px] flex items-center gap-1">
+              <span>👤 Customer:</span>
+            </span>
+            <div className="flex-1 min-w-[160px] max-w-[240px]">
+              <input
+                type="text"
+                placeholder="Customer Name..."
+                value={inlinePartyName}
+                onChange={(e) => {
+                  setInlinePartyName(e.target.value);
+                  setIsPartyDirty(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSaveInlineParty();
+                    itemSearchInputRef.current?.focus();
+                  }
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                title="Customer Name (Click to edit, Enter to Save)"
+              />
+            </div>
+            <div className="flex-1 min-w-[130px] max-w-[180px]">
+              <input
+                type="tel"
+                placeholder="Mobile (10-digit)..."
+                value={inlinePartyPhone}
+                onChange={(e) => {
+                  setInlinePartyPhone(e.target.value);
+                  setIsPartyDirty(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSaveInlineParty();
+                    itemSearchInputRef.current?.focus();
+                  }
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                title="Customer Phone (Click to edit, Enter to Save)"
+              />
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <input
+                type="text"
+                placeholder="Address / Delivery Location..."
+                value={inlinePartyAddress}
+                onChange={(e) => {
+                  setInlinePartyAddress(e.target.value);
+                  setIsPartyDirty(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSaveInlineParty();
+                    itemSearchInputRef.current?.focus();
+                  }
+                }}
+                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
+                title="Customer Address (Click to edit, Enter to Save)"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveInlineParty}
+              disabled={isSavingInlineParty || (!isPartyDirty && !partySaveSuccess)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-xs ${
+                partySaveSuccess
+                  ? "bg-emerald-600 text-white"
+                  : isPartyDirty
+                  ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                  : "bg-slate-200 text-slate-500 cursor-default"
+              }`}
+            >
+              {isSavingInlineParty ? (
+                <span>Saving...</span>
+              ) : partySaveSuccess ? (
+                <span>✓ Saved!</span>
+              ) : (
+                <span>💾 Save</span>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Customer Balance, Tier & History Controls */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Tier Chip */}
@@ -1620,28 +1721,10 @@ export function PosClient({
             </button>
           </div>
 
-          {/* Owner Note: Party Card with direct edit */}
+          {/* Selected Party Name Badge */}
           {selectedParty && (
-            <div className="flex items-center gap-2 bg-blue-50/90 border border-blue-200 px-3 py-1 rounded-xl shadow-2xs">
-              <div className="text-left">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-black text-xs text-blue-950">{selectedParty.name}</span>
-                  <button
-                    type="button"
-                    onClick={openPartyEditModal}
-                    className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-white text-blue-700 hover:bg-blue-100 border border-blue-300 transition"
-                    title="Edit customer name, phone, address"
-                  >
-                    ✏️ Edit
-                  </button>
-                </div>
-                {(selectedParty.phone || selectedParty.address) && (
-                  <div className="text-[10px] text-blue-800 flex items-center gap-1.5 truncate max-w-xs">
-                    {selectedParty.phone && <span>📞 {selectedParty.phone}</span>}
-                    {selectedParty.address && <span>📍 {selectedParty.address}</span>}
-                  </div>
-                )}
-              </div>
+            <div className="flex items-center gap-1.5 bg-blue-50/90 border border-blue-200 px-3 py-1 rounded-xl shadow-2xs">
+              <span className="font-black text-xs text-blue-950">{selectedParty.name}</span>
             </div>
           )}
 

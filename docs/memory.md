@@ -379,3 +379,17 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Storefront Isolation: Verified `jmdcart.com` routes and styling remain untouched and pixel-identical.
 
   - Production Deployment: Cloud Run revision `jmd-cart-00055-4kx` deployed with 100% traffic; Cloud SQL migration `20261029190000_party_history_units_weight` applied; all 29/29 production smoke tests passed against `https://management.jmdcart.com` and `https://jmdcart.com`.
+
+### 2026-10-30: POS Inline Party Editing Strip & Van Sales App Stepped UI Redesign (Morning Stock Only)
+
+- **User Feedback & Request:**
+  1. **POS Party Edit:** Removed the separate edit modal/pill. When a party is selected, an inline details strip appears directly below the party selector with editable Name, Phone, and Address inputs and an instant "💾 Save" button. Saving immediately updates the party in the database (`PartyNameHistory` audit), updates the local party state, and allows pressing Enter to advance focus straight into the item search bar for pure keyboard billing.
+  2. **Van App Workflow & Redesign:**
+     - **Step 1: Customer Selection:** Salesperson chooses between a Registered Shop/Party (with live balance, credit limit, and inline name/phone/address editor) or Walk-in Cash Customer (10-digit mobile auto-lookup).
+     - **Step 2: Morning Load Stock Only:** Strictly filters products to those dispatched in today's active morning load sheet (`stockSummary.activeVanDay.lines`) with available stock > 0. Displays morning load count, available cartons and pieces, weight badges, and `QtyUnitPicker` (`Pcs`, `Carton`, `Dozen`, `Bag`).
+     - **Step 3: Payment Mode & Finalize:** Big visual cards for Cash, UPI, and Credit (with remaining credit limit), payment received/pending toggle, giant Grand Total display, and one-tap finalization with Bluetooth thermal receipt printing.
+- **Verification:**
+  - `pnpm typecheck`: Passed with 0 errors.
+  - `pnpm lint`: Passed with 0 errors.
+  - Vitest test suite: 81 test files, 437 tests passed (100% green).
+  - Next.js production build (`pnpm build`): Compiled successfully across 83 static & dynamic routes.
