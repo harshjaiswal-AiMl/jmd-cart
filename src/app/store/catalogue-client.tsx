@@ -292,7 +292,7 @@ export function CatalogueClient({
 
   // Active category item data
   const selectedCategoryData = useMemo(
-    () => categories.find((c) => c.id === selectedCategory),
+    () => categories.find((c) => c.id === selectedCategory || c.name === selectedCategory),
     [categories, selectedCategory]
   );
 
@@ -552,110 +552,101 @@ export function CatalogueClient({
         {/* 3. Regional Guarantee Strip */}
         <TrustRegionalStrip />
 
-        {/* 4. Shop by Category (Zepto / Blinkit 2-Row Visual Category Grid) */}
-        <section id="categories" className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 pt-5 pb-3">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                <span className="material-symbols-outlined text-[22px]">category</span>
+        {/* 4. Shop by Category (Zepto / Blinkit 2-Row Visual Category Grid) - Hidden when filtering by category or searching so products display immediately */}
+        {!selectedCategory && !currentSearch && (
+          <section id="categories" className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 pt-5 pb-3">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined text-[22px]">category</span>
+                </div>
+                <div>
+                  <h2 className="font-headline text-base sm:text-lg lg:text-xl font-bold text-on-surface leading-none">
+                    Shop by Category
+                  </h2>
+                  <p className="text-[11px] sm:text-xs text-on-surface-variant font-medium mt-1">
+                    Explore FMCG aisles with live warehouse stock
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="font-headline text-base sm:text-lg lg:text-xl font-bold text-on-surface leading-none">
-                  Shop by Category
-                </h2>
-                <p className="text-[11px] sm:text-xs text-on-surface-variant font-medium mt-1">
-                  Explore FMCG aisles with live warehouse stock
-                </p>
+
+              <div className="flex items-center gap-2">
+                {/* See All / Collapse Toggle in Header */}
+                {categories.length > 8 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllCategories((p) => !p)}
+                    className="text-xs font-bold text-primary hover:text-primary/80 transition-colors flex items-center gap-1 py-1.5 px-3 rounded-full bg-primary/10 hover:bg-primary/20 cursor-pointer"
+                  >
+                    <span>{showAllCategories ? "Show 2 Rows" : `See All (${categories.length})`}</span>
+                    <span className="material-symbols-outlined text-[16px]">
+                      {showAllCategories ? "expand_less" : "expand_more"}
+                    </span>
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Category Quick Reset if filtered */}
-              {selectedCategory && (
-                <button
-                  onClick={() => handleCategorySelect("")}
-                  className="px-3 py-1.5 rounded-full text-xs font-bold text-primary bg-primary/10 hover:bg-primary hover:text-white transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
-                >
-                  <span>View All Aisles</span>
-                  <span className="material-symbols-outlined text-[13px]">close</span>
-                </button>
-              )}
+            {/* Blinkit/Zepto 2-Row Responsive Category Grid (No Scroll - Large Tiles) */}
+            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2.5 sm:gap-3.5 lg:gap-4">
+              {/* Dynamic Categories from Database */}
+              {categories.map((cat, idx) => {
+                const isSelected = selectedCategory === cat.id;
 
-              {/* See All / Collapse Toggle in Header */}
-              {categories.length > 8 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllCategories((p) => !p)}
-                  className="text-xs font-bold text-primary hover:text-primary/80 transition-colors flex items-center gap-1 py-1.5 px-3 rounded-full bg-primary/10 hover:bg-primary/20 cursor-pointer"
-                >
-                  <span>{showAllCategories ? "Show 2 Rows" : `See All (${categories.length})`}</span>
-                  <span className="material-symbols-outlined text-[16px]">
-                    {showAllCategories ? "expand_less" : "expand_more"}
-                  </span>
-                </button>
-              )}
+                // 2-Row Display Logic:
+                // - Items 0..7 are visible on mobile (4 cols x 2 rows = 8 cards).
+                // - Items 8..15 are hidden on mobile but visible on sm/lg (6x2 or 8x2 = 2 rows on desktop).
+                // - Items 16+ are shown only when showAllCategories is true.
+                const isHiddenOnMobile = !showAllCategories && idx >= 8 && idx < 16;
+                const isHiddenOnAll = !showAllCategories && idx >= 16;
+
+                if (isHiddenOnAll) return null;
+
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleCategorySelect(cat.id)}
+                    className={`flex flex-col items-center group cursor-pointer focus:outline-none transition-transform hover:-translate-y-1 text-center ${
+                      isHiddenOnMobile ? "hidden sm:flex" : "flex"
+                    }`}
+                  >
+                    <div
+                      className={`w-full aspect-square rounded-2xl sm:rounded-3xl flex items-center justify-center p-3 sm:p-4 relative overflow-hidden transition-all duration-200 border ${
+                        isSelected
+                          ? "bg-primary/10 border-2 border-primary shadow-md ring-4 ring-primary/20 scale-102"
+                          : "bg-surface-container-lowest border-outline-variant/40 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md shadow-2xs"
+                      }`}
+                    >
+                      {cat.imageUrl ? (
+                        <img
+                          src={cat.imageUrl}
+                          alt=""
+                          aria-hidden="true"
+                          className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-sm"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = "/brand/jmd-cart-logo.png";
+                          }}
+                        />
+                      ) : (
+                        <span className="material-symbols-outlined text-[36px] sm:text-[42px] text-primary" aria-hidden="true">
+                          category
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs sm:text-sm font-bold sm:font-extrabold mt-2 text-center leading-tight line-clamp-2 ${
+                        isSelected ? "text-primary font-black" : "text-on-surface group-hover:text-primary"
+                      }`}
+                    >
+                      {cat.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          </div>
-
-          {/* Blinkit/Zepto 2-Row Responsive Category Grid (No Scroll - Large Tiles) */}
-          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-2.5 sm:gap-3.5 lg:gap-4">
-            {/* Dynamic Categories from Database */}
-            {categories.map((cat, idx) => {
-              const isSelected = selectedCategory === cat.id;
-
-              // 2-Row Display Logic:
-              // - Items 0..7 are visible on mobile (4 cols x 2 rows = 8 cards).
-              // - Items 8..15 are hidden on mobile but visible on sm/lg (6x2 or 8x2 = 2 rows on desktop).
-              // - Items 16+ are shown only when showAllCategories is true.
-              const isHiddenOnMobile = !showAllCategories && idx >= 8 && idx < 16;
-              const isHiddenOnAll = !showAllCategories && idx >= 16;
-
-              if (isHiddenOnAll) return null;
-
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => handleCategorySelect(cat.id)}
-                  className={`flex flex-col items-center group cursor-pointer focus:outline-none transition-transform hover:-translate-y-1 text-center ${
-                    isHiddenOnMobile ? "hidden sm:flex" : "flex"
-                  }`}
-                >
-                  <div
-                    className={`w-full aspect-square rounded-2xl sm:rounded-3xl flex items-center justify-center p-3 sm:p-4 relative overflow-hidden transition-all duration-200 border ${
-                      isSelected
-                        ? "bg-primary/10 border-2 border-primary shadow-md ring-4 ring-primary/20 scale-102"
-                        : "bg-surface-container-lowest border-outline-variant/40 hover:border-primary/50 hover:bg-surface-container-low hover:shadow-md shadow-2xs"
-                    }`}
-                  >
-                    {cat.imageUrl ? (
-                      <img
-                        src={cat.imageUrl}
-                        alt=""
-                        aria-hidden="true"
-                        className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-sm"
-                        loading="lazy"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = "/brand/jmd-cart-logo.png";
-                        }}
-                      />
-                    ) : (
-                      <span className="material-symbols-outlined text-[36px] sm:text-[42px] text-primary" aria-hidden="true">
-                        category
-                      </span>
-                    )}
-                  </div>
-                  <span
-                    className={`text-xs sm:text-sm font-bold sm:font-extrabold mt-2 text-center leading-tight line-clamp-2 ${
-                      isSelected ? "text-primary font-black" : "text-on-surface group-hover:text-primary"
-                    }`}
-                  >
-                    {cat.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* 5. Quick Reorder / Frequent Kirana Restock Strip (Placed Below Categories) */}
         {!currentSearch && !selectedCategory && reorderPicks.length > 0 && (
@@ -972,10 +963,10 @@ export function CatalogueClient({
           ) : (
             <div className="space-y-5">
               {/* Selected Category Header Banner */}
-              {selectedCategoryData && (
+              {(selectedCategoryData || selectedCategory) && (
                 <div className="bg-gradient-to-r from-primary/8 via-surface-container-low to-surface-container-lowest border border-primary/20 rounded-2xl p-4 sm:p-5 flex items-center justify-between shadow-2xs">
                   <div className="flex items-center gap-3.5">
-                    {selectedCategoryData.imageUrl && (
+                    {selectedCategoryData?.imageUrl && (
                       <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-surface-container-lowest p-2 border border-primary/20 shadow-xs flex items-center justify-center shrink-0">
                         <img
                           src={selectedCategoryData.imageUrl}
@@ -994,7 +985,7 @@ export function CatalogueClient({
                         </span>
                       </div>
                       <h2 className="font-headline text-lg sm:text-2xl font-black text-on-surface mt-1">
-                        {selectedCategoryData.name}
+                        {selectedCategoryData?.name || selectedCategory}
                       </h2>
                     </div>
                   </div>
