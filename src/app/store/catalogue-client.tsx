@@ -11,7 +11,6 @@ import { addToCartAction, updateCartQtyAction, removeFromCartAction } from "@/ap
 import { toggleWishlistAction } from "@/app/store/wishlist/actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
-import { TrustRegionalStrip } from "@/components/store/TrustRegionalStrip";
 import { FloatingCartBar } from "@/components/store/FloatingCartBar";
 import { StoreBannerCarousel } from "@/components/store/StoreBannerCarousel";
 import { formatPaise, formatRupees, paiseToRupees } from "@/lib/format-price";
@@ -550,9 +549,6 @@ export function CatalogueClient({
         {!currentSearch && !selectedCategory && !selectedCompany && (
           <StoreBannerCarousel banners={banners} />
         )}
-
-        {/* 3. Regional Guarantee Strip */}
-        <TrustRegionalStrip />
 
         {/* 4. Diwali Store Showcase (Between Hero Banners and Categories) */}
         {!selectedCategory && !currentSearch && !selectedCompany && diwaliShowcase && (
