@@ -417,20 +417,20 @@ export function CartViewClient({
               </div>
 
               {/* Mobile Sticky Bottom Checkout Bar (Ensures total is NEVER hidden on phone!) */}
-              <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-surface-container-high px-4 py-2.5 flex items-center justify-between gap-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-                <div>
+              <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-surface-container-high px-3 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between gap-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+                <div className="min-w-0 shrink-0">
                   <div className="text-[10px] text-on-surface-variant font-medium">Total Amount</div>
-                  <div className="font-headline text-lg font-black text-primary font-mono">
+                  <div className="font-headline text-base sm:text-lg font-black text-primary font-mono truncate">
                     ₹{Math.round(finalPayablePaise / 100)}
                   </div>
                   {isDeliveryFree && (
-                    <div className="text-[10px] text-emerald-700 font-bold">Free Delivery</div>
+                    <div className="text-[10px] text-emerald-700 font-bold truncate">Free Delivery</div>
                   )}
                 </div>
 
                 <Link
                   href="/store/checkout"
-                  className="px-5 py-2.5 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                  className="shrink-0 px-4 py-2 sm:px-5 sm:py-2.5 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 active:scale-95 cursor-pointer whitespace-nowrap"
                 >
                   <span>Checkout ({totalPieces} pcs)</span>
                   <span className="material-symbols-outlined text-[15px]">arrow_forward</span>

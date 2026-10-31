@@ -365,8 +365,8 @@ export function CatalogueClient({
 
             {/* Savings Badge */}
             {(savingsRupees > 0 || bestSlabDiscountPct > 0) && (
-              <div className="absolute top-2 left-2">
-                <span className="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed text-[10px] font-black uppercase tracking-tight shadow-2xs">
+              <div className="absolute top-2 left-2 max-w-[calc(100%-2.5rem)] pointer-events-none">
+                <span className="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed text-[9px] sm:text-[10px] font-black uppercase tracking-tight shadow-2xs truncate block">
                   {bestSlabDiscountPct > baseDiscountPct
                     ? `Up to ${bestSlabDiscountPct}% OFF`
                     : baseDiscountPct > 0
@@ -439,7 +439,7 @@ export function CatalogueClient({
 
             <Link
               href={`/store/products/${product.id}`}
-              className="font-bold text-xs text-on-surface hover:text-primary transition-colors line-clamp-2 leading-tight block"
+              className="font-bold text-xs text-on-surface hover:text-primary transition-colors line-clamp-2 leading-tight block h-8 sm:h-9"
               title={product.name}
             >
               {product.name}
@@ -448,61 +448,71 @@ export function CatalogueClient({
         </div>
 
         {/* Pricing & Add Stepper */}
-        <div className="mt-3 pt-2 sm:pt-2.5 border-t border-surface-container-high/60 flex items-center justify-between gap-1 sm:gap-2">
-          <div>
-            <div className="flex items-baseline gap-1 sm:gap-1.5">
-              <span className="font-headline text-xs sm:text-base font-bold text-primary">
+        <div className="mt-2.5 pt-2 border-t border-surface-container-high/60 flex items-center justify-between gap-1.5 min-w-0">
+          <div className="min-w-0 flex-1 flex flex-col justify-center">
+            <div className="flex items-baseline gap-1 min-w-0 flex-wrap">
+              <span className="font-headline text-xs sm:text-sm md:text-base font-bold text-primary font-mono tracking-tight shrink-0">
                 ₹{effectiveRateRupees}
               </span>
               {mrpRupees > effectiveRateRupees && (
-                <span className="text-[9px] sm:text-[10px] text-outline line-through">
+                <span className="text-[9px] sm:text-[10px] text-outline line-through shrink-0">
                   ₹{mrpRupees}
                 </span>
               )}
             </div>
-            {product.packSize > 1 && (
-              <div className="text-[9px] text-on-surface-variant truncate font-medium">
-                {product.packSize} pcs/ctn {bestSlabDiscountPct > baseDiscountPct ? `• Up to ${bestSlabDiscountPct}% OFF` : ""}
+            {product.packSize > 1 ? (
+              <div className="text-[9px] text-on-surface-variant truncate font-medium" title={`${product.packSize} pcs/ctn`}>
+                {product.packSize} pcs/ctn
               </div>
-            )}
+            ) : bestSlabDiscountPct > 0 ? (
+              <div className="text-[9px] text-tertiary truncate font-semibold">
+                {bestSlabDiscountPct}% slab
+              </div>
+            ) : null}
           </div>
 
           {/* Add Button or Stepper */}
-          {!product.isAvailable ? (
-            <button
-              disabled
-              className="px-2 py-1 bg-surface-container text-outline text-[10px] font-bold rounded-lg cursor-not-allowed"
-            >
-              Sold
-            </button>
-          ) : qty === 0 ? (
-            <button
-              onClick={() => handleAddToCart(product)}
-              disabled={isUpdating}
-              className="px-2.5 sm:px-3 py-1.5 bg-primary hover:bg-primary-container text-on-primary text-xs font-bold rounded-lg shadow-2xs transition-all active:scale-95 flex items-center gap-1"
-            >
-              <span className="material-symbols-outlined text-[14px]">add</span>
-              <span>ADD</span>
-            </button>
-          ) : (
-            <div className="flex items-center bg-primary text-on-primary rounded-lg p-0.5 shadow-2xs">
+          <div className="shrink-0">
+            {!product.isAvailable ? (
               <button
-                onClick={() => handleUpdateQty(product.id, -1)}
-                disabled={isUpdating}
-                className="w-5 sm:w-6 h-5 sm:h-6 flex items-center justify-center hover:bg-primary-container rounded font-bold"
+                disabled
+                className="px-2 py-1 bg-surface-container text-outline text-[10px] font-bold rounded-lg cursor-not-allowed"
               >
-                <span className="material-symbols-outlined text-[13px]">remove</span>
+                Sold
               </button>
-              <span className="w-5 sm:w-6 text-center text-xs font-bold">{qty}</span>
+            ) : qty === 0 ? (
               <button
-                onClick={() => handleUpdateQty(product.id, 1)}
+                onClick={() => handleAddToCart(product)}
                 disabled={isUpdating}
-                className="w-5 sm:w-6 h-5 sm:h-6 flex items-center justify-center hover:bg-primary-container rounded font-bold"
+                className="h-7 sm:h-8 px-2 sm:px-2.5 bg-primary hover:bg-primary-container text-on-primary text-[11px] sm:text-xs font-bold rounded-lg shadow-2xs transition-all active:scale-95 flex items-center justify-center gap-0.5 sm:gap-1 cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[13px]">add</span>
+                <span className="material-symbols-outlined text-[13px] sm:text-[14px]">add</span>
+                <span>ADD</span>
               </button>
-            </div>
-          )}
+            ) : (
+              <div className="h-7 sm:h-8 flex items-center bg-primary text-on-primary rounded-lg p-0.5 shadow-2xs">
+                <button
+                  onClick={() => handleUpdateQty(product.id, -1)}
+                  disabled={isUpdating}
+                  aria-label="Decrease quantity"
+                  className="w-5 sm:w-6 h-full flex items-center justify-center hover:bg-white/20 rounded active:scale-90 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[13px]">remove</span>
+                </button>
+                <span className="min-w-[18px] sm:min-w-[20px] text-center text-[11px] sm:text-xs font-bold font-mono px-0.5">
+                  {qty}
+                </span>
+                <button
+                  onClick={() => handleUpdateQty(product.id, 1)}
+                  disabled={isUpdating}
+                  aria-label="Increase quantity"
+                  className="w-5 sm:w-6 h-full flex items-center justify-center hover:bg-white/20 rounded active:scale-90 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[13px]">add</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );

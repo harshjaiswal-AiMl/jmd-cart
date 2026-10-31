@@ -460,18 +460,20 @@ export function ProductDetailClient({
                         : "bg-surface-container-low border-transparent hover:bg-surface-container"
                     }`}
                   >
-                    <span className="absolute -top-2 right-2 bg-secondary text-white px-1.5 py-0.2 rounded text-[10px] font-bold shadow-2xs">
-                      Retailer Pack
-                    </span>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="text-xs font-bold text-on-surface">Kirana Pack</div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-on-surface">Kirana Pack</span>
+                          <span className="bg-secondary text-white px-1.5 py-0.5 rounded text-[10px] font-bold shadow-2xs shrink-0">
+                            Retailer Pack
+                          </span>
+                        </div>
                         <div className="text-[11px] text-on-surface-variant mt-0.5">
                           {packThreshold}+ units
                         </div>
                       </div>
                       {selectedQty >= packThreshold && selectedQty < cartonThreshold && (
-                        <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                        <span className="material-symbols-outlined text-primary text-[18px] shrink-0">check_circle</span>
                       )}
                     </div>
                     <div className="mt-2 text-sm font-bold text-primary font-mono">
@@ -496,18 +498,20 @@ export function ProductDetailClient({
                         : "bg-surface-container-low border-transparent hover:bg-surface-container"
                     }`}
                   >
-                    <span className="absolute -top-2 right-2 bg-emerald-700 text-white px-1.5 py-0.2 rounded text-[10px] font-bold shadow-2xs">
-                      Best Wholesale
-                    </span>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="text-xs font-bold text-on-surface">1 Full {product.packLabel}</div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-on-surface">1 Full {product.packLabel}</span>
+                          <span className="bg-emerald-700 text-white px-1.5 py-0.5 rounded text-[10px] font-bold shadow-2xs shrink-0">
+                            Best Wholesale
+                          </span>
+                        </div>
                         <div className="text-[11px] text-on-surface-variant mt-0.5">
                           {cartonThreshold}+ units
                         </div>
                       </div>
                       {selectedQty >= cartonThreshold && (
-                        <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                        <span className="material-symbols-outlined text-primary text-[18px] shrink-0">check_circle</span>
                       )}
                     </div>
                     <div className="mt-2 text-sm font-bold text-primary font-mono">
@@ -525,16 +529,16 @@ export function ProductDetailClient({
 
                 {/* Smart Next-Slab Unlock Nudge */}
                 {nextSlabNudge && (
-                  <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-950 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-amber-600 text-[20px] shrink-0">
+                  <div className="mt-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-950 text-xs">
+                    <div className="flex items-start sm:items-center gap-2 min-w-0">
+                      <span className="material-symbols-outlined text-amber-600 text-[20px] shrink-0 mt-0.5 sm:mt-0">
                         bolt
                       </span>
-                      <div className="leading-tight">
-                        <span>
+                      <div className="leading-tight min-w-0">
+                        <div>
                           Buy <strong>{nextSlabNudge.qtyNeeded} more</strong> to unlock{" "}
                           <strong>{nextSlabNudge.nextTierName} ({nextSlabNudge.nextDiscountPct}% OFF)</strong>!
-                        </span>
+                        </div>
                         <span className="block text-[11px] text-amber-800 font-medium mt-0.5">
                           Rate drops to ₹{nextSlabNudge.nextRateRupees}/unit (Save ₹{nextSlabNudge.extraSaveRupees} extra/pc)
                         </span>
@@ -543,7 +547,7 @@ export function ProductDetailClient({
                     <button
                       type="button"
                       onClick={() => setSelectedQty((prev) => prev + nextSlabNudge!.qtyNeeded)}
-                      className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                      className="self-end sm:self-auto shrink-0 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] shadow-2xs transition-transform active:scale-95 cursor-pointer"
                     >
                       + Add {nextSlabNudge.qtyNeeded}
                     </button>
@@ -577,11 +581,11 @@ export function ProductDetailClient({
                 </div>
 
                 {/* Applied Pricing Tier Status */}
-                <div className="pt-3 border-t border-surface-container flex items-center justify-between text-xs flex-wrap gap-2">
-                  <div className="flex items-center gap-1.5 text-on-surface-variant flex-wrap">
-                    <span className="material-symbols-outlined text-secondary text-[18px]">verified</span>
-                    <span>Applied Price:</span>
-                    <strong className="text-on-surface font-semibold flex items-center gap-1">
+                <div className="pt-3 border-t border-surface-container flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+                  <div className="flex items-center gap-1.5 text-on-surface-variant flex-wrap min-w-0">
+                    <span className="material-symbols-outlined text-secondary text-[18px] shrink-0">verified</span>
+                    <span className="shrink-0">Applied Price:</span>
+                    <strong className="text-on-surface font-semibold flex items-center gap-1 flex-wrap">
                       {selectedQty >= cartonThreshold ? (
                         <span className="text-amber-900 font-bold bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
                           <span className="material-symbols-outlined text-[13px] text-amber-600">military_tech</span>
@@ -599,65 +603,68 @@ export function ProductDetailClient({
                       )}
                     </strong>
                   </div>
-                  <span className="text-primary font-mono font-bold">
+                  <span className="text-primary font-mono font-bold text-sm shrink-0">
                     Total: ₹{totalAmountRupees}
                   </span>
                 </div>
 
                 {/* Quantity Stepper & Buttons */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1">
-                  {/* Stepper */}
-                  <div className="flex items-center justify-between bg-surface-container-low rounded-xl p-1 w-full sm:w-36 shrink-0 border border-surface-container-high">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 pt-1">
+                  {/* Stepper + Add to Cart Row on Mobile, All Inline on Desktop */}
+                  <div className="flex items-center gap-2.5 sm:contents">
+                    {/* Stepper */}
+                    <div className="flex items-center justify-between bg-surface-container-low rounded-xl p-1 w-32 sm:w-36 shrink-0 border border-surface-container-high">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedQty((prev) => Math.max(1, prev - 1))}
+                        className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-colors active:scale-95 shadow-xs font-bold text-base sm:text-lg cursor-pointer"
+                        title="Decrease quantity"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max={product.totalAvailableQty || 500}
+                        value={selectedQty}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 1;
+                          setSelectedQty(Math.max(1, Math.min(val, product.totalAvailableQty || 500)));
+                        }}
+                        className="w-10 sm:w-12 text-center bg-transparent font-mono text-sm sm:text-base text-on-surface font-bold focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedQty((prev) => Math.min(product.totalAvailableQty || 500, prev + 1))
+                        }
+                        className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-colors active:scale-95 shadow-xs font-bold text-base sm:text-lg cursor-pointer"
+                        title="Increase quantity"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    {/* Add to Cart */}
                     <button
                       type="button"
-                      onClick={() => setSelectedQty((prev) => Math.max(1, prev - 1))}
-                      className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-colors active:scale-95 shadow-xs font-bold text-lg"
-                      title="Decrease quantity"
+                      disabled={isPending || !product.isAvailable}
+                      onClick={() => handleAddToCart(selectedQty)}
+                      className="flex-1 bg-surface-container-high hover:bg-surface-container-highest text-primary font-bold text-xs sm:text-sm py-2.5 sm:py-3 px-3 sm:px-4 rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 transition-all active:scale-[0.99] disabled:opacity-50 border border-outline-variant/60 cursor-pointer min-w-0"
                     >
-                      -
-                    </button>
-                    <input
-                      type="number"
-                      min="1"
-                      max={product.totalAvailableQty || 500}
-                      value={selectedQty}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 1;
-                        setSelectedQty(Math.max(1, Math.min(val, product.totalAvailableQty || 500)));
-                      }}
-                      className="w-12 text-center bg-transparent font-mono text-base text-on-surface font-bold focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSelectedQty((prev) => Math.min(product.totalAvailableQty || 500, prev + 1))
-                      }
-                      className="w-9 h-9 flex items-center justify-center rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-colors active:scale-95 shadow-xs font-bold text-lg"
-                      title="Increase quantity"
-                    >
-                      +
+                      <span className="material-symbols-outlined text-[16px] sm:text-[18px]">shopping_cart</span>
+                      <span className="truncate">Add to Cart</span>
                     </button>
                   </div>
 
-                  {/* Add to Cart */}
-                  <button
-                    type="button"
-                    disabled={isPending || !product.isAvailable}
-                    onClick={() => handleAddToCart(selectedQty)}
-                    className="flex-1 bg-surface-container-high hover:bg-surface-container-highest text-primary font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.99] disabled:opacity-50 border border-outline-variant/60 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">shopping_cart</span>
-                    <span>Add to Cart</span>
-                  </button>
-
-                  {/* Buy Now */}
+                  {/* Buy Now (Full width on mobile, 1-flex on desktop) */}
                   <button
                     type="button"
                     disabled={isPending || !product.isAvailable}
                     onClick={() => handleBuyNow(selectedQty)}
-                    className="flex-1 bg-primary hover:bg-primary-container text-on-primary font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+                    className="w-full sm:flex-1 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs sm:text-sm py-2.5 sm:py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.99] disabled:opacity-50 cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-[18px]">bolt</span>
+                    <span className="material-symbols-outlined text-[16px] sm:text-[18px]">bolt</span>
                     <span>Buy Now</span>
                     <span className="opacity-40">•</span>
                     <span className="font-mono">₹{totalAmountRupees}</span>
@@ -977,17 +984,17 @@ export function ProductDetailClient({
                         </h3>
                       </div>
 
-                      <div className="mt-3 pt-2 border-t border-surface-container flex items-center justify-between">
-                        <div>
-                          <div className="text-sm font-bold text-primary font-mono">₹{relPrice}</div>
+                      <div className="mt-3 pt-2 border-t border-surface-container flex items-center justify-between gap-1 min-w-0">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs sm:text-sm font-bold text-primary font-mono truncate">₹{relPrice}</div>
                           {relSavings > 0 && (
-                            <div className="text-[11px] text-outline line-through">₹{relMrp}</div>
+                            <div className="text-[10px] sm:text-[11px] text-outline line-through truncate">₹{relMrp}</div>
                           )}
                         </div>
                         <button
                           type="button"
                           onClick={() => handleRelatedQuickAdd(rel)}
-                          className="bg-surface-container-high hover:bg-primary hover:text-on-primary text-primary text-xs px-2.5 py-1.5 rounded-lg transition-colors font-bold cursor-pointer"
+                          className="shrink-0 bg-surface-container-high hover:bg-primary hover:text-on-primary text-primary text-[11px] sm:text-xs px-2.5 py-1.5 rounded-lg transition-colors font-bold cursor-pointer"
                         >
                           + ADD
                         </button>
@@ -1002,19 +1009,19 @@ export function ProductDetailClient({
       </main>
 
       {/* Mobile Sticky Quick Buy Bar (Fixed at bottom for mobile, uncluttered with z-40) */}
-      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-surface-container-high px-4 py-2.5 flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
-        <div>
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-surface-container-high px-3 py-2 flex items-center justify-between gap-2 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+        <div className="min-w-0 shrink-0">
           <div className="text-[10px] text-on-surface-variant font-medium">Total Price</div>
-          <div className="font-headline text-lg font-extrabold text-primary font-mono">
+          <div className="font-headline text-base sm:text-lg font-extrabold text-primary font-mono truncate">
             ₹{totalAmountRupees}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             disabled={isPending || !product.isAvailable}
             onClick={() => handleAddToCart(selectedQty)}
-            className="px-3.5 py-2 bg-surface-container-high hover:bg-surface-container-highest text-primary font-bold text-xs rounded-xl border border-outline-variant/60 active:scale-95 cursor-pointer disabled:opacity-50"
+            className="px-2.5 sm:px-3 py-2 bg-surface-container-high hover:bg-surface-container-highest text-primary font-bold text-xs rounded-xl border border-outline-variant/60 active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
           >
             + Cart ({selectedQty})
           </button>
@@ -1022,7 +1029,7 @@ export function ProductDetailClient({
             type="button"
             disabled={isPending || !product.isAvailable}
             onClick={() => handleBuyNow(selectedQty)}
-            className="px-4 py-2 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50"
+            className="px-3 sm:px-4 py-2 bg-primary hover:bg-primary-container text-on-primary font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50 whitespace-nowrap"
           >
             <span>Buy Now</span>
             <span className="material-symbols-outlined text-[15px]">arrow_forward</span>

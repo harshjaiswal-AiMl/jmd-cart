@@ -434,18 +434,18 @@ export function StoreHeader({
         </div>
 
         {/* 2. Main Navigation Bar */}
-        <div className="h-16 md:h-20 max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="h-16 md:h-20 max-w-[1280px] mx-auto px-2.5 sm:px-4 lg:px-8 flex items-center justify-between gap-1.5 sm:gap-4">
           {/* Logo & Interactive Location Trigger */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <Link href="/" className="flex items-center gap-1.5 sm:gap-2 group">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
+            <Link href="/" className="flex items-center gap-1 sm:gap-2 group shrink-0">
               <img
                 src="/brand/jmd-cart-logo.png"
                 alt="JMD Cart Logo"
                 width={40}
                 height={40}
-                className="h-8 sm:h-10 w-auto object-contain transition-transform group-hover:scale-105 shrink-0"
+                className="h-7 sm:h-10 w-auto object-contain transition-transform group-hover:scale-105 shrink-0"
               />
-              <span className="font-headline text-xl sm:text-2xl tracking-tight text-primary font-bold whitespace-nowrap">
+              <span className="font-headline text-lg sm:text-2xl tracking-tight text-primary font-bold whitespace-nowrap">
                 JMD<span className="text-secondary">Cart</span>
               </span>
             </Link>
@@ -454,18 +454,19 @@ export function StoreHeader({
             <button
               type="button"
               onClick={() => setLocationModalOpen(true)}
-              className="flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-container-low hover:bg-surface-container border border-surface-container-high transition-all text-left cursor-pointer group shrink-0 active:scale-95 shadow-2xs max-w-[140px] xs:max-w-[170px] sm:max-w-[200px]"
+              className="flex items-center gap-1 sm:gap-2 px-1.5 py-1 sm:px-2.5 sm:py-1.5 rounded-xl bg-surface-container-low hover:bg-surface-container border border-surface-container-high transition-all text-left cursor-pointer group shrink-0 active:scale-95 shadow-2xs max-w-[110px] sm:max-w-[180px] md:max-w-[210px]"
               title="Click to change your delivery location"
             >
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
-                <span className="material-symbols-outlined text-[15px] sm:text-[17px]">near_me</span>
+              <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
+                <span className="material-symbols-outlined text-[13px] sm:text-[17px]">near_me</span>
               </div>
               <div className="leading-tight min-w-0">
-                <div className="text-[9px] sm:text-[10px] text-outline font-semibold flex items-center gap-0.5">
-                  <span>Deliver to</span>
-                  <span className="material-symbols-outlined text-[10px] sm:text-[12px]">expand_more</span>
+                <div className="text-[8px] sm:text-[10px] text-outline font-semibold flex items-center gap-0.5">
+                  <span className="hidden sm:inline">Deliver to</span>
+                  <span className="sm:hidden">Deliver</span>
+                  <span className="material-symbols-outlined text-[9px] sm:text-[12px]">expand_more</span>
                 </div>
-                <div className="font-bold text-on-surface text-[11px] sm:text-xs truncate">
+                <div className="font-bold text-on-surface text-[10px] sm:text-xs truncate max-w-[68px] sm:max-w-[130px]">
                   {currentLocationText}
                 </div>
               </div>
@@ -608,7 +609,7 @@ export function StoreHeader({
           </div>
 
           {/* Action Controls */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2.5 lg:gap-3 shrink-0">
             {/* Wholesale Hub CTA */}
             <Link
               href="/store/wholesale"
@@ -624,10 +625,10 @@ export function StoreHeader({
                 <button
                   type="button"
                   onClick={() => setAccountDropdownOpen((prev) => !prev)}
-                  className="flex items-center gap-1.5 sm:gap-2 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface cursor-pointer text-left"
+                  className="flex items-center gap-1 sm:gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-lg hover:bg-surface-container-low transition-colors text-on-surface cursor-pointer text-left"
                   aria-expanded={accountDropdownOpen}
                 >
-                  <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs ring-2 ring-primary/20">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs ring-2 ring-primary/20">
                     {userName ? userName.slice(0, 2).toUpperCase() : "U"}
                   </div>
                   <div className="hidden xl:block text-left">
@@ -643,9 +644,9 @@ export function StoreHeader({
               ) : (
                 <Link
                   href="/login"
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-outline-variant/60 hover:bg-surface-container-low text-xs font-bold text-on-surface transition-colors cursor-pointer"
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg border border-outline-variant/60 hover:bg-surface-container-low text-xs font-bold text-on-surface transition-colors cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[18px] text-primary">account_circle</span>
+                  <span className="material-symbols-outlined text-[16px] sm:text-[18px] text-primary">account_circle</span>
                   <span className="hidden sm:inline">Sign In</span>
                 </Link>
               )}
@@ -737,20 +738,20 @@ export function StoreHeader({
             {/* Shopping Bag Button */}
             <Link
               href="/store/cart"
-              className={`flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-3.5 sm:py-2 rounded-xl font-bold text-xs transition-all shrink-0 ${
+              className={`flex items-center gap-1 sm:gap-2 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl font-bold text-xs transition-all shrink-0 ${
                 cartCount > 0
                   ? "bg-primary hover:bg-primary-container text-on-primary shadow-xs active:scale-95"
                   : "bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant/60"
               }`}
               title={cartCount > 0 ? `${cartCount} items in cart (₹${cartTotalRupees})` : "Shopping Cart"}
             >
-              <span className="material-symbols-outlined text-[18px] sm:text-[20px] shrink-0">shopping_bag</span>
+              <span className="material-symbols-outlined text-[17px] sm:text-[20px] shrink-0">shopping_bag</span>
               {cartCount > 0 ? (
                 <>
                   <span className="hidden sm:inline font-bold">
                     ₹{cartTotalRupees.toLocaleString("en-IN")}
                   </span>
-                  <span className="bg-secondary-container text-on-secondary-container px-1.5 py-0.2 rounded-full text-[11px] font-black shrink-0">
+                  <span className="bg-secondary-container text-on-secondary-container px-1.5 py-0.2 rounded-full text-[10px] sm:text-[11px] font-black shrink-0">
                     {cartCount}
                   </span>
                 </>
@@ -762,10 +763,10 @@ export function StoreHeader({
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-1.5 text-on-surface hover:bg-surface-container-low rounded-lg shrink-0 w-9 h-9 flex items-center justify-center"
+              className="md:hidden p-1 text-on-surface hover:bg-surface-container-low rounded-lg shrink-0 w-8 h-8 flex items-center justify-center cursor-pointer"
               aria-label="Toggle Navigation Menu"
             >
-              <span className="material-symbols-outlined text-[24px] shrink-0">
+              <span className="material-symbols-outlined text-[22px] shrink-0">
                 {mobileMenuOpen ? "close" : "menu"}
               </span>
             </button>
