@@ -888,51 +888,6 @@ export function StoreHeader({
           )}
         </div>
 
-        {/* 3. Category Sub-Navigation Bar */}
-        <div className="w-full bg-surface-container-lowest border-t border-surface-container-high/60">
-          <div className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 flex items-center justify-between overflow-hidden">
-            <nav className="flex items-center gap-4 sm:gap-6 overflow-x-auto py-2 scrollbar-none text-xs w-full">
-              <Link
-                href="/store"
-                className={`whitespace-nowrap transition-colors font-bold pb-0.5 shrink-0 ${
-                  !activeCategory && pathname === "/store"
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-on-surface-variant hover:text-primary"
-                }`}
-              >
-                All Categories
-              </Link>
-              {categories.slice(0, 8).map((cat) => {
-                const isActive = activeCategory === cat.id;
-                return (
-                  <Link
-                    key={cat.id}
-                    href={`/store?categoryId=${cat.id}`}
-                    className={`whitespace-nowrap transition-colors font-semibold pb-0.5 shrink-0 ${
-                      isActive
-                        ? "text-primary font-bold border-b-2 border-primary"
-                        : "text-on-surface-variant hover:text-primary"
-                    }`}
-                  >
-                    {cat.name}
-                  </Link>
-                );
-              })}
-              <Link
-                href="/store/wholesale"
-                className={`font-bold whitespace-nowrap flex items-center gap-1 shrink-0 ${
-                  pathname === "/store/wholesale"
-                    ? "text-secondary border-b-2 border-secondary"
-                    : "text-secondary hover:underline"
-                }`}
-              >
-                <span className="material-symbols-outlined text-[14px]">percent</span>
-                Wholesale Slabs
-              </Link>
-            </nav>
-          </div>
-        </div>
-
         {/* 4. Mobile Menu Drawer */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-surface-container-lowest border-t border-surface-container-high p-4 space-y-3 shadow-xl animate-fade-in">
