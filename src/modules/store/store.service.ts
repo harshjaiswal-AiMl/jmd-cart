@@ -81,13 +81,13 @@ export function getCategoryFallbackPhoto(name: string): string {
   if (n.includes("pulse") || n.includes("dal")) {
     return "/media/products/71a8ec294bf844a9/original.png";
   }
-  if (n.includes("dry fruit") || n.includes("kaju") || n.includes("badam") || n.includes("nut")) {
+  if (n.includes("dry fruit") || n.includes("kaju") || n.includes("badam") || n.includes("nut") || n.includes("almond") || n.includes("cashew") || n.includes("pista") || n.includes("anjeer") || n.includes("chhuwara") || n.includes("moong fali") || n.includes("kesar") || n.includes("cranberry") || n.includes("seed")) {
     return "/media/products/dbac71f75f51870f/original.jpg";
   }
   if (n.includes("sauce") || n.includes("ketchup") || n.includes("pickle") || n.includes("jam")) {
     return "/media/products/3edf3a95842a992a/original.png";
   }
-  if (n.includes("sweet") || n.includes("mithai")) {
+  if (n.includes("sweet") || n.includes("mithai") || n.includes("soan") || n.includes("papdi") || n.includes("gulab") || n.includes("rasgulla") || n.includes("ladoo") || n.includes("katli") || n.includes("halwa")) {
     return "/media/products/5280b3616ee09cd5/original.png";
   }
   if (n.includes("beauty") || n.includes("grooming") || n.includes("skin")) {
@@ -96,7 +96,7 @@ export function getCategoryFallbackPhoto(name: string): string {
   if (n.includes("baby")) {
     return "/media/products/8763e34c64e05363/original.png";
   }
-  if (n.includes("gift") || n.includes("hamper")) {
+  if (n.includes("gift") || n.includes("hamper") || n.includes("box") || n.includes("duo moments") || n.includes("party mix")) {
     return "/media/products/ae1e5992544b29ab/original.png";
   }
   if (n.includes("electronic") || n.includes("battery") || n.includes("appliance")) {
@@ -314,7 +314,7 @@ export class StoreService {
           priceListUsed: resolved.listUsed,
           packSize: p.packSize,
           packLabel: p.packLabel,
-          imageUrl: p.imageUrl,
+          imageUrl: p.imageUrl || getCategoryFallbackPhoto(`${p.category?.name || ""} ${p.name}`),
           totalAvailableQty,
           godownCartonsCount,
           godownLooseQty,
@@ -448,7 +448,7 @@ export class StoreService {
       priceListUsed: resolved.listUsed,
       packSize: product.packSize,
       packLabel: product.packLabel,
-      imageUrl: product.imageUrl,
+      imageUrl: product.imageUrl || getCategoryFallbackPhoto(`${product.category?.name || ""} ${product.name}`),
       totalAvailableQty,
       godownCartonsCount,
       godownLooseQty,
