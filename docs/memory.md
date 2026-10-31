@@ -455,3 +455,35 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
     - `src/modules/stock/opening-stock.service.ts`: Query and atomic update functions for opening stock, calculating cartons, loose pieces, valuation at MRP, and KPIs.
     - `src/app/admin/inventory/opening-stock/`: Complete enterprise opening stock dashboard with KPI summary cards, search, brand/category filters, CSV export, quick edit modal, and "Add Opening Stock" item modal.
     - Navigation: Added `Opening Stock (18-Oct)` and `Item Stock Statement` directly under the `Inventory` menu group in `src/config/nav.config.ts`.
+
+### 2026-10-31: POS FMCG Terminal Redevelopment (Image 2 Busy Style), JMD Management PWA, JMD CART Storefront PWA & Official Branding
+
+- **Owner Request:**
+  1. Complete Shop POS UI redevelopment based on Image 2 (Busy Accounting / FMCG high-speed billing terminal style):
+     - Date & time with weekday, Voucher No., Party Name & Current Balance Dr/Cr, Narration.
+     - High-density spreadsheet ledger table with row numbers (1, 2, 3... 12) always rendered.
+     - Diagnostics ribbon below grid showing selected item's live stock in Godown (Cartons + Loose) and Shop (Pieces), Pack size, and price slabs.
+     - Bottom functional keys bar (`[Esc] [F1/Ctrl+K] [F2] [F3] [F4] [Weight View]`).
+  2. `management.jmdcart.com` PWA named **"JMD Management"**.
+  3. `jmdcart.com` PWA named **"JMD CART"**, with an install prompt shown to all web visitors.
+  4. Use uploaded official color logo (Image 1) and favicon across storefront and management portals.
+
+- **Implementation & Deliverables:**
+  - **Official Branding & Favicon:**
+    - Replaced `public/brand/jmd-cart-logo.png`, `public/brand/jmd-cart-logo-color.jpg`, `public/favicon.ico`, `public/icons/icon-192.png`, `public/icons/icon-512.png`, and `public/icons/icon-maskable.png` with the new official color JMD CART logo.
+    - Updated `src/app/layout.tsx` metadata with icons (`/brand/jmd-cart-logo.png` & `/favicon.ico`) and manifest link.
+    - Updated `src/components/layout/management-shell.tsx` with logo badge and title **"JMD Management"**.
+  - **Dynamic PWA Manifests (`src/app/manifest.webmanifest/route.ts` & `src/app/manifest.json/route.ts`):**
+    - Dynamically inspects incoming Host header:
+      - `management.jmdcart.com` / admin hosts -> Serves manifest with `name: "JMD Management"`, `short_name: "JMD Management"`, start URL `/admin`.
+      - `jmdcart.com` -> Serves manifest with `name: "JMD CART"`, `short_name: "JMD CART"`, start URL `/`.
+  - **Storefront PWA Install Prompt (`src/components/pwa/StorefrontInstallPrompt.tsx`):**
+    - Intercepts `beforeinstallprompt`, checks standalone mode, and renders a sleek floating bottom card with the JMD CART logo, value proposition ("घर बैठे आसान खरीदारी"), and single-tap **"Install App (ऐप इंस्टॉल करें)"** button.
+    - Includes an iOS step-by-step installation guide (Share -> Add to Home Screen).
+    - Added an "Install App" button in `src/components/store/StoreHeader.tsx`.
+  - **Shop POS Billing UI Redevelopment (`src/app/shop/pos/pos-client.tsx`):**
+    - **Header:** Features official logo, store location, and cashier.
+    - **Voucher Strip (Image 2 style):** Displays Date with weekday (e.g. `31-10-2026 (Sat)`), Voucher No., Party Name with live balance `(Cur. Bal: Rs. ... Dr/Cr)`, and inline `Narration` input.
+    - **Continuous Spreadsheet Grid:** Table headers (`S.N. | Item Description | Qty | Unit | List Price | Rate | Disc % | Amount | Del`) with crisp borders. Padded with empty rows up to row 10+ for a real FMCG software ledger appearance.
+    - **Under-Grid Diagnostics Ribbon:** Displays selected item's live Godown cartons, total pieces, Shop pieces, pack size, discount structure, and total voucher quantity.
+    - **Bottom Functional Keys Ribbon:** `[Esc - Quit] [F1 / Ctrl+K - Search] [F2 - Done / Print] [F3 - New Bill] [F4 - Hold Bill] [Weight View]`.

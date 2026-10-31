@@ -158,6 +158,19 @@ export function PosClient({
 }: PosClientProps) {
   // Admin check for backdated billing
   const isAdmin = cashierRole === "SUPER_ADMIN" || cashierRole === "ADMIN";
+  const todayFormattedWithDay = useMemo(() => {
+    try {
+      const d = new Date();
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const dayName = days[d.getDay()];
+      return `${day}-${month}-${year} (${dayName})`;
+    } catch {
+      return "31-10-2026 (Sat)";
+    }
+  }, []);
   const todayStr = useMemo(() => {
     try {
       return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
@@ -1452,8 +1465,8 @@ export function PosClient({
       {/* 1. Top Bar: Focus Mode Header & Open Bill Tabs */}
       <header className="bg-[#12355B] text-white px-3 sm:px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-md shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-[#FC830D] flex items-center justify-center font-black text-white text-base shadow-xs">
-            J
+          <div className="w-9 h-9 rounded-xl bg-white p-0.5 flex items-center justify-center shrink-0 border border-slate-700 shadow-xs">
+            <img src="/brand/jmd-cart-logo.png" alt="JMD POS Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -1554,6 +1567,46 @@ export function PosClient({
           </Link>
         </div>
       </header>
+
+      {/* 1b. FMCG Voucher Details Strip (Image 2 Busy ERP Style) */}
+      <div className="bg-white border-b-2 border-slate-300 px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs shrink-0">
+        <div className="flex items-center gap-3 sm:gap-5 flex-wrap text-xs font-mono font-bold">
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase font-sans text-[11px] font-extrabold">Date:</span>
+            <span className="text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+              {todayFormattedWithDay}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase font-sans text-[11px] font-extrabold">Vch. No:</span>
+            <span className="text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-300 font-black">
+              {activeTab.tabTitle || "INV/26-27/000001"}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 uppercase font-sans text-[11px] font-extrabold">Party:</span>
+            <span className="text-slate-900 font-black font-sans text-xs sm:text-sm">
+              {selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale")}
+            </span>
+            <span className="text-slate-600 text-[11px]">
+              {selectedParty
+                ? `(Cur. Bal: Rs. ${(selectedParty.currentOutstandingPaise / 100).toFixed(2)} ${selectedParty.currentOutstandingPaise >= 0 ? "Dr" : "Cr"})`
+                : "(Cur. Bal: Rs. 0.00 Dr)"}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-1 min-w-[220px] max-w-md">
+          <span className="text-slate-500 uppercase font-sans text-[11px] font-extrabold shrink-0">Narration:</span>
+          <input
+            type="text"
+            placeholder="Narration / bill notes..."
+            value={activeTab.remarks}
+            onChange={(e) => updateActiveTab({ remarks: e.target.value })}
+            className="w-full px-2.5 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] font-sans"
+          />
+        </div>
+      </div>
 
       {/* 2. Party Bar: Customer, Balance, Tier, History */}
       <div className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-3 shadow-xs">
@@ -2138,29 +2191,20 @@ export function PosClient({
             )}
           </div>
 
-          {/* Busy Sales Voucher Keyboard Grid */}
-          <div className="flex-1 overflow-y-auto">
-            {activeTab.cart.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-400 space-y-3">
-                <Receipt className="w-16 h-16 text-slate-300 stroke-1" />
-                <p className="font-extrabold text-base text-slate-700">No items in current bill</p>
-                <p className="text-xs text-slate-500 max-w-sm">
-                  Search by item name or code above <strong className="font-mono text-slate-800">[Ctrl+K]</strong> or scan barcode to begin billing.
-                </p>
-              </div>
-            ) : (
-              <table className="w-full text-left border-collapse">
+          {/* Busy FMCG Sales Voucher Ledger Grid (Image 2 Style) */}
+          <div className="flex-1 overflow-y-auto bg-white border border-slate-300 m-2 rounded-xl shadow-2xs">
+            <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-100/90 border-b-2 border-slate-200 text-xs font-black uppercase text-slate-700 tracking-wider sticky top-0 z-10 shadow-xs backdrop-blur-xs">
-                    <th className="py-3 px-3 w-12 text-center">#</th>
-                    <th className="py-3 px-3 min-w-[280px]">Item Description</th>
-                    <th className="py-3 px-2 w-24 text-center">Qty</th>
-                    <th className="py-3 px-2 w-28 text-center">Unit</th>
-                    <th className="py-3 px-2 w-28 text-right">MRP</th>
-                    <th className="py-3 px-2 w-36 text-right">Rate (₹)</th>
-                    <th className="py-3 px-2 w-24 text-center">Disc %</th>
-                    <th className="py-3 px-3 w-36 text-right">Amount (₹)</th>
-                    <th className="py-3 px-2 w-12 text-center">Del</th>
+                  <tr className="bg-[#e9edf5] border-b-2 border-slate-300 text-[11px] font-black uppercase text-slate-800 tracking-wider sticky top-0 z-10 shadow-xs">
+                    <th className="py-2 px-2.5 w-12 text-center border-r border-slate-300">S.N.</th>
+                    <th className="py-2 px-3 min-w-[260px] border-r border-slate-300">Item Description</th>
+                    <th className="py-2 px-2 w-24 text-center border-r border-slate-300">Qty</th>
+                    <th className="py-2 px-2 w-28 text-center border-r border-slate-300">Unit</th>
+                    <th className="py-2 px-2 w-28 text-right border-r border-slate-300">List Price (MRP)</th>
+                    <th className="py-2 px-2 w-32 text-right border-r border-slate-300">Rate (₹)</th>
+                    <th className="py-2 px-2 w-24 text-center border-r border-slate-300">Disc %</th>
+                    <th className="py-2 px-3 w-36 text-right border-r border-slate-300">Amount (₹)</th>
+                    <th className="py-2 px-2 w-10 text-center">✕</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -2569,13 +2613,37 @@ export function PosClient({
                       </tr>
                     );
                   })}
+                  {/* Empty Spreadsheet Rows for Classic Busy ERP Look (Image 2) */}
+                  {activeTab.cart.length === 0 && (
+                    <tr className="h-10 bg-blue-50/20 border-b border-slate-200">
+                      <td className="text-center font-mono text-xs text-slate-400 border-r border-slate-200 font-bold">1</td>
+                      <td colSpan={8} className="px-4 text-xs font-semibold text-slate-500">
+                        👉 Press <strong className="font-mono text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-300 shadow-2xs">[Ctrl+K / F1]</strong> or type above to add items to bill...
+                      </td>
+                    </tr>
+                  )}
+                  {Array.from({ length: Math.max(0, 10 - Math.max(1, activeTab.cart.length)) }).map((_, emptyIdx) => {
+                    const rowNum = Math.max(1, activeTab.cart.length) + emptyIdx + 1;
+                    return (
+                      <tr key={`empty-row-${rowNum}`} className="h-9 hover:bg-slate-50/40 border-b border-slate-200/80">
+                        <td className="text-center font-mono text-xs text-slate-400 border-r border-slate-200 font-bold">{rowNum}</td>
+                        <td className="border-r border-slate-200 px-3"></td>
+                        <td className="border-r border-slate-200"></td>
+                        <td className="border-r border-slate-200"></td>
+                        <td className="border-r border-slate-200"></td>
+                        <td className="border-r border-slate-200"></td>
+                        <td className="border-r border-slate-200"></td>
+                        <td className="border-r border-slate-200"></td>
+                        <td></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-            )}
           </div>
 
-          {/* Under-Grid Stock & Customer Last Purchase Indicator */}
-          <div className="p-3 bg-slate-100 border-t border-slate-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+          {/* Under-Grid Stock & Diagnostics Ribbon (Image 2 Busy Style) */}
+          <div className="px-3.5 py-2 bg-[#e2e8f0] border-t-2 border-slate-300 text-xs font-mono font-bold text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
             {highlightedProduct ? (
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="font-extrabold text-slate-900 text-sm">{highlightedProduct.name}:</span>
@@ -2871,19 +2939,63 @@ export function PosClient({
         </aside>
       </div>
 
-      {/* 4. Bottom Shortcut Legend */}
-      <footer className="bg-slate-900 text-slate-400 px-3 py-1.5 text-[11px] flex flex-wrap items-center justify-between gap-2 shrink-0 border-t border-slate-800">
-        <div className="flex items-center gap-4 flex-wrap">
-          <span><strong className="text-white font-mono">[F2]</strong> Finalize</span>
-          <span><strong className="text-white font-mono">[F3]</strong> New Bill</span>
-          <span><strong className="text-white font-mono">[F4]</strong> Hold</span>
-          <span><strong className="text-white font-mono">[F5]</strong> Held Bills</span>
-          <span><strong className="text-white font-mono">[F9]</strong> Delete Line</span>
-          <span><strong className="text-white font-mono">[Ctrl+K]</strong> Search Item</span>
-          <span><strong className="text-white font-mono">[Esc]</strong> Close</span>
+      {/* 4. Bottom Functional Keys Ribbon (Exact Image 2 Footer) */}
+      <footer className="bg-[#0f172a] text-white px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold shrink-0 border-t border-slate-700">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+          <button
+            type="button"
+            onClick={() => handleCloseTab(activeTabId)}
+            className="bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded border border-white/20 text-slate-200 transition cursor-pointer"
+          >
+            [Esc - Quit]
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              itemSearchInputRef.current?.focus();
+              itemSearchInputRef.current?.select();
+            }}
+            className="bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded border border-white/20 text-slate-200 transition cursor-pointer"
+          >
+            [F1 / Ctrl+K - Search]
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFinalizeBill()}
+            disabled={activeTab.cart.length === 0 || isFinalizing}
+            className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-2.5 py-0.5 rounded border border-emerald-400 text-white transition shadow-xs cursor-pointer"
+          >
+            [F2 - Done / Print]
+          </button>
+          <button
+            type="button"
+            onClick={handleCreateNewTab}
+            className="bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded border border-white/20 text-slate-200 transition cursor-pointer"
+          >
+            [F3 - New Bill]
+          </button>
+          <button
+            type="button"
+            onClick={handleHoldCurrentBill}
+            disabled={activeTab.cart.length === 0}
+            className="bg-amber-500/20 hover:bg-amber-500/30 px-2 py-0.5 rounded border border-amber-400/50 text-amber-200 transition cursor-pointer"
+          >
+            [F4 - Hold Bill]
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsWeightViewOpen((prev) => !prev)}
+            className="bg-purple-900/40 hover:bg-purple-900/60 px-2 py-0.5 rounded border border-purple-400/40 text-purple-200 transition cursor-pointer"
+          >
+            [Weight View]
+          </button>
         </div>
-        <div className="text-[10px] text-slate-500 font-mono">
-          JMD Cart POS • v2.0
+        <div className="hidden lg:flex items-center gap-3 text-[11px] font-sans text-slate-300">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Connected: <strong>{locationName}</strong></span>
+          </span>
+          <span>Cashier: <strong className="text-white">{cashierName}</strong></span>
         </div>
       </footer>
 

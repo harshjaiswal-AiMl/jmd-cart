@@ -736,6 +736,25 @@ export function StoreHeader({
               )}
             </div>
 
+            {/* Install JMD CART App Button */}
+            <button
+              type="button"
+              onClick={() => {
+                const promptEvent = (window as any).__pwa_prompt;
+                if (promptEvent) {
+                  promptEvent.prompt();
+                } else {
+                  const installBtn = document.querySelector("aside[aria-label='Install JMD CART App'] button") as HTMLButtonElement;
+                  if (installBtn) installBtn.click();
+                }
+              }}
+              className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-950 transition-colors shadow-2xs active:scale-95 cursor-pointer"
+              title="Install JMD CART App on Mobile or PC"
+            >
+              <span className="material-symbols-outlined text-[18px] text-amber-600">install_mobile</span>
+              <span>Install App</span>
+            </button>
+
             {/* Shopping Bag Button */}
             <Link
               href="/store/cart"

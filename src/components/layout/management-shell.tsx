@@ -346,16 +346,16 @@ export function ManagementShell({
             href={user.role === "GODOWN" ? "/godown" : "/admin"}
             className="flex items-center gap-2.5 overflow-hidden"
           >
-            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-sm">
-              JMD
+            <div className="w-9 h-9 rounded-xl bg-white p-0.5 flex items-center justify-center shrink-0 shadow-sm border border-slate-700">
+              <img src="/brand/jmd-cart-logo.png" alt="JMD Management Logo" className="w-full h-full object-contain" />
             </div>
             {!isCollapsed && (
               <div className="truncate">
                 <div className="font-black text-sm tracking-tight leading-none text-white">
-                  JMD CART
+                  JMD Management
                 </div>
-                <div className="text-[10px] text-blue-400 font-bold uppercase tracking-wider mt-0.5">
-                  Saharsa Distribution
+                <div className="text-[10px] text-amber-400 font-bold uppercase tracking-wider mt-0.5">
+                  Operations & Billing
                 </div>
               </div>
             )}

@@ -1,9 +1,21 @@
 import { FontSizeProvider } from "@/components/common/font-size-provider";
+import { StorefrontInstallPrompt } from "@/components/pwa/StorefrontInstallPrompt";
 import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://jmdcart.com"),
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/brand/jmd-cart-logo.png", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    apple: [
+      { url: "/brand/jmd-cart-logo.png" },
+    ],
+    shortcut: ["/brand/jmd-cart-logo.png"],
+  },
   title: {
     default: "JMD Cart — Saharsa Grocery & Bulk Wholesale",
     template: "%s | JMD Cart Saharsa",
@@ -139,6 +151,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-surface font-body text-on-surface antialiased">
         <FontSizeProvider>{children}</FontSizeProvider>
+        <StorefrontInstallPrompt />
       </body>
     </html>
   );
