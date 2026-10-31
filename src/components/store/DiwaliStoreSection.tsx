@@ -48,38 +48,32 @@ export function DiwaliStoreSection({
         }
         @keyframes festiveBlinkA {
           0%, 100% {
-            opacity: 0.25;
-            filter: drop-shadow(0 0 2px currentColor) brightness(0.7);
+            opacity: 0.35;
             transform: scale(0.85);
           }
           45% {
             opacity: 1;
-            filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 16px currentColor) brightness(1.6);
-            transform: scale(1.25);
+            transform: scale(1.15);
           }
         }
         @keyframes festiveBlinkB {
           0%, 100% {
             opacity: 1;
-            filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 16px currentColor) brightness(1.6);
-            transform: scale(1.25);
+            transform: scale(1.15);
           }
           50% {
-            opacity: 0.2;
-            filter: drop-shadow(0 0 1px currentColor) brightness(0.65);
+            opacity: 0.35;
             transform: scale(0.85);
           }
         }
         @keyframes festiveBlinkC {
           0%, 25%, 100% {
-            opacity: 0.3;
-            filter: drop-shadow(0 0 2px currentColor) brightness(0.7);
-            transform: scale(0.88);
+            opacity: 0.4;
+            transform: scale(0.9);
           }
           60%, 80% {
             opacity: 1;
-            filter: drop-shadow(0 0 9px currentColor) drop-shadow(0 0 18px currentColor) brightness(1.7);
-            transform: scale(1.3);
+            transform: scale(1.2);
           }
         }
         @keyframes diyaFlameBurn {
@@ -170,8 +164,8 @@ export function DiwaliStoreSection({
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-rose-400/10 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Section Header with Prominent Animated Burning Diya */}
-        <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-3.5 pb-4 sm:pb-5 border-b border-amber-200/60 pt-2 px-8 sm:px-14 md:px-16">
+        {/* Section Header with Prominent Animated Burning Diya (Clearance below lights) */}
+        <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-3.5 pb-4 sm:pb-5 border-b border-amber-200/60 pt-9 sm:pt-9 px-8 sm:px-14 md:px-16">
           <div className="flex items-center gap-3 sm:gap-4">
             {/* Left Animated Diya with Burning Flame (Prominent on Phone & Laptop) */}
             <div className="shrink-0 drop-shadow-sm">
@@ -497,23 +491,23 @@ function FestiveFairyGarland() {
   ];
 
   return (
-    <div className="absolute top-0 left-0 right-0 h-7 overflow-hidden pointer-events-none select-none z-10">
+    <div className="absolute top-0 left-0 right-0 h-6 overflow-hidden pointer-events-none select-none z-10 bg-transparent">
       {/* Decorative Scalloped Golden Wire */}
       <svg
-        className="w-full h-3.5"
+        className="w-full h-3"
         preserveAspectRatio="none"
         viewBox="0 0 1200 16"
         fill="none"
       >
         <path
           d="M0,2 Q50,12 100,2 Q150,12 200,2 Q250,12 300,2 Q350,12 400,2 Q450,12 500,2 Q550,12 600,2 Q650,12 700,2 Q750,12 800,2 Q850,12 900,2 Q950,12 1000,2 Q1050,12 1100,2 Q1150,12 1200,2"
-          stroke="#d97706"
-          strokeWidth="1.4"
-          strokeOpacity="0.5"
+          stroke="#f59e0b"
+          strokeWidth="1"
+          strokeOpacity="0.45"
         />
       </svg>
 
-      {/* Hanging Twinkling Fairy Bulbs with Multi-color Blinking */}
+      {/* Hanging Twinkling Dainty Micro-Bulbs - Pure Transparent & Glowing */}
       {bulbs.map((b, i) => (
         <div
           key={i}
@@ -523,14 +517,14 @@ function FestiveFairyGarland() {
             animationDelay: b.delay,
           }}
         >
-          {/* Miniature Cap */}
-          <div className="w-1.5 h-1 bg-amber-900 rounded-t-[1px]" />
-          {/* Glowing Glass Teardrop Bulb with Vibrant Multi-layered Shadow */}
+          {/* Subtle Golden Micro Pin (No Dark Sockets) */}
+          <div className="w-1 h-0.5 bg-amber-400/80 rounded-t-[1px]" />
+          {/* Small Dainty Glowing Glass Teardrop Micro-Bulb */}
           <div
-            className="w-2.5 h-3 rounded-b-full rounded-t-xs"
+            className="w-1.5 h-2 rounded-b-full rounded-t-xs"
             style={{
               backgroundColor: b.color,
-              boxShadow: `0 0 8px 2px ${b.color}, 0 0 14px 4px ${b.color}80`,
+              boxShadow: `0 0 5px 1.5px ${b.color}, 0 0 9px 2px ${b.color}70`,
             }}
           />
         </div>
