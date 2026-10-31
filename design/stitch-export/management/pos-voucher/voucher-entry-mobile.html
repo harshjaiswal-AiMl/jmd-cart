@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FMCG Voucher Entry - Shop Billing & Van Sales</title>
+  <!-- Tailwind CSS CDN with typography and forms plugins -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono for accounting precision -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- Google Material Symbols -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              navy: '#0f172a',      // Slate 900 / Deep Navy
+              dark: '#1e293b',      // Slate 800
+              surface: '#f8fafc',   // Slate 50
+              card: '#ffffff',
+              border: '#cbd5e1',    // Slate 300
+              accent: '#2563eb',    // Blue 600
+              emerald: '#059669',   // Green 600
+              amber: '#d97706',     // Amber 600
+              rose: '#e11d48',      // Rose 600
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+      vertical-align: middle;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 font-sans antialiased min-h-screen flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900">
+
+  <!-- TOP VOUCHER BAR & APP CONTEXT -->
+  <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+    <!-- Top System Strip -->
+    <div class="px-3 sm:px-5 py-2 border-b border-slate-800 flex items-center justify-between text-xs">
+      <div class="flex items-center space-x-2.5">
+        <span class="inline-flex items-center justify-center bg-blue-600 text-white font-black px-2 py-0.5 rounded text-[11px] tracking-wider uppercase">FMCG POS</span>
+        <span class="font-semibold text-slate-200">JMD Cart Enterprise</span>
+        <span class="text-slate-500 hidden sm:inline">•</span>
+        <span class="hidden sm:inline-flex items-center gap-1 text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          Van-01 / Central Godown Sync Active
+        </span>
+      </div>
+      <div class="flex items-center space-x-3 text-slate-300 font-mono text-[11px]">
+        <span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700">F2 Save</span>
+        <span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700 hidden sm:inline">F3 New Item</span>
+        <span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700 hidden md:inline">Esc Close</span>
+        <span class="text-emerald-400 font-medium flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px]">wifi</span> Online
+        </span>
+      </div>
+    </div>
+
+    <!-- Voucher Details Panel (Compact on Mobile, Grid on Tablet/Desktop) -->
+    <div class="px-3 sm:px-5 py-2.5 sm:py-3 bg-slate-900/95 backdrop-blur">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-2.5 items-center">
+        <!-- Vch No & Series -->
+        <div class="lg:col-span-3 flex items-center justify-between sm:justify-start gap-2 bg-slate-800/90 p-2 rounded-lg border border-slate-700">
+          <div>
+            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+              <span>Voucher No (Auto)</span>
+              <span class="text-[9px] bg-blue-500/20 text-blue-300 px-1 py-0.2 rounded font-mono">SERIES: DL-POS</span>
+            </div>
+            <div class="font-mono text-sm sm:text-base font-bold text-white tracking-wide">VCH-2024/0985</div>
+          </div>
+          <div class="text-right sm:text-left sm:ml-auto">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Date</div>
+            <div class="font-mono text-xs font-semibold text-slate-200">14-Nov-2024</div>
+          </div>
+        </div>
+
+        <!-- Party Selector with Dr/Cr Balance Badge -->
+        <div class="lg:col-span-6 bg-slate-800/90 p-2 rounded-lg border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400 flex items-center gap-1">
+                <span class="material-symbols-outlined text-[13px] text-blue-400">storefront</span>
+                Party / Customer Account
+              </span>
+              <span class="text-[10px] text-blue-400 cursor-pointer hover:underline font-mono">[Alt+P Change]</span>
+            </div>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <span class="font-semibold text-sm text-white truncate">M/s Shree Ganesh Supermarket, Andheri (W)</span>
+              <span class="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-mono shrink-0">GSTIN: 27AABCU...</span>
+            </div>
+          </div>
+          <!-- Current Balance Badge -->
+          <div class="bg-rose-950/60 border border-rose-800/60 rounded px-2.5 py-1 text-right shrink-0 flex sm:flex-col justify-between items-center sm:items-end">
+            <span class="text-[9px] uppercase font-semibold text-rose-300 tracking-wider">Current Balance</span>
+            <span class="font-mono text-xs sm:text-sm font-bold text-rose-400">₹48,200.00 <span class="text-[10px] uppercase">Dr</span></span>
+          </div>
+        </div>
+
+        <!-- Rate Tier & Quick Stats -->
+        <div class="lg:col-span-3 flex items-center justify-between bg-slate-800/90 p-2 rounded-lg border border-slate-700">
+          <div>
+            <div class="text-[10px] uppercase font-bold text-slate-400">Price Tier</div>
+            <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Tier-1 Wholesale
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-[10px] uppercase font-bold text-slate-400">Payment Terms</div>
+            <div class="text-xs font-mono font-medium text-slate-300">Credit (30 Days)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN SCROLLABLE CONTENT AREA -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 space-y-3 sm:space-y-4">
+
+    <!-- SEARCH & TYPEAHEAD SECTION -->
+    <div class="relative bg-white rounded-xl shadow-sm border border-slate-200 p-2.5 sm:p-3">
+      <div class="flex flex-col sm:flex-row gap-2">
+        <!-- Main Search Bar -->
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <span class="material-symbols-outlined text-[20px]">search</span>
+          </div>
+          <input 
+            type="text" 
+            value="Parle-G" 
+            placeholder="Search SKU barcode, item name, brand (e.g. Bikaji, MDH, Parle)..." 
+            class="w-full pl-10 pr-20 py-2.5 bg-slate-50 border border-blue-400 rounded-lg text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white shadow-inner font-sans"
+          />
+          <div class="absolute inset-y-0 right-0 pr-2 flex items-center space-x-1">
+            <span class="text-[10px] font-mono bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold hidden sm:inline">Ctrl+K</span>
+            <button class="p-1 text-slate-400 hover:text-slate-600 rounded">
+              <span class="material-symbols-outlined text-[18px]">barcode_scanner</span>
+            </button>
+          </div>
+        </div>
+        <!-- Quick Scan / Filter Buttons for Mobile & Tablet -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <button class="px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shrink-0 hover:bg-slate-800 transition">
+            <span class="material-symbols-outlined text-[16px]">qr_code_scanner</span>
+            <span>Scan [F4]</span>
+          </button>
+          <button class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium shrink-0 border border-slate-200">
+            Biscuits (12)
+          </button>
+          <button class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium shrink-0 border border-slate-200">
+            Namkeen (8)
+          </button>
+          <button class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium shrink-0 border border-slate-200">
+            Spices (14)
+          </button>
+        </div>
+      </div>
+
+      <!-- TYPEAHEAD SEARCH DROPDOWN (ACTIVE STATE PREVIEW) -->
+      <div class="mt-2 bg-white rounded-lg border-2 border-blue-500 shadow-xl overflow-hidden z-20">
+        <div class="bg-blue-50/80 px-3 py-1.5 border-b border-blue-200 flex items-center justify-between text-xs">
+          <span class="font-bold text-blue-900 flex items-center gap-1">
+            <span class="material-symbols-outlined text-[15px]">list_alt</span> Matches for "Parle-G" (3 SKUs)
+          </span>
+          <span class="font-mono text-[11px] text-blue-700">[▲ / ▼ to navigate • Enter to select • Esc to dismiss]</span>
+        </div>
+        <div class="divide-y divide-slate-100 text-xs">
+          <!-- Active Highlighted Item -->
+          <div class="p-2.5 sm:p-3 bg-blue-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer transition">
+            <div class="flex items-start gap-2.5">
+              <span class="w-5 h-5 rounded bg-blue-500 text-white font-mono text-[11px] flex items-center justify-center font-bold mt-0.5">1</span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-sm">Parle-G Gold 250g Family Pack</span>
+                  <span class="bg-blue-700 text-blue-100 px-1.5 py-0.2 rounded text-[10px] font-mono">HSN: 19053100</span>
+                  <span class="bg-amber-400 text-slate-900 px-1 py-0.2 rounded text-[10px] font-bold">18% GST</span>
+                </div>
+                <div class="text-[11px] text-blue-100 flex items-center gap-3 mt-0.5">
+                  <span>Pack: 24 Pcs / Carton</span>
+                  <span>•</span>
+                  <span>MRP: ₹30.00 / Pc</span>
+                  <span>•</span>
+                  <span class="font-medium">Van: <strong class="text-white font-mono">90 Pcs</strong></span>
+                  <span>•</span>
+                  <span class="font-medium">Godown: <strong class="text-emerald-200 font-mono">520 Ctn</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between sm:justify-end gap-3 sm:text-right pl-7 sm:pl-0">
+              <div>
+                <div class="text-[10px] text-blue-200 uppercase font-bold">Rate (Excl. Tax)</div>
+                <div class="font-mono text-base font-bold text-white">₹1,201.00 <span class="text-xs font-normal">/ Ctn</span></div>
+              </div>
+              <span class="bg-white text-blue-700 px-2 py-1 rounded font-bold text-[11px] shadow-sm uppercase shrink-0">
+                ↵ Select
+              </span>
+            </div>
+          </div>
+
+          <!-- Non-selected row 2 -->
+          <div class="p-2.5 sm:p-3 hover:bg-slate-50 text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer transition">
+            <div class="flex items-start gap-2.5">
+              <span class="w-5 h-5 rounded bg-slate-100 text-slate-600 font-mono text-[11px] flex items-center justify-center font-semibold mt-0.5">2</span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-sm text-slate-900">Parle Monaco Salted 200g</span>
+                  <span class="bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded text-[10px] font-mono">HSN: 19053100</span>
+                </div>
+                <div class="text-[11px] text-slate-500 flex items-center gap-3 mt-0.5">
+                  <span>Pack: 30 Pcs / Ctn</span>
+                  <span>•</span>
+                  <span>MRP: ₹25.00 / Pc</span>
+                  <span>•</span>
+                  <span>Shop: <strong class="text-slate-700 font-mono">45 Pcs</strong></span>
+                  <span>•</span>
+                  <span>Godown: <strong class="text-emerald-700 font-mono">340 Ctn</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between sm:justify-end gap-3 pl-7 sm:pl-0">
+              <div class="font-mono text-sm font-semibold text-slate-800">₹705.60 <span class="text-xs text-slate-500 font-normal">/ Ctn</span></div>
+              <span class="text-slate-400 font-mono text-[10px]">[Click / Enter]</span>
+            </div>
+          </div>
+
+          <!-- Non-selected row 3 -->
+          <div class="p-2.5 sm:p-3 hover:bg-slate-50 text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer transition">
+            <div class="flex items-start gap-2.5">
+              <span class="w-5 h-5 rounded bg-slate-100 text-slate-600 font-mono text-[11px] flex items-center justify-center font-semibold mt-0.5">3</span>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-semibold text-sm text-slate-900">Parle Krackjack 200g Butter Sweet</span>
+                  <span class="bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded text-[10px] font-mono">HSN: 19053100</span>
+                </div>
+                <div class="text-[11px] text-slate-500 flex items-center gap-3 mt-0.5">
+                  <span>Pack: 30 Pcs / Ctn</span>
+                  <span>•</span>
+                  <span>MRP: ₹25.00</span>
+                  <span>•</span>
+                  <span>Van: <strong class="text-slate-700 font-mono">22 Pcs</strong></span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center justify-between sm:justify-end gap-3 pl-7 sm:pl-0">
+              <div class="font-mono text-sm font-semibold text-slate-800">₹720.00 <span class="text-xs text-slate-500 font-normal">/ Ctn</span></div>
+              <span class="text-slate-400 font-mono text-[10px]">[Click / Enter]</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STACKED ITEM CARDS SECTION (OPTIMIZED FOR TOUCH + KEYBOARD) -->
+    <div class="space-y-2.5">
+      <!-- Section Header -->
+      <div class="flex items-center justify-between px-1">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-sm uppercase tracking-wider text-slate-700">Voucher Items (3 Added)</span>
+          <span class="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-full font-mono font-semibold">11 Cartons • 10 Pcs</span>
+        </div>
+        <div class="text-xs text-slate-500 flex items-center gap-1 font-mono">
+          <span class="hidden sm:inline">Use Tab / Shift+Tab to jump fields</span>
+          <button class="text-blue-600 font-bold hover:underline ml-2">+ Add Item [F3]</button>
+        </div>
+      </div>
+
+      <!-- CARD 1: Bikaji Bhujia 400g -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4 hover:border-slate-300 transition relative">
+        <!-- Top Line: Item Name, Weight, HSN, Tax Badge & Actions -->
+        <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-100">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-mono text-xs font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">01</span>
+            <h3 class="font-bold text-sm sm:text-base text-slate-900">Bikaji Bhujia <span class="text-slate-600 font-semibold">400g Pouch</span></h3>
+            <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">HSN: 21069099</span>
+            <span class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-medium">12% GST</span>
+          </div>
+          <div class="flex items-center gap-1 text-slate-400">
+            <button class="p-1 hover:text-slate-600 rounded" title="Duplicate row">
+              <span class="material-symbols-outlined text-[18px]">content_copy</span>
+            </button>
+            <button class="p-1 hover:text-rose-600 rounded" title="Delete row">
+              <span class="material-symbols-outlined text-[18px]">delete</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Input Row: Qty, Unit, Rate, Amount -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-2.5 sm:gap-3 pt-3 items-center">
+          
+          <!-- QTY with +/- touch stepper -->
+          <div class="lg:col-span-3">
+            <label class="block text-[11px] uppercase font-bold text-slate-500 mb-1">Quantity</label>
+            <div class="flex items-center border border-slate-300 rounded-lg bg-slate-50 focus-within:ring-2 focus-within:ring-blue-600 focus-within:border-blue-600">
+              <button class="px-2.5 py-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-l-lg transition active:bg-slate-300">
+                <span class="material-symbols-outlined text-[18px]">remove</span>
+              </button>
+              <input 
+                type="number" 
+                value="4" 
+                class="w-full text-center bg-transparent py-1.5 font-mono text-base font-bold text-slate-900 focus:outline-none"
+              />
+              <button class="px-2.5 py-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-r-lg transition active:bg-slate-300">
+                <span class="material-symbols-outlined text-[18px]">add</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- UNIT SELECTOR -->
+          <div class="lg:col-span-2">
+            <label class="block text-[11px] uppercase font-bold text-slate-500 mb-1">Billing Unit</label>
+            <select class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+              <option selected>Carton (24 Pcs)</option>
+              <option>Loose Pcs</option>
+              <option>Dozen (12 Pcs)</option>
+            </select>
+          </div>
+
+          <!-- RATE & DISCOUNT -->
+          <div class="lg:col-span-3">
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-[11px] uppercase font-bold text-slate-500">Rate (₹) / Ctn</label>
+              <span class="text-[10px] text-blue-600 font-semibold font-mono">Disc: 5%</span>
+            </div>
+            <div class="relative">
+              <input 
+                type="text" 
+                value="4,560.00" 
+                class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+              <span class="absolute right-2 top-2 text-[10px] text-slate-400 font-mono">MRP: ₹4,800</span>
+            </div>
+          </div>
+
+          <!-- AMOUNT CALCULATED -->
+          <div class="lg:col-span-4 bg-slate-50 p-2 sm:p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
+            <div>
+              <span class="block text-[10px] uppercase font-bold text-slate-500">Row Total (Inc. GST)</span>
+              <span class="text-[10px] text-slate-500 font-mono">4 Ctn × ₹4,560.00</span>
+            </div>
+            <div class="text-right">
+              <div class="font-mono text-base sm:text-lg font-black text-slate-900">₹18,240.00</div>
+              <div class="text-[10px] text-emerald-600 font-semibold font-mono">+₹2,188.80 GST</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARD 2: MDH Deggi Mirch 100g -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4 hover:border-slate-300 transition relative">
+        <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-100">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-mono text-xs font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">02</span>
+            <h3 class="font-bold text-sm sm:text-base text-slate-900">MDH Deggi Mirch <span class="text-slate-600 font-semibold">100g Box</span></h3>
+            <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">HSN: 09109929</span>
+            <span class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-medium">5% GST</span>
+          </div>
+          <div class="flex items-center gap-1 text-slate-400">
+            <button class="p-1 hover:text-slate-600 rounded">
+              <span class="material-symbols-outlined text-[18px]">content_copy</span>
+            </button>
+            <button class="p-1 hover:text-rose-600 rounded">
+              <span class="material-symbols-outlined text-[18px]">delete</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-2.5 sm:gap-3 pt-3 items-center">
+          <div class="lg:col-span-3">
+            <label class="block text-[11px] uppercase font-bold text-slate-500 mb-1">Quantity</label>
+            <div class="flex items-center border border-slate-300 rounded-lg bg-slate-50 focus-within:ring-2 focus-within:ring-blue-600">
+              <button class="px-2.5 py-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-l-lg transition">
+                <span class="material-symbols-outlined text-[18px]">remove</span>
+              </button>
+              <input 
+                type="number" 
+                value="2" 
+                class="w-full text-center bg-transparent py-1.5 font-mono text-base font-bold text-slate-900 focus:outline-none"
+              />
+              <button class="px-2.5 py-2 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-r-lg transition">
+                <span class="material-symbols-outlined text-[18px]">add</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2">
+            <label class="block text-[11px] uppercase font-bold text-slate-500 mb-1">Billing Unit</label>
+            <select class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+              <option selected>Carton (40 Pcs)</option>
+              <option>Loose Pcs</option>
+            </select>
+          </div>
+
+          <div class="lg:col-span-3">
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-[11px] uppercase font-bold text-slate-500">Rate (₹) / Ctn</label>
+              <span class="text-[10px] text-blue-600 font-semibold font-mono">Disc: 3%</span>
+            </div>
+            <div class="relative">
+              <input 
+                type="text" 
+                value="3,045.80" 
+                class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+              <span class="absolute right-2 top-2 text-[10px] text-slate-400 font-mono">MRP: ₹3,140</span>
+            </div>
+          </div>
+
+          <div class="lg:col-span-4 bg-slate-50 p-2 sm:p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
+            <div>
+              <span class="block text-[10px] uppercase font-bold text-slate-500">Row Total (Inc. GST)</span>
+              <span class="text-[10px] text-slate-500 font-mono">2 Ctn × ₹3,045.80</span>
+            </div>
+            <div class="text-right">
+              <div class="font-mono text-base sm:text-lg font-black text-slate-900">₹6,091.60</div>
+              <div class="text-[10px] text-emerald-600 font-semibold font-mono">+₹304.58 GST</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CARD 3: Parle-G Gold 250g Family Pack (Currently Focused/Active) -->
+      <div class="bg-white rounded-xl shadow-md border-2 border-blue-600 p-3 sm:p-4 relative ring-2 ring-blue-100">
+        <div class="absolute -top-3 left-4 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow">
+          Active Editing Line
+        </div>
+        <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-100">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-mono text-xs font-bold bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">03</span>
+            <h3 class="font-bold text-sm sm:text-base text-slate-900">Parle-G Gold <span class="text-slate-600 font-semibold">250g Family Pack</span></h3>
+            <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">HSN: 19053100</span>
+            <span class="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-medium">18% GST</span>
+          </div>
+          <div class="flex items-center gap-1 text-slate-400">
+            <button class="p-1 hover:text-slate-600 rounded">
+              <span class="material-symbols-outlined text-[18px]">content_copy</span>
+            </button>
+            <button class="p-1 hover:text-rose-600 rounded">
+              <span class="material-symbols-outlined text-[18px]">delete</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-2.5 sm:gap-3 pt-3 items-center">
+          <div class="lg:col-span-3">
+            <label class="block text-[11px] uppercase font-bold text-blue-900 mb-1">Quantity</label>
+            <div class="flex items-center border-2 border-blue-600 rounded-lg bg-blue-50/40">
+              <button class="px-2.5 py-2 text-blue-700 hover:bg-blue-100 rounded-l-lg transition font-bold">
+                <span class="material-symbols-outlined text-[18px]">remove</span>
+              </button>
+              <input 
+                type="number" 
+                value="5" 
+                class="w-full text-center bg-transparent py-1.5 font-mono text-base font-bold text-blue-900 focus:outline-none"
+              />
+              <button class="px-2.5 py-2 text-blue-700 hover:bg-blue-100 rounded-r-lg transition font-bold">
+                <span class="material-symbols-outlined text-[18px]">add</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2">
+            <label class="block text-[11px] uppercase font-bold text-slate-500 mb-1">Billing Unit</label>
+            <select class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600">
+              <option selected>Carton (24 Pcs)</option>
+              <option>Loose Pcs</option>
+            </select>
+          </div>
+
+          <div class="lg:col-span-3">
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-[11px] uppercase font-bold text-slate-500">Rate (₹) / Ctn</label>
+              <span class="text-[10px] text-blue-600 font-semibold font-mono">Disc: 4.5%</span>
+            </div>
+            <div class="relative">
+              <input 
+                type="text" 
+                value="1,201.00" 
+                class="w-full py-2 px-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+              <span class="absolute right-2 top-2 text-[10px] text-slate-400 font-mono">MRP: ₹1,257</span>
+            </div>
+          </div>
+
+          <div class="lg:col-span-4 bg-blue-50/70 p-2 sm:p-2.5 rounded-lg border border-blue-200 flex items-center justify-between">
+            <div>
+              <span class="block text-[10px] uppercase font-bold text-blue-900">Row Total (Inc. GST)</span>
+              <span class="text-[10px] text-blue-700 font-mono">5 Ctn × ₹1,201.00</span>
+            </div>
+            <div class="text-right">
+              <div class="font-mono text-base sm:text-lg font-black text-blue-950">₹6,005.00</div>
+              <div class="text-[10px] text-emerald-700 font-semibold font-mono">+₹1,080.90 GST</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIVE TELEMETRY: STATUS BAR (SHOP PIECES & GODOWN STOCK FOR ACTIVE ITEM) -->
+    <div class="bg-slate-900 text-white rounded-xl p-3 sm:p-4 shadow-sm border border-slate-800">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <!-- Item Focus Telemetry -->
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-blue-600/20 border border-blue-500/40 text-blue-400 flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-[22px]">inventory_2</span>
+          </div>
+          <div>
+            <div class="text-[11px] uppercase tracking-wider text-slate-400 font-bold flex items-center gap-1.5">
+              <span>Active Item Stock Telemetry</span>
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span class="text-slate-300 font-normal">Parle-G Gold 250g Family Pack</span>
+            </div>
+            <div class="text-xs text-slate-400 font-mono mt-0.5">
+              Pack Spec: 24 Pcs / Carton • Barcode: 8901719101014
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric Badges: Shop Pieces vs Godown Reserve -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <!-- Shop Floor Pieces -->
+          <div class="bg-slate-800/90 border border-slate-700/80 rounded-lg p-2 text-left">
+            <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px] text-blue-400">store</span> Shop Stock
+            </div>
+            <div class="font-mono text-sm sm:text-base font-bold text-blue-400 mt-0.5">45 <span class="text-xs font-normal text-slate-300">Pcs</span></div>
+          </div>
+
+          <!-- Van / Rolling Stock -->
+          <div class="bg-slate-800/90 border border-slate-700/80 rounded-lg p-2 text-left">
+            <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px] text-amber-400">local_shipping</span> Van Loaded
+            </div>
+            <div class="font-mono text-sm sm:text-base font-bold text-amber-400 mt-0.5">90 <span class="text-xs font-normal text-slate-300">Pcs (3.7 Ctn)</span></div>
+          </div>
+
+          <!-- Godown Reserve -->
+          <div class="bg-slate-800/90 border border-slate-700/80 rounded-lg p-2 text-left">
+            <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px] text-emerald-400">warehouse</span> Godown Stock
+            </div>
+            <div class="font-mono text-sm sm:text-base font-bold text-emerald-400 mt-0.5">520 <span class="text-xs font-normal text-slate-300">Ctn</span></div>
+          </div>
+
+          <!-- Rack Location -->
+          <div class="bg-slate-800/90 border border-slate-700/80 rounded-lg p-2 text-left">
+            <div class="text-[10px] uppercase font-bold text-slate-400 flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px] text-slate-400">grid_view</span> Godown Bin
+            </div>
+            <div class="font-mono text-xs sm:text-sm font-semibold text-slate-200 mt-0.5">Rack B-14 / Fl-2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BILL SUMMARY & CALCULATIONS BAR -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+        <!-- Breakdown notes -->
+        <div class="md:col-span-6 space-y-1 text-xs text-slate-600">
+          <div class="flex justify-between sm:justify-start sm:gap-6">
+            <span class="text-slate-500">Items / Total Units:</span>
+            <span class="font-mono font-bold text-slate-800">3 Items • 11 Cartons (264 Pcs)</span>
+          </div>
+          <div class="flex justify-between sm:justify-start sm:gap-6">
+            <span class="text-slate-500">Sub-Total (Excl. Tax):</span>
+            <span class="font-mono font-semibold text-slate-800">₹30,336.60</span>
+          </div>
+          <div class="flex justify-between sm:justify-start sm:gap-6">
+            <span class="text-slate-500">GST Breakdown:</span>
+            <span class="font-mono text-slate-700">CGST: ₹1,787.14 | SGST: ₹1,787.14</span>
+          </div>
+        </div>
+
+        <!-- Net Amount Display -->
+        <div class="md:col-span-6 bg-slate-900 text-white rounded-lg p-3 flex items-center justify-between">
+          <div>
+            <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Net Voucher Amount</div>
+            <div class="text-xs text-slate-300 font-mono">Thirty-Three Thousand Nine Hundred Eleven Only</div>
+          </div>
+          <div class="text-right">
+            <div class="font-mono text-xl sm:text-2xl font-black text-emerald-400">₹33,911.00</div>
+            <div class="text-[10px] text-slate-400 font-mono">Round Off: -₹0.12</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- BOTTOM CONFIRMATION DIALOG & HOTKEY ACTION BAR -->
+  <footer class="bg-slate-900 border-t-2 border-slate-700 sticky bottom-0 z-40 shadow-2xl">
+    <!-- Top Hotkey Hints Strip (Tablet & Keyboard friendly) -->
+    <div class="bg-slate-950 px-3 sm:px-5 py-1.5 border-b border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-400 overflow-x-auto">
+      <div class="flex items-center space-x-3 shrink-0">
+        <span class="flex items-center gap-1"><span class="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded border border-slate-700">[F2]</span> Save Voucher</span>
+        <span class="flex items-center gap-1"><span class="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded border border-slate-700">[F3]</span> Add Item</span>
+        <span class="flex items-center gap-1"><span class="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded border border-slate-700">[F4]</span> Scan Barcode</span>
+        <span class="flex items-center gap-1"><span class="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded border border-slate-700">[Alt+P]</span> Switch Party</span>
+      </div>
+      <div class="hidden sm:flex items-center space-x-3 shrink-0">
+        <span>[Esc] Cancel</span>
+        <span>[Tab] Next Field</span>
+      </div>
+    </div>
+
+    <!-- SAVE VOUCHER YES / NO CONFIRMATION MODAL DOCKED AT BOTTOM -->
+    <div class="px-3 sm:px-5 py-3 bg-slate-900">
+      <div class="bg-slate-800/95 border-2 border-blue-500 rounded-xl p-3 sm:p-4 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <!-- Confirmation Prompt Details -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500 text-blue-400 flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-[24px]">save</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h4 class="font-bold text-sm sm:text-base text-white">Save Voucher & Update Ledger?</h4>
+              <span class="bg-blue-900/60 text-blue-300 text-[10px] font-mono px-2 py-0.5 rounded font-bold border border-blue-700">POST TO LEDGER</span>
+            </div>
+            <p class="text-xs text-slate-300 mt-0.5">
+              Invoice Total <strong class="text-white font-mono">₹33,911.00</strong> will be debited to <strong class="text-slate-200">Shree Ganesh Supermarket</strong>. Print thermal slip?
+            </p>
+          </div>
+        </div>
+
+        <!-- Action Buttons (Touch-friendly & Hotkey-bound) -->
+        <div class="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          <!-- NO / EDIT BUTTON -->
+          <button class="flex-1 sm:flex-none px-4 py-2.5 rounded-lg border border-slate-600 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition active:scale-95">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+            <span>No, Edit [Esc]</span>
+          </button>
+
+          <!-- YES / SAVE & PRINT BUTTON -->
+          <button class="flex-1 sm:flex-none px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/40 transition active:scale-95 border border-emerald-400">
+            <span class="material-symbols-outlined text-[20px]">check_circle</span>
+            <span>Yes, Save Voucher [Enter / F2]</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

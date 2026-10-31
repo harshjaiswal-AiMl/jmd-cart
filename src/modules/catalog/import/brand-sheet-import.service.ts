@@ -13,6 +13,7 @@ import {
   calculatePriceFromMrpDiscountPct,
   validatePriceOrdering,
 } from "@/modules/pricing/pricing.service";
+import { extractWeightFromText } from "@/lib/search/smart-search";
 
 export type SheetPricingMode = "ABSOLUTE" | "PERCENT";
 export type ImportRowStatus =
@@ -773,12 +774,17 @@ export class BrandSheetImportService {
           ? await tx.product.findUnique({ where: { id: row.existingProductId } })
           : await tx.product.findUnique({ where: { shortCode: row.shortCode } });
 
+        const parsedW = row.weight ? extractWeightFromText(row.weight) : null;
+
         if (existing) {
           await tx.product.update({
             where: { id: existing.id },
             data: {
               name: row.rawItemName,
               weight: row.weight || null,
+              weightValue: parsedW?.value ?? existing.weightValue,
+              weightUnit: parsedW?.unit ?? existing.weightUnit,
+              weightBase: parsedW?.base ?? existing.weightBase,
               companyId,
               packSize: Math.max(1, row.packSize || 1),
               mrpPaise,
@@ -804,6 +810,9 @@ export class BrandSheetImportService {
               name: row.rawItemName,
               shortCode: finalSku,
               weight: row.weight || null,
+              weightValue: parsedW?.value ?? null,
+              weightUnit: parsedW?.unit ?? null,
+              weightBase: parsedW?.base ?? null,
               companyId,
               categoryId: defaultCat.id,
               hsn: "0000",

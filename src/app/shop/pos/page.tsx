@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { UserRole, LocationType, PartyType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { settingsService } from "@/modules/settings/settings.service";
+import { previewNextInvoiceNumber } from "@/lib/invoice-number";
 import { PosClient } from "./pos-client";
 
 export default async function ShopPosPage() {
@@ -42,7 +43,7 @@ export default async function ShopPosPage() {
     ...(godownLocation ? [godownLocation.id] : []),
   ];
 
-  const [productsRaw, companies, partiesRaw, roleLimits] = await Promise.all([
+  const [productsRaw, companies, partiesRaw, roleLimits, nextInvoicePreview] = await Promise.all([
     prisma.product.findMany({
       where: { active: true },
       include: {
@@ -75,6 +76,7 @@ export default async function ShopPosPage() {
       orderBy: { name: "asc" },
     }),
     settingsService.getRoleDiscountLimits(),
+    previewNextInvoiceNumber("INV"),
   ]);
 
   const products = productsRaw.map((p) => {
@@ -93,6 +95,7 @@ export default async function ShopPosPage() {
       weight: p.weight?.trim() || null,
       weightValue: p.weightValue,
       weightUnit: p.weightUnit,
+      weightBase: p.weightBase,
       bagSize: p.bagSize,
       companyId: p.companyId,
       companyName: p.company?.name ?? null,
@@ -158,7 +161,7 @@ export default async function ShopPosPage() {
       products={products}
       companies={companies}
       parties={parties}
+      nextInvoicePreview={nextInvoicePreview}
     />
   );
-
 }

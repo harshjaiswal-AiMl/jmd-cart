@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { UserRole } from "@prisma/client";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { auditService } from "@/modules/audit/audit.service";
+import { extractWeightFromText, parseWeightToBase } from "@/lib/search/smart-search";
 
 export type DataQualityIssueType =
   | "NUMERIC_OR_SHORT_NAME"
@@ -9,7 +10,8 @@ export type DataQualityIssueType =
   | "MISSING_PRICE"
   | "MISSING_BRAND_OR_CATEGORY"
   | "DUPLICATE_NAME"
-  | "MISSING_IMAGE";
+  | "MISSING_IMAGE"
+  | "MISSING_WEIGHT";
 
 export interface DataQualityProductItem {
   id: string;
@@ -26,6 +28,10 @@ export interface DataQualityProductItem {
   packSize: number;
   packLabel: string;
   imageUrl: string | null;
+  weight: string | null;
+  weightValue: number | null;
+  weightUnit: string | null;
+  weightBase: number | null;
   active: boolean;
   issues: DataQualityIssueType[];
   issueLabels: string[];
@@ -65,6 +71,7 @@ export class DataQualityService {
       MISSING_BRAND_OR_CATEGORY: 0,
       DUPLICATE_NAME: 0,
       MISSING_IMAGE: 0,
+      MISSING_WEIGHT: 0,
     };
 
     const items: DataQualityProductItem[] = [];
@@ -135,6 +142,13 @@ export class DataQualityService {
         issuesBreakdown.MISSING_IMAGE++;
       }
 
+      // 7. Missing weight specification
+      if (p.weightBase == null && p.weightValue == null && (!p.weight || p.weight.trim().length === 0)) {
+        issues.push("MISSING_WEIGHT");
+        issueLabels.push("No weight specified");
+        issuesBreakdown.MISSING_WEIGHT++;
+      }
+
       items.push({
         id: p.id,
         name: p.name,
@@ -150,6 +164,10 @@ export class DataQualityService {
         packSize: p.packSize,
         packLabel: p.packLabel,
         imageUrl: p.imageUrl,
+        weight: p.weight,
+        weightValue: p.weightValue,
+        weightUnit: p.weightUnit,
+        weightBase: p.weightBase,
         active: p.active,
         issues,
         issueLabels,
@@ -166,6 +184,122 @@ export class DataQualityService {
       issuesBreakdown,
       items,
     };
+  }
+
+  async suggestWeightBackfill(role: UserRole): Promise<{
+    totalEvaluated: number;
+    eligibleSuggestions: Array<{
+      productId: string;
+      name: string;
+      shortCode: string;
+      currentWeight: string | null;
+      currentWeightValue: number | null;
+      currentWeightUnit: string | null;
+      suggestedValue: number;
+      suggestedUnit: string;
+      suggestedBase: number;
+      source: "chip" | "name";
+    }>;
+    unparsedCount: number;
+  }> {
+    assertPermission(role, Permission.VIEW_PRODUCTS);
+
+    const products = await prisma.product.findMany({
+      where: { active: true },
+      select: {
+        id: true,
+        name: true,
+        shortCode: true,
+        weight: true,
+        weightValue: true,
+        weightUnit: true,
+        weightBase: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const suggestions = [];
+    let unparsed = 0;
+
+    for (const p of products) {
+      if (p.weightBase != null && p.weightValue != null) continue; // Already normalized
+
+      // 1. Try from existing weight chip text
+      let parsed = p.weight ? extractWeightFromText(p.weight) : null;
+      let source: "chip" | "name" = "chip";
+
+      // 2. Try from product name
+      if (!parsed) {
+        parsed = extractWeightFromText(p.name);
+        source = "name";
+      }
+
+      if (parsed) {
+        suggestions.push({
+          productId: p.id,
+          name: p.name,
+          shortCode: p.shortCode,
+          currentWeight: p.weight,
+          currentWeightValue: p.weightValue,
+          currentWeightUnit: p.weightUnit,
+          suggestedValue: parsed.value,
+          suggestedUnit: parsed.unit,
+          suggestedBase: parsed.base,
+          source,
+        });
+      } else {
+        unparsed++;
+      }
+    }
+
+    return {
+      totalEvaluated: products.length,
+      eligibleSuggestions: suggestions,
+      unparsedCount: unparsed,
+    };
+  }
+
+  async applyWeightBackfill(
+    role: UserRole,
+    actorId: string,
+    approvals: Array<{
+      productId: string;
+      weightValue: number;
+      weightUnit: string;
+      weightBase: number;
+    }>,
+    ip?: string
+  ): Promise<{ updatedCount: number }> {
+    assertPermission(role, Permission.MANAGE_PRODUCTS);
+
+    if (approvals.length === 0) return { updatedCount: 0 };
+
+    await prisma.$transaction(
+      approvals.map((a) =>
+        prisma.product.update({
+          where: { id: a.productId },
+          data: {
+            weightValue: a.weightValue,
+            weightUnit: a.weightUnit,
+            weightBase: a.weightBase,
+            weight: `${a.weightValue}${a.weightUnit.toUpperCase()}`,
+          },
+        })
+      )
+    );
+
+    await auditService.log({
+      actorId,
+      action: "WEIGHT_BACKFILL_APPLIED",
+      entity: "Product",
+      after: {
+        count: approvals.length,
+        productIds: approvals.map((a) => a.productId),
+      },
+      ip,
+    });
+
+    return { updatedCount: approvals.length };
   }
 
   async bulkDeactivateProducts(

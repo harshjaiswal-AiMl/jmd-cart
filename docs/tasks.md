@@ -187,3 +187,12 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
   - [x] Item 7: Item Stock Statement report (`/admin/reports/item-statement`) with `Opening + In - Out = Closing` invariant, sales channel breakdown (Shop, Van, Online), and CSV export.
   - [x] Item 8: Invoice query totals summary bar on `/shop/invoices` computing Count, Total Invoiced, Taxable, Tax, Discount, Paid, Pending, and Average Bill.
   - Verification: 86/86 test suites passed (450 tests), zero typecheck errors, zero lint errors, Next.js production build succeeded with all routes active.
+
+
+- 2026-10-31: Prompt #16 Complete — Rebuild Shop Billing (POS) like Busy software:
+  - [x] Part 0: Sync gate verified against Cloud Run 100% traffic commit `c7f54a3`.
+  - [x] Part A: Smart item search engine (`src/lib/search/smart-search.ts`) with multi-token queries, weight unit normalization ("400", "400g", "400 gm", "0.4kg"), 1-edit typo tolerance on 4+ chars, in-stock boosting, < 50ms latency (measured ~40ms). Verified with 62 unit tests in `tests/unit/smart-search.test.ts`.
+  - [x] Part B: Weight data unified with additive `weight_base` column (`prisma/migrations/20261031150000_product_weight_base`). Added suggestion backfill and preview in Data Quality audit (`data-quality.service.ts`). Removed "WEIGHT: All / No Weight / Weight View" filter bar from POS.
+  - [x] Part C: Minimal Busy-style item rows (one line plain text `Item name + weight`, muted brand on right in dropdown, "Out" tag for out-of-stock, status line with Shop/Godown/Pack diagnostics, F8 item info modal).
+  - [x] Part D: Busy-style voucher entry designed via Stitch MCP (`voucher-entry.html` / `voucher-entry-mobile.html` exported). Keyboard navigation (`Enter` flow, `F7` repeat line, `F8` item info, `F9` delete line, `Alt+P` party search, `Alt+D` discount, `F2` save voucher dialog with "Save this voucher? Yes / No").
+  - [x] Part E: Owner screenshot fixes: Vch. No. displays `INV/26-27/XXXXXX (auto)` preview instead of party name, removed duplicate font size toggle in dark bar, removed duplicate `Ctrl+K` hint in search box.

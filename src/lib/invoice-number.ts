@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -42,6 +43,27 @@ export function getFinancialYear(date: Date = new Date()): string {
   const endStr = String(endYear % 100).padStart(2, "0");
 
   return `${startStr}-${endStr}`;
+}
+
+/**
+ * Read-only preview of the next sequence number without locking or reserving.
+ * Safe for display in UI before voucher saving.
+ */
+export async function previewNextInvoiceNumber(
+  series: string = "INV",
+  date: Date = new Date()
+): Promise<string> {
+  const fy = getFinancialYear(date);
+  try {
+    const row = await prisma.sequence.findUnique({
+      where: { name_fy: { name: series, fy } },
+    });
+    const val = row?.nextValue ?? 1;
+    const padded = String(val).padStart(6, "0");
+    return `${series}/${fy}/${padded}`;
+  } catch {
+    return `${series}/${fy}/000001`;
+  }
 }
 
 /**

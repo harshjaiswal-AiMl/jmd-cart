@@ -26,3 +26,30 @@ export async function bulkDeactivateProductsAction(input: {
 
   return res;
 }
+
+export async function getWeightBackfillSuggestionsAction() {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  return dataQualityService.suggestWeightBackfill(session.user.role);
+}
+
+export async function applyWeightBackfillAction(
+  approvals: Array<{
+    productId: string;
+    weightValue: number;
+    weightUnit: string;
+    weightBase: number;
+  }>
+) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  const res = await dataQualityService.applyWeightBackfill(
+    session.user.role,
+    session.user.id,
+    approvals
+  );
+  revalidatePath("/admin/catalog");
+  revalidatePath("/admin/catalog/data-quality");
+  revalidatePath("/shop/pos");
+  return res;
+}

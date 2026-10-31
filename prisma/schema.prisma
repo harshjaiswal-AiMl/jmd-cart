@@ -300,6 +300,7 @@ model Product {
   weight       String?  @map("weight")
   weightValue  Float?   @map("weight_value")
   weightUnit   String?  @map("weight_unit")
+  weightBase   Float?   @map("weight_base")
   bagSize               Int?     @map("bag_size")
   openingStockQty       Int      @default(0) @map("opening_stock_qty")
   openingStockGodownQty Int      @default(0) @map("opening_stock_godown_qty")

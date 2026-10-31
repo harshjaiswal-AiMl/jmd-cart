@@ -80,13 +80,11 @@ export function SearchableSelect({
     let list = options;
 
     if (search.trim()) {
-      const q = search.toLowerCase().trim();
-      list = list.filter(
-        (opt) =>
-          opt.label.toLowerCase().includes(q) ||
-          (opt.subLabel && opt.subLabel.toLowerCase().includes(q)) ||
-          (opt.badge && opt.badge.toLowerCase().includes(q))
-      );
+      const tokens = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      list = list.filter((opt) => {
+        const text = `${opt.label} ${opt.subLabel || ""} ${opt.badge || ""}`.toLowerCase();
+        return tokens.every((tok) => text.includes(tok));
+      });
     }
 
     if (autoSortInStock) {

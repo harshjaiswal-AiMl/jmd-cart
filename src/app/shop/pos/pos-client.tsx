@@ -444,6 +444,8 @@ export function PosClient({
   const itemSearchInputRef = useRef<HTMLInputElement>(null);
   const [selectedWeightBand, setSelectedWeightBand] = useState<string>("ALL");
   const [isWeightViewOpen, setIsWeightViewOpen] = useState(false);
+  const [isItemInfoOpen, setIsItemInfoOpen] = useState(false);
+  const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false);
 
   const weightCounts = useMemo(() => {
     const counts: Record<string, number> = { ALL: productsList.length };
@@ -454,25 +456,16 @@ export function PosClient({
     return counts;
   }, [productsList]);
 
-  // Filter products for autocomplete dropdown
+  // Precomputed search index for instant < 50ms lookup
+  const searchIndex: SearchIndexItem[] = useMemo(() => {
+    return buildProductSearchIndex(productsList);
+  }, [productsList]);
+
+  // Filter products using Smart Item Search (Token + Weight aware)
   const filteredProducts = useMemo(() => {
-    const term = itemSearchTerm.trim().toLowerCase();
-    return productsList
-      .filter((p) => {
-        if (selectedWeightBand !== "ALL") {
-          const band = categorizeWeightBand(p.weightValue, p.weightUnit);
-          if (band !== selectedWeightBand) return false;
-        }
-        if (!term) return selectedWeightBand !== "ALL";
-        return (
-          p.name.toLowerCase().includes(term) ||
-          p.shortCode.toLowerCase().includes(term) ||
-          (p.weight && p.weight.toLowerCase().includes(term)) ||
-          (p.companyName && p.companyName.toLowerCase().includes(term))
-        );
-      })
-      .slice(0, 15);
-  }, [productsList, itemSearchTerm, selectedWeightBand]);
+    if (!itemSearchTerm.trim()) return [];
+    return searchItems(itemSearchTerm, searchIndex, { limit: 15 });
+  }, [itemSearchTerm, searchIndex]);
 
   // Fetch customer last purchase for highlighted product
   useEffect(() => {
@@ -1411,19 +1404,49 @@ export function PosClient({
         itemSearchInputRef.current?.select();
       } else if (e.key === "F2") {
         e.preventDefault();
-        handleFinalizeBill();
+        if (activeTab.cart.length > 0) {
+          setIsSaveConfirmOpen(true);
+        } else {
+          handleFinalizeBill();
+        }
       } else if (e.key === "F3") {
         e.preventDefault();
         handleCreateNewTab();
       } else if (e.key === "F4") {
         e.preventDefault();
         handleHoldCurrentBill();
-      } else if (e.key === "F5") {
+      } else if (e.key === "F7") {
         e.preventDefault();
-        setShowHeldModal((prev) => !prev);
+        // Repeat previous line
+        if (activeTab.cart.length > 0) {
+          const lastLine = activeTab.cart[activeTab.cart.length - 1];
+          addItemToCart(lastLine.product, lastLine.unit, lastLine.qty);
+        }
+      } else if (e.key === "F8") {
+        e.preventDefault();
+        setIsItemInfoOpen((prev) => !prev);
       } else if (e.key === "F9") {
         e.preventDefault();
         handleDeleteHighlightedOrLastLine();
+      } else if (e.altKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        // Focus Party Search
+        const partyInput = document.querySelector<HTMLInputElement>("input[placeholder*='Search buyer']");
+        partyInput?.focus();
+        partyInput?.select();
+      } else if (e.altKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        // Focus Order Discount
+        const discInput = document.querySelector<HTMLInputElement>("input[type='number']#order-discount, input[title*='discount']");
+        discInput?.focus();
+        discInput?.select();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (activeTab.cart.length > 0) {
+          setIsSaveConfirmOpen(true);
+        } else {
+          handleFinalizeBill();
+        }
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         itemSearchInputRef.current?.focus();
@@ -1519,8 +1542,6 @@ export function PosClient({
             );
           })}
 
-          <FontSizeToggle className="bg-white/10 border-white/20 text-white" />
-
           <button
             onClick={handleCreateNewTab}
             title="Open new bill (F3)"
@@ -1580,7 +1601,7 @@ export function PosClient({
           <div className="flex items-center gap-1.5">
             <span className="text-slate-500 uppercase font-sans text-[11px] font-extrabold">Vch. No:</span>
             <span className="text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-300 font-black">
-              {activeTab.tabTitle || "INV/26-27/000001"}
+              {nextInvoicePreview ? `${nextInvoicePreview} (auto)` : (activeTab.tabTitle || "INV/26-27/000001 (auto)")}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -1939,55 +1960,7 @@ export function PosClient({
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Left/Center Pane: Item Search, Table Grid & Stock Indicator */}
         <section className="flex-1 flex flex-col bg-white overflow-hidden border-r border-slate-200">
-          {/* Weight Quick-Filter Bar & View Toggle */}
-          <div className="px-3 py-2 bg-slate-100/90 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
-            <div className="flex flex-wrap items-center gap-1 overflow-x-auto scrollbar-none py-0.5 text-xs font-bold">
-              <span className="text-[10px] font-black uppercase text-slate-400 mr-1">Weight:</span>
-              <button
-                type="button"
-                onClick={() => setSelectedWeightBand("ALL")}
-                className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition ${
-                  selectedWeightBand === "ALL"
-                    ? "bg-[#12355B] text-white shadow-xs"
-                    : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-200"
-                }`}
-              >
-                All ({weightCounts["ALL"] || 0})
-              </button>
-              {STANDARD_WEIGHT_BANDS.map((b) => {
-                const count = weightCounts[b.key] || 0;
-                if (count === 0 && b.key !== "none") return null;
-                const isSelected = selectedWeightBand === b.key;
-                return (
-                  <button
-                    key={b.key}
-                    type="button"
-                    onClick={() => setSelectedWeightBand(isSelected ? "ALL" : b.key)}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition ${
-                      isSelected
-                        ? "bg-[#FC830D] text-white shadow-xs"
-                        : "bg-white text-slate-700 hover:bg-slate-200 border border-slate-200"
-                    }`}
-                  >
-                    {b.label} ({count})
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsWeightViewOpen((prev) => !prev)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1 ${
-                isWeightViewOpen
-                  ? "bg-purple-700 text-white shadow-xs"
-                  : "bg-white text-purple-900 border border-purple-200 hover:bg-purple-50"
-              }`}
-              title="Toggle Weight Section Grid View"
-            >
-              <span>⚖️ Weight View</span>
-            </button>
-          </div>
+          
 
           {/* Quick Item Search Bar (Ctrl+K) */}
           <div className="p-3 border-b border-slate-200 bg-slate-50/70 relative shrink-0">
@@ -1996,7 +1969,7 @@ export function PosClient({
               <input
                 ref={itemSearchInputRef}
                 type="text"
-                placeholder="Search items (Ctrl+K)... Use ↑/↓ to navigate, Enter to add"
+                placeholder="Search items by name, weight, code... (e.g. 'bhuj 400')"
                 value={itemSearchTerm}
                 onChange={(e) => {
                   setItemSearchTerm(e.target.value);
@@ -2064,22 +2037,14 @@ export function PosClient({
               </div>
             </div>
 
-            {/* Enhanced Autocomplete Dropdown with Live Stock Badges */}
+            {/* Busy-Style Minimal Autocomplete Dropdown (Part C) */}
             {filteredProducts.length > 0 && (
-              <div className="absolute left-3 right-3 top-full mt-2 bg-white border-2 border-slate-200 rounded-2xl shadow-2xl z-40 max-h-80 overflow-y-auto divide-y divide-slate-100">
+              <div className="absolute left-3 right-3 top-full mt-1.5 bg-white border border-slate-300 rounded-xl shadow-2xl z-40 max-h-72 overflow-y-auto divide-y divide-slate-100 font-sans">
                 {filteredProducts.map((p, pIdx) => {
                   const isHighlighted = pIdx === searchSelectedIndex;
-                  const resolved = resolvePrice(
-                    {
-                      mrpPaise: p.mrpPaise,
-                      priceAPaise: p.priceAPaise,
-                      priceBPaise: p.priceBPaise,
-                      priceCPaise: p.priceCPaise,
-                    },
-                    effectiveTier
-                  );
-
-                  const hasShopStock = (p.shopStockQty ?? 0) > 0;
+                  const inStock = (p.shopStockQty ?? 0) + (p.godownStockQty ?? 0) > 0;
+                  const weightText = p.weight ? ` ${p.weight}` : (p.weightValue ? ` ${p.weightValue}${p.weightUnit || "g"}` : "");
+                  const fullTitle = `${p.name}${weightText}`;
 
                   return (
                     <div
@@ -2088,6 +2053,10 @@ export function PosClient({
                         if (isHighlighted && el) {
                           el.scrollIntoView({ block: "nearest" });
                         }
+                      }}
+                      onMouseEnter={() => {
+                        setSearchSelectedIndex(pIdx);
+                        setHighlightedProductId(p.id);
                       }}
                       onClick={() => {
                         const targetLineId = addItemToCart(p, "Pcs", 1);
@@ -2104,85 +2073,32 @@ export function PosClient({
                           }
                         }, 30);
                       }}
-                      className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                      className={`px-3 py-2 sm:py-2.5 flex items-center justify-between text-xs sm:text-sm cursor-pointer transition ${
                         isHighlighted
-                          ? "bg-amber-100 border-l-4 border-l-[#FC830D] ring-2 ring-amber-400/50 shadow-md font-semibold"
-                          : "hover:bg-slate-50"
+                          ? "bg-[#0f172a] text-white font-semibold"
+                          : "bg-white text-slate-900 hover:bg-slate-50"
                       }`}
                     >
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-black text-sm md:text-base text-slate-900 truncate">{p.name}</span>
-                          {p.weight && (
-                            <span className="text-xs text-amber-900 font-extrabold bg-amber-50 px-2 py-0.5 rounded border border-amber-300 shadow-sm">
-                              {p.weight}
-                            </span>
-                          )}
-                          <span className="text-xs text-blue-800 font-mono font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                            {p.shortCode}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="truncate">{fullTitle}</span>
+                        {!inStock && (
+                          <span
+                            className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
+                              isHighlighted
+                                ? "bg-rose-950 text-rose-200 border border-rose-800"
+                                : "bg-rose-50 text-rose-700 border border-rose-200"
+                            }`}
+                          >
+                            Out
                           </span>
-                          <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded font-semibold">
-                            {p.companyName || "General"}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
-                          <span>Pack: <strong className="text-slate-800">{p.packLabel || `${p.packSize} pcs`}</strong></span>
-                          <span>•</span>
-                          {/* Live Stock Indicators */}
-                          {hasShopStock ? (
-                            <span className="font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                              Shop Stock: {p.shopStockQty} pcs
-                            </span>
-                          ) : (
-                            <span className="font-black text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                              Shop: Out of Stock (0)
-                            </span>
-                          )}
-                          {p.godownCartons > 0 && (
-                            <span className="font-semibold text-slate-500">
-                              Godown: {p.godownCartons} ctn
-                            </span>
-                          )}
-                        </div>
+                        )}
                       </div>
-
-                      <div className="flex items-center gap-2.5 shrink-0">
-                        <div className="text-right">
-                          {resolved.unitPricePaise > 0 ? (
-                            <>
-                              <span className="font-mono font-black text-sm md:text-base text-[#12355B] block">
-                                ₹{(resolved.unitPricePaise / 100).toFixed(2)}
-                              </span>
-                              <span className="text-[10px] text-slate-500 font-semibold">per piece</span>
-                            </>
-                          ) : (
-                            <span className="font-black text-xs text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-                              Set Rate in Bill
-                            </span>
-                          )}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            addItemToCart(p, "Carton", 1);
-                          }}
-                          disabled={p.packSize <= 1}
-                          className="px-3 py-1.5 text-xs font-black bg-[#12355B]/10 hover:bg-[#12355B]/20 text-[#12355B] rounded-xl transition disabled:opacity-30"
-                        >
-                          + 1 Ctn
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            addItemToCart(p, "Pcs", 1);
-                          }}
-                          className="px-3 py-1.5 text-xs font-black bg-[#12355B] hover:bg-[#0E2843] text-white rounded-xl shadow-sm transition"
-                        >
-                          + 1 Pc
-                        </button>
+                      <div
+                        className={`text-xs shrink-0 ml-3 ${
+                          isHighlighted ? "text-slate-300" : "text-slate-500 font-medium"
+                        }`}
+                      >
+                        {p.companyName || "Generic"}
                       </div>
                     </div>
                   );
@@ -2274,114 +2190,15 @@ export function PosClient({
                           {index + 1}
                         </td>
 
-                        <td className="py-3 px-3">
-                          {/* 1. Large Bold Product Title */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-black text-slate-900 text-sm sm:text-base leading-snug">
-                              {line.product.name}
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-slate-900 text-sm">
+                              {line.product.name} {line.product.weight || (line.product.weightValue ? `${line.product.weightValue}${line.product.weightUnit || "g"}` : "")}
                             </span>
-                            {line.product.weight && (
-                              <span className="text-xs text-amber-900 font-extrabold bg-amber-50 px-2 py-0.5 rounded border border-amber-300">
-                                {line.product.weight}
+                            {!isStockSufficient && (
+                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded shrink-0">
+                                Low Stock ({isCarton ? `${availableCartons} ctn` : `${line.product.shopStockQty ?? 0} pcs`})
                               </span>
-                            )}
-                            {line.isCustomRate && (
-                              <span className="text-[10px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
-                                Manual Rate
-                              </span>
-                            )}
-                            {ratePerUnitPaise <= 0 && (
-                              <span className="text-[10px] font-black text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-300 animate-pulse">
-                                Enter Rate!
-                              </span>
-                            )}
-                          </div>
-
-                          {/* 2. Sub-details: Brand, Code, Pack */}
-                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mt-1 flex-wrap">
-                            <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">
-                              {line.product.companyName || "General"}
-                            </span>
-                            {line.product.weight && (
-                              <span className="font-extrabold bg-amber-50 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300">
-                                {line.product.weight}
-                              </span>
-                            )}
-                            <span className="font-mono bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-200">
-                              {line.product.shortCode}
-                            </span>
-                            {line.product.packSize > 1 && (
-                              <span>Pack: {line.product.packLabel || `${line.product.packSize} pcs`}</span>
-                            )}
-                            {(line.product.mrpPaise === 0 || !line.product.priceCPaise || line.isCustomRate) && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleQuickSaveProductRate(line);
-                                }}
-                                title="Permanently save this rate as product price in catalog"
-                                className="inline-flex items-center gap-1 text-[11px] font-extrabold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 transition"
-                              >
-                                Save to Catalog
-                              </button>
-                            )}
-                          </div>
-
-                          {/* 3. Real-Time Stock Status Badge */}
-                          <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                            {isStockSufficient ? (
-                              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                {isCarton ? (
-                                  <span>
-                                    Godown Stock: <strong className="text-emerald-950 font-black">{availableCartons} ctn</strong> ({line.product.godownStockQty ?? 0} pcs)
-                                    <span className="text-slate-500 font-normal ml-1">| Shop: {line.product.shopStockQty ?? 0} pcs</span>
-                                  </span>
-                                ) : (
-                                  <span>
-                                    Shop Stock: <strong className="text-emerald-950 font-black">{line.product.shopStockQty ?? 0} pcs</strong>
-                                    {line.product.godownCartons > 0 && (
-                                      <span className="text-slate-500 font-normal ml-1">| Godown: {line.product.godownCartons} ctn</span>
-                                    )}
-                                  </span>
-                                )}
-                              </span>
-                            ) : (
-                              <div className="inline-flex items-center gap-1.5 bg-rose-100 border border-rose-300 text-rose-900 px-2.5 py-0.5 rounded-md text-xs font-bold">
-                                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                                <span>
-                                  {isCarton ? (
-                                    <>Only <strong className="underline text-rose-950 font-black">{availableCartons} ctn</strong> in Godown (Short by {shortageCartons} ctn)!</>
-                                  ) : (
-                                    <>Only <strong className="underline text-rose-950 font-black">{line.product.shopStockQty ?? 0} pcs</strong> in Shop (Short by {shortagePieces} pcs)!</>
-                                  )}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSetQtyToAvailable(line);
-                                  }}
-                                  className="ml-1 text-[11px] font-black text-blue-700 hover:text-blue-900 underline"
-                                  title="Adjust quantity to match available stock"
-                                >
-                                  Set to {isCarton ? `${availableCartons} Ctn` : `${line.product.shopStockQty ?? 0} Pcs`}
-                                </button>
-                                {!isCarton && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openQuickStockModal(line.product, shortagePieces);
-                                    }}
-                                    className="ml-1 px-2 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-black shadow-xs"
-                                    title="Quick Add counter stock"
-                                  >
-                                    + Add Stock
-                                  </button>
-                                )}
-                              </div>
                             )}
                           </div>
                         </td>
@@ -2642,38 +2459,40 @@ export function PosClient({
               </table>
           </div>
 
-          {/* Under-Grid Stock & Diagnostics Ribbon (Image 2 Busy Style) */}
-          <div className="px-3.5 py-2 bg-[#e2e8f0] border-t-2 border-slate-300 text-xs font-mono font-bold text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+          {/* Status Line Under Grid (Part C Busy Style) */}
+          <div className="px-3.5 py-2 bg-slate-200 border-t border-slate-300 text-xs font-mono font-medium text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
             {highlightedProduct ? (
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="font-extrabold text-slate-900 text-sm">{highlightedProduct.name}:</span>
-                <span className="text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold">
-                  Shop Stock: <strong className="text-emerald-700 font-black">{highlightedProduct.shopStockQty} pcs</strong>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-slate-900">
+                  {highlightedProduct.name} {highlightedProduct.weight || (highlightedProduct.weightValue ? `${highlightedProduct.weightValue}${highlightedProduct.weightUnit || "g"}` : "")}:
                 </span>
-                <span className="text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold">
-                  Godown: <strong className="text-slate-900 font-black">{highlightedProduct.godownCartons} ctn</strong> ({highlightedProduct.godownStockQty} pcs)
+                <span>Shop: <strong className="font-bold text-emerald-800">{highlightedProduct.shopStockQty} pcs</strong></span>
+                <span>|</span>
+                <span>Godown: <strong className="font-bold text-slate-900">{highlightedProduct.godownCartons} ctn</strong> ({highlightedProduct.godownStockQty} pcs)</span>
+                <span>|</span>
+                <span>Pack: <strong className="font-bold text-slate-800">{highlightedProduct.packSize}</strong></span>
+                <span>|</span>
+                <span>
+                  Last rate: <strong className="font-bold text-blue-900">
+                    {lastItemPurchase ? `₹${(lastItemPurchase.ratePaise / 100).toFixed(2)}` : `₹${((highlightedProduct.priceAPaise || highlightedProduct.mrpPaise || 0) / 100).toFixed(2)}`}
+                  </strong>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => openQuickStockModal(highlightedProduct)}
-                  className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-xs inline-flex items-center gap-1 shadow-xs"
-                >
-                  <Plus className="w-3 h-3" />
-                  Add Stock
-                </button>
               </div>
             ) : (
-              <span className="text-slate-500 italic">Select an item above to view real-time shop and warehouse stock.</span>
+              <span className="text-slate-500 italic">Select or highlight an item to view live stock &amp; rate. Press [F8] for full diagnostics.</span>
             )}
-
-            {/* Last purchase for selected party */}
-            {selectedParty && lastItemPurchase ? (
-              <div className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                Last bought: {lastItemPurchase.date ? new Date(lastItemPurchase.date).toLocaleDateString("en-IN") : "Earlier"} @ ₹{(lastItemPurchase.ratePaise / 100).toFixed(2)} ({lastItemPurchase.invoiceNumber})
-              </div>
-            ) : selectedParty && highlightedProduct ? (
-              <div className="text-xs text-slate-500 italic">No prior purchases for this customer.</div>
-            ) : null}
+            <div className="flex items-center gap-2 shrink-0">
+              {highlightedProduct && (
+                <button
+                  type="button"
+                  onClick={() => setIsItemInfoOpen(true)}
+                  className="px-2 py-0.5 bg-slate-800 hover:bg-slate-900 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-2xs"
+                  title="Open full item specifications [F8]"
+                >
+                  <span>[F8 Info]</span>
+                </button>
+              )}
+            </div>
           </div>
         </section>
 
@@ -2984,10 +2803,31 @@ export function PosClient({
           </button>
           <button
             type="button"
-            onClick={() => setIsWeightViewOpen((prev) => !prev)}
-            className="bg-purple-900/40 hover:bg-purple-900/60 px-2 py-0.5 rounded border border-purple-400/40 text-purple-200 transition cursor-pointer"
+            onClick={() => {
+              if (activeTab.cart.length > 0) {
+                const lastLine = activeTab.cart[activeTab.cart.length - 1];
+                addItemToCart(lastLine.product, lastLine.unit, lastLine.qty);
+              }
+            }}
+            disabled={activeTab.cart.length === 0}
+            className="bg-slate-700/60 hover:bg-slate-700 px-2 py-0.5 rounded border border-slate-500/50 text-slate-200 transition cursor-pointer"
           >
-            [Weight View]
+            [F7 - Repeat]
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsItemInfoOpen(true)}
+            className="bg-blue-900/40 hover:bg-blue-900/60 px-2 py-0.5 rounded border border-blue-400/40 text-blue-200 transition cursor-pointer"
+          >
+            [F8 - Item Info]
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteHighlightedOrLastLine}
+            disabled={activeTab.cart.length === 0}
+            className="bg-rose-900/40 hover:bg-rose-900/60 px-2 py-0.5 rounded border border-rose-400/40 text-rose-200 transition cursor-pointer"
+          >
+            [F9 - Delete Line]
           </button>
         </div>
         <div className="hidden lg:flex items-center gap-3 text-[11px] font-sans text-slate-300">
@@ -2998,6 +2838,31 @@ export function PosClient({
           <span>Cashier: <strong className="text-white">{cashierName}</strong></span>
         </div>
       </footer>
+
+      {/* Item Info Diagnostics Modal [F8] */}
+      <ItemInfoModal
+        isOpen={isItemInfoOpen}
+        onClose={() => setIsItemInfoOpen(false)}
+        product={highlightedProduct}
+        lastPartyRatePaise={lastItemPurchase?.ratePaise}
+        partyName={selectedParty?.name}
+      />
+
+      {/* Save Voucher Confirmation Dialog [F2] */}
+      <SaveVoucherDialog
+        isOpen={isSaveConfirmOpen}
+        onConfirm={() => {
+          setIsSaveConfirmOpen(false);
+          handleFinalizeBill();
+        }}
+        onCancel={() => setIsSaveConfirmOpen(false)}
+        partyName={selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale")}
+        itemsCount={activeTab.cart.length}
+        totalQtyPcs={activeTab.cart.reduce((sum, item) => sum + (item.unit === "Carton" ? item.qty * Math.max(1, item.product.packSize) : item.qty), 0)}
+        totalAmountPaise={totalAmountPaise}
+        paymentMode={activeTab.paymentMode}
+        isSaving={isFinalizing}
+      />
 
       {/* Full History Slide-Over Drawer */}
       {showHistoryDrawer && (

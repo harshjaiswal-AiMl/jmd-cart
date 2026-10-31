@@ -6,6 +6,7 @@ import { recordPurchaseAction, PurchaseActionResult } from "../actions";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
+import { searchItems } from "@/lib/search/smart-search";
 
 interface PurchaseItemState {
   productId: string;
@@ -77,18 +78,17 @@ function ProductCombobox({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const searchableProducts = useMemo(() => {
+    return products.map((p) => ({
+      ...p,
+      brand: p.company?.name,
+    }));
+  }, [products]);
+
   const filtered = useMemo(() => {
     if (!query.trim()) return products.slice(0, 50);
-    const q = query.toLowerCase().trim();
-    return products
-      .filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.shortCode.toLowerCase().includes(q) ||
-          (p.company?.name && p.company.name.toLowerCase().includes(q))
-      )
-      .slice(0, 50);
-  }, [products, query]);
+    return searchItems(query, searchableProducts, 50);
+  }, [searchableProducts, query, products]);
 
   return (
     <div className="relative" ref={dropdownRef}>

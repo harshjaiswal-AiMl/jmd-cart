@@ -7,6 +7,7 @@ import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { formatDmy, toIstDateString } from "@/lib/datetime";
 import { previewInvoiceEditAction, modifyInvoiceAction } from "../../actions";
 import { InvoiceEditPreview } from "@/modules/billing/invoice-edit.service";
+import { searchItems } from "@/lib/search/smart-search";
 import {
   ArrowLeft,
   Calendar,
@@ -136,16 +137,8 @@ export function InvoiceEditClient({
   const [searchOpen, setSearchOpen] = useState(false);
 
   const filteredProducts = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return [];
-    return products
-      .filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.shortCode.toLowerCase().includes(q) ||
-          (p.weight && p.weight.toLowerCase().includes(q))
-      )
-      .slice(0, 8);
+    if (!searchTerm.trim()) return [];
+    return searchItems(searchTerm, products, 8);
   }, [products, searchTerm]);
 
   // Handle party change

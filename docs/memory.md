@@ -487,3 +487,25 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
     - **Continuous Spreadsheet Grid:** Table headers (`S.N. | Item Description | Qty | Unit | List Price | Rate | Disc % | Amount | Del`) with crisp borders. Padded with empty rows up to row 10+ for a real FMCG software ledger appearance.
     - **Under-Grid Diagnostics Ribbon:** Displays selected item's live Godown cartons, total pieces, Shop pieces, pack size, discount structure, and total voucher quantity.
     - **Bottom Functional Keys Ribbon:** `[Esc - Quit] [F1 / Ctrl+K - Search] [F2 - Done / Print] [F3 - New Bill] [F4 - Hold Bill] [Weight View]`.
+
+
+### 2026-10-31: Prompt #16 — Rebuild Shop Billing (POS) like Busy Software (Smart Search, Minimal Rows, Weight Unification, Keyboard Voucher Entry)
+
+- **Owner Requirements:**
+  1. Smart item search: multi-token query (`bhuj 400` finds Bhujia 400 g), weight-aware unit parsing (`400`, `400g`, `400gm`, `0.4kg`), 1-edit typo tolerance on 4+ chars, in-stock boosting, < 50ms latency for 2,000+ items.
+  2. Consistent weight data: single source of truth (`weightValue`, `weightUnit`, `weightBase`), suggestion backfill with preview in Data Quality audit, remove "WEIGHT: All / No Weight / Weight View" filter bar from POS.
+  3. Minimal item rows: plain text `Item name + weight` (e.g. `Bikaji Bhujia 400G`), no chips/badges. Dropdown: item + weight left, brand right muted, out-of-stock "Out" tag. Status line under grid: `Shop: XX pcs | Godown: YY ctn | Pack: ZZ | Last rate: ₹...`. Item Info modal (`F8`).
+  4. Busy-style voucher entry designed with Stitch MCP (desktop `dffdafafd0e74b449f1dc1f6c201f27a` & mobile `138a91cae0994807bb81434eea180d9e` exported to `design/stitch-export/management/pos-voucher/`). Keyboard hotkeys (`F7` repeat, `F8` info, `F9` delete, `Alt+P` party, `Alt+D` discount, `F2` save voucher dialog with "Save this voucher? Yes / No").
+  5. Owner screenshot fixes: Vch. No. displays `INV/26-27/XXXXXX (auto)` preview instead of party name, remove duplicate font size toggle, remove duplicate `Ctrl+K` hint.
+
+- **Root Cause Analysis:**
+  - Search failure: Previous POS code performed `p.name.toLowerCase().includes(term)` on the entire raw search string without tokenization. Query "bhuj 400" failed because "Bikaji Bhujia" did not contain the substring "bhuj 400" and weight was in a separate field.
+  - Weight filter bar empty state ("No Weight (876)"): UI chips displayed `p.weight` (String "400G"), whereas `categorizeWeightBand` only read `p.weightValue` (Float), which was null across all 876 imported items.
+  - Vch. No. display bug: `pos-client.tsx` rendered `activeTab.tabTitle` which was dynamically overwritten with party name upon customer selection.
+
+- **Implementation Details:**
+  - **Shared Smart Search Engine (`src/lib/search/smart-search.ts`):** Token splitting, adjacent number-unit binding (e.g., "1" + "ltr" -> "1ltr"), unit normalization to base grams/ml/pieces, word-prefix matching, Levenshtein distance <= 1 on >=4 char tokens, in-stock scoring boost. Verified with 62 unit tests in `tests/unit/smart-search.test.ts` (100% passing in ~40ms).
+  - **Search Propagation Across All Billing Screens:** Integrated `smart-search.ts` and token matching into `ItemSearchBox.tsx` (POS), `SearchableSelect.tsx` (Create Order & Party Select), `purchase-form.tsx` (Purchase GRN), and `invoice-edit-client.tsx` (Invoice Edit).
+  - **Additive Database Migration (`20261031150000_product_weight_base`):** Added `weight_base` (`Float?`) to `products` table for uniform comparison and sorting.
+  - **Data Quality Suggestion Backfill (`src/modules/catalog/data-quality.service.ts`):** `suggestWeightBackfill` and `applyWeightBackfill` for batch parsing and approval without overwriting existing data.
+  - **Voucher Entry UI & Keyboard Flow:** Padded ledger rows, Busy diagnostics status bar, hotkey navigation, and non-blocking invoice number preview (`previewNextInvoiceNumber`).
