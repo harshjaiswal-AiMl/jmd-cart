@@ -8,6 +8,7 @@ import { addToCartAction } from "@/app/store/cart/actions";
 import { toggleWishlistAction } from "@/app/store/wishlist/actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
+import { formatPaise, paiseToRupees } from "@/lib/format-price";
 
 interface ProductDetailClientProps {
   product: StoreProductItem;
@@ -68,7 +69,7 @@ export function ProductDetailClient({
   };
 
   const packSize = Math.max(1, product.packSize);
-  const mrpRupees = (product.mrpPaise / 100).toFixed(2);
+  const mrpRupees = formatPaise(product.mrpPaise);
   const basePricePaise = product.unitPricePaise ?? product.mrpPaise ?? 0;
 
   // Accurate Slab & Tier Price Resolution:
@@ -94,11 +95,11 @@ export function ProductDetailClient({
 
   const activeSlab = getActiveSlabForQty(selectedQty);
   const unitSellingPaise = getUnitPricePaiseForQty(selectedQty);
-  const unitSellingRupees = (unitSellingPaise / 100).toFixed(2);
+  const unitSellingRupees = formatPaise(unitSellingPaise);
   const totalAmountPaise = unitSellingPaise * selectedQty;
-  const totalAmountRupees = (totalAmountPaise / 100).toFixed(2);
+  const totalAmountRupees = formatPaise(totalAmountPaise);
   const perUnitSavingsPaise = Math.max(0, product.mrpPaise - unitSellingPaise);
-  const perUnitSavingsRupees = (perUnitSavingsPaise / 100).toFixed(2);
+  const perUnitSavingsRupees = formatPaise(perUnitSavingsPaise);
   const savingsPct =
     product.mrpPaise > 0 && product.mrpPaise > unitSellingPaise
       ? Math.round(((product.mrpPaise - unitSellingPaise) / product.mrpPaise) * 100)
@@ -111,9 +112,9 @@ export function ProductDetailClient({
   const s2UnitPricePaise = getUnitPricePaiseForQty(packThreshold);
   const s3UnitPricePaise = getUnitPricePaiseForQty(cartonThreshold);
 
-  const s1Rate = (s1UnitPricePaise / 100).toFixed(2);
-  const s2Rate = (s2UnitPricePaise / 100).toFixed(2);
-  const s3Rate = (s3UnitPricePaise / 100).toFixed(2);
+  const s1Rate = formatPaise(s1UnitPricePaise);
+  const s2Rate = formatPaise(s2UnitPricePaise);
+  const s3Rate = formatPaise(s3UnitPricePaise);
 
   const s1DiscountPct =
     product.mrpPaise > 0 && product.mrpPaise > s1UnitPricePaise
@@ -139,7 +140,7 @@ export function ProductDetailClient({
 
   if (selectedQty < packThreshold && s2DiscountPct > s1DiscountPct) {
     const qtyNeeded = packThreshold - selectedQty;
-    const extraSaveRupees = ((s1UnitPricePaise - s2UnitPricePaise) / 100).toFixed(0);
+    const extraSaveRupees = formatPaise(s1UnitPricePaise - s2UnitPricePaise);
     nextSlabNudge = {
       qtyNeeded,
       nextTierName: "Kirana Pack",
@@ -149,7 +150,7 @@ export function ProductDetailClient({
     };
   } else if (selectedQty >= packThreshold && selectedQty < cartonThreshold && s3DiscountPct > s2DiscountPct) {
     const qtyNeeded = cartonThreshold - selectedQty;
-    const extraSaveRupees = ((s2UnitPricePaise - s3UnitPricePaise) / 100).toFixed(0);
+    const extraSaveRupees = formatPaise(s2UnitPricePaise - s3UnitPricePaise);
     nextSlabNudge = {
       qtyNeeded,
       nextTierName: `Full ${product.packLabel || "Carton"}`,
@@ -239,7 +240,7 @@ export function ProductDetailClient({
       {/* Store Header */}
       <StoreHeader
         cartCount={cartState.itemsCount}
-        cartTotalRupees={Math.round(cartState.totalPaise / 100)}
+        cartTotalRupees={paiseToRupees(cartState.totalPaise)}
         wishlistCount={headerWishlistCount}
         userName={userName}
         isLoggedIn={isLoggedIn}
@@ -793,7 +794,7 @@ export function ProductDetailClient({
                     <div className="flex items-center justify-between text-[11px] text-on-surface-variant mt-1.5 pt-1.5 border-t border-surface-container">
                       <span>Quantity: 1 to {packThreshold - 1} Units</span>
                       <span className="font-semibold text-emerald-700">
-                        Save ₹{Math.max(0, (product.mrpPaise - getUnitPricePaiseForQty(1)) / 100).toFixed(2)} /pc
+                        Save ₹{formatPaise(Math.max(0, product.mrpPaise - getUnitPricePaiseForQty(1)))} /pc
                       </span>
                     </div>
                   </div>
@@ -812,7 +813,7 @@ export function ProductDetailClient({
                     <div className="flex items-center justify-between text-[11px] text-on-surface-variant mt-1.5 pt-1.5 border-t border-surface-container">
                       <span>Quantity: {packThreshold} to {cartonThreshold - 1} Units</span>
                       <span className="font-semibold text-emerald-700">
-                        Save ₹{Math.max(0, (product.mrpPaise - getUnitPricePaiseForQty(packThreshold)) / 100).toFixed(2)} /pc
+                        Save ₹{formatPaise(Math.max(0, product.mrpPaise - getUnitPricePaiseForQty(packThreshold)))} /pc
                       </span>
                     </div>
                   </div>
@@ -831,7 +832,7 @@ export function ProductDetailClient({
                     <div className="flex items-center justify-between text-[11px] text-on-surface-variant mt-1.5 pt-1.5 border-t border-surface-container">
                       <span>Quantity: {cartonThreshold}+ Units</span>
                       <span className="font-semibold text-emerald-700">
-                        Save ₹{Math.max(0, (product.mrpPaise - getUnitPricePaiseForQty(cartonThreshold)) / 100).toFixed(2)} /pc
+                        Save ₹{formatPaise(Math.max(0, product.mrpPaise - getUnitPricePaiseForQty(cartonThreshold)))} /pc
                       </span>
                     </div>
                   </div>
@@ -853,7 +854,7 @@ export function ProductDetailClient({
                         <td className="py-2.5 px-3">1 to {packThreshold - 1} Units</td>
                         <td className="py-2.5 px-3 font-mono font-bold text-primary">₹{s1Rate}</td>
                         <td className="py-2.5 px-3 text-on-surface-variant">
-                          ₹{Math.max(0, (product.mrpPaise - getUnitPricePaiseForQty(1)) / 100).toFixed(2)}/unit
+                          ₹{formatPaise(Math.max(0, product.mrpPaise - getUnitPricePaiseForQty(1)))}/unit
                         </td>
                         <td className="py-2.5 px-3 text-on-surface-variant">Household / Retail Consumer</td>
                       </tr>
@@ -867,7 +868,7 @@ export function ProductDetailClient({
                         <td className="py-2.5 px-3">{packThreshold} to {cartonThreshold - 1} Units</td>
                         <td className="py-2.5 px-3 font-mono font-bold text-primary">₹{s2Rate}</td>
                         <td className="py-2.5 px-3 text-emerald-700 font-semibold">
-                          ₹{Math.max(0, (product.mrpPaise - getUnitPricePaiseForQty(packThreshold)) / 100).toFixed(2)}/unit
+                          ₹{formatPaise(Math.max(0, product.mrpPaise - getUnitPricePaiseForQty(packThreshold)))}/unit
                         </td>
                         <td className="py-2.5 px-3 text-on-surface-variant">Kirana Store / Small Retailer</td>
                       </tr>
@@ -875,7 +876,7 @@ export function ProductDetailClient({
                         <td className="py-2.5 px-3">{cartonThreshold}+ Units (Full {product.packLabel})</td>
                         <td className="py-2.5 px-3 font-mono font-bold text-primary">₹{s3Rate}</td>
                         <td className="py-2.5 px-3 text-emerald-700 font-semibold">
-                          ₹{Math.max(0, (product.mrpPaise - getUnitPricePaiseForQty(cartonThreshold)) / 100).toFixed(2)}/unit
+                          ₹{formatPaise(Math.max(0, product.mrpPaise - getUnitPricePaiseForQty(cartonThreshold)))}/unit
                         </td>
                         <td className="py-2.5 px-3 text-on-surface-variant">Wholesaler / Bulk Catering</td>
                       </tr>
@@ -935,9 +936,9 @@ export function ProductDetailClient({
 
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5">
                 {relatedProducts.map((rel) => {
-                  const relMrp = (rel.mrpPaise / 100).toFixed(0);
-                  const relPrice = ((rel.unitPricePaise || rel.mrpPaise) / 100).toFixed(0);
-                  const relSavings = Number(relMrp) - Number(relPrice);
+                  const relMrpPaise = rel.mrpPaise || 0;
+                  const relPricePaise = rel.unitPricePaise || rel.mrpPaise || 0;
+                  const relSavingsPaise = Math.max(0, relMrpPaise - relPricePaise);
 
                   return (
                     <div
@@ -949,9 +950,9 @@ export function ProductDetailClient({
                           href={`/store/products/${rel.id}`}
                           className="block relative w-full aspect-square bg-surface-container-low rounded-lg p-2 overflow-hidden mb-2"
                         >
-                          {relSavings > 0 && (
+                          {relSavingsPaise > 0 && (
                             <span className="absolute top-2 left-2 bg-emerald-700 text-white text-[10px] px-1.5 py-0.2 rounded font-bold z-10">
-                              Save ₹{relSavings}
+                              Save ₹{formatPaise(relSavingsPaise)}
                             </span>
                           )}
                           {rel.imageUrl ? (
@@ -986,9 +987,9 @@ export function ProductDetailClient({
 
                       <div className="mt-3 pt-2 border-t border-surface-container flex items-center justify-between gap-1 min-w-0">
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs sm:text-sm font-bold text-primary font-mono truncate">₹{relPrice}</div>
-                          {relSavings > 0 && (
-                            <div className="text-[10px] sm:text-[11px] text-outline line-through truncate">₹{relMrp}</div>
+                          <div className="text-xs sm:text-sm font-bold text-primary font-mono truncate">₹{formatPaise(relPricePaise)}</div>
+                          {relSavingsPaise > 0 && (
+                            <div className="text-[10px] sm:text-[11px] text-outline line-through truncate">₹{formatPaise(relMrpPaise)}</div>
                           )}
                         </div>
                         <button

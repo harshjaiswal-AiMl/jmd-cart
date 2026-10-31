@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { formatRupees } from "@/lib/format-price";
 
 interface SearchProductItem {
   id: string;
@@ -743,13 +744,13 @@ export function StoreHeader({
                   ? "bg-primary hover:bg-primary-container text-on-primary shadow-xs active:scale-95"
                   : "bg-surface-container-low hover:bg-surface-container text-on-surface border border-outline-variant/60"
               }`}
-              title={cartCount > 0 ? `${cartCount} items in cart (₹${cartTotalRupees})` : "Shopping Cart"}
+              title={cartCount > 0 ? `${cartCount} items in cart (₹${formatRupees(cartTotalRupees)})` : "Shopping Cart"}
             >
               <span className="material-symbols-outlined text-[17px] sm:text-[20px] shrink-0">shopping_bag</span>
               {cartCount > 0 ? (
                 <>
                   <span className="hidden sm:inline font-bold">
-                    ₹{cartTotalRupees.toLocaleString("en-IN")}
+                    ₹{formatRupees(cartTotalRupees)}
                   </span>
                   <span className="bg-secondary-container text-on-secondary-container px-1.5 py-0.2 rounded-full text-[10px] sm:text-[11px] font-black shrink-0">
                     {cartCount}

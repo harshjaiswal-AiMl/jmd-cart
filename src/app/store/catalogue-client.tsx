@@ -12,6 +12,7 @@ import { StoreFooter } from "@/components/store/StoreFooter";
 import { TrustRegionalStrip } from "@/components/store/TrustRegionalStrip";
 import { FloatingCartBar } from "@/components/store/FloatingCartBar";
 import { StoreBannerCarousel } from "@/components/store/StoreBannerCarousel";
+import { formatPaise, formatRupees, paiseToRupees } from "@/lib/format-price";
 
 export interface CatalogueCategory {
   id: string;
@@ -259,15 +260,19 @@ export function CatalogueClient({
   for (const [pId, qty] of Object.entries(cartQuantities)) {
     const p = initialProducts.find((item) => item.id === pId);
     if (p && qty > 0) {
-      const mrp = Math.round(p.mrpPaise / 100);
-      const rate = Math.round((p.unitPricePaise || p.slabs[0]?.unitPricePaise || p.mrpPaise) / 100);
-      calculatedRupees += rate * qty;
-      calculatedSavings += Math.max(0, mrp - rate) * qty;
+      const mrpRupees = p.mrpPaise / 100;
+      const rateRupees = (p.unitPricePaise || p.slabs[0]?.unitPricePaise || p.mrpPaise) / 100;
+      calculatedRupees += rateRupees * qty;
+      calculatedSavings += Math.max(0, mrpRupees - rateRupees) * qty;
     }
   }
 
-  const totalCartRupees = calculatedRupees > 0 ? calculatedRupees : Math.round(cartSummary.totalPaise / 100);
-  const totalSavingsRupees = calculatedSavings > 0 ? calculatedSavings : Math.round(cartSummary.savingsPaise / 100);
+  const totalCartRupees = calculatedRupees > 0 
+    ? paiseToRupees(calculatedRupees * 100) 
+    : paiseToRupees(cartSummary.totalPaise);
+  const totalSavingsRupees = calculatedSavings > 0 
+    ? paiseToRupees(calculatedSavings * 100) 
+    : paiseToRupees(cartSummary.savingsPaise);
 
   // Sorting products - In-stock products ALWAYS appear first, out-of-stock items at the bottom
   const sortedProducts = [...initialProducts].sort((a, b) => {
@@ -311,11 +316,9 @@ export function CatalogueClient({
 
   // Reusable Product Card with dynamic Category Badge and 1-tap Cart Stepper
   const renderProductCard = (product: StoreProductItem, showCategoryTag = true) => {
-    const mrpRupees = Math.round(product.mrpPaise / 100);
-    const effectiveRateRupees = Math.round(
-      (product.unitPricePaise || product.slabs[0]?.unitPricePaise || product.mrpPaise) / 100
-    );
-    const savingsRupees = mrpRupees > effectiveRateRupees ? mrpRupees - effectiveRateRupees : 0;
+    const mrpPaise = product.mrpPaise || 0;
+    const effectiveRatePaise = product.unitPricePaise || product.slabs[0]?.unitPricePaise || mrpPaise;
+    const savingsPaise = mrpPaise > effectiveRatePaise ? mrpPaise - effectiveRatePaise : 0;
     const qty = cartQuantities[product.id] || 0;
     const isUpdating = updatingId === product.id;
 
@@ -329,13 +332,8 @@ export function CatalogueClient({
         : 0;
 
     const baseDiscountPct =
-      product.mrpPaise > 0 && mrpRupees > effectiveRateRupees
-        ? Math.round(
-            ((product.mrpPaise -
-              (product.unitPricePaise || product.slabs[0]?.unitPricePaise || product.mrpPaise)) /
-              product.mrpPaise) *
-              100
-          )
+      mrpPaise > 0 && mrpPaise > effectiveRatePaise
+        ? Math.round(((mrpPaise - effectiveRatePaise) / mrpPaise) * 100)
         : 0;
 
     return (
@@ -364,14 +362,14 @@ export function CatalogueClient({
             )}
 
             {/* Savings Badge */}
-            {(savingsRupees > 0 || bestSlabDiscountPct > 0) && (
+            {(savingsPaise > 0 || bestSlabDiscountPct > 0) && (
               <div className="absolute top-2 left-2 max-w-[calc(100%-2.5rem)] pointer-events-none">
                 <span className="px-1.5 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed text-[9px] sm:text-[10px] font-black uppercase tracking-tight shadow-2xs truncate block">
                   {bestSlabDiscountPct > baseDiscountPct
                     ? `Up to ${bestSlabDiscountPct}% OFF`
                     : baseDiscountPct > 0
                     ? `${baseDiscountPct}% OFF`
-                    : `Save ₹${savingsRupees}`}
+                    : `Save ₹${formatPaise(savingsPaise)}`}
                 </span>
               </div>
             )}
@@ -452,11 +450,11 @@ export function CatalogueClient({
           <div className="min-w-0 flex-1 flex flex-col justify-center">
             <div className="flex items-baseline gap-1 min-w-0 flex-wrap">
               <span className="font-headline text-xs sm:text-sm md:text-base font-bold text-primary font-mono tracking-tight shrink-0">
-                ₹{effectiveRateRupees}
+                ₹{formatPaise(effectiveRatePaise)}
               </span>
-              {mrpRupees > effectiveRateRupees && (
+              {mrpPaise > effectiveRatePaise && (
                 <span className="text-[9px] sm:text-[10px] text-outline line-through shrink-0">
-                  ₹{mrpRupees}
+                  ₹{formatPaise(mrpPaise)}
                 </span>
               )}
             </div>
@@ -665,8 +663,8 @@ export function CatalogueClient({
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3">
                 {reorderPicks.map((pick) => {
-                  const mrp = Math.round(pick.mrpPaise / 100);
-                  const price = pick.slabs[0] ? Math.round(pick.slabs[0].unitPricePaise / 100) : mrp;
+                  const mrpPaise = pick.mrpPaise || 0;
+                  const pricePaise = pick.slabs[0]?.unitPricePaise || pick.unitPricePaise || mrpPaise;
                   const inCartQty = cartQuantities[pick.id] || 0;
 
                   return (
@@ -722,9 +720,9 @@ export function CatalogueClient({
                           {pick.name}
                         </Link>
                         <div className="flex items-baseline justify-between mt-1 mb-2">
-                          <span className="font-headline text-xs sm:text-sm font-bold text-primary">₹{price}</span>
-                          {mrp > price && (
-                            <span className="text-[10px] text-outline line-through">₹{mrp}</span>
+                          <span className="font-headline text-xs sm:text-sm font-bold text-primary">₹{formatPaise(pricePaise)}</span>
+                          {mrpPaise > pricePaise && (
+                            <span className="text-[10px] text-outline line-through">₹{formatPaise(mrpPaise)}</span>
                           )}
                         </div>
                       </div>

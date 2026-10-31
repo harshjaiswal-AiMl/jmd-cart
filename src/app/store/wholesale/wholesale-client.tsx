@@ -7,6 +7,7 @@ import { StoreProductItem } from "@/modules/store/store.service";
 import { addToCartAction } from "@/app/store/cart/actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
+import { formatPaise, paiseToRupees } from "@/lib/format-price";
 
 interface WholesaleClientProps {
   products: StoreProductItem[];
@@ -198,7 +199,7 @@ export function WholesaleClient({
       {/* Header */}
       <StoreHeader
         cartCount={cartState.itemsCount}
-        cartTotalRupees={Math.round(cartState.totalPaise / 100)}
+        cartTotalRupees={paiseToRupees(cartState.totalPaise)}
         userName={userName}
         isLoggedIn={isLoggedIn}
         categories={categories}
@@ -390,11 +391,11 @@ export function WholesaleClient({
                     <tbody className="divide-y divide-surface-container-high text-xs font-body">
                       {filteredProducts.slice(0, 30).map((p) => {
                         const qty = getRowQty(p);
-                        const mrp = Math.round(p.mrpPaise / 100);
-                        const s1Rate = Math.round((p.mrpPaise * 0.92) / 100);
-                        const s2Rate = Math.round((p.mrpPaise * 0.86) / 100);
-                        const effectiveRate = qty >= 12 ? s2Rate : qty >= 6 ? s1Rate : mrp;
-                        const rowTotal = effectiveRate * qty;
+                        const mrpPaise = p.mrpPaise;
+                        const s1RatePaise = Math.round(p.mrpPaise * 0.92);
+                        const s2RatePaise = Math.round(p.mrpPaise * 0.86);
+                        const effectiveRatePaise = qty >= 12 ? s2RatePaise : qty >= 6 ? s1RatePaise : mrpPaise;
+                        const rowTotalPaise = effectiveRatePaise * qty;
 
                         return (
                           <tr key={p.id} className="hover:bg-surface-container-low/50 transition-colors">
@@ -433,14 +434,14 @@ export function WholesaleClient({
                               1 {p.packLabel}
                             </td>
                             <td className="py-3.5 px-3 text-outline line-through">
-                              ₹{mrp}
+                              ₹{formatPaise(mrpPaise)}
                             </td>
                             <td className="py-3.5 px-3 bg-surface-container-low/50 text-secondary font-bold">
-                              ₹{s1Rate} /pc
+                              ₹{formatPaise(s1RatePaise)} /pc
                             </td>
                             <td className="py-3.5 px-3 bg-tertiary-fixed/20 text-tertiary font-bold">
-                              ₹{s2Rate} /pc
-                              <div className="text-[10px] text-tertiary font-semibold">Save ₹{mrp - s2Rate}/pc</div>
+                              ₹{formatPaise(s2RatePaise)} /pc
+                              <div className="text-[10px] text-tertiary font-semibold">Save ₹{formatPaise(mrpPaise - s2RatePaise)}/pc</div>
                             </td>
                             <td className="py-3.5 px-2">
                               {p.isAvailable ? (
@@ -487,7 +488,7 @@ export function WholesaleClient({
                                   className="w-full bg-primary hover:bg-primary-container text-on-primary py-1 px-2 rounded text-[11px] font-bold shadow-sm flex items-center justify-center gap-1"
                                 >
                                   <span>+ Add</span>
-                                  <span className="opacity-80">₹{rowTotal}</span>
+                                  <span className="opacity-80">₹{formatPaise(rowTotalPaise)}</span>
                                 </button>
                               </div>
                             </td>
@@ -627,7 +628,7 @@ export function WholesaleClient({
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-on-surface font-bold">Tempo Delivery Tier</span>
                     <span className={isFreeDelivery ? "text-tertiary font-bold" : "text-secondary font-bold"}>
-                      {isFreeDelivery ? "FREE (Unlocked)" : `Add ₹${Math.round(deficitPaise / 100)} more`}
+                      {isFreeDelivery ? "FREE (Unlocked)" : `Add ₹${formatPaise(deficitPaise)} more`}
                     </span>
                   </div>
                   <div className="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
@@ -651,7 +652,7 @@ export function WholesaleClient({
                   </div>
                   <div className="flex justify-between text-tertiary font-medium">
                     <span>Wholesale Slab Savings</span>
-                    <span>- ₹{Math.round(cartState.savingsPaise / 100)}</span>
+                    <span>- ₹{formatPaise(cartState.savingsPaise)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Saharsa Town Unloading</span>
@@ -660,7 +661,7 @@ export function WholesaleClient({
                   <div className="pt-2 flex justify-between text-sm text-on-surface font-bold border-t border-surface-container">
                     <span>Net Payable</span>
                     <span className="text-primary font-bold font-mono">
-                      ₹{Math.round(cartState.totalPaise / 100)}
+                      ₹{formatPaise(cartState.totalPaise)}
                     </span>
                   </div>
                 </div>

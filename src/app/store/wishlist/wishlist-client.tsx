@@ -6,6 +6,7 @@ import { WishlistItemDto } from "@/modules/wishlist/wishlist.types";
 import { removeFromWishlistAction, moveToCartAction } from "./actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
+import { formatRupees } from "@/lib/format-price";
 
 interface WishlistClientProps {
   initialItems: WishlistItemDto[];
@@ -243,18 +244,18 @@ export function WishlistClient({
                       <div className="flex items-baseline justify-between">
                         <div className="flex items-baseline gap-1.5">
                           <span className="font-headline text-lg font-black text-on-surface">
-                            ₹{item.priceRupees.toLocaleString("en-IN")}
+                            ₹{formatRupees(item.priceRupees)}
                           </span>
                           {item.mrpRupees > item.priceRupees && (
                             <span className="text-xs text-outline line-through">
-                              ₹{item.mrpRupees.toLocaleString("en-IN")}
+                              ₹{formatRupees(item.mrpRupees)}
                             </span>
                           )}
                         </div>
 
                         {item.savingsRupees > 0 && (
                           <span className="text-[10px] font-bold text-secondary">
-                            Save ₹{item.savingsRupees}
+                            Save ₹{formatRupees(item.savingsRupees)}
                           </span>
                         )}
                       </div>

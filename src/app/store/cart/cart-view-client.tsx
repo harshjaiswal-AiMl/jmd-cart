@@ -8,6 +8,7 @@ import { DeliveryZone } from "@/modules/delivery/delivery.types";
 import { updateCartQtyAction, removeFromCartAction, clearCartAction } from "./actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
+import { formatPaise, paiseToRupees } from "@/lib/format-price";
 
 interface CartViewClientProps {
   cart: CartSummary;
@@ -107,7 +108,7 @@ export function CartViewClient({
       {/* Store Header */}
       <StoreHeader
         cartCount={itemsCount}
-        cartTotalRupees={Math.round(totalPaise / 100)}
+        cartTotalRupees={paiseToRupees(totalPaise)}
         userName={userName}
         isLoggedIn={true}
         categories={categories}
@@ -172,11 +173,11 @@ export function CartViewClient({
                   </span>
                   <div className="flex items-baseline gap-2">
                     <span className="font-headline text-2xl font-black text-primary font-mono">
-                      ₹{Math.round(finalPayablePaise / 100).toLocaleString("en-IN")}
+                      ₹{formatPaise(finalPayablePaise)}
                     </span>
                     {totalSavingsPaise > 0 && (
                       <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                        You save ₹{Math.round(totalSavingsPaise / 100)}
+                        You save ₹{formatPaise(totalSavingsPaise)}
                       </span>
                     )}
                   </div>
@@ -205,13 +206,13 @@ export function CartViewClient({
                         </span>
                       ) : (
                         <>
-                          Add <span className="font-bold text-primary font-mono">₹{Math.round(deficitPaise / 100)}</span> more for <span className="text-emerald-700 font-bold">Free Delivery</span>
+                          Add <span className="font-bold text-primary font-mono">₹{formatPaise(deficitPaise)}</span> more for <span className="text-emerald-700 font-bold">Free Delivery</span>
                         </>
                       )}
                     </span>
                   </div>
                   <span className="text-[11px] font-mono text-on-surface-variant font-medium">
-                    ₹{Math.round(totalPaise / 100)} / ₹{Math.round(selectedZone.freeDeliveryThresholdPaise / 100)}
+                    ₹{formatPaise(totalPaise)} / ₹{formatPaise(selectedZone.freeDeliveryThresholdPaise)}
                   </span>
                 </div>
 
@@ -229,10 +230,11 @@ export function CartViewClient({
                 <div className="lg:col-span-8 space-y-3">
                   <div className="bg-surface-container-lowest rounded-2xl shadow-xs border border-surface-container-high divide-y divide-surface-container overflow-hidden">
                     {cartLines.map((line) => {
-                      const lineMrp = Math.round(line.mrpPaise / 100);
-                      const linePrice = Math.round(line.pricing.unitPricePaise / 100);
-                      const lineTotal = Math.round(line.pricing.lineTotalPaise / 100);
-                      const unitSavings = lineMrp - linePrice;
+                      const unitSavingsPaise = Math.max(0, line.mrpPaise - line.pricing.unitPricePaise);
+                      const discountPercent =
+                        line.mrpPaise > 0
+                          ? Math.round((unitSavingsPaise / line.mrpPaise) * 100)
+                          : 0;
 
                       return (
                         <div
@@ -284,15 +286,15 @@ export function CartViewClient({
 
                               <div className="flex items-baseline gap-2 mt-1 flex-wrap">
                                 <span className="text-sm sm:text-base font-bold text-primary font-mono">
-                                  ₹{linePrice}
+                                  ₹{formatPaise(line.pricing.unitPricePaise)}
                                 </span>
-                                {unitSavings > 0 && (
+                                {unitSavingsPaise > 0 && (
                                   <>
                                     <span className="text-xs text-outline line-through">
-                                      ₹{lineMrp}
+                                      ₹{formatPaise(line.mrpPaise)}
                                     </span>
                                     <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.2 rounded">
-                                      Save ₹{unitSavings} ({Math.round((unitSavings / lineMrp) * 100)}% off)
+                                      Save ₹{formatPaise(unitSavingsPaise)} ({discountPercent}% off)
                                     </span>
                                   </>
                                 )}
@@ -329,7 +331,7 @@ export function CartViewClient({
                             <div className="text-right min-w-[80px]">
                               <div className="text-xs text-outline font-medium">Subtotal:</div>
                               <div className="text-sm sm:text-base font-extrabold text-on-surface font-mono">
-                                ₹{lineTotal}
+                                ₹{formatPaise(line.pricing.lineTotalPaise)}
                               </div>
                             </div>
 
@@ -360,35 +362,35 @@ export function CartViewClient({
                       <div className="flex justify-between">
                         <span>Total Items MRP</span>
                         <span className="font-mono font-semibold text-on-surface line-through">
-                          ₹{Math.round(cart.subtotalPaise / 100)}
+                          ₹{formatPaise(cart.subtotalPaise)}
                         </span>
                       </div>
 
                       {totalSavingsPaise > 0 && (
                         <div className="flex justify-between text-emerald-700 font-semibold">
                           <span>Wholesale Slab Savings</span>
-                          <span className="font-mono">- ₹{Math.round(totalSavingsPaise / 100)}</span>
+                          <span className="font-mono">- ₹{formatPaise(totalSavingsPaise)}</span>
                         </div>
                       )}
 
                       <div className="flex justify-between">
                         <span>Items Price</span>
                         <span className="font-mono font-bold text-on-surface">
-                          ₹{Math.round(totalPaise / 100)}
+                          ₹{formatPaise(totalPaise)}
                         </span>
                       </div>
 
                       <div className="flex justify-between">
                         <span>Delivery Fee</span>
                         <span className={isDeliveryFree ? "text-emerald-700 font-bold" : "text-on-surface font-mono"}>
-                          {isDeliveryFree ? "FREE" : `₹${Math.round(deliveryFeePaise / 100)}`}
+                          {isDeliveryFree ? "FREE" : `₹${formatPaise(deliveryFeePaise)}`}
                         </span>
                       </div>
 
                       <div className="pt-3 border-t border-surface-container flex items-baseline justify-between text-base font-bold text-on-surface">
                         <span>Total Amount</span>
                         <span className="text-primary text-2xl font-black font-mono">
-                          ₹{Math.round(finalPayablePaise / 100)}
+                          ₹{formatPaise(finalPayablePaise)}
                         </span>
                       </div>
                     </div>
@@ -421,7 +423,7 @@ export function CartViewClient({
                 <div className="min-w-0 shrink-0">
                   <div className="text-[10px] text-on-surface-variant font-medium">Total Amount</div>
                   <div className="font-headline text-base sm:text-lg font-black text-primary font-mono truncate">
-                    ₹{Math.round(finalPayablePaise / 100)}
+                    ₹{formatPaise(finalPayablePaise)}
                   </div>
                   {isDeliveryFree && (
                     <div className="text-[10px] text-emerald-700 font-bold truncate">Free Delivery</div>

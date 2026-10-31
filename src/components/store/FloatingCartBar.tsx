@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatRupees } from "@/lib/format-price";
 
 interface FloatingCartBarProps {
   totalPieces: number;
@@ -32,12 +33,12 @@ export function FloatingCartBar({
               </span>
               <span className="opacity-40 shrink-0">•</span>
               <span className="font-headline text-sm sm:text-base text-secondary-fixed font-bold shrink-0">
-                ₹{totalRupees.toLocaleString("en-IN")}
+                ₹{formatRupees(totalRupees)}
               </span>
             </div>
             {savingsRupees > 0 && (
               <div className="text-[10px] sm:text-[11px] text-tertiary-fixed font-semibold truncate">
-                ⚡ You are saving ₹{savingsRupees.toLocaleString("en-IN")} on this order!
+                ⚡ You are saving ₹{formatRupees(savingsRupees)} on this order!
               </div>
             )}
           </div>

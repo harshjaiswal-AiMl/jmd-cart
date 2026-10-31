@@ -13,6 +13,7 @@ import { saveUserAddressAction, deleteUserAddressAction, setDefaultAddressAction
 import { PaymentModeSettings } from "@/modules/settings/settings.types";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
+import { formatPaise, paiseToRupees } from "@/lib/format-price";
 
 interface CheckoutClientProps {
   cart: CartSummary;
@@ -447,7 +448,7 @@ export function CheckoutClient({
       {/* Store Header */}
       <StoreHeader
         cartCount={cart.itemsCount}
-        cartTotalRupees={Math.round(cart.totalPaise / 100)}
+        cartTotalRupees={paiseToRupees(cart.totalPaise)}
         userName={userName}
         isLoggedIn={true}
         categories={categories}
@@ -994,9 +995,6 @@ export function CheckoutClient({
                     {/* Cart Lines Preview */}
                     <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
                       {cartLines.map((line) => {
-                        const linePrice = Math.round(line.pricing.unitPricePaise / 100);
-                        const lineTotal = Math.round(line.pricing.lineTotalPaise / 100);
-
                         return (
                           <div
                             key={line.productId}
@@ -1022,7 +1020,7 @@ export function CheckoutClient({
                                   {line.productName}
                                 </h3>
                                 <div className="text-[11px] text-on-surface-variant mt-0.5">
-                                  ₹{linePrice} × {line.qty} {line.weight ? `(${line.weight})` : ""}
+                                  ₹{formatPaise(line.pricing.unitPricePaise)} × {line.qty} {line.weight ? `(${line.weight})` : ""}
                                 </div>
                               </div>
                             </div>
@@ -1030,7 +1028,7 @@ export function CheckoutClient({
                             <div className="flex items-center gap-3 shrink-0">
                               <div className="text-right">
                                 <div className="text-xs font-bold text-primary font-mono">
-                                  ₹{lineTotal}
+                                  ₹{formatPaise(line.pricing.lineTotalPaise)}
                                 </div>
                               </div>
                               <div className="flex items-center bg-white rounded-lg p-0.5 border border-surface-container-high">
@@ -1209,7 +1207,7 @@ export function CheckoutClient({
                             className="w-full py-3 bg-primary hover:bg-primary-container text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-[18px]">verified</span>
-                            <span>Pay ₹{Math.round(finalPayablePaise / 100)} via UPI</span>
+                            <span>Pay ₹{formatPaise(finalPayablePaise)} via UPI</span>
                           </button>
                         </div>
                       )}
@@ -1292,7 +1290,7 @@ export function CheckoutClient({
                             className="w-full py-3 bg-primary hover:bg-primary-container text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-[18px]">lock</span>
-                            <span>Pay ₹{Math.round(finalPayablePaise / 100)} Securely</span>
+                            <span>Pay ₹{formatPaise(finalPayablePaise)} Securely</span>
                           </button>
                         </div>
                       )}
@@ -1355,7 +1353,7 @@ export function CheckoutClient({
                             className="w-full py-3 bg-primary hover:bg-primary-container text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-[18px]">verified</span>
-                            <span>Pay ₹{Math.round(finalPayablePaise / 100)} with {selectedBank}</span>
+                            <span>Pay ₹{formatPaise(finalPayablePaise)} with {selectedBank}</span>
                           </button>
                         </div>
                       )}
@@ -1406,7 +1404,7 @@ export function CheckoutClient({
                             className="w-full py-3 bg-primary hover:bg-primary-container text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                            <span>Confirm Order (Pay on Delivery: ₹{Math.round(finalPayablePaise / 100)})</span>
+                            <span>Confirm Order (Pay on Delivery: ₹{formatPaise(finalPayablePaise)})</span>
                           </button>
                         </div>
                       )}
@@ -1427,35 +1425,35 @@ export function CheckoutClient({
                   <div className="flex justify-between">
                     <span>Price ({cartLines.length} items)</span>
                     <span className="text-outline line-through font-mono">
-                      ₹{Math.round(cart.subtotalPaise / 100)}
+                      ₹{formatPaise(cart.subtotalPaise)}
                     </span>
                   </div>
 
                   {totalSavingsPaise > 0 && (
                     <div className="flex justify-between text-emerald-700 font-semibold">
                       <span>Discount Savings</span>
-                      <span className="font-mono">- ₹{Math.round(totalSavingsPaise / 100)}</span>
+                      <span className="font-mono">- ₹{formatPaise(totalSavingsPaise)}</span>
                     </div>
                   )}
 
                   <div className="flex justify-between">
                     <span>Delivery Charges</span>
                     <span className={isDeliveryFree ? "text-emerald-700 font-bold" : "text-on-surface font-mono"}>
-                      {isDeliveryFree ? "FREE" : `₹${Math.round(deliveryFeePaise / 100)}`}
+                      {isDeliveryFree ? "FREE" : `₹${formatPaise(deliveryFeePaise)}`}
                     </span>
                   </div>
 
                   <div className="pt-3 border-t border-surface-container flex items-baseline justify-between text-base font-bold text-on-surface">
                     <span>Total Payable</span>
                     <span className="text-primary text-xl font-extrabold font-mono">
-                      ₹{Math.round(finalPayablePaise / 100)}
+                      ₹{formatPaise(finalPayablePaise)}
                     </span>
                   </div>
                 </div>
 
                 {totalSavingsPaise > 0 && (
                   <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-xs font-semibold text-emerald-800 text-center">
-                    You will save ₹{Math.round(totalSavingsPaise / 100)} on this order
+                    You will save ₹{formatPaise(totalSavingsPaise)} on this order
                   </div>
                 )}
 

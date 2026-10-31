@@ -16,6 +16,7 @@ import { WishlistItemDto } from "@/modules/wishlist/wishlist.types";
 import { removeFromWishlistAction, moveToCartAction } from "@/app/store/wishlist/actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
+import { formatPaise } from "@/lib/format-price";
 
 interface AccountUser {
   id: string;
@@ -696,7 +697,7 @@ export function AccountClient({
               ) : (
                 <div className="grid grid-cols-1 gap-4">
                   {initialOrders.map((order) => {
-                    const totalRupees = Math.round(order.totalPaise / 100);
+                    const totalRupees = formatPaise(order.totalPaise);
                     const formattedDate = new Date(order.createdAt).toLocaleDateString("en-IN", {
                       day: "numeric",
                       month: "short",
