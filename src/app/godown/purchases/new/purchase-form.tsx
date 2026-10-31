@@ -87,7 +87,7 @@ function ProductCombobox({
 
   const filtered = useMemo(() => {
     if (!query.trim()) return products.slice(0, 50);
-    return searchItems(query, searchableProducts, 50);
+    return searchItems(query, searchableProducts, { limit: 50 });
   }, [searchableProducts, query, products]);
 
   return (
@@ -152,7 +152,7 @@ function ProductCombobox({
                       {p.shortCode}
                     </span>
                     <span className="text-xs text-gray-600 font-semibold bg-gray-100 px-1.5 py-0.5 rounded">
-                      MRP ₹{(p.mrpPaise / 100).toFixed(2)}
+                      MRP ₹{((p.mrpPaise ?? 0) / 100).toFixed(2)}
                     </span>
                   </div>
                   <div className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{p.name}</div>

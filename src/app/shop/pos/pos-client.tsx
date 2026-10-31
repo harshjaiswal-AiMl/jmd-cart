@@ -52,6 +52,7 @@ import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { paiseToIndianWords } from "@/lib/number-to-words";
 import { ItemInfoModal } from "@/components/pos/ItemInfoModal";
 import { SaveVoucherDialog } from "@/components/pos/SaveVoucherDialog";
+import { SearchIndexItem, buildProductSearchIndex, searchItems } from "@/lib/search/smart-search";
 
 export interface ProductCatalogItem {
   id: string;
@@ -144,6 +145,7 @@ interface PosClientProps {
   products: ProductCatalogItem[];
   companies: CompanyItem[];
   parties: PartyItem[];
+  nextInvoicePreview?: string;
 }
 
 export function PosClient({
@@ -157,6 +159,7 @@ export function PosClient({
   products,
   companies,
   parties,
+  nextInvoicePreview,
 }: PosClientProps) {
   // Admin check for backdated billing
   const isAdmin = cashierRole === "SUPER_ADMIN" || cashierRole === "ADMIN";
@@ -1998,7 +2001,9 @@ export function PosClient({
                   } else if (e.key === "Enter") {
                     if (filteredProducts.length > 0) {
                       e.preventDefault();
-                      const chosenProduct = filteredProducts[searchSelectedIndex] || filteredProducts[0];
+                      const chosenSearch = filteredProducts[searchSelectedIndex] || filteredProducts[0];
+                      const chosenProduct = productsList.find((item) => item.id === chosenSearch.id);
+                      if (!chosenProduct) return;
                       const targetLineId = addItemToCart(chosenProduct, "Pcs", 1);
                       setItemSearchTerm("");
                       setSearchSelectedIndex(0);
@@ -2061,7 +2066,9 @@ export function PosClient({
                         setHighlightedProductId(p.id);
                       }}
                       onClick={() => {
-                        const targetLineId = addItemToCart(p, "Pcs", 1);
+                        const fullProd = productsList.find((item) => item.id === p.id);
+                        if (!fullProd) return;
+                        const targetLineId = addItemToCart(fullProd, "Pcs", 1);
                         setItemSearchTerm("");
                         setSearchSelectedIndex(0);
                         setTimeout(() => {

@@ -22,6 +22,7 @@ const ISSUE_DESCRIPTIONS: Record<DataQualityIssueType, string> = {
   MISSING_BRAND_OR_CATEGORY: "Missing Brand or Category",
   DUPLICATE_NAME: "Duplicate Product Name",
   MISSING_IMAGE: "Missing Photo / Image",
+  MISSING_WEIGHT: "Missing Weight / Unit",
 };
 
 export function DataQualityClient({

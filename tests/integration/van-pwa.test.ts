@@ -24,8 +24,8 @@ describe("Task 2.3: Van PWA Shell, Install, and Role Routing", () => {
       expect(manifestData.icons).toBeDefined();
       expect(manifestData.icons?.length).toBeGreaterThanOrEqual(2);
 
-      const has192 = manifestData.icons?.some((i) => i.sizes === "192x192");
-      const has512 = manifestData.icons?.some((i) => i.sizes === "512x512");
+      const has192 = manifestData.icons?.some((i: any) => i.sizes === "192x192");
+      const has512 = manifestData.icons?.some((i: any) => i.sizes === "512x512");
       expect(has192).toBe(true);
       expect(has512).toBe(true);
     });

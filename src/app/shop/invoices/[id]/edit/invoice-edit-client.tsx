@@ -138,7 +138,7 @@ export function InvoiceEditClient({
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm.trim()) return [];
-    return searchItems(searchTerm, products, 8);
+    return searchItems(searchTerm, products, { limit: 8 });
   }, [products, searchTerm]);
 
   // Handle party change
@@ -574,7 +574,10 @@ export function InvoiceEditClient({
                     {filteredProducts.map((p) => (
                       <div
                         key={p.id}
-                        onClick={() => addProductToInvoice(p)}
+                        onClick={() => {
+                          const full = products.find((item) => item.id === p.id);
+                          if (full) addProductToInvoice(full);
+                        }}
                         className="p-2.5 hover:bg-emerald-50 cursor-pointer flex items-center justify-between text-xs"
                       >
                         <div>
