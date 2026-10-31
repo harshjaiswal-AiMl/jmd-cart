@@ -1,5 +1,4 @@
 import { FontSizeProvider } from "@/components/common/font-size-provider";
-import { StorefrontInstallPrompt } from "@/components/pwa/StorefrontInstallPrompt";
 import type { Metadata } from "next";
 import "./globals.css";
 
@@ -151,7 +150,6 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-surface font-body text-on-surface antialiased">
         <FontSizeProvider>{children}</FontSizeProvider>
-        <StorefrontInstallPrompt />
       </body>
     </html>
   );

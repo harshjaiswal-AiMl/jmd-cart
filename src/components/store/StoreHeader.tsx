@@ -744,8 +744,7 @@ export function StoreHeader({
                 if (promptEvent) {
                   promptEvent.prompt();
                 } else {
-                  const installBtn = document.querySelector("aside[aria-label='Install JMD CART App'] button") as HTMLButtonElement;
-                  if (installBtn) installBtn.click();
+                  alert('To install JMD CART App:\n\n• PC (Chrome/Edge): Click the Install icon (⊕) in your browser address bar\n• Mobile: Tap browser menu (⋮) -> "Install App" or "Add to Home Screen"');
                 }
               }}
               className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-950 transition-colors shadow-2xs active:scale-95 cursor-pointer"
