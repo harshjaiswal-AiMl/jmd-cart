@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { storeService } from "@/modules/store/store.service";
 import { cartService } from "@/modules/cart/cart.service";
 import { bannerService } from "@/modules/banners/banner.service";
+import { diwaliService } from "@/modules/diwali/diwali.service";
 import { wishlistService } from "@/modules/wishlist/wishlist.service";
 import { CatalogueClient } from "./catalogue-client";
 
@@ -48,10 +49,14 @@ export default async function StorePage({
     buyerApproved: user?.buyerApproved,
   };
 
-  const [catalogueData, filterOptions, banners, cartData, wishlistProductIds, wishlistCount] = await Promise.all([
+  const [catalogueData, filterOptions, banners, diwaliShowcase, cartData, wishlistProductIds, wishlistCount] = await Promise.all([
     storeService.getCatalogue(queryParams),
     storeService.getFilterOptions(),
     bannerService.getActiveBanners(),
+    diwaliService.getDiwaliShowcase({
+      buyerType: user?.buyerType,
+      buyerApproved: user?.buyerApproved,
+    }),
     session?.user?.id
       ? cartService.getCartSummary(session.user.id)
       : Promise.resolve({
@@ -102,6 +107,7 @@ export default async function StorePage({
         companies={filterOptions.companies}
         categories={filterOptions.categories}
         banners={banners}
+        diwaliShowcase={diwaliShowcase}
         currentSearch={searchParams?.q ?? ""}
         currentCompanyId={companyId ?? ""}
         currentCategoryId={categoryId ?? ""}

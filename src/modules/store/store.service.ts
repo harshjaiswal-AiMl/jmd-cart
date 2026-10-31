@@ -38,6 +38,7 @@ export interface StoreCatalogueQuery {
   q?: string;
   companyId?: string;
   categoryId?: string;
+  productIds?: string[];
   inStockOnly?: boolean;
   limit?: number;
   offset?: number;
@@ -147,6 +148,11 @@ export class StoreService {
     }
     if (inStockOnly) {
       whereParts.push(Prisma.sql`(${stockRankSql("STOREFRONT")}) = 1`);
+    }
+
+    if (query.productIds && query.productIds.length > 0) {
+      const idClauses = query.productIds.map((id) => Prisma.sql`${id}`);
+      whereParts.push(Prisma.sql`p.id IN (${Prisma.join(idClauses, ", ")})`);
     }
 
     if (q && q.trim().length > 0) {

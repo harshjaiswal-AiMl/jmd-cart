@@ -73,6 +73,7 @@ import {
   X,
   LogOut,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -128,6 +129,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ShieldCheck,
   HardDriveDownload,
   Settings,
+  Sparkles,
 };
 
 export interface ShellBadges {

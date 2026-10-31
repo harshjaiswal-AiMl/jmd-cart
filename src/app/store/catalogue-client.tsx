@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StoreProductItem } from "@/modules/store/store.service";
 import { StoreBanner } from "@/modules/banners/banner.types";
+import { DiwaliShowcaseData } from "@/modules/diwali/diwali.types";
+import { DiwaliStoreSection } from "@/components/store/DiwaliStoreSection";
 import { addToCartAction, updateCartQtyAction, removeFromCartAction } from "@/app/store/cart/actions";
 import { toggleWishlistAction } from "@/app/store/wishlist/actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
@@ -26,6 +28,7 @@ interface CatalogueClientProps {
   companies: Array<{ id: string; name: string }>;
   categories: CatalogueCategory[];
   banners?: StoreBanner[];
+  diwaliShowcase?: DiwaliShowcaseData;
   currentSearch?: string;
   currentCompanyId?: string;
   currentCategoryId?: string;
@@ -55,6 +58,7 @@ export function CatalogueClient({
   companies,
   categories,
   banners = [],
+  diwaliShowcase,
   currentSearch = "",
   currentCompanyId = "",
   currentCategoryId = "",
@@ -550,7 +554,20 @@ export function CatalogueClient({
         {/* 3. Regional Guarantee Strip */}
         <TrustRegionalStrip />
 
-        {/* 4. Shop by Category (Zepto / Blinkit 2-Row Visual Category Grid) - Hidden when filtering by category or searching so products display immediately */}
+        {/* 4. Diwali Store Showcase (Between Hero Banners and Categories) */}
+        {!selectedCategory && !currentSearch && !selectedCompany && diwaliShowcase && (
+          <DiwaliStoreSection
+            showcase={diwaliShowcase}
+            cartQuantities={cartQuantities}
+            onAddToCart={handleAddToCart}
+            onUpdateQty={handleUpdateQty}
+            onToggleWishlist={handleToggleWishlist}
+            wishlistIds={wishlistIds}
+            updatingId={updatingId}
+          />
+        )}
+
+        {/* 5. Shop by Category (Zepto / Blinkit 2-Row Visual Category Grid) - Hidden when filtering by category or searching so products display immediately */}
         {!selectedCategory && !currentSearch && (
           <section id="categories" className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 pt-5 pb-3">
             <div className="flex items-center justify-between mb-4">

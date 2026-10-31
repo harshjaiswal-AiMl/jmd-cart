@@ -308,6 +308,14 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/admin/banners",
     roles: [...ADMIN_ROLES],
   },
+  {
+    id: "cat-diwali",
+    group: "Catalog",
+    label: "Diwali Store Showcase",
+    icon: "Sparkles",
+    href: "/admin/diwali",
+    roles: [...ADMIN_ROLES],
+  },
 
   // 6. Parties
   {
