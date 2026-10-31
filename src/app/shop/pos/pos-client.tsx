@@ -50,6 +50,8 @@ import {
 import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { paiseToIndianWords } from "@/lib/number-to-words";
+import { ItemInfoModal } from "@/components/pos/ItemInfoModal";
+import { SaveVoucherDialog } from "@/components/pos/SaveVoucherDialog";
 
 export interface ProductCatalogItem {
   id: string;

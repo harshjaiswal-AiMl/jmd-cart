@@ -59,7 +59,7 @@ export function ItemSearchBox({
         onHighlight(null);
       }
     }
-  }, [results]);
+  }, [results, onHighlight]);
 
   // Update highlighted item when selection index changes
   const handleIndexChange = (newIdx: number) => {
