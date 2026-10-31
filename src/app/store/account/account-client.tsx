@@ -454,7 +454,7 @@ export function AccountClient({
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 w-full pt-48 md:pt-40 pb-24 md:pb-12 bg-surface">
+      <main className="flex-1 w-full pt-32 md:pt-24 pb-24 md:pb-12 bg-surface">
         <div className="max-w-[1280px] mx-auto px-4 lg:px-8 py-4 sm:py-6 space-y-6">
           {/* Toast / Feedback */}
           {reorderFeedback && (

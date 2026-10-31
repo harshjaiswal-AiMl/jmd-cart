@@ -207,7 +207,7 @@ export function WholesaleClient({
       />
 
       {/* Main Content Area - pb-32 on mobile ensures comfortable clearance above floating cart bar & bottom nav */}
-      <main className="flex-1 w-full pt-48 md:pt-40 pb-32 sm:pb-24 md:pb-12 bg-surface">
+      <main className="flex-1 w-full pt-32 md:pt-24 pb-32 sm:pb-24 md:pb-12 bg-surface">
         {/* B2B Strategic Banner & Credential Strip */}
         <section className="w-full bg-surface-container-low py-6 px-4 lg:px-8 border-b border-surface-container-high">
           <div className="max-w-[1280px] mx-auto">

@@ -115,7 +115,7 @@ export function CartViewClient({
       />
 
       {/* Main Container - pt-48 on mobile (192px) guarantees zero overlap with 178px fixed mobile header */}
-      <main className="flex-1 w-full pt-48 md:pt-40 pb-28 md:pb-16 bg-surface">
+      <main className="flex-1 w-full pt-32 md:pt-24 pb-28 md:pb-16 bg-surface">
         <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 space-y-5">
           {/* Cart Title & Quick Summary Header */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-container-high pb-4">

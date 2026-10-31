@@ -405,36 +405,7 @@ export function StoreHeader({
   return (
     <>
       <header className="fixed top-0 w-full z-50 bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_1px_8px_rgba(92,12,30,0.06)] border-b border-surface-container-high/60">
-        {/* 1. Top Regional Guarantee & Helpline Strip */}
-        <div className="w-full bg-primary-container text-on-primary py-1 px-3 sm:px-4 lg:px-8">
-          <div className="max-w-[1280px] mx-auto flex items-center justify-between text-[11px] sm:text-xs tracking-wide">
-            <div className="flex items-center gap-2 sm:gap-3 overflow-hidden text-ellipsis whitespace-nowrap">
-              <span className="font-semibold flex items-center gap-1 shrink-0">
-                <span>⚡</span> Express 30-min Delivery
-              </span>
-              <span className="opacity-40">•</span>
-              <span>Free delivery &gt; ₹2,000</span>
-              <span className="hidden md:inline opacity-40">•</span>
-              <span className="hidden md:inline">100% Genuine Staples</span>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <span className="hidden sm:flex items-center gap-1 text-secondary-fixed font-bold">
-                <span className="material-symbols-outlined text-[13px]">verified</span>
-                GST Ready
-              </span>
-              <span className="hidden sm:inline opacity-40">•</span>
-              <a
-                href="tel:+916278223400"
-                className="hover:text-primary-fixed-dim transition-colors flex items-center gap-1 font-semibold"
-              >
-                <span className="material-symbols-outlined text-[13px]">call</span>
-                <span className="hidden sm:inline">Helpline:</span> +91 6278 223400
-              </a>
-            </div>
-          </div>
-        </div>
-
-        {/* 2. Main Navigation Bar */}
+        {/* Main Navigation Bar */}
         <div className="h-16 md:h-20 max-w-[1280px] mx-auto px-2.5 sm:px-4 lg:px-8 flex items-center justify-between gap-1.5 sm:gap-4">
           {/* Logo & Interactive Location Trigger */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">

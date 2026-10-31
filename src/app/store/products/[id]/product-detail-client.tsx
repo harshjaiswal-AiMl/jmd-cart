@@ -248,7 +248,7 @@ export function ProductDetailClient({
         activeCategory={product.categoryId || ""}
       />
 
-      <main className="flex-1 w-full pt-48 md:pt-40 pb-24 md:pb-12 bg-surface">
+      <main className="flex-1 w-full pt-32 md:pt-24 pb-24 md:pb-12 bg-surface">
         <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           {/* Breadcrumb Navigation */}
           <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-on-surface-variant overflow-x-auto whitespace-nowrap py-1">

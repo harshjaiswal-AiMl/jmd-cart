@@ -84,7 +84,7 @@ export function WishlistClient({
         isLoggedIn={isLoggedIn}
       />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-48 md:pt-40 pb-16 w-full flex-1">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 md:pt-24 pb-16 w-full flex-1">
         {/* Breadcrumb & Title */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-surface-container-high">
           <div>
