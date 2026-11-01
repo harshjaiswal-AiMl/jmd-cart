@@ -1,5 +1,6 @@
-import { searchItems } from "@/lib/search/smart-search";
 "use client";
+
+import { searchItems } from "@/lib/search/smart-search";
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";

@@ -1,5 +1,6 @@
-import { searchItems } from "@/lib/search/smart-search";
 "use client";
+
+import { searchItems } from "@/lib/search/smart-search";
 
 import { useState, useTransition, useMemo } from "react";
 import { useFormState, useFormStatus } from "react-dom";
