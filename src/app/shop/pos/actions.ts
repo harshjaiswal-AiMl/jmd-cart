@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { pricingService } from "@/modules/pricing/pricing.service";
 import { billingService } from "@/modules/billing/billing.service";
 import { authService } from "@/modules/auth/auth.service";
-import { InvoiceChannel, UserRole } from "@prisma/client";
+import { InvoiceChannel, UserRole, MovementType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export async function calculateOrderPricingAction(
@@ -798,13 +798,14 @@ export async function posQuickAddProductAction(input: {
         await tx.stockMovement.create({
           data: {
             productId: createdProd.id,
-            locationId: input.locationId,
-            type: "ADJUSTMENT",
+            branchId: 1,
+            type: MovementType.ADJUSTMENT,
+            toLocationId: input.locationId,
             qty: input.initialStockQty,
-            balanceAfter: input.initialStockQty,
             referenceType: "QUICK_ADD_POS",
             referenceId: createdProd.id,
-            notes: "Quick add initial stock from Shop POS",
+            reason: "Quick add initial stock from Shop POS",
+            idempotencyKey: `quick-add-${createdProd.id}-${Date.now()}`,
             createdBy: session.user.id,
           },
         });
@@ -912,13 +913,14 @@ export async function posStockCorrectionAction(input: {
       await tx.stockMovement.create({
         data: {
           productId: input.productId,
-          locationId: input.locationId,
-          type: "ADJUSTMENT",
+          branchId: 1,
+          type: MovementType.ADJUSTMENT,
+          toLocationId: input.locationId,
           qty: input.addQty,
-          balanceAfter: newQty,
           referenceType: "POS_STOCK_FIX",
           referenceId: input.invoiceId || null,
-          notes: `POS on-the-spot stock correction: ${input.reason}`,
+          reason: `POS on-the-spot stock correction: ${input.reason}`,
+          idempotencyKey: `pos-stock-fix-${input.productId}-${Date.now()}`,
           createdBy: session.user.id,
         },
       });
