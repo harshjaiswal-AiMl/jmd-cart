@@ -26,7 +26,7 @@ export async function searchPartiesAction(q: string) {
     phone: p.phone,
     address: p.address,
     type: p.type,
-    priceTier: p.priceTier,
+    priceTier: p.type === PartyType.WHOLESALER ? 'C' : p.type === PartyType.RETAILER ? 'B' : 'A',
     creditLimitPaise: p.creditLimitPaise,
     outstandingPaise: p.outstandingPaise,
   }));
@@ -68,7 +68,6 @@ export async function createProPartyAction(data: {
       address: data.address?.trim() || null,
       gstin: data.gst?.trim() || null,
       type: data.type || PartyType.RETAILER,
-      priceTier: "A",
       needsReview: true, // Tagged for Accounts team verification
       active: true,
     },
@@ -83,7 +82,7 @@ export async function createProPartyAction(data: {
       phone: party.phone,
       address: party.address,
       type: party.type,
-      priceTier: party.priceTier,
+      priceTier: party.type === PartyType.WHOLESALER ? 'C' : party.type === PartyType.RETAILER ? 'B' : 'A',
       creditLimitPaise: party.creditLimitPaise,
       outstandingPaise: 0,
     },

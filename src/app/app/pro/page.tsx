@@ -91,7 +91,7 @@ export default async function ProAppPage({
     phone: p.phone,
     address: p.address,
     type: p.type,
-    priceTier: p.priceTier || "A",
+    priceTier: p.type === 'WHOLESALER' ? 'C' : p.type === 'RETAILER' ? 'B' : 'A',
     creditLimitPaise: p.creditLimitPaise || 0,
     outstandingPaise: 0,
   }));
