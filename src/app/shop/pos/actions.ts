@@ -960,15 +960,15 @@ export async function getPosTodaySalesSummaryAction(locationId: string) {
   }
 
   try {
-    const { getIstDayRangeUtc } = await import("@/lib/datetime");
-    const { startUtc, endUtc } = getIstDayRangeUtc(new Date());
+    const { getIstDayRange } = await import("@/lib/datetime");
+    const { start, end } = getIstDayRange(new Date());
 
     const invoices = await prisma.invoice.findMany({
       where: {
         locationId,
         isPostDated: false,
         status: { not: "CANCELLED" },
-        createdAt: { gte: startUtc, lte: endUtc },
+        createdAt: { gte: start, lte: end },
       },
       include: {
         payments: true,
