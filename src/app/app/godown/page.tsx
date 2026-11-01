@@ -71,7 +71,8 @@ export default async function GodownAppPage({
       status: { in: ["PENDING", "CONFIRMED", "BOOKED_BY_PRO"] as any },
     },
     include: {
-      orderItems: {
+      party: true,
+      items: {
         include: {
           product: true,
         },
@@ -85,20 +86,20 @@ export default async function GodownAppPage({
     return {
       id: o.id,
       orderNumber: o.orderNumber,
-      customerName: o.customerName || "Customer",
+      customerName: o.party?.name || "Customer",
       contactPhone: o.contactPhone || "",
       totalPaise: o.totalPaise,
       createdAt: o.createdAt.toISOString(),
       status: o.status,
-      items: o.orderItems.map((item) => {
+      items: o.items.map((item) => {
         const packSize = item.product?.packSize || 1;
         return {
           id: item.id,
           productName: item.product?.name || "Item",
           weight: item.product?.weight || null,
-          cartons: Math.floor(item.quantity / packSize),
-          loose: item.quantity % packSize,
-          totalPieces: item.quantity,
+          cartons: Math.floor(item.qty / packSize),
+          loose: item.qty % packSize,
+          totalPieces: item.qty,
         };
       }),
     };
