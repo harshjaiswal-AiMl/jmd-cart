@@ -40,6 +40,7 @@ export function PosTodaySalesModal({
     if (isOpen) {
       fetchSummary();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, locationId]);
 
   if (!isOpen) return null;

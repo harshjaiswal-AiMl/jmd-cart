@@ -586,7 +586,7 @@ export function ProMobileClient({
 
             {filteredParties.length === 0 && (
               <div className="text-center py-8 text-xs text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
-                No parties found. Tap "+ New Party" to add one.
+                No parties found. Tap &quot;+ New Party&quot; to add one.
               </div>
             )}
           </div>
@@ -934,7 +934,7 @@ export function ProMobileClient({
         <div className="space-y-4">
           <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs space-y-4">
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-              Today's Performance
+              Today&apos;s Performance
             </h3>
 
             <div className="grid grid-cols-2 gap-3">

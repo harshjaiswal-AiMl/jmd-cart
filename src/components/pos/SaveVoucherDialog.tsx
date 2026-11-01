@@ -87,7 +87,7 @@ export function SaveVoucherDialog({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onConfirm, onCancel, isSaving]);
+  }, [isOpen, onConfirm, onCancel, isSaving, isEditMode, editReason]);
 
   if (!isOpen) return null;
 
