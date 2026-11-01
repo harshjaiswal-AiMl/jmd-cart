@@ -1434,18 +1434,12 @@ export function PosClient({
           });
 
           if (editRes.success && editRes.invoice) {
-            setSuccessModalData({
-              invoice: {
-                id: editRes.invoice.id,
-                number: editRes.invoice.number,
-                totalPaise: editRes.invoice.totalPaise,
-                status: editRes.invoice.status,
-                channel: editRes.invoice.channel,
-                paymentStatus: editRes.invoice.paymentStatus,
-                paymentMode: activeTab.paymentMode,
-              },
+            setFinalizedInvoice({
+              id: editRes.invoice.id,
+              number: editRes.invoice.number,
+              totalPaise: editRes.invoice.totalPaise,
+              paymentMode: activeTab.paymentMode,
             });
-            setSuccessModalOpen(true);
           } else {
             setErrorMessage(editRes.error || "Failed to save invoice revision");
           }
