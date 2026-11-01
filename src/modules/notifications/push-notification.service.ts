@@ -186,6 +186,9 @@ export class PushNotificationService {
             orderId: order.id,
             userId: u.id,
             state: OrderAlertState.NOTIFIED,
+            title,
+            body,
+            deepLink: `/app/godown?order=${order.id}`,
           },
         })
       )
