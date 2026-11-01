@@ -62,7 +62,7 @@ export default async function GodownAppPage({
 
   // 5. Unreviewed corrections count
   const unreviewedCorrectionsCount = await prisma.stockCorrection.count({
-    where: { reviewedByUserId: null },
+    where: { reviewed: false },
   });
 
   // 6. Pending Orders for Godown
