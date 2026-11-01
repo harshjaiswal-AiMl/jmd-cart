@@ -9,6 +9,9 @@ export interface PartySearchBoxProps<T extends SearchableParty> {
   selectedPartyId: string;
   onSelect: (party: T) => void;
   onAddNewParty?: () => void;
+  onClear?: () => void;
+  allowQuickAdd?: boolean;
+  onQuickAdd?: () => void;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
@@ -19,10 +22,15 @@ export function PartySearchBox<T extends SearchableParty>({
   selectedPartyId,
   onSelect,
   onAddNewParty,
+  onClear,
+  allowQuickAdd = true,
+  onQuickAdd,
   placeholder = "Search party by name, phone, city, GSTIN... [Alt+P]",
   className = "",
   disabled = false,
 }: PartySearchBoxProps<T>) {
+  const addPartyHandler = onAddNewParty || onQuickAdd;
+  const canAddParty = Boolean(addPartyHandler && allowQuickAdd);
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -84,7 +92,7 @@ export function PartySearchBox<T extends SearchableParty>({
       return;
     }
 
-    const totalOptions = results.length + (onAddNewParty ? 1 : 0);
+    const totalOptions = results.length + (canAddParty ? 1 : 0);
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -96,9 +104,9 @@ export function PartySearchBox<T extends SearchableParty>({
       e.preventDefault();
       if (selectedIndex < results.length && results[selectedIndex]) {
         handleSelect(results[selectedIndex]);
-      } else if (onAddNewParty && selectedIndex === results.length) {
+      } else if (canAddParty && addPartyHandler && selectedIndex === results.length) {
         setIsOpen(false);
-        onAddNewParty();
+        addPartyHandler();
       }
     } else if (e.key === "Escape") {
       e.preventDefault();
@@ -137,7 +145,7 @@ export function PartySearchBox<T extends SearchableParty>({
         {query && isOpen && (
           <button
             type="button"
-            onClick={() => setQuery("")}
+            onClick={() => { setQuery(""); if (onClear) onClear(); }}
             className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-full"
           >
             <X className="w-3.5 h-3.5" />
@@ -247,11 +255,11 @@ export function PartySearchBox<T extends SearchableParty>({
           )}
 
           {/* Add New Party Option */}
-          {onAddNewParty && (
+          {canAddParty && addPartyHandler && (
             <div
               onClick={() => {
                 setIsOpen(false);
-                onAddNewParty();
+                addPartyHandler();
               }}
               onMouseEnter={() => setSelectedIndex(results.length)}
               className={`p-2.5 px-3 flex items-center gap-2 text-xs font-bold cursor-pointer transition border-t border-slate-200 ${
