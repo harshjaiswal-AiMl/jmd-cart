@@ -2232,10 +2232,10 @@ export function PosClient({
                         {(() => {
                           const resolved = resolvePrice(
                             {
-                              mrpPaise: p.mrpPaise,
-                              priceAPaise: p.priceAPaise,
-                              priceBPaise: p.priceBPaise,
-                              priceCPaise: p.priceCPaise,
+                              mrpPaise: p.mrpPaise ?? null,
+                              priceAPaise: p.priceAPaise ?? null,
+                              priceBPaise: p.priceBPaise ?? null,
+                              priceCPaise: p.priceCPaise ?? null,
                             },
                             effectiveTier
                           );
