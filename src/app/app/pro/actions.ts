@@ -17,6 +17,7 @@ export async function searchPartiesAction(q: string) {
     q,
     activeOnly: true,
     limit: 20,
+    offset: 0,
   });
 
   return result.parties.map((p) => ({
