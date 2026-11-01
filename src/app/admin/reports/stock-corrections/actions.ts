@@ -22,7 +22,7 @@ export async function markStockCorrectionReviewedAction(id: string) {
       data: {
         reviewed: true,
         reviewedAt: new Date(),
-        reviewedById: session.user.id,
+        reviewedBy: session.user.id,
       },
     });
 

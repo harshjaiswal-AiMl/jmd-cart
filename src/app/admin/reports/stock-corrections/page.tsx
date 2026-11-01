@@ -23,7 +23,7 @@ export default async function StockCorrectionsReportPage() {
     redirect("/login");
   }
 
-  const corrections = await prisma.stockCorrection.findMany({
+  const rawCorrections = await prisma.stockCorrection.findMany({
     include: {
       product: {
         select: { id: true, name: true, shortCode: true },
@@ -34,13 +34,25 @@ export default async function StockCorrectionsReportPage() {
       user: {
         select: { id: true, name: true, role: true },
       },
-      reviewer: {
-        select: { id: true, name: true },
-      },
     },
     orderBy: { createdAt: "desc" },
     take: 200,
   });
+
+  const corrections = rawCorrections.map((c) => ({
+    id: c.id,
+    createdAt: c.createdAt,
+    oldQty: c.previousQty,
+    addedQty: c.addedQty,
+    deltaQty: c.addedQty,
+    newQty: c.newQty,
+    reason: c.reason,
+    invoiceId: c.invoiceId,
+    reviewed: c.reviewed,
+    product: c.product,
+    location: c.location,
+    user: c.user,
+  }));
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8">
