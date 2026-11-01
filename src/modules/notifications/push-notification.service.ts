@@ -241,7 +241,8 @@ export class PushNotificationService {
           select: {
             id: true,
             status: true,
-            notes: true,
+            orderNumber: true,
+            customerNotes: true,
             totalPaise: true,
             createdAt: true,
             party: { select: { id: true, name: true, phone: true } },
