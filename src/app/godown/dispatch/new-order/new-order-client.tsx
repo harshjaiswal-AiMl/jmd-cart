@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { createManualOrderAction } from "../actions";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
+import { PartySearchBox } from "@/components/pos/PartySearchBox";
 
 interface Props {
   parties: Array<{
@@ -220,14 +221,11 @@ export function NewOrderClient({ parties, products, deliveryStaff, userRole }: P
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">Select Party *</label>
-              <SearchableSelect
-                options={partyOptions}
-                value={selectedPartyId}
-                onChange={handlePartyChange}
-                placeholder="-- Choose Party / Customer --"
-                searchPlaceholder="Search by party name, phone, address..."
-                popoverWidthClass="w-full min-w-[340px]"
-                autoSortInStock={false}
+              <PartySearchBox
+                parties={parties as any}
+                selectedPartyId={selectedPartyId}
+                onSelect={(party) => handlePartyChange(party.id)}
+                placeholder="-- Choose Party / Customer [Alt+P] --"
               />
             </div>
 

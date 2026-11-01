@@ -8,8 +8,9 @@ import {
   SearchableProduct,
   SearchIndexItem,
 } from "@/lib/search/smart-search";
+import { resolvePrice } from "@/modules/pricing/resolve-price";
 
-interface ItemSearchBoxProps {
+export interface ItemSearchBoxProps {
   products: SearchableProduct[];
   onSelect: (product: SearchableProduct) => void;
   onHighlight?: (product: SearchableProduct | null) => void;
@@ -17,6 +18,8 @@ interface ItemSearchBoxProps {
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
+  tier?: "AUTO" | "WHOLESALER" | "RETAILER" | "CUSTOMER";
+  getPrice?: (product: SearchableProduct) => number;
 }
 
 export function ItemSearchBox({
@@ -27,6 +30,8 @@ export function ItemSearchBox({
   placeholder = "Search items by name, weight, code... (e.g. 'bhuj 400')",
   className = "",
   autoFocus = false,
+  tier = "CUSTOMER",
+  getPrice,
 }: ItemSearchBoxProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -45,7 +50,14 @@ export function ItemSearchBox({
     return searchItems(searchTerm, searchIndex, { limit: 15 });
   }, [searchTerm, searchIndex]);
 
-  // Keep dropdown open when there are results
+  // Handle focus
+  useEffect(() => {
+    if (autoFocus && resolvedRef.current) {
+      resolvedRef.current.focus();
+    }
+  }, [autoFocus, resolvedRef]);
+
+  // Update highlighted item and manage open state
   useEffect(() => {
     if (results.length > 0) {
       setIsOpen(true);
@@ -83,38 +95,54 @@ export function ItemSearchBox({
         handleIndexChange(prevIdx);
       }
     } else if (e.key === "Enter") {
-      if (results.length > 0) {
+      if (results.length > 0 && results[selectedIndex]) {
         e.preventDefault();
-        const chosen = results[selectedIndex] || results[0];
-        if (chosen) {
-          onSelect(chosen);
-          setSearchTerm("");
-          setIsOpen(false);
-        }
+        onSelect(results[selectedIndex]);
+        setSearchTerm("");
+        setIsOpen(false);
       }
     } else if (e.key === "Escape") {
       setIsOpen(false);
+      if (onHighlight) onHighlight(null);
     }
+  };
+
+  // Helper to compute unit price for current context
+  const computePrice = (p: SearchableProduct): number => {
+    if (getPrice) return getPrice(p);
+    const effectiveTier = tier === "AUTO" ? "CUSTOMER" : tier;
+    const resolved = resolvePrice(
+      {
+        mrpPaise: p.mrpPaise,
+        priceAPaise: p.priceAPaise,
+        priceBPaise: p.priceBPaise,
+        priceCPaise: p.priceCPaise,
+      },
+      effectiveTier
+    );
+    return resolved.unitPricePaise;
   };
 
   return (
     <div className={`relative ${className}`}>
-      <div className="relative">
-        <Search className="w-4 h-4 sm:w-5 sm:h-5 absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+      {/* Input Field with Ctrl+K badge */}
+      <div className="relative flex items-center">
+        <div className="absolute left-3.5 pointer-events-none text-slate-400">
+          <Search className="w-4 h-4" />
+        </div>
         <input
           ref={resolvedRef}
           type="text"
-          autoFocus={autoFocus}
-          placeholder={placeholder}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => {
             if (results.length > 0) setIsOpen(true);
           }}
-          className="w-full pl-9 sm:pl-11 pr-20 py-2 sm:py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0f172a] focus:border-[#0f172a] shadow-2xs transition font-sans"
+          placeholder={placeholder}
+          className="w-full pl-10 pr-16 py-2.5 sm:py-3 bg-white border border-slate-300 rounded-xl shadow-xs text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-[#12355B] focus:border-transparent transition"
         />
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+        <div className="absolute right-3 flex items-center gap-1.5">
           {searchTerm && (
             <button
               type="button"
@@ -134,7 +162,7 @@ export function ItemSearchBox({
         </div>
       </div>
 
-      {/* Busy-Style Minimal Autocomplete Dropdown (Part C) */}
+      {/* Busy-Style Autocomplete Dropdown with Price (Part B & C) */}
       {isOpen && results.length > 0 && (
         <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-300 rounded-xl shadow-2xl z-50 max-h-72 overflow-y-auto divide-y divide-slate-100 font-sans">
           {results.map((p, pIdx) => {
@@ -142,6 +170,7 @@ export function ItemSearchBox({
             const inStock = (p.shopStockQty ?? 0) + (p.godownStockQty ?? 0) > 0;
             const weightText = p.weight ? ` ${p.weight}` : (p.weightValue ? ` ${p.weightValue}${p.weightUnit || "g"}` : "");
             const fullTitle = `${p.name}${weightText}`;
+            const pricePaise = computePrice(p);
 
             return (
               <div
@@ -158,12 +187,29 @@ export function ItemSearchBox({
                     : "bg-white text-slate-900 hover:bg-slate-50"
                 }`}
               >
-                {/* Left: Item name + weight plain text */}
+                {/* Left: Item name + weight plain text + Price */}
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="truncate">{fullTitle}</span>
+                  {pricePaise > 0 ? (
+                    <span
+                      className={`font-mono text-xs font-bold shrink-0 ${
+                        isHighlighted ? "text-emerald-300" : "text-emerald-700 font-black"
+                      }`}
+                    >
+                      ₹{(pricePaise / 100).toFixed(2)}
+                    </span>
+                  ) : (
+                    <span
+                      className={`text-[10px] font-semibold italic shrink-0 ${
+                        isHighlighted ? "text-amber-300" : "text-amber-600"
+                      }`}
+                    >
+                      Price not set
+                    </span>
+                  )}
                   {!inStock && (
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
+                      className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider shrink-0 ${
                         isHighlighted
                           ? "bg-rose-950 text-rose-200 border border-rose-800"
                           : "bg-rose-50 text-rose-700 border border-rose-200"

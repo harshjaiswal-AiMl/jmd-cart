@@ -112,5 +112,26 @@ The system ships with **zero products, zero stock, zero parties, zero bills**. E
   - 3 HUGE touch targets: `1. 🛒 NEW SALE` (`/van/billing`), `2. 📦 MY STOCK` (`#van-stock-matrix`), `3. 🏁 END OF DAY` (`/van/reconciliation`).
   - Clear 3-step sale workflow: Step 1 (Customer) -> Step 2 (Items & Units) -> Step 3 (Tender & Print).
 
+## 13. Prompt #17 — High-Speed Billing Search, Tier Controls & Print Mode Routing
+- **Party Search Box (`PartySearchBox`)**:
+  - High-speed combobox with immediate word-prefix ranking (`di` -> Dinesh, Dilip).
+  - Highlights customer type (`RETAILER`, `WHOLESALER`, `CUSTOMER`), current balance with `Dr` (debit/receivable) in amber/emerald and `Cr` (credit/advance).
+  - Walk-in is unpinned and only surfaced when matched or when search is cleared.
+  - Shortcut `Alt+P` focuses party search; arrow keys navigate, Enter confirms, Esc cancels.
+- **Item Search with Live Rate**:
+  - Left: Item description + unified weight chip (`400G`) + live unit price (`₹XX.XX` in emerald font, dynamic to active tier Auto/A/B/C).
+  - Right: Muted company name and stock status (`Out` pill if unavailable).
+  - Status line below voucher grid displays live Godown cartons + loose pieces and Shop pieces.
+- **Save Voucher Dialog Preview**:
+  - Modal displays complete voucher itemization (`#`, Item Description, Qty + Unit, Unit Rate, Discount %, Total Amount).
+  - Visual badges warn for stock shortages (`Shortage`) and zero-rate lines (`Rate = 0`).
+  - Total voucher summary bar with subtotal, discount, round-off, and net payable.
+  - `Enter` confirms save & print; `Esc` returns directly to ledger editing.
+- **Print Tab Routing by Payment Mode**:
+  - Cash / UPI retail sales: restricted strictly to Thermal 80mm cash receipt.
+  - Credit retail sales: restricted strictly to Credit bill with customer ledger balances (previous balance, current bill amount, net outstanding) and customer signature acknowledgment.
+  - GST Bill option (Alt+G toggle at POS): restricts print view strictly to GST A4 Tax Invoice and GST Thermal formats.
+  - Super Admin & Admin maintain an "Other Formats" menu dropdown allowing manual format overrides.
+
 
 

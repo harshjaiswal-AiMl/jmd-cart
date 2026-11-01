@@ -39,6 +39,8 @@ import {
 import { createVanInvoiceAction, checkVanPartyCreditStatusAction } from "./actions";
 import { createQuickPartyAction, updatePartyNameAndContactAction } from "@/app/shop/pos/actions";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
+import { PartySearchBox } from "@/components/pos/PartySearchBox";
+import { searchItems } from "@/lib/search/smart-search";
 import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
 import { QtyUnitPicker, PickerUnit } from "@/components/billing/qty-unit-picker";
 import { PaymentMode } from "@prisma/client";
@@ -265,14 +267,8 @@ export function VanBillingClient({
   // Filter products: Only Morning Loaded Products matching search
   const filteredProducts = useMemo(() => {
     if (!searchTerm.trim()) return products;
-    const term = searchTerm.toLowerCase();
-    return products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(term) ||
-        p.shortCode.toLowerCase().includes(term) ||
-        (p.weight && p.weight.toLowerCase().includes(term)) ||
-        p.companyName.toLowerCase().includes(term)
-    );
+    const matches = searchItems(searchTerm, products as any, { limit: 100 });
+    return matches.map((m) => m.product as unknown as VanProduct);
   }, [products, searchTerm]);
 
   const partyOptions = useMemo(
@@ -857,14 +853,14 @@ export function VanBillingClient({
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   Select Customer Party / Shop:
                 </label>
-                <SearchableSelect
-                  options={partyOptions}
-                  value={selectedPartyId}
-                  onChange={(val) => setSelectedPartyId(val)}
-                  placeholder="-- Search Kirana Store or Customer Name --"
-                  searchPlaceholder="Type shop name, phone or address..."
-                  popoverWidthClass="w-full min-w-[320px]"
-                  autoSortInStock={false}
+                <PartySearchBox
+                  parties={localParties as any}
+                  selectedPartyId={selectedPartyId}
+                  onSelect={(party) => setSelectedPartyId(party.id)}
+                  onClear={() => setSelectedPartyId("")}
+                  placeholder="-- Search Kirana Store or Customer Name [Alt+P] --"
+                  allowQuickAdd={true}
+                  onQuickAdd={() => setQuickCustomerOpen(true)}
                 />
               </div>
 

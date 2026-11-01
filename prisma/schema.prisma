@@ -578,6 +578,8 @@ model Invoice {
   customerAddress      String?        @map("customer_address")
   agentUserId          String?        @map("agent_user_id")
   agentCodeSnapshot    String?        @map("agent_code_snapshot")
+  documentType         String         @default("RETAIL") @map("document_type")
+  pricingTier          String?        @default("AUTO") @map("pricing_tier")
   invoiceDate          DateTime?      @map("invoice_date")
   version              Int            @default(1)
   isRevised            Boolean        @default(false) @map("is_revised")

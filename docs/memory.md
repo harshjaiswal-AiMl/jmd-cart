@@ -509,3 +509,34 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - **Additive Database Migration (`20261031150000_product_weight_base`):** Added `weight_base` (`Float?`) to `products` table for uniform comparison and sorting.
   - **Data Quality Suggestion Backfill (`src/modules/catalog/data-quality.service.ts`):** `suggestWeightBackfill` and `applyWeightBackfill` for batch parsing and approval without overwriting existing data.
   - **Voucher Entry UI & Keyboard Flow:** Padded ledger rows, Busy diagnostics status bar, hotkey navigation, and non-blocking invoice number preview (`previewNextInvoiceNumber`).
+
+### 2026-11-01: Prompt #17 — Proper Party Search, Working A/B/C Tiers & Discounts, Item Search with Price Everywhere, Save Voucher Preview, Payment Mode Bill Formats & GST Bill
+
+- **Owner Requirements:**
+  1. **Proper Party Search:** Typing `di` or `sh` must prioritize parties whose name words *start with* that prefix (e.g. Dinesh, Dilip, Shahnawaz). Do not match badge text like "Credit Approved" as a false positive. Do not pin Walk-in when query doesn't match it. Match phone numbers, GSTIN, and addresses.
+  2. **Working A/B/C Tiers & Discounts:** Pressing Auto / A / B / C price tier buttons must immediately reprice cart items according to tier pricing rules and recalculate discount % against MRP.
+  3. **Price in Item Search Dropdown:** Item dropdown must show live price next to weight on the left (`Name Weight ₹XX.XX`), brand on right. Price must reflect current active tier and party.
+  4. **One Search Everywhere:** Smart search unified across POS, Create Order, Van Billing, Purchase/GRN, Invoice Edit, Command Palette (Ctrl+K), and Storefront.
+  5. **Item Preview in Save Voucher Confirmation:** F2 confirmation modal must show a full scrollable table of items (`S.N., Item Description, Qty+Unit, Rate, Disc %, Amount`), warn on zero rate or stock shortages, and allow `Esc` to return to editing.
+  6. **Bill Formats by Payment Mode & GST Bill Option:**
+     - Cash/UPI retail sales show only the cash bill (Thermal 80mm).
+     - Credit sales show only the credit bill with party ledger details (previous balance, new balance, signature).
+     - GST Bill option at billing (`Alt+G` toggle): when enabled, issues GST bill and shows only GST formats (GST A4, GST Thermal).
+     - Admin/Super Admin retain an "Other Formats" selector for full flexibility.
+     - Breadcrumb on print page cleanly formatted as "Invoice INV/26-27/XXXXXX · Print".
+
+- **Root Causes Identified & Fixed:**
+  - *Party Search False Matches:* Legacy `SearchableSelect` concatenated `${opt.label} ${opt.subLabel} ${opt.badge}` and did substring search. Any party with `creditEnabled` had badge `"Credit Approved"`, matching query `di` because "credit" contains "di". Also lacked word-prefix scoring.
+  - *Tiers Ineffective:* `addItemToCart` unconditionally initialized `customRatePaise: initialRatePaise`. Line rendering then checked `line.customRatePaise != null ? line.customRatePaise : defaultRatePaise`. Because `customRatePaise` was always non-null, lines were permanently locked to their initial rate, ignoring tier changes.
+  - *Print Breadcrumb:* `management-shell.tsx` fell back to raw `pathname` for routes not registered in `NAV_ITEMS`.
+
+- **Implementation Details:**
+  - **Party Search Engine (`src/lib/search/party-search.ts`):** Word-prefix scoring (1000 pts), acronym matching (800 pts), substring matching (500 pts), phone/GSTIN/address matching, typo tolerance (Levenshtein distance <= 2 for long tokens). Walk-in unpinned unless search matches or is blank. Verified by 40 unit tests in `tests/unit/party-search.test.ts` (100% pass in 46ms, latency <50ms for 2000 parties).
+  - **Party Search Component (`src/components/pos/PartySearchBox.tsx`):** Keyboard-first combobox (`Alt+P`, arrow navigation, Enter, Esc, quick add party). Integrated into POS, Create Order (`new-order-client.tsx`), and Van Billing (`van-billing-client.tsx`).
+  - **Item Search with Live Price (`src/components/pos/ItemSearchBox.tsx`):** Displays item name + weight + live rate (`₹XX.XX` in emerald font) on the left, brand and stock status on the right. Dynamically adapts to active pricing tier (`pricingTier`).
+  - **Dynamic Tier Repricing (`pos-client.tsx`):** Cart lines retain `customRatePaise = null` unless manually modified. Changing tier dynamically reprices non-custom lines via `resolvePrice` and recomputes discount %.
+  - **Save Voucher Dialog Preview (`src/components/pos/SaveVoucherDialog.tsx`):** Scrollable table displaying row index, item description, quantity with unit, unit rate, discount %, and total amount. Stock shortage warnings and zero-rate warnings highlighted. Esc returns to editing.
+  - **Document Type & Tier Persistence:**
+    - Additive database migration `20261101150000_invoice_document_type_tier` adding `document_type` (`RETAIL` | `GST`) and `pricing_tier` (`AUTO` | `TIER_A` | `TIER_B` | `TIER_C`) to `invoices`.
+    - Support for `invoice.gstSeparateSeries` setting (default off uses standard `INV/...`, if on uses `GST/...`).
+  - **Payment-Mode Print Filtering (`src/app/shop/invoices/[id]/print/`):** Filter tabs based on payment mode (Cash/UPI -> Thermal 80mm only; Credit -> Credit bill only; GST -> GST A4 & GST Thermal only). Role-based "Other Formats" dropdown for Admins. Clean breadcrumbs in `management-shell.tsx`.

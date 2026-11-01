@@ -103,6 +103,8 @@ export async function finalizeBillAction(input: {
   buyerType?: any;
   orderDiscountBp?: number;
   isInterState?: boolean;
+  documentType?: "RETAIL" | "GST";
+  pricingTier?: string;
   items: Array<{
     productId: string;
     qty: number;
@@ -154,6 +156,8 @@ export async function finalizeBillAction(input: {
         buyerType: input.buyerType ?? undefined,
         orderDiscountBp: input.orderDiscountBp ?? 0,
         isInterState: input.isInterState ?? false,
+        documentType: input.documentType ?? "RETAIL",
+        pricingTier: input.pricingTier ?? "AUTO",
         items: input.items,
         payments: input.payments,
         paymentStatus: input.paymentStatus as any,

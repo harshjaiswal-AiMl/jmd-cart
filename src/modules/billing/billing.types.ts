@@ -60,6 +60,8 @@ export const finalizeInvoiceInputSchema = z.object({
   notes: z.string().optional(),
   creditOverride: creditOverrideInputSchema.optional(),
   invoiceDate: z.coerce.date().optional(),
+  documentType: z.enum(["RETAIL", "GST"]).default("RETAIL"),
+  pricingTier: z.string().optional(),
 });
 
 export type FinalizeInvoiceInput = z.input<typeof finalizeInvoiceInputSchema>;

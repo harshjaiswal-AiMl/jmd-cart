@@ -51,6 +51,7 @@ import { CreditOverrideModal } from "@/components/billing/credit-override-modal"
 import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { paiseToIndianWords } from "@/lib/number-to-words";
 import { ItemInfoModal } from "@/components/pos/ItemInfoModal";
+import { PartySearchBox } from "@/components/pos/PartySearchBox";
 import { SaveVoucherDialog } from "@/components/pos/SaveVoucherDialog";
 import { SearchIndexItem, buildProductSearchIndex, searchItems } from "@/lib/search/smart-search";
 
@@ -132,6 +133,7 @@ export interface PosBillTab {
   walkInAddress?: string;
   paymentCollected?: boolean;
   billDate?: string;
+  documentType?: "RETAIL" | "GST";
 }
 
 interface PosClientProps {
@@ -245,6 +247,7 @@ export function PosClient({
       splitCashPaise: "",
       splitUpiPaise: "",
       remarks: "",
+      documentType: "RETAIL",
       isHeld: false,
       billDate: undefined,
     },
@@ -311,6 +314,7 @@ export function PosClient({
         splitCashPaise: "",
         splitUpiPaise: "",
         remarks: "",
+        documentType: "RETAIL",
         isHeld: false,
       billDate: undefined,
       }
@@ -420,6 +424,73 @@ export function PosClient({
     if (totalCartons >= 1 || totalPieces >= 12) return "RETAILER";
     return "CUSTOMER";
   }, [activeTab.selectedTierMode, selectedParty, activeTab.cart]);
+
+  // Tier change handler that actively reprices all non-custom lines
+  const handleTierChange = (newTierMode: "AUTO" | "WHOLESALER" | "RETAILER" | "CUSTOMER") => {
+    let targetTier: "WHOLESALER" | "RETAILER" | "CUSTOMER";
+    if (newTierMode !== "AUTO") {
+      targetTier = newTierMode;
+    } else {
+      if (selectedParty?.type === "WHOLESALER") targetTier = "WHOLESALER";
+      else if (selectedParty?.type === "RETAILER") targetTier = "RETAILER";
+      else targetTier = "CUSTOMER";
+    }
+
+    const tierLetter = targetTier === "WHOLESALER" ? "A" : targetTier === "RETAILER" ? "B" : "C";
+    let missingCount = 0;
+
+    const repricedCart = activeTab.cart.map((line) => {
+      if (line.isCustomRate) {
+        return line;
+      }
+
+      const resolved = resolvePrice(
+        {
+          mrpPaise: line.product.mrpPaise,
+          priceAPaise: line.product.priceAPaise,
+          priceBPaise: line.product.priceBPaise,
+          priceCPaise: line.product.priceCPaise,
+        },
+        targetTier
+      );
+
+      const packSize = Math.max(1, line.product.packSize);
+      const multiplier = line.unit === "Carton" || line.unit === "Bag" ? packSize : line.unit === "Dozen" ? 12 : 1;
+
+      if (resolved.unitPricePaise > 0) {
+        const newRatePaise = resolved.unitPricePaise * multiplier;
+        const baseMrp = (line.product.mrpPaise && line.product.mrpPaise > 0)
+          ? line.product.mrpPaise
+          : resolved.unitPricePaise;
+        const mrpPerUnit = line.unit === "Carton" || line.unit === "Bag" ? baseMrp * packSize : line.unit === "Dozen" ? baseMrp * 12 : baseMrp;
+        const newDisc = mrpPerUnit > newRatePaise
+          ? Math.round(((mrpPerUnit - newRatePaise) / mrpPerUnit) * 10000) / 100
+          : 0;
+
+        return {
+          ...line,
+          customRatePaise: null,
+          customRateInput: (newRatePaise / 100).toFixed(2),
+          customDiscInput: newDisc > 0 ? newDisc.toFixed(1) : "0",
+          lineDiscountPercent: newDisc,
+        };
+      } else {
+        missingCount++;
+        return line;
+      }
+    });
+
+    updateActiveTab({
+      selectedTierMode: newTierMode,
+      cart: repricedCart,
+    });
+
+    if (missingCount > 0) {
+      setErrorMessage(`Prices updated to list ${tierLetter} (${missingCount} item${missingCount > 1 ? "s have" : " has"} no list ${tierLetter} price)`);
+    } else {
+      setErrorMessage(null);
+    }
+  };
 
   // Party Options for SearchableSelect
   const partyOptions = useMemo(
@@ -616,7 +687,7 @@ export function PosClient({
         qty,
         unit,
         lineDiscountPercent: 0,
-        customRatePaise: initialRatePaise > 0 ? initialRatePaise : null,
+        customRatePaise: null,
         customRateInput: initialRatePaise > 0 ? (initialRatePaise / 100).toFixed(2) : "",
         isCustomRate: false,
       };
@@ -1192,6 +1263,19 @@ export function PosClient({
       try {
         const idempotencyKey = `pos_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
         // Check if any item in cart has 0 rate or unpriced
+        // Validate HSN for GST Bills
+        if (activeTab.documentType === "GST") {
+          const missingHsn = activeTab.cart.filter(
+            (c) => !c.product.hsn || c.product.hsn.trim() === "" || c.product.hsn.trim() === "0000"
+          );
+          if (missingHsn.length > 0) {
+            setErrorMessage(
+              `Cannot issue GST Tax Invoice: ${missingHsn.length} item(s) missing valid HSN code: ${missingHsn.map((m) => m.product.name).join(", ")}. Please update product HSN in catalog.`
+            );
+            return;
+          }
+        }
+
         const unpricedLine = activeTab.cart.find((c) => {
           const resolved = resolvePrice(
             {
@@ -1452,7 +1536,12 @@ export function PosClient({
         } else {
           handleFinalizeBill();
         }
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      } else if (e.altKey && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        updateActiveTab({ documentType: activeTab.documentType === "GST" ? "RETAIL" : "GST" });
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         itemSearchInputRef.current?.focus();
         itemSearchInputRef.current?.select();
@@ -1469,6 +1558,57 @@ export function PosClient({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleFinalizeBill, activeTab, tabs]);
+
+  // Voucher lines preview memo for SaveVoucherDialog
+  const previewLines = useMemo(() => {
+    return activeTab.cart.map((line) => {
+      const resolved = resolvePrice(
+        {
+          mrpPaise: line.product.mrpPaise,
+          priceAPaise: line.product.priceAPaise,
+          priceBPaise: line.product.priceBPaise,
+          priceCPaise: line.product.priceCPaise,
+        },
+        effectiveTier
+      );
+      const packSize = Math.max(1, line.product.packSize);
+      const defaultRatePaise = line.unit === "Carton" || line.unit === "Bag"
+        ? resolved.unitPricePaise * packSize
+        : line.unit === "Dozen"
+        ? resolved.unitPricePaise * 12
+        : resolved.unitPricePaise;
+
+      const ratePerUnitPaise = line.isCustomRate && line.customRatePaise != null
+        ? line.customRatePaise
+        : defaultRatePaise;
+
+      const lineDiscountMultiplier = 1 - (line.lineDiscountPercent || 0) / 100;
+      const amountPaise = Math.round(line.qty * ratePerUnitPaise * lineDiscountMultiplier);
+      const totalPieces = line.unit === "Carton" || line.unit === "Bag"
+        ? line.qty * packSize
+        : line.unit === "Dozen"
+        ? line.qty * 12
+        : line.qty;
+
+      const isCarton = line.unit === "Carton" || line.unit === "Bag";
+      const availablePieces = isCarton ? (line.product.godownStockQty ?? 0) : (line.product.shopStockQty ?? 0);
+      const isShortage = totalPieces > availablePieces;
+
+      return {
+        id: line.id,
+        name: line.product.name,
+        weight: line.product.weight || (line.product.weightValue ? `${line.product.weightValue}${line.product.weightUnit || "g"}` : null),
+        qty: line.qty,
+        unit: line.unit,
+        totalPieces,
+        ratePaise: ratePerUnitPaise,
+        discountPercent: line.lineDiscountPercent || 0,
+        amountPaise,
+        isShortage,
+        isZeroRate: ratePerUnitPaise <= 0,
+      };
+    });
+  }, [activeTab.cart, effectiveTier]);
 
   // Totals calculations
   const totalAmountPaise = pricingResult ? pricingResult.totalPaise : 0;
@@ -1638,20 +1778,19 @@ export function PosClient({
       <div className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-2 flex-1 min-w-[280px]">
           <div className="flex-1">
-            <SearchableSelect
-              options={partyOptions}
-              value={activeTab.partyId}
-              onChange={(val) => {
-                const party = localParties.find((p) => p.id === val);
+            <PartySearchBox
+              parties={localParties}
+              selectedPartyId={activeTab.partyId}
+              onSelect={(party) => {
                 updateActiveTab({
-                  partyId: val,
-                  tabTitle: party ? party.name : "Walk-in Buyer",
+                  partyId: party.id,
+                  tabTitle: party.name,
                 });
               }}
-              placeholder="Select Customer / Buyer..."
-              searchPlaceholder="Search buyer by name, phone..."
-              popoverWidthClass="w-[340px]"
-              autoSortInStock={false}
+              onAddNewParty={() => {
+                setQuickCustomerError(null);
+                setQuickCustomerModalOpen(true);
+              }}
             />
           </div>
 
@@ -1806,7 +1945,7 @@ export function PosClient({
           <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
             <span className="text-[10px] font-bold text-slate-500 uppercase px-1.5">Tier:</span>
             <button
-              onClick={() => updateActiveTab({ selectedTierMode: "AUTO" })}
+              onClick={() => handleTierChange("AUTO")}
               className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
                 activeTab.selectedTierMode === "AUTO"
                   ? "bg-[#12355B] text-white"
@@ -1816,7 +1955,7 @@ export function PosClient({
               Auto ({effectiveTier[0]})
             </button>
             <button
-              onClick={() => updateActiveTab({ selectedTierMode: "WHOLESALER" })}
+              onClick={() => handleTierChange("WHOLESALER")}
               className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
                 activeTab.selectedTierMode === "WHOLESALER"
                   ? "bg-[#12355B] text-white"
@@ -1826,7 +1965,7 @@ export function PosClient({
               A
             </button>
             <button
-              onClick={() => updateActiveTab({ selectedTierMode: "RETAILER" })}
+              onClick={() => handleTierChange("RETAILER")}
               className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
                 activeTab.selectedTierMode === "RETAILER"
                   ? "bg-[#12355B] text-white"
@@ -1836,7 +1975,7 @@ export function PosClient({
               B
             </button>
             <button
-              onClick={() => updateActiveTab({ selectedTierMode: "CUSTOMER" })}
+              onClick={() => handleTierChange("CUSTOMER")}
               className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
                 activeTab.selectedTierMode === "CUSTOMER"
                   ? "bg-[#12355B] text-white"
@@ -2090,6 +2229,31 @@ export function PosClient({
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="truncate">{fullTitle}</span>
+                        {(() => {
+                          const resolved = resolvePrice(
+                            {
+                              mrpPaise: p.mrpPaise,
+                              priceAPaise: p.priceAPaise,
+                              priceBPaise: p.priceBPaise,
+                              priceCPaise: p.priceCPaise,
+                            },
+                            effectiveTier
+                          );
+                          const price = resolved.unitPricePaise;
+                          return price > 0 ? (
+                            <span
+                              className={`font-mono text-xs font-bold shrink-0 ${
+                                isHighlighted ? "text-emerald-300 font-black" : "text-emerald-700 font-black"
+                              }`}
+                            >
+                              ₹${(price / 100).toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-amber-500 italic shrink-0">
+                              Price not set
+                            </span>
+                          );
+                        })()}
                         {!inStock && (
                           <span
                             className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
@@ -2152,7 +2316,7 @@ export function PosClient({
                       ? resolved.unitPricePaise * 12
                       : resolved.unitPricePaise;
 
-                    const ratePerUnitPaise = line.customRatePaise != null
+                    const ratePerUnitPaise = line.isCustomRate && line.customRatePaise != null
                       ? line.customRatePaise
                       : defaultRatePaise;
 
@@ -2627,6 +2791,40 @@ export function PosClient({
               </div>
             </div>
 
+            {/* Document Type: Retail Bill vs GST Bill */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-xs font-bold text-slate-700 block uppercase tracking-wide">
+                Invoice Format (Alt+G)
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateActiveTab({ documentType: "RETAIL" })}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                    (activeTab.documentType ?? "RETAIL") === "RETAIL"
+                      ? "bg-[#12355B] text-white border-[#12355B] shadow-sm font-black"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <span>Retail Bill</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateActiveTab({ documentType: "GST" })}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                    activeTab.documentType === "GST"
+                      ? "bg-purple-700 text-white border-purple-800 shadow-sm font-black ring-2 ring-purple-300"
+                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  <span className="font-mono text-[10px] bg-purple-900 text-purple-100 px-1 rounded">
+                    GST
+                  </span>
+                  <span>GST Bill</span>
+                </button>
+              </div>
+            </div>
+
             {/* Payment Status (Cash and UPI only) */}
             {(activeTab.paymentMode === PaymentMode.CASH || activeTab.paymentMode === PaymentMode.UPI) && (
               <div className="space-y-1 pt-1">
@@ -2870,6 +3068,10 @@ export function PosClient({
         totalQtyPcs={activeTab.cart.reduce((sum, item) => sum + (item.unit === "Carton" ? item.qty * Math.max(1, item.product.packSize) : item.qty), 0)}
         totalAmountPaise={totalAmountPaise}
         paymentMode={activeTab.paymentMode}
+        paymentStatus={activeTab.paymentCollected === false ? "PENDING" : "PAID"}
+        tier={effectiveTier[0]}
+        discountPaise={totalDiscountPaise}
+        lines={previewLines}
         isSaving={isFinalizing}
       />
 

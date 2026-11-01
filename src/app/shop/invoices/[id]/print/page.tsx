@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { auth } from "@/auth";
 import { billingService } from "@/modules/billing/billing.service";
 import { settingsService } from "@/modules/settings/settings.service";
 import { PrintViewer, PrintFormat } from "./print-viewer";
@@ -22,9 +23,23 @@ export default async function InvoicePrintPage({
     notFound();
   }
 
+  const session = await auth();
+  const userRole = session?.user?.role;
+  const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN";
+
   const business = await settingsService.getBusinessDetails();
 
-  // Smart format detection:
+  const isGstBill = (invoice as any).documentType === "GST";
+  const totalPaid = invoice.payments.reduce(
+    (sum, p) => sum + p.amountPaise,
+    0
+  );
+  const isCredit =
+    invoice.payments.some((p) => p.mode === "CREDIT") ||
+    totalPaid < invoice.totalPaise ||
+    invoice.paymentStatus !== "PAID";
+
+  // Smart format detection per Prompt #17 rules:
   let selectedFormat: PrintFormat;
   if (
     format === "demand_bill" ||
@@ -34,18 +49,12 @@ export default async function InvoicePrintPage({
     format === "a5"
   ) {
     selectedFormat = format as PrintFormat;
+  } else if (isGstBill) {
+    selectedFormat = "a4";
+  } else if (isCredit) {
+    selectedFormat = "demand_bill";
   } else {
-    // Determine whether credit/unpaid or cash/upi
-    const totalPaid = invoice.payments.reduce(
-      (sum, p) => sum + p.amountPaise,
-      0
-    );
-    const isCreditOrUnpaid =
-      invoice.payments.some((p) => p.mode === "CREDIT") ||
-      totalPaid < invoice.totalPaise ||
-      invoice.paymentStatus !== "PAID";
-
-    selectedFormat = isCreditOrUnpaid ? "demand_bill" : "cash_receipt";
+    selectedFormat = "cash_receipt";
   }
 
   const shouldAutoPrint = autoprint === "1" || autoprint === "true";
@@ -56,6 +65,9 @@ export default async function InvoicePrintPage({
       business={business}
       initialFormat={selectedFormat}
       autoPrint={shouldAutoPrint}
+      isAdmin={isAdmin}
+      isGstBill={isGstBill}
+      isCredit={isCredit}
     />
   );
 }

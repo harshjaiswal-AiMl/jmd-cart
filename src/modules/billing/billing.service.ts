@@ -220,9 +220,12 @@ export class BillingService {
     const finalizedInvoiceId = await prisma.$transaction(
       async (tx) => {
         // A. Assign gapless sequence number
+        const gstSeparateSetting = await tx.appSetting.findUnique({ where: { key: "invoice.gstSeparateSeries" } });
+        const useGstSeries = validated.documentType === "GST" && gstSeparateSetting?.value === "true";
+        const series = useGstSeries ? "GST" : "INV";
         const { number: invoiceNumber, fy } = await getNextSequenceNumber(
           tx,
-          "INV",
+          series,
           effectiveDate
         );
 
@@ -297,6 +300,8 @@ export class BillingService {
             agentUserId: effectiveAgentUserId,
             agentCodeSnapshot,
             buyerType: orderPricing.buyerTag,
+            documentType: validated.documentType || "RETAIL",
+            pricingTier: validated.pricingTier || "AUTO",
             notes: validated.notes ?? null,
             creditOverride: creditOverrideApplied,
             creditOverrideBy,

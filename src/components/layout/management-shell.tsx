@@ -5,6 +5,7 @@ import { FontSizeToggle } from "@/components/common/font-size-provider";
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { searchItems } from "@/lib/search/smart-search";
 import {
   getNavGroupsForRole,
   NAV_ITEMS,
@@ -323,16 +324,12 @@ export function ManagementShell({
   }, [visibleItems, cmdQuery]);
 
   const filteredProducts = useMemo(() => {
-    const q = cmdQuery.trim().toLowerCase();
-    if (!q) return quickProducts.slice(0, 5);
-    return quickProducts
-      .filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.shortCode.toLowerCase().includes(q) ||
-          (p.brandName && p.brandName.toLowerCase().includes(q))
-      )
-      .slice(0, 8);
+    if (!cmdQuery.trim()) return quickProducts.slice(0, 5);
+    return searchItems(
+      cmdQuery,
+      quickProducts.map((p) => ({ ...p, companyName: p.brandName })),
+      8
+    );
   }, [quickProducts, cmdQuery]);
 
   const renderSidebarContent = (isMobile = false) => {
@@ -543,11 +540,13 @@ export function ManagementShell({
             <nav aria-label="Breadcrumb" className="min-w-0">
               <div className="flex items-center gap-1.5 text-xs text-gray-500 font-semibold truncate">
                 <span className="text-blue-700 font-bold">
-                  {activeNavItem?.group || "Management"}
+                  {activeNavItem?.group || (pathname.includes("/invoices") ? "Billing" : "Management")}
                 </span>
                 <span>/</span>
                 <span className="text-gray-900 font-bold truncate">
-                  {activeNavItem?.label || pathname}
+                  {pathname.match(/\/shop\/invoices\/[^/]+\/print/)
+                    ? "Invoice Print"
+                    : activeNavItem?.label || (pathname.match(/\/shop\/invoices\/[^/]+/) ? "Invoice Details" : pathname)}
                 </span>
               </div>
             </nav>

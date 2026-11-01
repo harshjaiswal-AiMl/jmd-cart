@@ -1,9 +1,24 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { Check, X, Printer, AlertCircle } from "lucide-react";
+import React, { useEffect, useRef } from "react";
+import { Printer, X, AlertCircle, AlertTriangle } from "lucide-react";
+import { paiseToIndianWords } from "@/lib/number-to-words";
 
-interface SaveVoucherDialogProps {
+export interface VoucherPreviewLine {
+  id: string;
+  name: string;
+  weight?: string | null;
+  qty: number;
+  unit: string;
+  totalPieces: number;
+  ratePaise: number;
+  discountPercent: number;
+  amountPaise: number;
+  isShortage?: boolean;
+  isZeroRate?: boolean;
+}
+
+export interface SaveVoucherDialogProps {
   isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -12,7 +27,12 @@ interface SaveVoucherDialogProps {
   totalQtyPcs: number;
   totalAmountPaise: number;
   paymentMode: string;
+  paymentStatus?: string;
+  tier?: string;
+  billDate?: string;
+  discountPaise?: number;
   isSaving?: boolean;
+  lines?: VoucherPreviewLine[];
 }
 
 export function SaveVoucherDialog({
@@ -24,23 +44,37 @@ export function SaveVoucherDialog({
   totalQtyPcs,
   totalAmountPaise,
   paymentMode,
+  paymentStatus = "PAID",
+  tier = "C",
+  billDate,
+  discountPaise = 0,
   isSaving = false,
+  lines = [],
 }: SaveVoucherDialogProps) {
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !isSaving) {
-        e.preventDefault();
-        onConfirm();
-      } else if (e.key === "Escape" || e.key === "n" || e.key === "N") {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" || e.key === "n" || e.key === "N") {
         e.preventDefault();
         onCancel();
-      } else if (e.key === "y" || e.key === "Y") {
+      } else if (e.key === "Enter" && !isSaving) {
         e.preventDefault();
         onConfirm();
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (tableContainerRef.current) {
+          tableContainerRef.current.scrollTop += 40;
+        }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (tableContainerRef.current) {
+          tableContainerRef.current.scrollTop -= 40;
+        }
       }
-    };
+    }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -48,11 +82,13 @@ export function SaveVoucherDialog({
 
   if (!isOpen) return null;
 
+  const amountInWords = paiseToIndianWords(totalAmountPaise);
+
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl shadow-2xl border-2 border-slate-300 w-full max-w-md overflow-hidden font-sans">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl shadow-2xl border-2 border-slate-300 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden font-sans">
         {/* Header */}
-        <div className="bg-[#0f172a] text-white px-5 py-4 flex items-center justify-between">
+        <div className="bg-[#0f172a] text-white px-5 py-3.5 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <span className="font-mono text-xs bg-amber-400 text-slate-950 px-2 py-0.5 rounded font-black">
               [F2]
@@ -69,46 +105,144 @@ export function SaveVoucherDialog({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
+        {/* Content Body */}
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-3.5 flex-1">
           <div className="text-center">
             <p className="text-base font-bold text-slate-800">
               Save this sales voucher and finalize bill?
             </p>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 mt-0.5">
               Press <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono text-[11px] font-bold">Enter</kbd> to Confirm &amp; Print, or <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono text-[11px] font-bold">Esc</kbd> to return to editing.
             </p>
           </div>
 
+          {/* Scrollable Item Preview Table (Part D) */}
+          {lines.length > 0 && (
+            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+              <div className="bg-slate-100 px-3 py-1.5 border-b border-slate-200 flex justify-between items-center text-[11px] font-bold text-slate-700">
+                <span>Items in Voucher ({lines.length})</span>
+                <span className="text-slate-500 font-normal">Use ↑/↓ arrows to scroll table</span>
+              </div>
+              <div
+                ref={tableContainerRef}
+                className="max-h-48 overflow-y-auto divide-y divide-slate-100 text-xs"
+              >
+                <table className="w-full border-collapse">
+                  <thead className="bg-slate-50 sticky top-0 text-[10px] text-slate-500 uppercase tracking-wider font-bold">
+                    <tr>
+                      <th className="py-1.5 px-2 text-center w-8">#</th>
+                      <th className="py-1.5 px-2 text-left">Item Description</th>
+                      <th className="py-1.5 px-2 text-right">Qty</th>
+                      <th className="py-1.5 px-2 text-right">Rate</th>
+                      <th className="py-1.5 px-2 text-right">Disc %</th>
+                      <th className="py-1.5 px-2 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {lines.map((line, idx) => {
+                      const isProblem = line.isZeroRate || line.ratePaise <= 0 || line.isShortage;
+                      return (
+                        <tr
+                          key={line.id || idx}
+                          className={isProblem ? "bg-rose-50/70" : "hover:bg-slate-50/60"}
+                        >
+                          <td className="py-1.5 px-2 text-center font-mono text-[11px] text-slate-400">
+                            {idx + 1}
+                          </td>
+                          <td className="py-1.5 px-2 font-medium text-slate-900 truncate max-w-[220px]">
+                            {line.name} {line.weight ? `· ${line.weight}` : ""}
+                            {line.isShortage && (
+                              <span className="ml-1.5 inline-flex items-center text-[10px] text-rose-600 font-bold">
+                                <AlertTriangle className="w-3 h-3 mr-0.5 inline" /> Stock Short
+                              </span>
+                            )}
+                            {line.ratePaise <= 0 && (
+                              <span className="ml-1.5 inline-flex items-center text-[10px] text-amber-600 font-bold">
+                                <AlertCircle className="w-3 h-3 mr-0.5 inline" /> No Rate
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-mono text-slate-700">
+                            {line.qty} {line.unit}{" "}
+                            {line.unit !== "Pcs" && (
+                              <span className="text-[10px] text-slate-400">({line.totalPieces} pcs)</span>
+                            )}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-mono text-slate-800">
+                            ₹{(line.ratePaise / 100).toFixed(2)}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-mono text-slate-600">
+                            {line.discountPercent > 0 ? `${line.discountPercent}%` : "0%"}
+                          </td>
+                          <td className="py-1.5 px-2 text-right font-mono font-bold text-slate-900">
+                            ₹{(line.amountPaise / 100).toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Voucher Summary Card */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2.5 text-xs">
-            <div className="flex justify-between items-center py-0.5">
-              <span className="text-slate-500 font-medium">Billed Party:</span>
-              <span className="font-bold text-slate-900 truncate max-w-[200px]">{partyName}</span>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 text-xs">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex justify-between items-center py-0.5 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Billed Party:</span>
+                <span className="font-bold text-slate-900 truncate max-w-[150px]">{partyName}</span>
+              </div>
+              <div className="flex justify-between items-center py-0.5 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Pricing Tier:</span>
+                <span className="font-bold text-blue-900 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-200">
+                  List {tier}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between items-center py-0.5">
-              <span className="text-slate-500 font-medium">Items / Total Pieces:</span>
-              <span className="font-mono font-bold text-slate-900">
-                {itemsCount} lines ({totalQtyPcs} pcs)
-              </span>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex justify-between items-center py-0.5 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Total Lines / Pieces:</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {itemsCount} lines ({totalQtyPcs} pcs)
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-0.5 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Payment Mode &amp; Status:</span>
+                <span className="font-bold uppercase tracking-wider text-slate-900 px-1.5 py-0.2 bg-white border border-slate-200 rounded">
+                  {paymentMode} · {paymentStatus}
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between items-center py-0.5">
-              <span className="text-slate-500 font-medium">Payment Mode:</span>
-              <span className="font-bold uppercase tracking-wider text-slate-900 px-2 py-0.5 bg-white border border-slate-200 rounded">
-                {paymentMode}
-              </span>
-            </div>
-            <div className="border-t border-slate-200 pt-2 flex justify-between items-center">
-              <span className="text-slate-700 font-bold text-sm">Grand Total:</span>
-              <span className="text-base font-mono font-black text-emerald-700">
+
+            {discountPaise > 0 && (
+              <div className="flex justify-between items-center py-0.5 text-emerald-700 font-semibold">
+                <span>Total Discount / Savings:</span>
+                <span className="font-mono">-₹{(discountPaise / 100).toFixed(2)}</span>
+              </div>
+            )}
+
+            <div className="border-t border-slate-300 pt-2 flex justify-between items-baseline">
+              <div>
+                <span className="text-slate-800 font-bold text-sm">Grand Total:</span>
+                <span className="text-[10px] text-slate-500 italic ml-1.5">(GST included)</span>
+              </div>
+              <span className="text-lg font-mono font-black text-emerald-700">
                 ₹{(totalAmountPaise / 100).toFixed(2)}
               </span>
             </div>
+
+            {amountInWords && (
+              <div className="text-[11px] text-slate-500 italic text-right">
+                {amountInWords}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Buttons */}
-        <div className="bg-slate-100 px-5 py-3.5 border-t border-slate-200 flex items-center justify-end gap-2.5">
+        {/* Action Buttons */}
+        <div className="bg-slate-100 px-5 py-3 border-t border-slate-200 flex items-center justify-end gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onCancel}

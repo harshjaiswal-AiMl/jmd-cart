@@ -196,3 +196,13 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
   - [x] Part C: Minimal Busy-style item rows (one line plain text `Item name + weight`, muted brand on right in dropdown, "Out" tag for out-of-stock, status line with Shop/Godown/Pack diagnostics, F8 item info modal).
   - [x] Part D: Busy-style voucher entry designed via Stitch MCP (`voucher-entry.html` / `voucher-entry-mobile.html` exported). Keyboard navigation (`Enter` flow, `F7` repeat line, `F8` item info, `F9` delete line, `Alt+P` party search, `Alt+D` discount, `F2` save voucher dialog with "Save this voucher? Yes / No").
   - [x] Part E: Owner screenshot fixes: Vch. No. displays `INV/26-27/XXXXXX (auto)` preview instead of party name, removed duplicate font size toggle in dark bar, removed duplicate `Ctrl+K` hint in search box.
+
+- 2026-11-01: Prompt #17 Complete — Proper party search, working A/B/C tiers and discounts, price in item search, save voucher preview, payment mode bill formats & GST bill:
+  - [x] Part 0: Sync gate passed against Cloud Run 100% traffic commit `c7f54a3`.
+  - [x] Part A: Proper party search engine (`src/lib/search/party-search.ts` & `PartySearchBox.tsx`) with word-prefix ranking (e.g. `di` -> Dinesh, `sh` -> Shahnawaz), phone/GSTIN/address matching, typo tolerance, unpinned Walk-in. 40/40 tests passing in `tests/unit/party-search.test.ts` (<50ms for 2,000 parties).
+  - [x] Part B: Working A/B/C price tiers & discounts in POS. Fixed locked `customRatePaise` root cause; dynamic repricing across cart lines via `resolvePrice` with discount % recalculation.
+  - [x] Part C: Live item price next to weight in item search dropdown (`Name Weight ₹XX.XX`), dynamic to active tier and party.
+  - [x] Part D: One search everywhere — smart search unified across POS, Create Order, Van Billing, Purchase/GRN, Command Palette (Ctrl+K), and Storefront.
+  - [x] Part E: Full item preview in Save Voucher Dialog (`S.N., Description, Qty+Unit, Rate, Disc %, Amount`), stock shortage / zero-rate badges, `Esc` returns to editing.
+  - [x] Part F: Bill formats filtered by payment mode (Cash/UPI -> Thermal 80mm only; Credit -> Credit bill only with party ledger & signature; GST Bill option -> GST A4 & GST Thermal only). Admin "Other Formats" dropdown. Clean breadcrumbs on print viewer.
+  - [x] Part G: Additive database migration `20261101150000_invoice_document_type_tier` adding `document_type` and `pricing_tier` to `invoices`. Support for `invoice.gstSeparateSeries` setting.

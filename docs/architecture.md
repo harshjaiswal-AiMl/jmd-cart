@@ -233,3 +233,21 @@ One codebase, one database, two hostnames routed by Next.js `middleware.ts` base
   - Real-time aggregate computations across filtered invoice sets: Total Invoiced, Taxable Amount, GST, Discount, Collected, Pending, and Average Bill.
 
 
+
+## 18. Smart Search Engine, Party Ranking, Tier Repricing & Print Routing (Prompt #17)
+- **High-Speed Party Search Engine (`src/lib/search/party-search.ts`)**:
+  - Pre-tokenizes party names, phone numbers, addresses, and GSTINs.
+  - Hierarchical scoring: exact word prefix matches (1000 pts), acronym/initial matches (800 pts), substring hits on tokens >= 3 chars (500 pts), Levenshtein edit distance <= 2 on tokens >= 7 chars.
+  - Excludes UI badge texts (such as "Credit Approved") from match criteria to prevent false positives.
+  - Unpins Walk-in customer unless explicitly queried or when search input is empty. Sub-millisecond latency (<50ms for 2,000+ parties).
+- **Universal Item Search & Live Price Resolution**:
+  - Unified item search (`src/lib/search/smart-search.ts`) supports multi-token queries and unit-weight binding (`bhuj 400` -> Bhujia 400g).
+  - Search results display real-time calculated unit prices reflecting active pricing tier (`pricingTier`) and party context.
+  - Applied uniformly across POS, Godown Dispatch / Create Order, Van Billing, Purchase GRN, and Command Palette (`Ctrl+K`).
+- **Dynamic Tier Repricing Architecture**:
+  - Eliminates premature price locking: cart lines retain `customRatePaise = null` upon addition.
+  - Switching pricing tier (`AUTO`, `TIER_A`, `TIER_B`, `TIER_C`) triggers `handleTierChange` which dynamically re-evaluates `resolvePrice(product, buyerType)` across all non-custom lines and recalculates discount percentage against MRP.
+- **Invoice Document Classification & Print Mode Pipeline**:
+  - Schema addition: `document_type` (`RETAIL` | `GST`) and `pricing_tier` (`AUTO` | `TIER_A` | `TIER_B` | `TIER_C`) on `invoices` (`prisma/migrations/20261101150000_invoice_document_type_tier`).
+  - Dual sequence series routing: supports `invoice.gstSeparateSeries` configuration setting (default off uses `INV/26-27/...`; enabled uses `GST/26-27/...`).
+  - Print viewer tab filtering: Cash/UPI retail sales route exclusively to Thermal 80mm cash bill; Credit retail sales route to Credit bill with customer ledger breakdown; GST bills route to GST A4 Tax Invoice and GST Thermal formats. Super Admin & Admin maintain override access via "Other Formats" selector.

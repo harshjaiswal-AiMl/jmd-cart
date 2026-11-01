@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "document_type" TEXT NOT NULL DEFAULT 'RETAIL';
+ALTER TABLE "invoices" ADD COLUMN IF NOT EXISTS "pricing_tier" TEXT DEFAULT 'AUTO';
