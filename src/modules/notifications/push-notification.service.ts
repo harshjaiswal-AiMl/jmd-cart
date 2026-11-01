@@ -163,7 +163,7 @@ export class PushNotificationService {
     const warehouseUsers = await prisma.user.findMany({
       where: {
         role: { in: [UserRole.WAREHOUSE_MANAGER, UserRole.GODOWN] },
-        status: "ACTIVE",
+        active: true,
       },
       select: { id: true, name: true, role: true },
     });
