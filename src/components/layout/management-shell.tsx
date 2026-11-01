@@ -325,11 +325,12 @@ export function ManagementShell({
 
   const filteredProducts = useMemo(() => {
     if (!cmdQuery.trim()) return quickProducts.slice(0, 5);
-    return searchItems(
+    const results = searchItems(
       cmdQuery,
       quickProducts.map((p) => ({ ...p, companyName: p.brandName })),
-      8
+      { limit: 8 }
     );
+    return results.map((r) => r.product as unknown as typeof quickProducts[0]);
   }, [quickProducts, cmdQuery]);
 
   const renderSidebarContent = (isMobile = false) => {
