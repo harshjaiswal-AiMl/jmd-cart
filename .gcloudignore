@@ -18,3 +18,8 @@ backups/
 .env.*
 !.env.example
 temp_xlsx/
+
+apps/
+.gradle/
+local.properties
+

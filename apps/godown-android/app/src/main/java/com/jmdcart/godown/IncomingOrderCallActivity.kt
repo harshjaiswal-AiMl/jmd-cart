@@ -70,7 +70,7 @@ class IncomingOrderCallActivity : AppCompatActivity() {
 
             // Open Godown WebView to order
             val mainIntent = Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
                 putExtra("orderId", orderId)
             }
             startActivity(mainIntent)

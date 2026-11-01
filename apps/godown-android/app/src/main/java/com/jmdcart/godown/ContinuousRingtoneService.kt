@@ -64,7 +64,7 @@ class ContinuousRingtoneService : Service() {
 
         // 1. Build full screen intent to wake phone and show incoming call activity
         val fullScreenIntent = Intent(this, IncomingOrderCallActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtras(intent ?: Intent())
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
