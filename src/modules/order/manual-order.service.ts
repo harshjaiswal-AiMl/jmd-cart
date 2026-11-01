@@ -291,13 +291,8 @@ export class ManualOrderService {
         orderNumber: createdOrder.orderNumber,
         totalPaise: createdOrder.totalPaise,
         party: { name: party.name },
-        items: createdOrder.items.map((it) => ({
-          quantity: it.qty,
-          product: {
-            name: productMap.get(it.productId)?.name || "Item",
-            packSize: productMap.get(it.productId)?.packSize || 1,
-          },
-        })),
+        lineCount: createdOrder.items.length,
+        customerName: party.name,
       });
     } catch (err) {
       console.error("[ManualOrder] Failed to trigger order alert:", err);

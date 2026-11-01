@@ -155,9 +155,13 @@ export class PushNotificationService {
   async triggerOrderAlert(order: {
     id: string;
     number?: string | null;
+    orderNumber?: string | null;
     totalAmountPaise?: number;
+    totalPaise?: number;
     customerName?: string | null;
     lineCount?: number;
+    party?: { name?: string | null } | null;
+    items?: any[];
   }) {
     // 1. Find warehouse managers and godown users
     const warehouseUsers = await prisma.user.findMany({
