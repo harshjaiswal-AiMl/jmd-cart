@@ -602,7 +602,7 @@ export async function loadInvoiceForPosEditAction(invoiceId: string) {
   }
 
   const role = session.user.role as UserRole;
-  const allowedRoles = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SHOP];
+  const allowedRoles: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SHOP];
   if (!allowedRoles.includes(role)) {
     return { success: false, error: "Not authorized to modify invoices" };
   }
@@ -717,7 +717,7 @@ export async function posQuickAddProductAction(input: {
   }
 
   const role = session.user.role as UserRole;
-  const allowed = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SHOP];
+  const allowed: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SHOP];
   if (!allowed.includes(role)) {
     return { success: false, error: "Not authorized to quick-add products." };
   }
@@ -858,7 +858,7 @@ export async function posStockCorrectionAction(input: {
   }
 
   const role = session.user.role as UserRole;
-  const allowed = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SHOP];
+  const allowed: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SHOP];
   if (!allowed.includes(role)) {
     return { success: false, error: "Not authorized to correct stock." };
   }
