@@ -19,7 +19,7 @@ export interface SearchableParty {
   address?: string | null;
   city?: string | null;
   gstin?: string | null;
-  type: "CUSTOMER" | "RETAILER" | "WHOLESALER";
+  type?: "CUSTOMER" | "RETAILER" | "WHOLESALER" | string | null;
   creditEnabled?: boolean;
   creditLimitPaise?: number;
   currentBalancePaise?: number;

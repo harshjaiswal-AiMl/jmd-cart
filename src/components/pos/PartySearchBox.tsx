@@ -106,7 +106,7 @@ export function PartySearchBox<T extends SearchableParty>({
     }
   };
 
-  const renderTypeIcon = (type: string) => {
+  const renderTypeIcon = (type?: string | null) => {
     if (type === "WHOLESALER") return <Building className="w-3 h-3 text-purple-600" />;
     if (type === "RETAILER") return <Store className="w-3 h-3 text-blue-600" />;
     return <User className="w-3 h-3 text-slate-500" />;

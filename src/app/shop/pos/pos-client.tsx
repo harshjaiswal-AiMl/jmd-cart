@@ -1779,7 +1779,7 @@ export function PosClient({
         <div className="flex items-center gap-2 flex-1 min-w-[280px]">
           <div className="flex-1">
             <PartySearchBox
-              parties={localParties}
+              parties={localParties as any}
               selectedPartyId={activeTab.partyId}
               onSelect={(party) => {
                 updateActiveTab({
