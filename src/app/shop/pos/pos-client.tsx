@@ -53,6 +53,12 @@ import { paiseToIndianWords } from "@/lib/number-to-words";
 import { ItemInfoModal } from "@/components/pos/ItemInfoModal";
 import { PartySearchBox } from "@/components/pos/PartySearchBox";
 import { SaveVoucherDialog } from "@/components/pos/SaveVoucherDialog";
+import { QuickAddProductModal } from "@/components/pos/QuickAddProductModal";
+import { StockCorrectionModal } from "@/components/pos/StockCorrectionModal";
+import { PosTodaySalesModal } from "@/components/pos/PosTodaySalesModal";
+import { RevisionHistoryModal } from "@/components/pos/RevisionHistoryModal";
+import { saveInvoiceRevisionAction } from "./actions";
+import { toIstDateString } from "@/lib/datetime";
 import { SearchIndexItem, buildProductSearchIndex, searchItems } from "@/lib/search/smart-search";
 
 export interface ProductCatalogItem {
@@ -148,6 +154,7 @@ interface PosClientProps {
   companies: CompanyItem[];
   parties: PartyItem[];
   nextInvoicePreview?: string;
+  initialEditInvoice?: any;
 }
 
 export function PosClient({
@@ -162,9 +169,33 @@ export function PosClient({
   companies,
   parties,
   nextInvoicePreview,
+  initialEditInvoice,
 }: PosClientProps) {
   // Admin check for backdated billing
   const isAdmin = cashierRole === "SUPER_ADMIN" || cashierRole === "ADMIN";
+  const isPrivilegedDateUser = isAdmin || cashierRole === "ACCOUNTS";
+  const isEditMode = Boolean(initialEditInvoice);
+  const [editReason, setEditReason] = useState("");
+  const [showRevisionHistory, setShowRevisionHistory] = useState(false);
+  const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+  const [showTodaySalesModal, setShowTodaySalesModal] = useState(false);
+  const [shortStockCorrection, setShortStockCorrection] = useState<{
+    productId: string;
+    productName: string;
+    currentStock: number;
+    neededStock: number;
+  } | null>(null);
+
+  const [liveProducts, setLiveProducts] = useState<ProductCatalogItem[]>(products);
+
+  const maxFutureDateStr = useMemo(() => {
+    try {
+      const d = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    } catch {
+      return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    }
+  }, []);
   const todayFormattedWithDay = useMemo(() => {
     try {
       const d = new Date();
@@ -257,6 +288,72 @@ export function PosClient({
 
   // Load tabs from localStorage on mount and sanitize against live catalog
   useEffect(() => {
+    if (initialEditInvoice) {
+      const productMap = new Map(products.map((p) => [p.id, p]));
+      const editCart: PosCartLine[] = (initialEditInvoice.items || []).map((it: any, idx: number) => {
+        const prod = productMap.get(it.productId) || {
+          id: it.productId,
+          name: it.product?.name || "Product",
+          shortCode: it.product?.shortCode || "P0000",
+          weight: it.product?.weight || null,
+          packSize: it.product?.packSize || 1,
+          packLabel: it.product?.packLabel || "Carton",
+          mrpPaise: it.mrpPaise,
+          priceCPaise: it.unitPricePaise,
+          gstRateBp: it.gstRateBp || 500,
+          hsn: it.hsn || "21069099",
+          shopStockQty: 0,
+          godownStockQty: 0,
+          godownCartons: 0,
+          godownLoose: 0,
+          companyId: null,
+          companyName: null,
+          categoryId: null,
+          categoryName: null,
+          priceAPaise: null,
+          priceBPaise: null,
+          reorderLevel: 0,
+        };
+
+        return {
+          id: `edit-line-${idx}-${it.productId}`,
+          productId: it.productId,
+          product: prod as any,
+          qty: it.qty,
+          unit: "Pcs" as const,
+          lineDiscountPercent: (it.discountBp || 0) / 100,
+          customRatePaise: it.unitPricePaise,
+          customRateInput: (it.unitPricePaise / 100).toFixed(2),
+          isCustomRate: true,
+          customMrpPaise: it.mrpPaise,
+          customMrpInput: ((it.mrpPaise || 0) / 100).toFixed(2),
+        };
+      });
+
+      const editTab: PosBillTab = {
+        id: "tab-edit",
+        tabTitle: `Edit: ${initialEditInvoice.number}`,
+        partyId: initialEditInvoice.partyId || "",
+        selectedTierMode: "AUTO",
+        cart: editCart,
+        orderDiscountPercent: "0",
+        paymentMode: initialEditInvoice.payments?.find((p: any) => p.mode === "CREDIT")?.mode || initialEditInvoice.payments?.[0]?.mode || PaymentMode.CASH,
+        splitCashPaise: "",
+        splitUpiPaise: "",
+        remarks: initialEditInvoice.notes || "",
+        documentType: initialEditInvoice.documentType || "RETAIL",
+        isHeld: false,
+        walkInName: initialEditInvoice.customerName || "",
+        walkInMobile: initialEditInvoice.customerPhone || "",
+        walkInAddress: initialEditInvoice.customerAddress || "",
+        billDate: initialEditInvoice.invoiceDate ? toIstDateString(initialEditInvoice.invoiceDate) : undefined,
+      };
+
+      setTabs([editTab]);
+      setActiveTabId("tab-edit");
+      setIsStorageLoaded(true);
+      return;
+    }
     try {
       const saved = localStorage.getItem("jmd_pos_bill_tabs");
       const savedActive = localStorage.getItem("jmd_pos_active_tab_id");
@@ -1298,6 +1395,63 @@ export function PosClient({
           return;
         }
 
+        // Handle Invoice Edit Revision Save
+        if (isEditMode && initialEditInvoice) {
+          const editItems = activeTab.cart.map((c) => {
+            const packSize = Math.max(1, c.product.packSize);
+            const bagSize = (c.product as any).bagSize || packSize;
+            const pcs = c.unit === "Carton"
+              ? c.qty * packSize
+              : c.unit === "Bag"
+              ? c.qty * bagSize
+              : c.unit === "Dozen"
+              ? c.qty * 12
+              : c.qty;
+            let ratePaise = c.customRatePaise != null && c.customRatePaise > 0
+              ? (c.unit === "Carton" ? Math.round(c.customRatePaise / packSize) : c.customRatePaise)
+              : undefined;
+            return {
+              productId: c.productId,
+              qty: pcs,
+              mrpPaise: c.customMrpPaise ?? c.product.mrpPaise ?? 0,
+              ratePaise,
+              discountBp: Math.round((c.lineDiscountPercent || 0) * 100),
+            };
+          });
+
+          const editRes = await saveInvoiceRevisionAction({
+            invoiceId: initialEditInvoice.id,
+            expectedVersion: initialEditInvoice.version,
+            reason: editReason.trim() || "POS voucher edit",
+            partyId: activeTab.partyId || null,
+            customerName: activeTab.partyId ? undefined : activeTab.walkInName?.trim() || undefined,
+            customerPhone: activeTab.partyId ? undefined : activeTab.walkInMobile?.trim() || undefined,
+            customerAddress: activeTab.partyId ? undefined : activeTab.walkInAddress?.trim() || undefined,
+            invoiceDate: activeTab.billDate || undefined,
+            dateChangeReason: activeTab.billDate !== todayStr ? editReason.trim() : undefined,
+            items: editItems,
+            notes: activeTab.remarks,
+          });
+
+          if (editRes.success && editRes.invoice) {
+            setSuccessModalData({
+              invoice: {
+                id: editRes.invoice.id,
+                number: editRes.invoice.number,
+                totalPaise: editRes.invoice.totalPaise,
+                status: editRes.invoice.status,
+                channel: editRes.invoice.channel,
+                paymentStatus: editRes.invoice.paymentStatus,
+                paymentMode: activeTab.paymentMode,
+              },
+            });
+            setSuccessModalOpen(true);
+          } else {
+            setErrorMessage(editRes.error || "Failed to save invoice revision");
+          }
+          return;
+        }
+
         // Pre-flight check: Insufficient stock check before finalization (Cartons check Godown, Pcs check Shop)
         const insufficientItems = activeTab.cart.filter((c) => {
           const packSize = Math.max(1, c.product.packSize);
@@ -1504,6 +1658,12 @@ export function PosClient({
       } else if (e.key === "F4") {
         e.preventDefault();
         handleHoldCurrentBill();
+      } else if (e.key === "F6") {
+        e.preventDefault();
+        setShowQuickAddModal(true);
+      } else if (e.key === "F9") {
+        e.preventDefault();
+        setShowTodaySalesModal(true);
       } else if (e.key === "F7") {
         e.preventDefault();
         // Repeat previous line
@@ -1725,6 +1885,24 @@ export function PosClient({
             Stock
           </Link>
 
+          <button
+            type="button"
+            onClick={() => setShowQuickAddModal(true)}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 shadow-xs transition"
+            title="Quick add new product to bill"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Item [F6]</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowTodaySalesModal(true)}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1 shadow-xs transition"
+            title="Today's total sales summary"
+          >
+            <Banknote className="w-3.5 h-3.5" />
+            <span>Today [F9]</span>
+          </button>
           <Link
             href="/admin"
             className="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition"
@@ -1733,6 +1911,39 @@ export function PosClient({
           </Link>
         </div>
       </header>
+
+      {/* Edit Mode Alert Banner */}
+      {isEditMode && initialEditInvoice && (
+        <div className="w-full bg-amber-500 text-slate-950 px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 font-sans shadow-xs border-b border-amber-600">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="bg-slate-950 text-amber-300 px-2 py-0.5 rounded font-black text-xs uppercase tracking-wide">
+              Editing Invoice
+            </span>
+            <span className="font-black text-sm font-mono">
+              {initialEditInvoice.number} · Rev {initialEditInvoice.version || 1}
+            </span>
+            <span className="text-xs font-semibold bg-amber-400/80 px-2 py-0.5 rounded">
+              Original: ₹{((initialEditInvoice.totalPaise || 0) / 100).toFixed(2)} ({initialEditInvoice.items?.length || 0} items)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowRevisionHistory(true)}
+              className="text-xs font-bold bg-white text-slate-900 px-2.5 py-1 rounded-lg shadow-xs flex items-center gap-1 hover:bg-slate-50 transition"
+            >
+              <History className="w-3.5 h-3.5 text-purple-700" />
+              <span>Revision History ({initialEditInvoice.revisions?.length || 0})</span>
+            </button>
+            <Link
+              href={`/shop/invoices/${initialEditInvoice.id}`}
+              className="text-xs font-bold bg-slate-900 text-white px-2.5 py-1 rounded-lg shadow-xs hover:bg-slate-800 transition"
+            >
+              Cancel Edit
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* 1b. FMCG Voucher Details Strip (Image 2 Busy ERP Style) */}
       <div className="bg-white border-b-2 border-slate-300 px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs shrink-0">
@@ -2867,18 +3078,22 @@ export function PosClient({
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Bill Date (Admin Only)</span>
+                    <span>Bill Date (Admin / Accounts)</span>
                   </label>
-                  {activeTab.billDate && activeTab.billDate !== todayStr && (
+                  {activeTab.billDate && activeTab.billDate > todayStr ? (
+                    <span className="text-[10px] font-black bg-blue-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                      Post-dated
+                    </span>
+                  ) : activeTab.billDate && activeTab.billDate < todayStr ? (
                     <span className="text-[10px] font-black bg-amber-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
                       Backdated
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <input
                     type="date"
-                    max={todayStr}
+                    max={maxFutureDateStr}
                     value={activeTab.billDate || todayStr}
                     onChange={(e) => updateActiveTab({ billDate: e.target.value === todayStr ? undefined : e.target.value })}
                     className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-amber-300 rounded-lg font-mono text-slate-900 focus:ring-2 focus:ring-amber-500 font-bold"
@@ -3055,6 +3270,55 @@ export function PosClient({
         partyName={selectedParty?.name}
       />
 
+      {/* Prompt #18 Modals */}
+      <QuickAddProductModal
+        isOpen={showQuickAddModal}
+        onClose={() => setShowQuickAddModal(false)}
+        companies={companies}
+        locationId={locationId}
+        onProductCreated={(newProd) => {
+          setLiveProducts((prev) => [newProd, ...prev]);
+          addItemToCart(newProd, "Pcs", 1);
+        }}
+      />
+
+      {shortStockCorrection && (
+        <StockCorrectionModal
+          isOpen={Boolean(shortStockCorrection)}
+          onClose={() => setShortStockCorrection(null)}
+          productId={shortStockCorrection.productId}
+          productName={shortStockCorrection.productName}
+          locationId={locationId}
+          currentStock={shortStockCorrection.currentStock}
+          neededStock={shortStockCorrection.neededStock}
+          cashierRole={cashierRole}
+          onSuccess={(newQty) => {
+            setLiveProducts((prev) =>
+              prev.map((p) =>
+                p.id === shortStockCorrection.productId
+                  ? { ...p, shopStockQty: newQty }
+                  : p
+              )
+            );
+            setErrorMessage(null);
+          }}
+        />
+      )}
+
+      <PosTodaySalesModal
+        isOpen={showTodaySalesModal}
+        onClose={() => setShowTodaySalesModal(false)}
+        locationId={locationId}
+        locationName={locationName}
+      />
+
+      <RevisionHistoryModal
+        isOpen={showRevisionHistory}
+        onClose={() => setShowRevisionHistory(false)}
+        invoiceNumber={initialEditInvoice?.number || "Invoice"}
+        revisions={initialEditInvoice?.revisions || []}
+      />
+
       {/* Save Voucher Confirmation Dialog [F2] */}
       <SaveVoucherDialog
         isOpen={isSaveConfirmOpen}
@@ -3073,6 +3337,10 @@ export function PosClient({
         discountPaise={totalDiscountPaise}
         lines={previewLines}
         isSaving={isFinalizing}
+        isEditMode={isEditMode}
+        editInvoiceNumber={initialEditInvoice?.number}
+        editReason={editReason}
+        onEditReasonChange={(val) => setEditReason(val)}
       />
 
       {/* Full History Slide-Over Drawer */}

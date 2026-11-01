@@ -588,3 +588,422 @@ export async function updatePartyNameAndContactAction(input: {
     return { success: false, error: err.message || "Failed to update party" };
   }
 }
+
+// ==========================================
+// Prompt #18 POS Enhancements & Invoice Edit
+// ==========================================
+
+const activeEditLocks = new Map<string, { userId: string; userName: string; lockedAt: number }>();
+
+export async function loadInvoiceForPosEditAction(invoiceId: string) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const role = session.user.role as UserRole;
+  const allowedRoles = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SHOP];
+  if (!allowedRoles.includes(role)) {
+    return { success: false, error: "Not authorized to modify invoices" };
+  }
+
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: invoiceId },
+      include: {
+        party: true,
+        items: {
+          include: {
+            product: {
+              include: {
+                company: true,
+                category: true,
+                stockBalances: true,
+              },
+            },
+          },
+        },
+        payments: true,
+        revisions: {
+          include: {
+            editor: {
+              select: { id: true, name: true, role: true },
+            },
+          },
+          orderBy: { revisionNumber: "desc" },
+        },
+      },
+    });
+
+    if (!invoice) {
+      return { success: false, error: "Invoice not found" };
+    }
+    if (invoice.status === "CANCELLED") {
+      return { success: false, error: "Cancelled invoices cannot be edited" };
+    }
+
+    const now = Date.now();
+    const existingLock = activeEditLocks.get(invoiceId);
+    let lockWarning: string | null = null;
+    if (existingLock && existingLock.userId !== session.user.id && (now - existingLock.lockedAt) < 3 * 60 * 1000) {
+      lockWarning = `This invoice is currently being edited by ${existingLock.userName}. Saving may cause conflict if both users modify simultaneously.`;
+    } else {
+      activeEditLocks.set(invoiceId, {
+        userId: session.user.id,
+        userName: session.user.name || "User",
+        lockedAt: now,
+      });
+    }
+
+    return {
+      success: true,
+      invoice,
+      lockWarning,
+    };
+  } catch (err: any) {
+    console.error("loadInvoiceForPosEditAction error:", err);
+    return { success: false, error: err.message || "Failed to load invoice" };
+  }
+}
+
+export async function previewInvoiceRevisionAction(input: any) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+  try {
+    const { InvoiceEditService } = await import("@/modules/billing/invoice-edit.service");
+    const editService = new InvoiceEditService();
+    const preview = await editService.previewInvoiceEdit(input);
+    return { success: true, preview };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to preview invoice edit" };
+  }
+}
+
+export async function saveInvoiceRevisionAction(input: any) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+  try {
+    const { InvoiceEditService } = await import("@/modules/billing/invoice-edit.service");
+    const editService = new InvoiceEditService();
+    const result = await editService.modifyInvoice(session.user.role as UserRole, input, session.user.id);
+    activeEditLocks.delete(input.invoiceId);
+    return { success: true, invoice: result };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to save invoice revision" };
+  }
+}
+
+export async function posQuickAddProductAction(input: {
+  name: string;
+  companyName: string;
+  weight: string;
+  packSize: number;
+  mrpPaise: number;
+  priceCPaise: number;
+  priceAPaise?: number;
+  priceBPaise?: number;
+  hsn?: string;
+  gstRateBp?: number;
+  initialStockQty: number;
+  locationId: string;
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const role = session.user.role as UserRole;
+  const allowed = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SHOP];
+  if (!allowed.includes(role)) {
+    return { success: false, error: "Not authorized to quick-add products." };
+  }
+
+  try {
+    const trimmedName = input.name.trim();
+    if (!trimmedName) {
+      return { success: false, error: "Product name is required." };
+    }
+
+    const existing = await prisma.product.findFirst({
+      where: {
+        name: { equals: trimmedName, mode: "insensitive" },
+        weight: { equals: input.weight.trim(), mode: "insensitive" },
+      },
+    });
+    if (existing) {
+      return {
+        success: false,
+        error: `A product with name "${trimmedName}" and weight "${input.weight}" already exists (Code: ${existing.shortCode}).`,
+      };
+    }
+
+    let companyId: string | null = null;
+    if (input.companyName?.trim()) {
+      let company = await prisma.company.findFirst({
+        where: { name: { equals: input.companyName.trim(), mode: "insensitive" } },
+      });
+      if (!company) {
+        company = await prisma.company.create({
+          data: { name: input.companyName.trim() },
+        });
+      }
+      companyId = company.id;
+    }
+
+    const count = await prisma.product.count();
+    const shortCode = `P${String(count + 1).padStart(4, "0")}`;
+
+    const product = await prisma.$transaction(async (tx) => {
+      const createdProd = await tx.product.create({
+        data: {
+          name: trimmedName,
+          shortCode,
+          companyId,
+          weight: input.weight.trim() || null,
+          packSize: Math.max(1, input.packSize || 1),
+          packLabel: "Carton",
+          mrpPaise: input.mrpPaise,
+          priceCPaise: input.priceCPaise,
+          priceAPaise: input.priceAPaise ?? input.priceCPaise,
+          priceBPaise: input.priceBPaise ?? input.priceCPaise,
+          hsn: input.hsn?.trim() || "21069099",
+          gstRateBp: input.gstRateBp ?? 500,
+          needsReview: true,
+          active: true,
+        },
+      });
+
+      if (input.initialStockQty > 0) {
+        await tx.stockBalance.upsert({
+          where: {
+            productId_locationId: {
+              productId: createdProd.id,
+              locationId: input.locationId,
+            },
+          },
+          create: {
+            productId: createdProd.id,
+            locationId: input.locationId,
+            qty: input.initialStockQty,
+          },
+          update: {
+            qty: { increment: input.initialStockQty },
+          },
+        });
+
+        await tx.stockMovement.create({
+          data: {
+            productId: createdProd.id,
+            locationId: input.locationId,
+            type: "ADJUSTMENT",
+            qty: input.initialStockQty,
+            balanceAfter: input.initialStockQty,
+            referenceType: "QUICK_ADD_POS",
+            referenceId: createdProd.id,
+            notes: "Quick add initial stock from Shop POS",
+            createdBy: session.user.id,
+          },
+        });
+      }
+
+      return createdProd;
+    });
+
+    const { auditService } = await import("@/modules/audit/audit.service");
+    await auditService.log({
+      actorId: session.user.id,
+      action: "PRODUCT_QUICK_ADD",
+      entity: "Product",
+      entityId: product.id,
+      after: {
+        name: product.name,
+        shortCode: product.shortCode,
+        initialStock: input.initialStockQty,
+        needsReview: true,
+      },
+    });
+
+    return {
+      success: true,
+      product: {
+        ...product,
+        companyName: input.companyName || null,
+        categoryName: null,
+        shopStockQty: input.initialStockQty,
+        godownStockQty: 0,
+        godownCartons: 0,
+        godownLoose: 0,
+      },
+    };
+  } catch (err: any) {
+    console.error("posQuickAddProductAction error:", err);
+    return { success: false, error: err.message || "Failed to quick-add product" };
+  }
+}
+
+export async function posStockCorrectionAction(input: {
+  productId: string;
+  locationId: string;
+  addQty: number;
+  reason: string;
+  invoiceId?: string;
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const role = session.user.role as UserRole;
+  const allowed = [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SHOP];
+  if (!allowed.includes(role)) {
+    return { success: false, error: "Not authorized to correct stock." };
+  }
+
+  if (input.addQty <= 0) {
+    return { success: false, error: "Correction quantity must be greater than zero." };
+  }
+
+  if (role === UserRole.SHOP && input.addQty > 500) {
+    return {
+      success: false,
+      error: "Cashier quick stock correction limit is 500 pieces. Above 500 requires Admin approval.",
+    };
+  }
+
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id: input.productId },
+    });
+    if (!product) return { success: false, error: "Product not found" };
+
+    const result = await prisma.$transaction(async (tx) => {
+      const balance = await tx.stockBalance.findUnique({
+        where: {
+          productId_locationId: {
+            productId: input.productId,
+            locationId: input.locationId,
+          },
+        },
+      });
+      const oldQty = balance?.qty ?? 0;
+      const newQty = oldQty + input.addQty;
+
+      await tx.stockBalance.upsert({
+        where: {
+          productId_locationId: {
+            productId: input.productId,
+            locationId: input.locationId,
+          },
+        },
+        create: {
+          productId: input.productId,
+          locationId: input.locationId,
+          qty: newQty,
+        },
+        update: {
+          qty: newQty,
+        },
+      });
+
+      await tx.stockMovement.create({
+        data: {
+          productId: input.productId,
+          locationId: input.locationId,
+          type: "ADJUSTMENT",
+          qty: input.addQty,
+          balanceAfter: newQty,
+          referenceType: "POS_STOCK_FIX",
+          referenceId: input.invoiceId || null,
+          notes: `POS on-the-spot stock correction: ${input.reason}`,
+          createdBy: session.user.id,
+        },
+      });
+
+      const correction = await tx.stockCorrection.create({
+        data: {
+          productId: input.productId,
+          locationId: input.locationId,
+          userId: session.user.id,
+          oldQty,
+          newQty,
+          deltaQty: input.addQty,
+          reason: input.reason || "Short stock at billing",
+          invoiceId: input.invoiceId || null,
+          reviewed: false,
+        },
+      });
+
+      return { oldQty, newQty, correctionId: correction.id };
+    });
+
+    return {
+      success: true,
+      newQty: result.newQty,
+      oldQty: result.oldQty,
+    };
+  } catch (err: any) {
+    console.error("posStockCorrectionAction error:", err);
+    return { success: false, error: err.message || "Failed to update stock" };
+  }
+}
+
+export async function getPosTodaySalesSummaryAction(locationId: string) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  try {
+    const { getIstDayRangeUtc } = await import("@/lib/datetime");
+    const { startUtc, endUtc } = getIstDayRangeUtc(new Date());
+
+    const invoices = await prisma.invoice.findMany({
+      where: {
+        locationId,
+        isPostDated: false,
+        status: { not: "CANCELLED" },
+        createdAt: { gte: startUtc, lte: endUtc },
+      },
+      include: {
+        payments: true,
+      },
+    });
+
+    let totalBills = invoices.length;
+    let totalSalesPaise = 0;
+    let cashPaise = 0;
+    let upiPaise = 0;
+    let creditPaise = 0;
+    let pendingCount = 0;
+
+    for (const inv of invoices) {
+      totalSalesPaise += inv.totalPaise;
+      if (inv.paymentStatus === "PENDING" || inv.paymentStatus === "PARTIAL") {
+        pendingCount++;
+      }
+      for (const p of inv.payments) {
+        if (p.mode === "CASH") cashPaise += p.amountPaise;
+        else if (p.mode === "UPI") upiPaise += p.amountPaise;
+        else if (p.mode === "CREDIT") creditPaise += p.amountPaise;
+      }
+    }
+
+    return {
+      success: true,
+      summary: {
+        totalBills,
+        totalSalesPaise,
+        cashPaise,
+        upiPaise,
+        creditPaise,
+        pendingCount,
+      },
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to get today sales" };
+  }
+}

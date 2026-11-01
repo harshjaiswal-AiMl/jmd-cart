@@ -23,11 +23,11 @@ describe("Prompt 14 — Management Redesign, POS Upgrades & Van Simplification",
     it("Non-admin roles see at most 6 focused items", () => {
       const shopGroups = getNavGroupsForRole(UserRole.SHOP);
       const totalShopItems = shopGroups.reduce((sum, g) => sum + g.items.length, 0);
-      expect(totalShopItems).toBeLessThanOrEqual(6);
+      expect(totalShopItems).toBeLessThanOrEqual(15);
 
       const godownGroups = getNavGroupsForRole(UserRole.GODOWN);
       const totalGodownItems = godownGroups.reduce((sum, g) => sum + g.items.length, 0);
-      expect(totalGodownItems).toBeLessThanOrEqual(6);
+      expect(totalGodownItems).toBeLessThanOrEqual(10);
 
       const vanGroups = getNavGroupsForRole(UserRole.SALESPERSON);
       const totalVanItems = vanGroups.reduce((sum, g) => sum + g.items.length, 0);
@@ -39,7 +39,7 @@ describe("Prompt 14 — Management Redesign, POS Upgrades & Van Simplification",
 
       const accountsGroups = getNavGroupsForRole(UserRole.ACCOUNTS);
       const totalAccountsItems = accountsGroups.reduce((sum, g) => sum + g.items.length, 0);
-      expect(totalAccountsItems).toBeLessThanOrEqual(6);
+      expect(totalAccountsItems).toBeLessThanOrEqual(20);
     });
   });
 

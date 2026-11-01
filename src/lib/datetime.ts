@@ -217,15 +217,29 @@ export function fyOf(input?: Date | string | number | null): string {
 export function validateManualDate(params: {
   date: Date;
   maxBackDays: number;
+  maxFutureDays?: number;
   lockDate?: Date | null;
   now?: Date;
-}): { valid: boolean; error?: string } {
+}): { valid: boolean; isFuture?: boolean; error?: string } {
   const now = params.now || nowIst();
   const todayEnd = endOfIstDay(now);
 
   // Check future date
-  if (params.date.getTime() > todayEnd.getTime()) {
-    return { valid: false, error: "Future dates are not permitted for invoices." };
+  const isFuture = params.date.getTime() > todayEnd.getTime();
+  if (isFuture) {
+    const maxFuture = params.maxFutureDays || 0;
+    if (maxFuture <= 0) {
+      return { valid: false, error: "Future dates are not permitted for invoices." };
+    }
+    const maxAllowedFuture = endOfIstDay(
+      new Date(now.getTime() + maxFuture * 24 * 60 * 60 * 1000)
+    );
+    if (params.date.getTime() > maxAllowedFuture.getTime()) {
+      return {
+        valid: false,
+        error: `Post-dated invoice cannot be further than ${maxFuture} days in the future.`,
+      };
+    }
   }
 
   // Check backdate limit
@@ -250,5 +264,5 @@ export function validateManualDate(params: {
     };
   }
 
-  return { valid: true };
+  return { valid: true, isFuture };
 }

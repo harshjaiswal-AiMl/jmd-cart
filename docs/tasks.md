@@ -206,3 +206,35 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
   - [x] Part E: Full item preview in Save Voucher Dialog (`S.N., Description, Qty+Unit, Rate, Disc %, Amount`), stock shortage / zero-rate badges, `Esc` returns to editing.
   - [x] Part F: Bill formats filtered by payment mode (Cash/UPI -> Thermal 80mm only; Credit -> Credit bill only with party ledger & signature; GST Bill option -> GST A4 & GST Thermal only). Admin "Other Formats" dropdown. Clean breadcrumbs on print viewer.
   - [x] Part G: Additive database migration `20261101150000_invoice_document_type_tier` adding `document_type` and `pricing_tier` to `invoices`. Support for `invoice.gstSeparateSeries` setting.
+
+
+- 2026-11-02: Prompt #18 Complete — Edit Invoices inside POS + Future Dates, Search Everywhere, Esc to Go Back, Roles Matrix (PRO, Accountant, Cashier), POS Quick-Add & Stock Fix, Full Godown Mobile App (Stitch) with Morning Issue Fix, Instant Order Alerts with Push & Ring, and JMD PRO Mobile App:
+  - [x] Part A: Edit Invoices in POS & Future Dates:
+    - `/shop/invoices/[id]/edit` redirects directly to `/shop/pos?edit=<id>`.
+    - POS cart populates with original lines, pricing, and revision banner. Saving via F2 enforces mandatory reason and optimistic locking via `InvoiceRevision`.
+    - Future dates up to 30 days allowed for SUPER_ADMIN, ADMIN, ACCOUNTS. Tagged `isPostDated: true`, displays "Post-dated" badge, excluded from today's creation-day totals, accounted on chosen business date.
+  - [x] Part B: Universal Search Everywhere & Esc Back:
+    - Multi-token smart search (`bhuj 400`) & party prefix ranking (`sh`) active across POS, Dispatch/Create Order, Van Billing, GRN, Transfer, Stock Update, Catalog, Price lists, Reports, Ctrl+K, Storefront, Godown Mobile, and PRO App. 9/9 tests pass in `tests/unit/search-everywhere.test.ts`.
+    - Hierarchical Esc key handler in `management-shell.tsx` (popovers/dialogs -> cancel cell edit -> clear search -> back) with unsaved changes confirmation dialog.
+  - [x] Part C: Roles & Permissions Matrix:
+    - Added new role `PRO` (Field Order Executive) with dedicated PWA workspace at `/app/pro`.
+    - Expanded `SHOP` (Cashier) permissions: GRN inbound, shop stock update, party contact edit, and today's sales summary (`F9`).
+    - Expanded `ACCOUNTS`: catalog, stock, GRN, billing, invoice revisions, parties, and financial reports.
+    - Added Roles & Permissions matrix page at `/admin/roles` (`roles-matrix-client.tsx`).
+  - [x] Part D: Shop POS Enhancements:
+    - Shortcut `F6` quick-adds products tagged `needsReview: true`, initializes shop stock, and adds to cart immediately (`QuickAddProductModal.tsx`).
+    - On-the-spot short-stock correction modal (`StockCorrectionModal.tsx`) with cashier daily safety limit (max 500 pcs/day).
+    - Stock corrections audit report at `/admin/reports/stock-corrections` with "Mark Reviewed" workflow.
+  - [x] Part E: Full Godown Mobile App (Stitch Redesign):
+    - Full mobile PWA experience at `/app/godown` (`godown-mobile-client.tsx`, 360px viewport).
+    - Bottom navigation: **Home · Orders · Issue · Stock · More**.
+    - Morning Issue 3-step workflow redesigned. Root cause bug fixed: items with `godownQty < packSize` default to 1 piece (never 0), remove cleanly deletes product key, re-clicking increments carton count.
+  - [x] Part F: Instant Order Alerts with Push & Ring:
+    - Real-time notification system (`src/modules/notifications/push-notification.service.ts`) using Web Push (VAPID) and Web Audio looping chime.
+    - Alert banner and full-screen popup whenever an order arrives with godown lines. Alert Mode with Screen Wake Lock. Escalation after 3m to admin/accounts.
+  - [x] Part G: JMD PRO Mobile App:
+    - Field sales app at `/app/pro` (`pro-mobile-client.tsx`) with 4 bottom tabs: **Parties · Punch Order · My Orders · Today**.
+    - Orders punched with status `BOOKED_BY_PRO`, tagging agent code, and immediately triggering warehouse alert.
+  - [x] Part H: Verification, Build, Deploy:
+    - Additive database migration `20261102030000_prompt18_godown_alerts_roles`.
+    - Unit tests passing.

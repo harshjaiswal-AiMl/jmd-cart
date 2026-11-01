@@ -214,11 +214,12 @@ export function CatalogClient({
 
   const filteredProducts = products.filter((product) => {
     const term = searchTerm.toLowerCase().trim();
-    const matchesSearch =
-      !term ||
-      product.name.toLowerCase().includes(term) ||
-      product.shortCode.toLowerCase().includes(term) ||
-      (product.company?.name && product.company.name.toLowerCase().includes(term));
+    let matchesSearch = true;
+    if (term) {
+      const tokens = term.split(/\s+/).filter(Boolean);
+      const searchStr = `${product.name} ${product.shortCode} ${product.weight || ""} ${product.company?.name || ""}`.toLowerCase();
+      matchesSearch = tokens.every((tok) => searchStr.includes(tok));
+    }
 
     const matchesCompany = !selectedCompany || product.companyId === selectedCompany;
     const matchesCategory = !selectedCategory || product.categoryId === selectedCategory;

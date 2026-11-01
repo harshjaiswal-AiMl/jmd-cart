@@ -33,6 +33,10 @@ export interface SaveVoucherDialogProps {
   discountPaise?: number;
   isSaving?: boolean;
   lines?: VoucherPreviewLine[];
+  isEditMode?: boolean;
+  editInvoiceNumber?: string;
+  editReason?: string;
+  onEditReasonChange?: (reason: string) => void;
 }
 
 export function SaveVoucherDialog({
@@ -50,6 +54,10 @@ export function SaveVoucherDialog({
   discountPaise = 0,
   isSaving = false,
   lines = [],
+  isEditMode = false,
+  editInvoiceNumber,
+  editReason = "",
+  onEditReasonChange,
 }: SaveVoucherDialogProps) {
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +69,7 @@ export function SaveVoucherDialog({
         e.preventDefault();
         onCancel();
       } else if (e.key === "Enter" && !isSaving) {
+        if (isEditMode && (!editReason || editReason.trim().length < 3)) return;
         e.preventDefault();
         onConfirm();
       } else if (e.key === "ArrowDown") {
@@ -93,7 +102,7 @@ export function SaveVoucherDialog({
             <span className="font-mono text-xs bg-amber-400 text-slate-950 px-2 py-0.5 rounded font-black">
               [F2]
             </span>
-            <h3 className="font-bold text-sm tracking-tight">Save Voucher Confirmation</h3>
+            <h3 className="font-bold text-sm tracking-tight">{isEditMode ? `Save Revision: ${editInvoiceNumber || "Invoice"}` : "Save Voucher Confirmation"}</h3>
           </div>
           <button
             type="button"
@@ -246,7 +255,7 @@ export function SaveVoucherDialog({
           <button
             type="button"
             onClick={onCancel}
-            disabled={isSaving}
+            disabled={isSaving || (isEditMode && (!editReason || editReason.trim().length < 3))}
             className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-bold rounded-xl transition shadow-2xs active:scale-95"
           >
             No, Continue Editing [Esc / N]

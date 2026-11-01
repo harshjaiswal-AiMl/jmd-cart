@@ -135,3 +135,25 @@ The system ships with **zero products, zero stock, zero parties, zero bills**. E
 
 
 
+
+## 14. Prompt #18 — Godown Mobile App, PRO Field Sales App, Esc Navigation & Roles Matrix
+- **Godown Mobile App (Stitch Redesign)**:
+  - Phone-first layout optimized for 360px viewport (`/app/godown`).
+  - Dark navy header with warehouse status, low stock indicator, and instant Packing Queue link.
+  - Sticky bottom tab bar: **Home · Orders · Issue · Stock · More**.
+  - Morning Issue: 3-step streamlined workflow (Van selection -> Product search -> Review & Dispatch) with full touch controls (`+`/`-` cartons & loose pieces), clear remove action, and zero-count bug fix.
+  - Real-time looping audio chime and full-screen notification banner when new orders arrive.
+  - Alert Mode toggle with Screen Wake Lock to keep phone screen awake and ready on warehouse floor.
+- **JMD PRO Mobile App**:
+  - Purpose-built field executive experience at `/app/pro` (360px mobile viewport).
+  - 4 bottom tabs: **Parties · Punch Order · My Orders · Today**.
+  - Quick-add party modal flagging new accounts for review (`needsReview: true`).
+  - Seamless order punching with automatic party price tier resolution (A/B/C), cartons & loose unit selectors, and live order value totals.
+  - Immediate trigger of warehouse alerts on booking (`BOOKED_BY_PRO`).
+  - Order cancellation prior to warehouse processing; 1-click reorder shortcut.
+- **Hierarchical Esc Navigation**:
+  - Consistent global behavior: Esc closes active dialogs -> cancels cell editing -> clears search inputs -> navigates to previous page or parent module.
+  - Prompts confirmation if unsaved voucher lines or form inputs are present.
+- **Roles Matrix & In-POS Editing**:
+  - Visual roles matrix screen at `/admin/roles` displaying permissions across all 7 operational roles with field-level access rules.
+  - In-POS invoice modification (`/shop/pos?edit=<id>`) displaying revision count banner, price change highlights, and mandatory reason dialog.

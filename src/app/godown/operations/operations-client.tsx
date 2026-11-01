@@ -1,3 +1,4 @@
+import { searchItems } from "@/lib/search/smart-search";
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
@@ -664,13 +665,8 @@ export function OperationsClient({
             {/* Filtered suggestions list */}
             {transferSearch.trim().length > 0 && (
               <div className="bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto divide-y divide-slate-100 z-10">
-                {products
-                  .filter(
-                    (p) =>
-                      p.name.toLowerCase().includes(transferSearch.toLowerCase()) ||
-                      p.shortCode.toLowerCase().includes(transferSearch.toLowerCase())
-                  )
-                  .slice(0, 15)
+                {searchItems(transferSearch, products as any, { limit: 15 })
+                  .map((h) => h.product as typeof products[0])
                   .map((p) => {
                     const isAdded = Boolean(transferItems[p.id]);
                     return (

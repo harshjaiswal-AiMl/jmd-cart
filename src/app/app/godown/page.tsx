@@ -1,111 +1,122 @@
-import React from "react";
-import Link from "next/link";
-import { Warehouse, Package, Truck, ArrowRight, Download, RefreshCw, AlertTriangle, Layers } from "lucide-react";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { LocationType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { vanService } from "@/modules/van/van.service";
+import { GodownMobileClient } from "./godown-mobile-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function GodownAppPage() {
-  const [pendingCounterPickups, lowStockProducts] = await Promise.all([
-    prisma.counterPickup.count({
-      where: { status: "PENDING" },
-    }),
-    prisma.product.count({
-      where: {
-        active: true,
-        stockBalances: {
-          some: {
-            qty: { lte: 10 },
-          },
+export default async function GodownAppPage({
+  searchParams,
+}: {
+  searchParams?: { tab?: string };
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  // 1. Fetch available Van locations
+  const vanLocations = await vanService.listVanLocations(session.user.role);
+
+  // 2. Fetch Central Godown
+  const godown = await prisma.location.findFirst({
+    where: { type: LocationType.GODOWN, active: true },
+  });
+
+  // 3. Fetch products and their Godown stock balance
+  const products = await prisma.product.findMany({
+    where: { active: true },
+    orderBy: { name: "asc" },
+  });
+
+  const godownBalances = godown
+    ? await prisma.stockBalance.findMany({
+        where: { locationId: godown.id },
+      })
+    : [];
+
+  const balanceMap = new Map<string, number>();
+  godownBalances.forEach((b) => balanceMap.set(b.productId, b.qty));
+
+  const godownProducts = products.map((p) => {
+    const qty = balanceMap.get(p.id) || 0;
+    const packSize = p.packSize > 0 ? p.packSize : 1;
+    return {
+      id: p.id,
+      name: p.name,
+      shortCode: p.shortCode,
+      weight: p.weight,
+      packSize: p.packSize,
+      packLabel: p.packLabel,
+      mrpPaise: p.mrpPaise,
+      godownQty: qty,
+      godownCartons: Math.floor(qty / packSize),
+      godownLoose: qty % packSize,
+    };
+  });
+
+  // 4. Low stock count
+  const lowStockCount = godownProducts.filter((p) => p.godownQty <= 10).length;
+
+  // 5. Unreviewed corrections count
+  const unreviewedCorrectionsCount = await prisma.stockCorrection.count({
+    where: { reviewedByUserId: null },
+  });
+
+  // 6. Pending Orders for Godown
+  const orders = await prisma.order.findMany({
+    where: {
+      status: { in: ["PENDING", "CONFIRMED", "BOOKED_BY_PRO"] as any },
+    },
+    include: {
+      orderItems: {
+        include: {
+          product: true,
         },
       },
-    }),
-  ]);
+    },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  const pendingOrders = orders.map((o) => {
+    return {
+      id: o.id,
+      orderNumber: o.orderNumber,
+      customerName: o.customerName || "Customer",
+      contactPhone: o.contactPhone || "",
+      totalPaise: o.totalPaise,
+      createdAt: o.createdAt.toISOString(),
+      status: o.status,
+      items: o.orderItems.map((item) => {
+        const packSize = item.product?.packSize || 1;
+        return {
+          id: item.id,
+          productName: item.product?.name || "Item",
+          weight: item.product?.weight || null,
+          cartons: Math.floor(item.quantity / packSize),
+          loose: item.quantity % packSize,
+          totalPieces: item.quantity,
+        };
+      }),
+    };
+  });
 
   return (
-    <div className="space-y-4">
-      {/* Hero Header */}
-      <div className="bg-[#12355B] text-white p-5 rounded-3xl shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold text-amber-300 uppercase tracking-wider">Main Godown</div>
-            <h2 className="text-2xl font-black mt-0.5">JMD Godown</h2>
-          </div>
-          <Link
-            href="/godown/dispatch"
-            className="px-5 py-2.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-sm flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
-          >
-            <Package className="w-4 h-4" />
-            <span>Packing Queue</span>
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10 text-xs">
-          <div>
-            <div className="text-white/70">Cartons To Pack</div>
-            <div className="text-lg font-black font-mono">{pendingCounterPickups}</div>
-          </div>
-          <div>
-            <div className="text-white/70">Low Stock Alert</div>
-            <div className="text-lg font-black font-mono text-amber-300">{lowStockProducts} items</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid Actions */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link
-          href="/godown/dispatch"
-          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-[#12355B] transition-all flex flex-col justify-between"
-        >
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mb-3">
-            <Package className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-black text-sm text-slate-900">Packing Queue</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">Carton-only bills from shop &amp; dispatch</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/godown/stock"
-          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-[#12355B] transition-all flex flex-col justify-between"
-        >
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center mb-3">
-            <Layers className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-black text-sm text-slate-900">Stock Count</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">Physical audit, counts &amp; adjustments</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/godown/receive-goods"
-          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-[#12355B] transition-all flex flex-col justify-between"
-        >
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center mb-3">
-            <Download className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-black text-sm text-slate-900">Receive Goods</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">Inbound supplier GRN &amp; bill scan</p>
-          </div>
-        </Link>
-
-        <Link
-          href="/godown/van-issues"
-          className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-[#12355B] transition-all flex flex-col justify-between"
-        >
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center mb-3">
-            <Truck className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-black text-sm text-slate-900">Van Issues</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">Morning load dispatch &amp; evening returns</p>
-          </div>
-        </Link>
-      </div>
-    </div>
+    <GodownMobileClient
+      initialProducts={godownProducts}
+      vanLocations={vanLocations}
+      pendingOrders={pendingOrders}
+      lowStockCount={lowStockCount}
+      unreviewedCorrectionsCount={unreviewedCorrectionsCount}
+      initialTab={searchParams?.tab || "home"}
+      user={{
+        id: session.user.id || "",
+        name: session.user.name || "Warehouse Manager",
+        role: session.user.role,
+      }}
+    />
   );
 }

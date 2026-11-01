@@ -175,8 +175,17 @@ export class ReportsRepository {
   ): Promise<DailySalesReport> {
     const where: Prisma.InvoiceWhereInput = {
       OR: [
-        { finalizedAt: { gte: startUtc, lte: endUtc } },
-        { finalizedAt: null, createdAt: { gte: startUtc, lte: endUtc } },
+        {
+          isPostDated: false,
+          OR: [
+            { finalizedAt: { gte: startUtc, lte: endUtc } },
+            { finalizedAt: null, createdAt: { gte: startUtc, lte: endUtc } },
+          ],
+        },
+        {
+          isPostDated: true,
+          invoiceDate: { gte: startUtc, lte: endUtc },
+        },
       ],
     };
 

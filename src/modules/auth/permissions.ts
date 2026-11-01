@@ -114,6 +114,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   SHOP: [
     Permission.VIEW_PRODUCTS,
     Permission.STOCK_VIEW,
+    Permission.STOCK_RECEIVE,
+    Permission.STOCK_ADJUST,
     Permission.VIEW_PARTIES,
     Permission.VIEW_LEDGER,
     Permission.RECORD_COLLECTION,
@@ -122,6 +124,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.POS_CASH_CLOSE,
     Permission.VIEW_ORDERS,
     Permission.VIEW_INVOICES,
+    Permission.REPORTS_VIEW,
   ],
 
   SALESPERSON: [
@@ -141,16 +144,36 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   ACCOUNTS: [
     Permission.VIEW_PRODUCTS,
+    Permission.MANAGE_PRODUCTS,
+    Permission.IMPORT_PRODUCTS,
     Permission.STOCK_VIEW,
+    Permission.STOCK_RECEIVE,
+    Permission.STOCK_TRANSFER,
+    Permission.STOCK_CARTON_BREAK,
+    Permission.STOCK_AUDIT,
+    Permission.STOCK_ADJUST,
+    Permission.POS_BILL,
+    Permission.POS_HOLD_RESUME,
+    Permission.BILL_CANCEL,
     Permission.VIEW_PARTIES,
     Permission.VIEW_LEDGER,
     Permission.MANAGE_PARTIES,
     Permission.RECORD_COLLECTION,
     Permission.CONFIRM_CASH_HANDOVER,
+    Permission.OVERRIDE_CREDIT_LIMIT,
     Permission.ACCOUNTS_VIEW,
     Permission.REPORTS_VIEW,
     Permission.RETURN_TO_COMPANY,
     Permission.VIEW_INVOICES,
+    Permission.DISPATCH_MANAGE,
+  ],
+
+  PRO: [
+    Permission.VIEW_PRODUCTS,
+    Permission.VIEW_PARTIES,
+    Permission.MANAGE_PARTIES,
+    Permission.VIEW_ORDERS,
+    Permission.MANAGE_ORDERS,
   ],
 
   CUSTOMER: [
@@ -187,10 +210,11 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
     "/reports",
     "/app/godown",
   ],
-  SHOP: ["/shop", "/admin/parties", "/app/shop"],
+  SHOP: ["/shop", "/admin/parties", "/godown/purchases", "/godown/stock", "/app/shop"],
   SALESPERSON: ["/van", "/app/van"],
   DELIVERY: ["/delivery", "/app/delivery"],
-  ACCOUNTS: ["/accounts", "/admin/reports", "/admin/parties", "/godown/returns", "/reports", "/app/accounts"],
+  ACCOUNTS: ["/accounts", "/admin", "/reports", "/godown", "/shop", "/app/accounts"],
+  PRO: ["/app/pro"],
   CUSTOMER: ["/store"],
 };
 

@@ -197,14 +197,24 @@ export class InvoiceEditService {
           const mm = String(originalParts.minutes).padStart(2, '0');
           const ss = String(originalParts.seconds).padStart(2, '0');
           const parsedDate = new Date(`${input.invoiceDate}T${hh}:${mm}:${ss}+05:30`);
+          const isPrivileged =
+            role === UserRole.SUPER_ADMIN ||
+            role === UserRole.ADMIN ||
+            role === UserRole.ACCOUNTS;
+
           const dateCheck = validateManualDate({
             date: parsedDate,
-            maxBackDays: role === UserRole.SHOP ? 7 : 30,
+            maxBackDays: isPrivileged ? 30 : 7,
+            maxFutureDays: isPrivileged ? 30 : 0,
           });
           if (!dateCheck.valid) {
             throw new Error(dateCheck.error);
           }
           targetDate = parsedDate;
+          if (dateCheck.isFuture) {
+            (invoice as any).isPostDated = true;
+            (invoice as any).postDatedReason = input.dateChangeReason || input.reason;
+          }
         }
       }
 
@@ -403,6 +413,8 @@ export class InvoiceEditService {
           customerAddress: input.customerAddress !== undefined ? input.customerAddress : invoice.customerAddress,
           invoiceDate: targetDate,
           dateChangeReason: input.dateChangeReason || invoice.dateChangeReason,
+          isPostDated: Boolean((invoice as any).isPostDated),
+          postDatedReason: (invoice as any).postDatedReason || null,
           subtotalPaise: invoiceTotals.subtotalPaise,
           discountPaise: invoiceTotals.lineDiscountPaise + invoiceTotals.orderDiscountPaise,
           taxablePaise: invoiceTotals.taxablePaise,

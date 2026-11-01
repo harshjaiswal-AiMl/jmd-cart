@@ -540,3 +540,33 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
     - Additive database migration `20261101150000_invoice_document_type_tier` adding `document_type` (`RETAIL` | `GST`) and `pricing_tier` (`AUTO` | `TIER_A` | `TIER_B` | `TIER_C`) to `invoices`.
     - Support for `invoice.gstSeparateSeries` setting (default off uses standard `INV/...`, if on uses `GST/...`).
   - **Payment-Mode Print Filtering (`src/app/shop/invoices/[id]/print/`):** Filter tabs based on payment mode (Cash/UPI -> Thermal 80mm only; Credit -> Credit bill only; GST -> GST A4 & GST Thermal only). Role-based "Other Formats" dropdown for Admins. Clean breadcrumbs in `management-shell.tsx`.
+
+
+### 2026-11-02: Prompt #18 — Edit Invoices in POS + Future Dates, Search Everywhere, Esc to Go Back, Roles Matrix (PRO, Accountant, Cashier), POS Quick-Add & Stock Fix, Full Godown Mobile App (Stitch) with Morning Issue Fix, Instant Order Alerts with Push & Ring, and JMD PRO Mobile App
+
+- **Owner Requirements Delivered:**
+  1. **Edit Invoices Directly in POS:** Legacy `/shop/invoices/[id]/edit` redirects to `/shop/pos?edit=<id>`. POS cart populates with original invoice lines and pricing. Edit banner shows revision count and original total. Saving via F2 requires a mandatory reason, creates an immutable `InvoiceRevision` record with optimistic concurrency lock, and recalculates stock differences.
+  2. **Allow Future Dates for Bill Date:** Bill date picker permits future dates up to 30 days ahead for privileged roles (SUPER_ADMIN, ADMIN, ACCOUNTS). Flags invoice with `isPostDated: true` and displays "Post-dated" badge. Post-dated invoices are excluded from creation-day sales totals (`reports.repository.ts`) and accounted on their selected business date.
+  3. **Unified Search Everywhere:** Multi-token search (`bhuj 400`) and party prefix ranking (`sh`) operational on all surfaces: Shop POS, Dispatch/Create Order, Van Billing, GRN Inbound, Godown Transfer, Stock Update, Catalog, Price lists, Reports, Command Palette (Ctrl+K), Storefront, Godown Mobile, and PRO App.
+  4. **Esc Key Goes Back Everywhere:** Hierarchical Esc key handler installed in `management-shell.tsx`: (1) Close open popovers/dialogs -> (2) Cancel active cell edit -> (3) Clear non-empty search input -> (4) Navigate back `router.back()` or fallback to parent module route. Includes unsaved changes confirmation dialog.
+  5. **Roles & Permissions System:**
+     - Added new role `PRO` (Field Order Executive) with dedicated PWA workspace at `/app/pro`.
+     - Wider `ACCOUNTS` access: Full product catalog, stock view and adjustment, inbound GRN, billing, invoice revisions, parties, and financial reports.
+     - Wider `SHOP` (Cashier) access: Inbound GRN, shop stock update, party contact edit, and today's sales summary (`F9`).
+     - Added Roles & Permissions matrix page at `/admin/roles` (`roles-matrix-client.tsx`) and registered in `nav.config.ts`.
+  6. **Shop POS Quick-Add & Stock Fix:**
+     - Shortcut `F6` opens Quick-Add modal: instantly creates a new product tagged `needsReview: true`, initializes shop stock, and appends to active bill.
+     - Cashier short-stock correction modal: when billing quantity exceeds stock, cashier can correct stock balance immediately with reason (capped at 500 pcs/day limit).
+     - Stock corrections audit report at `/admin/reports/stock-corrections` with "Mark Reviewed" workflow.
+  7. **Godown Mobile App (Stitch Redesign):**
+     - Full mobile PWA experience at `/app/godown` (`godown-mobile-client.tsx`, 360px viewport).
+     - Bottom navigation: **Home · Orders · Issue · Stock · More**.
+     - Morning Issue 3-step workflow redesigned. Root cause bug fixed: items with `godownQty < packSize` default to 1 piece (never 0), remove cleanly deletes product key, re-clicking increments carton count.
+  8. **Instant Order Alerts with Push & Ring:**
+     - Real-time notification system (`src/modules/notifications/push-notification.service.ts`) using Web Push (VAPID) and Web Audio looping chime.
+     - Alert banner and full-screen popup whenever an order is booked with godown lines.
+     - Alert Mode with Screen Wake Lock. Automatic escalation to admin/accounts after 3 minutes if unaccepted.
+  9. **JMD PRO Mobile App:**
+     - Field sales app at `/app/pro` (`pro-mobile-client.tsx`) with 4 bottom tabs: **Parties · Punch Order · My Orders · Today**.
+     - Orders punched with status `BOOKED_BY_PRO`, tagging agent code, and immediately triggering warehouse alert.
+     - Cancel permitted only prior to godown acceptance; 1-click "Reorder" shortcut.

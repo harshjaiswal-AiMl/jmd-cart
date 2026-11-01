@@ -1,3 +1,4 @@
+import { searchItems } from "@/lib/search/smart-search";
 "use client";
 
 import { useState, useMemo } from "react";
@@ -62,24 +63,40 @@ export function NewVanIssueClient({
 
   const handleCartonChange = (productId: string, val: number) => {
     const safeVal = Math.max(0, val || 0);
-    setLoadItems((prev) => ({
-      ...prev,
-      [productId]: {
-        cartons: safeVal,
-        pieces: prev[productId]?.pieces || 0,
-      },
-    }));
+    setLoadItems((prev) => {
+      const existingPieces = prev[productId]?.pieces || 0;
+      if (safeVal === 0 && existingPieces === 0) {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      }
+      return {
+        ...prev,
+        [productId]: {
+          cartons: safeVal,
+          pieces: existingPieces,
+        },
+      };
+    });
   };
 
   const handlePieceChange = (productId: string, val: number) => {
     const safeVal = Math.max(0, val || 0);
-    setLoadItems((prev) => ({
-      ...prev,
-      [productId]: {
-        cartons: prev[productId]?.cartons || 0,
-        pieces: safeVal,
-      },
-    }));
+    setLoadItems((prev) => {
+      const existingCartons = prev[productId]?.cartons || 0;
+      if (safeVal === 0 && existingCartons === 0) {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      }
+      return {
+        ...prev,
+        [productId]: {
+          cartons: existingCartons,
+          pieces: safeVal,
+        },
+      };
+    });
   };
 
   const salespersonOptions = useMemo(
@@ -95,23 +112,18 @@ export function NewVanIssueClient({
     [salespersons]
   );
 
-  // Filter products by search and rank in-stock first
+  // Filter products by smart multi-token search and rank in-stock first
   const filteredProducts = useMemo(() => {
-    return godownProducts
-      .filter((p) => {
-        if (!search.trim()) return true;
-        const q = search.toLowerCase();
-        return (
-          p.name.toLowerCase().includes(q) ||
-          p.shortCode.toLowerCase().includes(q)
-        );
-      })
-      .sort((a, b) => {
+    if (!search.trim()) {
+      return [...godownProducts].sort((a, b) => {
         const aStock = a.godownQty > 0 ? 1 : 0;
         const bStock = b.godownQty > 0 ? 1 : 0;
         if (aStock !== bStock) return bStock - aStock;
         return a.name.localeCompare(b.name);
       });
+    }
+    const hits = searchItems(search, godownProducts as any, { limit: 50 });
+    return hits.map((h) => h.product as typeof godownProducts[0]);
   }, [godownProducts, search]);
 
   // Calculate totals
@@ -299,7 +311,8 @@ export function NewVanIssueClient({
                 </div>
               ) : (
                 filteredProducts.slice(0, 15).map((p) => {
-                  const isAlreadyAdded = !!loadItems[p.id];
+                  const counts = loadItems[p.id];
+                  const isAlreadyAdded = Boolean(counts && (counts.cartons > 0 || counts.pieces > 0));
                   const ctn = Math.floor(p.godownQty / p.packSize);
                   const loose = p.godownQty % p.packSize;
 
@@ -308,9 +321,27 @@ export function NewVanIssueClient({
                       key={p.id}
                       className="p-3 hover:bg-blue-50/60 flex items-center justify-between gap-3 transition cursor-pointer"
                       onClick={() => {
-                        if (!isAlreadyAdded) {
-                          handleCartonChange(p.id, p.godownQty >= p.packSize ? 1 : 0);
-                        }
+                        setLoadItems((prev) => {
+                          const existing = prev[p.id];
+                          if (existing && (existing.cartons > 0 || existing.pieces > 0)) {
+                            return {
+                              ...prev,
+                              [p.id]: {
+                                cartons: existing.cartons + 1,
+                                pieces: existing.pieces,
+                              },
+                            };
+                          }
+                          const initialCartons = p.godownQty >= p.packSize ? 1 : 0;
+                          const initialPieces = initialCartons === 0 ? 1 : 0;
+                          return {
+                            ...prev,
+                            [p.id]: {
+                              cartons: initialCartons,
+                              pieces: initialPieces,
+                            },
+                          };
+                        });
                         setSearch("");
                       }}
                     >
@@ -348,7 +379,7 @@ export function NewVanIssueClient({
                               : "bg-blue-600 text-white hover:bg-blue-700"
                           }`}
                         >
-                          {isAlreadyAdded ? "Added" : "+ Add"}
+                          {isAlreadyAdded ? "Added (+1)" : "+ Add"}
                         </button>
                       </div>
                     </div>

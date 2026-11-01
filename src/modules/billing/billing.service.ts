@@ -65,17 +65,23 @@ export class BillingService {
     const validated = finalizeInvoiceInputSchema.parse(input);
 
     if (validated.invoiceDate) {
-      if (role !== UserRole.SUPER_ADMIN && role !== UserRole.ADMIN) {
-        throw new ForbiddenError("Only Administrator can create backdated invoices");
+      if (role !== UserRole.SUPER_ADMIN && role !== UserRole.ADMIN && role !== UserRole.ACCOUNTS) {
+        throw new ForbiddenError("Only Administrator or Accountant can create backdated invoices");
       }
       const tenMinutesFromNow = new Date(Date.now() + 10 * 60 * 1000);
       if (validated.invoiceDate > tenMinutesFromNow) {
-        throw new Error("Invoice date cannot be in the future");
+        const maxFutureDays = 30;
+        const maxFutureDate = new Date(Date.now() + maxFutureDays * 24 * 60 * 60 * 1000);
+        if (validated.invoiceDate > maxFutureDate) {
+          throw new Error(`Future invoice date cannot exceed ${maxFutureDays} days`);
+        }
       }
     }
 
     const now = new Date();
     const effectiveDate = validated.invoiceDate ? new Date(validated.invoiceDate) : now;
+    const isPostDated = Boolean(validated.invoiceDate && new Date(validated.invoiceDate) > new Date(Date.now() + 10 * 60 * 1000));
+    const postDatedReason = isPostDated ? (validated.notes || "Post-dated invoice") : null;
 
     // 1b. Idempotency deduplication: if already created with this idempotencyKey, return existing invoice
     if (validated.idempotencyKey) {
@@ -320,6 +326,8 @@ export class BillingService {
             createdAt: now,
             finalizedAt: effectiveDate,
             invoiceDate: validated.invoiceDate ? effectiveDate : now,
+            isPostDated,
+            postDatedReason,
             items: {
               create: orderPricing.lines.map((line, idx) => {
                 const orig = validated.items[idx];

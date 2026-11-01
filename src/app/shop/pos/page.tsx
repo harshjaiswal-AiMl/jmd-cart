@@ -6,7 +6,7 @@ import { settingsService } from "@/modules/settings/settings.service";
 import { previewNextInvoiceNumber } from "@/lib/invoice-number";
 import { PosClient } from "./pos-client";
 
-export default async function ShopPosPage() {
+export default async function ShopPosPage({ searchParams }: { searchParams?: Promise<{ edit?: string }> }) {
   const session = await auth();
 
   if (!session?.user) {
@@ -16,7 +16,8 @@ export default async function ShopPosPage() {
   if (
     session.user.role !== UserRole.SHOP &&
     session.user.role !== UserRole.SUPER_ADMIN &&
-    session.user.role !== UserRole.ADMIN
+    session.user.role !== UserRole.ADMIN &&
+    session.user.role !== UserRole.ACCOUNTS
   ) {
     redirect("/login");
   }
@@ -149,6 +150,39 @@ export default async function ShopPosPage() {
       ? 10000
       : roleLimits[session.user.role] ?? 500;
 
+
+  const params = searchParams ? await searchParams : undefined;
+  let initialEditInvoice: any = null;
+  if (params?.edit) {
+    const inv = await prisma.invoice.findUnique({
+      where: { id: params.edit },
+      include: {
+        party: true,
+        items: {
+          include: {
+            product: {
+              include: {
+                company: true,
+                category: true,
+                stockBalances: true,
+              },
+            },
+          },
+        },
+        payments: true,
+        revisions: {
+          include: {
+            editor: { select: { id: true, name: true, role: true } },
+          },
+          orderBy: { revisionNumber: "desc" },
+        },
+      },
+    });
+    if (inv && inv.status !== "CANCELLED") {
+      initialEditInvoice = JSON.parse(JSON.stringify(inv));
+    }
+  }
+
   return (
     <PosClient
       locationId={shopLocation.id}
@@ -162,6 +196,7 @@ export default async function ShopPosPage() {
       companies={companies}
       parties={parties}
       nextInvoicePreview={nextInvoicePreview}
+      initialEditInvoice={initialEditInvoice}
     />
   );
 }

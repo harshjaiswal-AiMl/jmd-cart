@@ -251,3 +251,35 @@ One codebase, one database, two hostnames routed by Next.js `middleware.ts` base
   - Schema addition: `document_type` (`RETAIL` | `GST`) and `pricing_tier` (`AUTO` | `TIER_A` | `TIER_B` | `TIER_C`) on `invoices` (`prisma/migrations/20261101150000_invoice_document_type_tier`).
   - Dual sequence series routing: supports `invoice.gstSeparateSeries` configuration setting (default off uses `INV/26-27/...`; enabled uses `GST/26-27/...`).
   - Print viewer tab filtering: Cash/UPI retail sales route exclusively to Thermal 80mm cash bill; Credit retail sales route to Credit bill with customer ledger breakdown; GST bills route to GST A4 Tax Invoice and GST Thermal formats. Super Admin & Admin maintain override access via "Other Formats" selector.
+
+
+## 19. Direct POS Invoice Editing, Future Dates, Roles Matrix, Godown Mobile App & PRO Mobile App (Prompt #18)
+- **Direct POS Invoice Modification Architecture**:
+  - Legacy `/shop/invoices/[id]/edit` routes redirect permanently to `/shop/pos?edit=<id>`.
+  - Server action `loadInvoiceForPosEditAction` loads invoice details, original pricing, line items, and existing revisions directly into POS client.
+  - POS client runs in `isEditMode`: displays revision count and original total banner, allows line and price modifications, and requires a mandatory revision reason on `F2` save.
+  - Saves via `saveInvoiceRevisionAction` creating immutable `InvoiceRevision` records with optimistic concurrency locking and append-only stock delta movements (`SALE` / `SALE_CANCEL`).
+- **Future Date Accounting & Post-Dated Flags**:
+  - Privileged roles (SUPER_ADMIN, ADMIN, ACCOUNTS) can specify future bill dates up to 30 days ahead via `Asia/Kolkata` datetime validation (`validateManualDate`).
+  - Flagged in database with `isPostDated: true` and `postDatedReason`.
+  - Reports repository (`src/modules/reports/reports.repository.ts`) excludes post-dated invoices from creation-day sales totals and registers them on their designated business date.
+- **Universal Search Across All Surfaces**:
+  - Multi-token smart search (`bhuj 400`, normalized weight) and party prefix ranking (`sh`) unified across POS, Create Order, Van Billing, Inbound GRN, Stock Update, Catalog, Price lists, Reports, Ctrl+K, Storefront, Godown Mobile, and PRO App.
+- **Hierarchical Esc Navigation**:
+  - Centralized in `management-shell.tsx`: (1) Close open dialogs/popovers -> (2) Cancel active cell edit -> (3) Clear non-empty search input -> (4) Navigate back `router.back()` or parent module route, prompting if unsaved changes exist.
+- **Role Permissions & System Expansion**:
+  - Role `PRO`: Field Order Booking executive (`/app/pro`, status `BOOKED_BY_PRO`).
+  - Expanded `ACCOUNTS`: full catalog, stock view/update, GRN, billing, invoice revisions, parties, financial reports.
+  - Expanded `SHOP` (Cashier): GRN inbound, shop stock update, party contact edit, today's sales summary (`F9`).
+  - Permission matrix screen at `/admin/roles` (`roles-matrix-client.tsx`).
+- **Shop POS Quick-Add & Stock Fixes**:
+  - Shortcut `F6` opens `QuickAddProductModal`: creates product with `needsReview: true`, initializes shop stock, and appends to active bill.
+  - Cashier short-stock correction modal (`StockCorrectionModal`): allows immediate correction of short stock with reason, bounded by daily cashier limits.
+  - Stock corrections report at `/admin/reports/stock-corrections` with "Mark Reviewed" workflow.
+- **Godown Mobile App (Stitch Redesign) & Instant Alerts**:
+  - Dedicated mobile PWA at `/app/godown` with bottom navigation (**Home · Orders · Issue · Stock · More**).
+  - Web Push service (`src/modules/notifications/push-notification.service.ts`) with Web Audio looping chime and full-screen alert overlay on order arrival.
+  - Morning Issue 3-step workflow redesigned. Root cause bug fixed: items with `godownQty < packSize` default to 1 piece (never 0), remove cleanly deletes product key, re-clicking increments carton count.
+- **JMD PRO Mobile App**:
+  - Dedicated mobile PWA at `/app/pro` with 4 bottom tabs (**Parties · Punch Order · My Orders · Today**).
+  - Field executives punch orders on behalf of parties, resolve price tiers, check credit, and immediately trigger warehouse alert.

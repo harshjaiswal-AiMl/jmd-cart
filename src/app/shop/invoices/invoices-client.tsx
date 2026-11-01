@@ -331,6 +331,11 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
                             Rev {inv.version}
                           </span>
                         )}
+                        {Boolean((inv as any).isPostDated) && (
+                          <span className="px-1.5 py-0.2 rounded font-black text-[9px] uppercase bg-amber-100 text-amber-900 border border-amber-300">
+                            Post-dated
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="p-3.5 text-slate-600 font-mono">
@@ -396,7 +401,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
                         </Link>
                         {inv.status !== "CANCELLED" && (
                           <Link
-                            href={`/shop/invoices/${inv.id}/edit`}
+                            href={`/shop/pos?edit=${inv.id}`}
                             title="Edit Invoice"
                             className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
                           >

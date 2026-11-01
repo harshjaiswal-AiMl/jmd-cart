@@ -16,6 +16,7 @@ import {
   Calculator,
   ShieldCheck,
   RotateCcw,
+  Users,
 } from "lucide-react";
 
 interface RoleAppShellProps {
@@ -34,6 +35,7 @@ const APPS_FOR_SWITCHER = [
   { role: "van", label: "JMD Van (Route Sales)", icon: Truck, path: "/app/van" },
   { role: "delivery", label: "JMD Delivery (Driver)", icon: Bike, path: "/app/delivery" },
   { role: "accounts", label: "JMD Accounts (Accountant)", icon: Calculator, path: "/app/accounts" },
+  { role: "pro", label: "JMD PRO (Field Agent)", icon: Users, path: "/app/pro" },
   { role: "owner", label: "JMD Owner (Executive)", icon: ShieldCheck, path: "/app/owner" },
 ];
 
@@ -49,6 +51,7 @@ export function RoleAppShell({ user, children }: RoleAppShellProps) {
   // Derive current app from path
   const currentAppKey = pathname.split("/")[2] || "shop";
   const currentApp = APPS_FOR_SWITCHER.find((a) => a.role === currentAppKey) || APPS_FOR_SWITCHER[0];
+  const hasCustomBottomNav = currentAppKey === "godown" || currentAppKey === "pro";
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -218,7 +221,8 @@ export function RoleAppShell({ user, children }: RoleAppShellProps) {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <footer className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg safe-area-pb">
+      {!hasCustomBottomNav && (
+        <footer className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg safe-area-pb">
         <div className="max-w-md mx-auto px-2 py-1.5 flex items-center justify-around text-slate-600">
           {currentAppKey === "shop" && (
             <>
@@ -342,7 +346,8 @@ export function RoleAppShell({ user, children }: RoleAppShellProps) {
             </>
           )}
         </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

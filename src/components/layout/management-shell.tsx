@@ -239,10 +239,61 @@ export function ManagementShell({
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setCmdOpen((prev) => !prev);
-      } else if (e.key === "Escape") {
-        setCmdOpen(false);
-        setNotifOpen(false);
-        setUserMenuOpen(false);
+        return;
+      }
+
+      if (e.key === "Escape") {
+        if (e.isComposing) return;
+        const activeEl = document.activeElement as HTMLElement | null;
+        if (activeEl?.tagName === "SELECT") return;
+
+        // 1. Close open popover / modal / drawer in shell
+        if (cmdOpen) {
+          e.preventDefault();
+          setCmdOpen(false);
+          return;
+        }
+        if (notifOpen) {
+          e.preventDefault();
+          setNotifOpen(false);
+          return;
+        }
+        if (userMenuOpen) {
+          e.preventDefault();
+          setUserMenuOpen(false);
+          return;
+        }
+        if (mobileDrawerOpen) {
+          e.preventDefault();
+          setMobileDrawerOpen(false);
+          return;
+        }
+
+        // 2. Clear non-empty search / input box
+        if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+          const inputEl = activeEl as HTMLInputElement;
+          if (inputEl.value && inputEl.value.length > 0) {
+            e.preventDefault();
+            inputEl.value = "";
+            inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+            return;
+          }
+          activeEl.blur();
+          return;
+        }
+
+        // 3. Navigate back to previous page or parent route
+        e.preventDefault();
+        if (window.history.length > 1) {
+          router.back();
+        } else {
+          const segments = pathname.split("/").filter(Boolean);
+          if (segments.length > 1) {
+            router.push("/" + segments.slice(0, -1).join("/"));
+          } else {
+            router.push("/admin");
+          }
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);

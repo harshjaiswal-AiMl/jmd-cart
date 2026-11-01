@@ -5,6 +5,7 @@ import { allocationService } from "@/modules/stock/allocation.service";
 import { auditService } from "@/modules/audit/audit.service";
 import { getNextSequenceNumber } from "@/lib/invoice-number";
 import { ForbiddenError } from "@/modules/auth/permissions";
+import { pushNotificationService } from "@/modules/notifications/push-notification.service";
 
 export interface CreateManualOrderLine {
   productId: string;
@@ -40,9 +41,10 @@ export class ManualOrderService {
     if (
       actor.role !== UserRole.SUPER_ADMIN &&
       actor.role !== UserRole.ADMIN &&
-      actor.role !== UserRole.WAREHOUSE_MANAGER
+      actor.role !== UserRole.WAREHOUSE_MANAGER &&
+      (actor.role as any) !== "PRO"
     ) {
-      throw new ForbiddenError("Only Warehouse Manager and Admins can create manual orders");
+      throw new ForbiddenError("Only Warehouse Manager, Admins, and PRO agents can create manual orders");
     }
 
     if (!input.lines || input.lines.length === 0) {
@@ -219,7 +221,9 @@ export class ManualOrderService {
           partyId: party.id,
           channel: OrderChannel.MANUAL,
           createdByUserId: actor.id,
-          status: OrderStatus.CONFIRMED,
+          status: actor.role === "PRO" ? (OrderStatus as any).BOOKED_BY_PRO : OrderStatus.CONFIRMED,
+          bookedByProId: actor.role === "PRO" ? actor.id : null,
+          bookedByAgentCode: (actor as any).agentCode || null,
           deliveryZoneCode: input.deliveryZoneCode || "ZONE-1",
           deliveryZoneName: input.deliveryZoneName || "Saharsa Town",
           deliveryAddress: input.deliveryAddress || party.address || "Saharsa",
@@ -279,6 +283,25 @@ export class ManualOrderService {
         allocations,
       },
     });
+
+    // Trigger order alert to godown manager (push & ring)
+    try {
+      await pushNotificationService.triggerOrderAlert({
+        id: createdOrder.id,
+        orderNumber: createdOrder.orderNumber,
+        totalPaise: createdOrder.totalPaise,
+        party: { name: party.name },
+        items: createdOrder.items.map((it) => ({
+          quantity: it.qty,
+          product: {
+            name: productMap.get(it.productId)?.name || "Item",
+            packSize: productMap.get(it.productId)?.packSize || 1,
+          },
+        })),
+      });
+    } catch (err) {
+      console.error("[ManualOrder] Failed to trigger order alert:", err);
+    }
 
     return {
       order: createdOrder,

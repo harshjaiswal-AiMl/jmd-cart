@@ -27,14 +27,18 @@ export class CatalogRepository {
       whereParts.push(Prisma.sql`p.category_id = ${query.categoryId}`);
     }
     if (query.q && query.q.trim().length > 0) {
-      const pattern = `%${query.q.trim()}%`;
-      whereParts.push(Prisma.sql`(
-        p.short_code ILIKE ${pattern}
-        OR p.name ILIKE ${pattern}
-        OR EXISTS (
-          SELECT 1 FROM companies c WHERE c.id = p.company_id AND c.name ILIKE ${pattern}
-        )
-      )`);
+      const tokens = query.q.trim().split(/\s+/).filter(Boolean);
+      for (const token of tokens) {
+        const pattern = `%${token}%`;
+        whereParts.push(Prisma.sql`(
+          p.short_code ILIKE ${pattern}
+          OR p.name ILIKE ${pattern}
+          OR COALESCE(p.weight, '') ILIKE ${pattern}
+          OR EXISTS (
+            SELECT 1 FROM companies c WHERE c.id = p.company_id AND c.name ILIKE ${pattern}
+          )
+        )`);
+      }
     }
 
     const whereSql = whereParts.length > 0 ? Prisma.join(whereParts, " AND ") : undefined;
@@ -97,9 +101,14 @@ export class CatalogRepository {
         { shortCode: { contains: query.q.trim(), mode: "insensitive" } },
       ];
 
-      // Multi-token match on name
+      // Multi-token match across name, weight, code, company
       const nameTokenAndClauses = tokens.map((token) => ({
-        name: { contains: token, mode: "insensitive" as Prisma.QueryMode },
+        OR: [
+          { name: { contains: token, mode: "insensitive" as Prisma.QueryMode } },
+          { weight: { contains: token, mode: "insensitive" as Prisma.QueryMode } },
+          { shortCode: { contains: token, mode: "insensitive" as Prisma.QueryMode } },
+          { company: { name: { contains: token, mode: "insensitive" as Prisma.QueryMode } } },
+        ],
       }));
 
       orClauses.push({ AND: nameTokenAndClauses });

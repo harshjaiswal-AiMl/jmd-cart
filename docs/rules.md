@@ -92,3 +92,11 @@ Short imperatives for humans and AI agents. If a rule blocks you, stop and ask. 
 - After each step: update `tasks.md` (tick the box) and add decisions or gotchas to `memory.md`.
 - Never claim something works without running it. Show the command and output.
 - If unsure about a business rule, ask. Do not invent it.
+
+- **Invoice Editing in POS (Prompt #18)**: Invoices are edited directly inside Shop POS (`/shop/pos?edit=<id>`). Legacy `/shop/invoices/[id]/edit` redirects to POS. All edits require a mandatory reason, enforce optimistic concurrency locking, and post immutable delta movements.
+- **Future Invoicing & Post-Dated Rules (Prompt #18)**: Privileged roles (SUPER_ADMIN, ADMIN, ACCOUNTS) may date invoices up to 30 days in advance. Invoices with future dates are flagged `isPostDated: true` and excluded from creation-day sales totals (`reports.repository.ts`), accounting strictly on their designated business date.
+- **Universal Search Everywhere (Prompt #18)**: Multi-token search (`bhuj 400`, weight tokens) and party prefix ranking (`sh`) must be maintained across all search surfaces (POS, Dispatch, Van, GRN, Transfer, Stock Update, Catalog, Reports, Ctrl+K, Storefront, Godown Mobile, and PRO App).
+- **Esc Key Navigation Hierarchy (Prompt #18)**: Global Esc handler strictly prioritizes: Close open dialogs/popovers -> Cancel active cell edit -> Clear non-empty search input -> Navigate back `router.back()` or fallback to parent module route, prompting if there are unsaved changes.
+- **Role Separation & New Roles (Prompt #18)**: `PRO` role operates field order booking (`/app/pro`, status `BOOKED_BY_PRO`). Expanded `SHOP` (Cashier) and `ACCOUNTS` permissions must adhere to the matrix in `/admin/roles`.
+- **Godown Order Alerts & Looping Ring (Prompt #18)**: Inbound orders with godown lines trigger instant push notifications and looping ring for warehouse managers, with escalation after 3 minutes if unaccepted.
+- **Morning Issue Invariant (Prompt #18)**: In Morning Issue, items with `godownQty < packSize` must default to 1 piece (never 0), remove must cleanly delete the item, and re-selecting must increment cartons.

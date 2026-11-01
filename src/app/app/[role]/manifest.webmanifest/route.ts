@@ -54,6 +54,17 @@ const ROLE_CONFIGS: Record<string, RoleManifestConfig> = {
       { name: "Delivery Zones", url: "/delivery/zones" },
     ],
   },
+  pro: {
+    name: "JMD PRO - Field Order Booking App",
+    shortName: "JMD PRO",
+    description: "Mobile order booking for field executives, party creation, credit checks, and instant warehouse alert",
+    themeColor: "#4338CA",
+    shortcuts: [
+      { name: "Punch Order", url: "/app/pro?tab=punch" },
+      { name: "Parties", url: "/app/pro?tab=parties" },
+      { name: "My Orders", url: "/app/pro?tab=orders" },
+    ],
+  },
   accounts: {
     name: "JMD Accounts - Ledger & Outstanding App",
     shortName: "JMD Accounts",

@@ -41,6 +41,23 @@ const GODOWN_AND_ADMIN: UserRole[] = [
 ];
 
 export const NAV_ITEMS: NavItem[] = [
+  {
+    id: "inv-stock-corrections",
+    group: "Inventory",
+    label: "Stock Corrections at Billing",
+    icon: "ClipboardCheck",
+    href: "/admin/reports/stock-corrections",
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+  },
+  {
+    id: "people-roles",
+    group: "Settings & People",
+    label: "Roles & Permissions Matrix",
+    icon: "UserCog",
+    href: "/admin/roles",
+    roles: [...ADMIN_ROLES],
+  },
+
   // 1. Dashboard (Admin, Accounts, Godown)
   {
     id: "dash-owner",
@@ -66,7 +83,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Shop Billing (POS)",
     icon: "Receipt",
     href: "/shop/pos",
-    roles: [...ADMIN_ROLES, UserRole.SHOP],
+    roles: [...ADMIN_ROLES, UserRole.SHOP, UserRole.ACCOUNTS],
   },
   {
     id: "sales-invoices",
@@ -207,7 +224,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Update Stock & Excel",
     icon: "FileSpreadsheet",
     href: "/godown/stock/update",
-    roles: [...ADMIN_ROLES],
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS, UserRole.SHOP],
   },
   {
     id: "inv-operations",
@@ -215,7 +232,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Operations & Transfers",
     icon: "ArrowLeftRight",
     href: "/godown/operations",
-    roles: [...GODOWN_AND_ADMIN],
+    roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS],
     badgeKey: "autoConverted",
   },
   {
@@ -224,7 +241,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Stock Movements",
     icon: "History",
     href: "/admin/stock",
-    roles: [...ADMIN_ROLES],
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
   },
   {
     id: "inv-purchases",
@@ -232,7 +249,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Purchases / GRN",
     icon: "ClipboardCheck",
     href: "/godown/purchases",
-    roles: [...GODOWN_AND_ADMIN],
+    roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS, UserRole.SHOP],
   },
   {
     id: "inv-receive-goods",
@@ -240,7 +257,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Receive Goods (Scan Bill)",
     icon: "FileUp",
     href: "/godown/receive-goods",
-    roles: [...ADMIN_ROLES],
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
   },
   {
     id: "van-issues",
@@ -258,7 +275,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Products",
     icon: "Package",
     href: "/admin/catalog",
-    roles: [...ADMIN_ROLES],
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
   },
   {
     id: "cat-companies",
@@ -266,7 +283,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Brands / Companies",
     icon: "Building2",
     href: "/admin/crud/companies",
-    roles: [...ADMIN_ROLES],
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
   },
   {
     id: "cat-categories",
@@ -274,7 +291,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Categories",
     icon: "Tags",
     href: "/admin/crud/categories",
-    roles: [...ADMIN_ROLES],
+    roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
   },
   {
     id: "cat-price-lists",
@@ -282,7 +299,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Price Lists (A/B/C)",
     icon: "IndianRupee",
     href: "/admin/catalog/price-lists",
-    roles: [...WAREHOUSE_ROLES],
+    roles: [...WAREHOUSE_ROLES, UserRole.ACCOUNTS],
   },
   {
     id: "cat-price-slabs",

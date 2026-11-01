@@ -282,11 +282,10 @@ export function UpdateStockClient({
       if (showOnlyModified && !isRowModified(p)) return false;
       if (tableCompanyFilter && p.companyId !== tableCompanyFilter) return false;
       if (tableSearch.trim()) {
-        const term = tableSearch.toLowerCase().trim();
-        const matchesName = p.name.toLowerCase().includes(term);
-        const matchesCode = p.shortCode.toLowerCase().includes(term);
-        const matchesComp = p.companyName ? p.companyName.toLowerCase().includes(term) : false;
-        if (!matchesName && !matchesCode && !matchesComp) return false;
+        const tokens = tableSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
+        const searchStr = `${p.name} ${p.shortCode} ${p.weight || ""} ${p.companyName || ""}`.toLowerCase();
+        const matchesAll = tokens.every((tok) => searchStr.includes(tok));
+        if (!matchesAll) return false;
       }
       return true;
     });

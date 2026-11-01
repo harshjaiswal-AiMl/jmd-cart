@@ -187,12 +187,15 @@ export class StockRepository {
     }
 
     if (filters.search && filters.search.trim().length > 0) {
-      const term = filters.search.trim();
-      where.OR = [
-        { name: { contains: term, mode: "insensitive" } },
-        { shortCode: { contains: term, mode: "insensitive" } },
-        { company: { name: { contains: term, mode: "insensitive" } } },
-      ];
+      const tokens = filters.search.trim().split(/\s+/).filter(Boolean);
+      where.AND = tokens.map((tok) => ({
+        OR: [
+          { name: { contains: tok, mode: "insensitive" } },
+          { shortCode: { contains: tok, mode: "insensitive" } },
+          { weight: { contains: tok, mode: "insensitive" } },
+          { company: { name: { contains: tok, mode: "insensitive" } } },
+        ],
+      }));
     }
 
     const locations = await client.location.findMany({

@@ -18,6 +18,7 @@ enum UserRole {
   DELIVERY
   ACCOUNTS
   CUSTOMER
+  PRO
 }
 
 enum ImportBatchType {
@@ -142,6 +143,7 @@ enum OrderStatus {
   PACKED
   OUT_FOR_DELIVERY
   FAILED
+  BOOKED_BY_PRO
 }
 
 enum OrderChannel {
@@ -228,6 +230,9 @@ model User {
   fontSizePreference     String?            @default("DEFAULT") @map("font_size_preference")
   editedInvoices         InvoiceRevision[]  @relation("EditorInvoiceRevisions")
   editedProducts         ProductRevision[]  @relation("EditorProductRevisions")
+  pushSubscriptions      PushSubscription[]
+  orderAlerts            OrderAlert[]
+  stockCorrections       StockCorrection[]
 
   @@map("users")
 }
@@ -256,6 +261,7 @@ model Location {
   billScans         BillScan[]
   dispatchRuns      DispatchRun[]
   stockReservations StockReservation[]
+  stockCorrections  StockCorrection[]
 
   @@map("locations")
 }
@@ -320,6 +326,7 @@ model Product {
   imageUrl     String?  @map("image_url")
   active       Boolean  @default(true)
   createdAt    DateTime @default(now()) @map("created_at")
+  needsReview  Boolean  @default(false) @map("needs_review")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   company             Company?            @relation(fields: [companyId], references: [id], onDelete: SetNull)
@@ -328,6 +335,7 @@ model Product {
   stockMovements      StockMovement[]
   invoiceItems        InvoiceItem[]
   purchaseItems       PurchaseItem[]
+  stockCorrections    StockCorrection[]
   auditLines          StockAuditLine[]
   vanDayLines         VanDayLine[]
   debitNoteItems      DebitNoteItem[]
@@ -467,6 +475,8 @@ model Party {
   creditLimitPaise Int       @default(0) @map("credit_limit_paise")
   creditDays       Int       @default(0) @map("credit_days")
   tallyRef         String?   @map("tally_ref")
+  needsReview      Boolean   @default(false) @map("needs_review")
+  bookedByProId    String?   @map("booked_by_pro_id")
   companyId        String?   @unique @map("company_id")
   active           Boolean   @default(true)
   createdAt        DateTime  @default(now()) @map("created_at")
@@ -584,6 +594,8 @@ model Invoice {
   version              Int            @default(1)
   isRevised            Boolean        @default(false) @map("is_revised")
   dateChangeReason     String?        @map("date_change_reason")
+  isPostDated          Boolean        @default(false) @map("is_post_dated")
+  postDatedReason      String?        @map("post_dated_reason")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
 
@@ -869,6 +881,8 @@ model Order {
   channel                OrderChannel @default(ONLINE) @map("channel")
   createdByUserId        String?      @map("created_by_user_id")
   partyId                String?      @map("party_id")
+  bookedByProId          String?      @map("booked_by_pro_id")
+  bookedByAgentCode      String?      @map("booked_by_agent_code")
   createdAt              DateTime     @default(now()) @map("created_at")
   updatedAt              DateTime     @updatedAt @map("updated_at")
 
@@ -883,6 +897,7 @@ model Order {
   shopPickTasks        ShopPickTask[]
   stockReservations    StockReservation[]
   incentiveEntries     IncentiveEntry[]
+  orderAlerts          OrderAlert[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -1364,4 +1379,74 @@ model ProductRevision {
   @@index([productId])
   @@index([editorUserId])
   @@map("product_revisions")
+}
+
+
+enum OrderAlertState {
+  NOTIFIED
+  SEEN
+  ACCEPTED
+  ESCALATED
+}
+
+model PushSubscription {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint    String   @unique
+  p256dh      String
+  auth        String
+  deviceLabel String?  @map("device_label")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at")
+
+  @@index([userId, active])
+  @@map("push_subscriptions")
+}
+
+model OrderAlert {
+  id         String          @id @default(cuid())
+  orderId    String?         @map("order_id")
+  invoiceId  String?         @map("invoice_id")
+  userId     String          @map("user_id")
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state      OrderAlertState @default(NOTIFIED)
+  attempts   Int             @default(1)
+  title      String
+  body       String
+  deepLink   String?         @map("deep_link")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  seenAt     DateTime?       @map("seen_at")
+  acceptedAt DateTime?       @map("accepted_at")
+
+  order      Order?          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([userId, state])
+  @@index([orderId])
+  @@index([invoiceId])
+  @@map("order_alerts")
+}
+
+model StockCorrection {
+  id          String    @id @default(cuid())
+  productId   String    @map("product_id")
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locationId  String    @map("location_id")
+  location    Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  userId      String    @map("user_id")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoiceId   String?   @map("invoice_id")
+  previousQty Int       @map("previous_qty")
+  addedQty    Int       @map("added_qty")
+  newQty      Int       @map("new_qty")
+  reason      String
+  reviewed    Boolean   @default(false)
+  reviewedBy  String?   @map("reviewed_by")
+  reviewedAt  DateTime? @map("reviewed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([locationId, reviewed])
+  @@index([productId])
+  @@map("stock_corrections")
 }
