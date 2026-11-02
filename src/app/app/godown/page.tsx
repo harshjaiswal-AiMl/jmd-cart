@@ -174,11 +174,59 @@ export default async function GodownAppPage({
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
+  // 7. Active / Recent Van Load Sheets for today
+  const recentVanDays = await prisma.vanDay.findMany({
+    where: {
+      createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+    },
+    include: {
+      vanLocation: true,
+      salesperson: true,
+      lines: {
+        include: {
+          product: {
+            select: { id: true, name: true, packSize: true, packLabel: true },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 15,
+  });
+
+  const activeVanLoads = recentVanDays.map((vd) => {
+    const totalPieces = vd.lines.reduce((sum, l) => sum + l.issuedQty, 0);
+    const totalCartons = vd.lines.reduce((sum, l) => {
+      const ps = l.product?.packSize || 1;
+      return sum + Math.floor(l.issuedQty / ps);
+    }, 0);
+
+    return {
+      id: vd.id,
+      issueSheetNo: vd.issueSheetNo,
+      date: vd.date.toISOString(),
+      status: vd.status,
+      vanName: vd.vanLocation.name,
+      salespersonName: vd.salesperson.name,
+      salespersonPhone: vd.salesperson.phone,
+      totalLines: vd.lines.length,
+      totalPieces,
+      totalCartons,
+      lines: vd.lines.map((l) => ({
+        id: l.id,
+        productName: l.product?.name || "Item",
+        issuedQty: l.issuedQty,
+        packSize: l.product?.packSize || 1,
+      })),
+    };
+  });
+
   return (
     <GodownMobileClient
       initialProducts={godownProducts}
       vanLocations={vanLocations}
       pendingOrders={combinedOrders}
+      activeVanLoads={activeVanLoads}
       lowStockCount={lowStockCount}
       unreviewedCorrectionsCount={unreviewedCorrectionsCount}
       initialTab={searchParams?.tab || "home"}

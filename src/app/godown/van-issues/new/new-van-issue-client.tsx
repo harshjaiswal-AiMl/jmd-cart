@@ -120,11 +120,11 @@ export function NewVanIssueClient({
         const aStock = a.godownQty > 0 ? 1 : 0;
         const bStock = b.godownQty > 0 ? 1 : 0;
         if (aStock !== bStock) return bStock - aStock;
-        return a.name.localeCompare(b.name);
+        return (a.name || "").localeCompare(b.name || "");
       });
     }
     const hits = searchItems(search, godownProducts as any, { limit: 50 });
-    return hits.map((h) => h.product as typeof godownProducts[0]);
+    return hits.map((h) => ((h as any).product || h) as typeof godownProducts[0]);
   }, [godownProducts, search]);
 
   // Calculate totals
@@ -162,20 +162,7 @@ export function NewVanIssueClient({
       setError("Please add at least one product with cartons or pieces to issue.");
       return;
     }
-
-    // Check Godown stock sufficiency
-    for (const item of itemsToSubmit) {
-      const prod = godownProducts.find((p) => p.id === item.productId);
-      if (prod) {
-        const requiredPieces = item.cartons * prod.packSize + item.pieces;
-        if (requiredPieces > prod.godownQty) {
-          setError(
-            `Insufficient Godown stock for '${prod.name}'. Available: ${prod.godownQty} pcs, Requested: ${requiredPieces} pcs.`
-          );
-          return;
-        }
-      }
-    }
+    // Stock availability does not block morning van issue
 
     if (!selectedSalespersonId) {
       setError("Please select a route driver / salesperson for this van dispatch.");

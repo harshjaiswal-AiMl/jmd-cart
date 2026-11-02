@@ -70,10 +70,30 @@ interface GodownOrder {
   }>;
 }
 
+export interface ActiveVanLoad {
+  id: string;
+  issueSheetNo: string;
+  date: string;
+  status: string;
+  vanName: string;
+  salespersonName: string;
+  salespersonPhone: string | null;
+  totalLines: number;
+  totalPieces: number;
+  totalCartons: number;
+  lines: Array<{
+    id: string;
+    productName: string;
+    issuedQty: number;
+    packSize: number;
+  }>;
+}
+
 interface Props {
   initialProducts: GodownProduct[];
   vanLocations: VanLocation[];
   pendingOrders: GodownOrder[];
+  activeVanLoads?: ActiveVanLoad[];
   lowStockCount: number;
   unreviewedCorrectionsCount: number;
   initialTab?: string;
@@ -84,11 +104,13 @@ export function GodownMobileClient({
   initialProducts,
   vanLocations,
   pendingOrders: initialOrders,
+  activeVanLoads = [],
   lowStockCount,
   unreviewedCorrectionsCount,
   initialTab = "home",
   user,
 }: Props) {
+  const [lastIssued, setLastIssued] = useState<{ id: string; issueSheetNo: string } | null>(null);
   const [activeTab, setActiveTab] = useState<string>(initialTab);
 
   // Alert Mode & Web Audio Ringing state
@@ -187,7 +209,12 @@ export function GodownMobileClient({
         vanLocationId: selectedVanId,
         items,
       });
-      if (res.success) {
+      if (res.success && res.vanDayId) {
+        setLastIssued({ id: res.vanDayId, issueSheetNo: res.issueSheetNo || "Load Sheet" });
+        setIssueSuccess(`Van load sheet ${res.issueSheetNo || ""} issued successfully! (${res.count} items transferred)`);
+        setLoadItems({});
+        setIssueStep(1);
+      } else if (res.success) {
         setIssueSuccess(`Van load sheet issued successfully! (${res.count} items transferred)`);
         setLoadItems({});
         setIssueStep(1);

@@ -27,6 +27,20 @@ export default async function NewVanIssuePage() {
   // 1. Fetch available Van locations
   const vanLocations = await vanService.listVanLocations(session.user.role);
 
+  const safeVanLocations = vanLocations.map((v) => ({
+    id: v.id,
+    name: v.name,
+    assignedUserId: v.assignedUserId,
+    assignedUser: v.assignedUser
+      ? {
+          id: v.assignedUser.id,
+          name: v.assignedUser.name,
+          phone: v.assignedUser.phone,
+          role: v.assignedUser.role,
+        }
+      : null,
+  }));
+
   // 2. Fetch Central Godown
   const godown = await prisma.location.findFirst({
     where: { type: LocationType.GODOWN, active: true },
@@ -48,7 +62,12 @@ export default async function NewVanIssuePage() {
   godownBalances.forEach((b) => balanceMap.set(b.productId, b.qty));
 
   const godownProducts = products.map((p) => ({
-    ...p,
+    id: p.id,
+    name: p.name,
+    shortCode: p.shortCode,
+    packSize: p.packSize,
+    packLabel: p.packLabel,
+    mrpPaise: p.mrpPaise,
     godownQty: balanceMap.get(p.id) || 0,
   }));
 
@@ -84,7 +103,7 @@ export default async function NewVanIssuePage() {
         </div>
 
         <NewVanIssueClient
-          vanLocations={vanLocations}
+          vanLocations={safeVanLocations as any}
           godownProducts={godownProducts}
           salespersons={salespersons}
         />

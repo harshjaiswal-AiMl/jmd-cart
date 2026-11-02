@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { LocationType, MovementType, UserRole } from "@prisma/client";
 import { stockService } from "@/modules/stock/stock.service";
+import { vanService } from "@/modules/van/van.service";
 import { pushNotificationService } from "@/modules/notifications/push-notification.service";
 import { revalidatePath } from "next/cache";
 
@@ -46,6 +47,8 @@ export async function completeGodownOrderAction(refId: string, isInvoice?: boole
 export async function issueVanLoadSheetAction(input: {
   vanLocationId: string;
   items: Array<{ productId: string; cartons: number; pieces: number }>;
+  salespersonId?: string;
+  notes?: string;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -62,44 +65,96 @@ export async function issueVanLoadSheetAction(input: {
 
   const van = await prisma.location.findUnique({
     where: { id: input.vanLocationId },
+    include: { assignedUser: true },
   });
 
   if (!van) {
     return { success: false, error: "Van location not found" };
   }
 
+  const validItems = input.items.filter((it) => it.cartons > 0 || it.pieces > 0);
+  if (validItems.length === 0) {
+    return { success: false, error: "Please select at least one item to load" };
+  }
+
   try {
-    let transferredLines = 0;
-    for (const item of input.items) {
-      if (item.cartons <= 0 && item.pieces <= 0) continue;
+    // Check if Van already has an OPEN issue sheet today
+    const existingOpen = await prisma.vanDay.findFirst({
+      where: { vanLocationId: van.id, status: "OPEN" },
+      include: {
+        lines: {
+          include: { product: true },
+        },
+      },
+    });
 
-      const prod = await prisma.product.findUnique({
-        where: { id: item.productId },
-        select: { id: true, packSize: true, name: true },
-      });
-      if (!prod) continue;
+    let vanDayResult;
 
-      const packSize = Math.max(1, prod.packSize || 1);
-      const totalPcs = item.cartons * packSize + item.pieces;
-      if (totalPcs <= 0) continue;
+    if (existingOpen) {
+      // Append / merge incoming items with existing lines
+      const lineMap = new Map<string, { cartons: number; pieces: number }>();
 
-      await stockService.postMovement({
-        type: MovementType.TRANSFER,
-        productId: prod.id,
-        fromLocationId: godown.id,
-        toLocationId: van.id,
-        qty: totalPcs,
-        reason: `Morning Van Load Issue to ${van.name}`,
-        idempotencyKey: `van-issue-${van.id}-${prod.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        actorId: session.user.id,
-        allowNegative: true,
-      });
+      // Populate existing lines
+      for (const line of existingOpen.lines) {
+        const packSize = line.product?.packSize > 0 ? line.product.packSize : 1;
+        lineMap.set(line.productId, {
+          cartons: Math.floor(line.issuedQty / packSize),
+          pieces: line.issuedQty % packSize,
+        });
+      }
 
-      transferredLines++;
+      // Merge new items
+      for (const item of validItems) {
+        const cur = lineMap.get(item.productId) || { cartons: 0, pieces: 0 };
+        lineMap.set(item.productId, {
+          cartons: cur.cartons + item.cartons,
+          pieces: cur.pieces + item.pieces,
+        });
+      }
+
+      const mergedItems = Array.from(lineMap.entries()).map(([productId, counts]) => ({
+        productId,
+        cartons: counts.cartons,
+        pieces: counts.pieces,
+      }));
+
+      vanDayResult = await vanService.updateVanIssueSheet(
+        session.user.role as UserRole,
+        session.user.id,
+        {
+          vanDayId: existingOpen.id,
+          notes: input.notes || existingOpen.notes || undefined,
+          items: mergedItems,
+        }
+      );
+    } else {
+      // Create new van issue sheet
+      const salespersonId =
+        input.salespersonId || van.assignedUserId || session.user.id;
+
+      vanDayResult = await vanService.createVanIssueSheet(
+        session.user.role as UserRole,
+        session.user.id,
+        {
+          vanLocationId: van.id,
+          salespersonId,
+          notes: input.notes || `Morning App Dispatch to ${van.name}`,
+          items: validItems,
+        }
+      );
     }
 
     revalidatePath("/app/godown");
-    return { success: true, count: transferredLines };
+    revalidatePath("/godown/van-issues");
+    revalidatePath("/godown/stock");
+    revalidatePath("/van");
+
+    return {
+      success: true,
+      count: validItems.length,
+      vanDayId: vanDayResult.id,
+      issueSheetNo: vanDayResult.issueSheetNo,
+    };
   } catch (err: any) {
     console.error("[issueVanLoadSheetAction error]:", err);
     return { success: false, error: err.message || "Failed to issue load sheet" };

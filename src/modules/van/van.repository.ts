@@ -320,6 +320,7 @@ export class VanRepository {
             reason: `Morning Van Load: ${issueSheetNo} to ${van.name}`,
             idempotencyKey,
             actorId,
+            allowNegative: true,
           },
           tx
         );
@@ -484,6 +485,7 @@ export class VanRepository {
                 reason: `Van Load Edit (+${delta} pcs): ${vanDay.issueSheetNo}`,
                 idempotencyKey: `VAN_ISSUE_EDIT_${vanDay.id}_${product.id}_${timestamp}_${randSuffix}_ADD`,
                 actorId,
+                allowNegative: true,
               },
               tx
             );
@@ -540,6 +542,7 @@ export class VanRepository {
                 reason: `Van Load Edit (-${returnQty} pcs): ${vanDay.issueSheetNo}`,
                 idempotencyKey: `VAN_ISSUE_EDIT_${vanDay.id}_${product.id}_${timestamp}_${randSuffix}_SUB`,
                 actorId,
+                allowNegative: true,
               },
               tx
             );
@@ -604,6 +607,7 @@ export class VanRepository {
                 reason: `Van Load Edit (New item +${newTotalPieces} pcs): ${vanDay.issueSheetNo}`,
                 idempotencyKey: `VAN_ISSUE_EDIT_${vanDay.id}_${product.id}_${timestamp}_${randSuffix}_NEW`,
                 actorId,
+                allowNegative: true,
               },
               tx
             );
