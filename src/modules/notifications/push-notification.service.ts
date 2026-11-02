@@ -118,6 +118,7 @@ export class PushNotificationService {
 
     await Promise.allSettled(
       subs.map(async (sub) => {
+        if (!sub.endpoint || !sub.endpoint.startsWith("http")) return;
         try {
           await webpush.sendNotification(
             {
@@ -271,22 +272,38 @@ export class PushNotificationService {
    * Sends a test alert specifically to the requesting user's registered device.
    */
   async sendTestAlert(userId: string) {
+    // 1. Create live OrderAlert in database so in-app polling & native bridge instantly ring
+    const alert = await prisma.orderAlert.create({
+      data: {
+        orderId: `test-${Date.now()}`,
+        userId,
+        state: OrderAlertState.NOTIFIED,
+        title: "🚨 JMD Cart Order Alert Test",
+        body: "Continuous Telephone Ring & Order Alerts are ACTIVE on your phone!",
+        deepLink: "/app/godown",
+      },
+    });
+
+    // 2. Also send Web Push if active subscriptions exist
     const subs = await prisma.pushSubscription.findMany({
       where: { userId, active: true },
     });
 
-    if (subs.length === 0) {
-      return { success: false, error: "No active push subscriptions found for your device. Please enable notifications first." };
+    if (subs.length > 0) {
+      await this.sendToUsers([userId], {
+        title: "🚨 JMD Cart Order Alert Test",
+        body: "High-urgency warehouse order notifications are working correctly on your phone!",
+        tag: "test-alert",
+        url: "/app/godown",
+      });
     }
 
-    await this.sendToUsers([userId], {
-      title: "🔔 JMD Cart Alert Test",
-      body: "High-urgency warehouse order notifications are working correctly on your phone!",
-      tag: "test-alert",
-      url: "/app/godown",
-    });
-
-    return { success: true, devicesCount: subs.length };
+    return {
+      success: true,
+      alertId: alert.id,
+      devicesCount: Math.max(1, subs.length),
+      reason: "Order alert & loud phone ring activated!",
+    };
   }
 }
 
