@@ -310,6 +310,7 @@ export class InvoiceEditService {
               idempotencyKey: `edit_${invoice.id}_rev${nextRevisionNum}_inc_${pid}_${Date.now()}`,
               actorId,
               effectiveDate: targetDate,
+              allowNegative: true,
             },
             tx
           );
@@ -329,6 +330,7 @@ export class InvoiceEditService {
               idempotencyKey: `edit_${invoice.id}_rev${nextRevisionNum}_dec_${pid}_${Date.now()}`,
               actorId,
               effectiveDate: targetDate,
+              allowNegative: true,
             },
             tx
           );
@@ -391,6 +393,7 @@ export class InvoiceEditService {
             taxPaise: gstRes.taxPaise,
             gstRateBp: gstRes.gstRateBp,
             hsn: prod?.hsn || "21069099",
+            unitLabel: (it as any).unitLabel || "Pcs",
           };
         }),
       });

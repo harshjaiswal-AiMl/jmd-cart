@@ -336,7 +336,48 @@ export function InvoiceDetailClient({
                       {item.hsn}
                     </td>
                     <td className="p-3 text-right font-bold text-slate-900">
-                      {item.qty}
+                      {(() => {
+                        const packSize = Math.max(1, item.product?.packSize || 1);
+                        const unit = (item.unitLabel || (item.product?.packLabel === "Carton" ? "Carton" : "Pcs")).toLowerCase();
+                        if (unit === "carton") {
+                          const ctn = item.qty / packSize;
+                          const ctnStr = Number.isInteger(ctn) ? `${ctn} Carton` : `${ctn.toFixed(2)} Carton`;
+                          return (
+                            <div className="flex flex-col items-end">
+                              <span className="bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded font-black text-xs">
+                                {ctnStr}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                ({item.qty} Pcs)
+                              </span>
+                            </div>
+                          );
+                        } else if (unit === "bag") {
+                          const bagSize = (item.product as any)?.bagSize || packSize;
+                          const bags = item.qty / bagSize;
+                          const bagStr = Number.isInteger(bags) ? `${bags} Bag` : `${bags.toFixed(2)} Bag`;
+                          return (
+                            <div className="flex flex-col items-end">
+                              <span className="bg-purple-100 text-purple-900 border border-purple-300 px-2 py-0.5 rounded font-black text-xs">
+                                {bagStr}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                ({item.qty} Pcs)
+                              </span>
+                            </div>
+                          );
+                        } else if (unit === "dozen") {
+                          const doz = item.qty / 12;
+                          const dozStr = Number.isInteger(doz) ? `${doz} Doz` : `${doz.toFixed(2)} Doz`;
+                          return (
+                            <div className="flex flex-col items-end">
+                              <span className="font-bold">{dozStr}</span>
+                              <span className="text-[10px] text-slate-500 font-mono">({item.qty} Pcs)</span>
+                            </div>
+                          );
+                        }
+                        return <span>{item.qty} Pcs</span>;
+                      })()}
                     </td>
                     <td className="p-3 text-right font-mono text-slate-600">
                       ₹{(item.mrpPaise / 100).toFixed(2)}

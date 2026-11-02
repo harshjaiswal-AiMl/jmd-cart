@@ -59,7 +59,7 @@ export class StockService {
       // 3. Validate and apply deduction from source location (if any)
       if (fromLocationId) {
         const currentFromQty = lockedBalances[fromLocationId] ?? 0;
-        if (!input.allowNegative && input.type !== MovementType.SALE && currentFromQty < qty) {
+        if (!input.allowNegative && input.type !== MovementType.SALE && input.type !== MovementType.TRANSFER && currentFromQty < qty) {
           throw new InsufficientStockError(productId, fromLocationId, currentFromQty, qty);
         }
 

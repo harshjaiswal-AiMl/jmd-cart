@@ -371,18 +371,33 @@ export function PosClient({
           reorderLevel: 0,
         };
 
+        const packSize = Math.max(1, prod.packSize || 1);
+        const bagSize = (prod as any).bagSize || packSize;
+        const rawUnit = (it.unitLabel || (prod.packLabel === "Carton" ? "Carton" : "Pcs")) as "Pcs" | "Carton" | "Dozen" | "Bag";
+        const unit = (rawUnit === "Carton" || rawUnit === "Bag" || rawUnit === "Dozen" || rawUnit === "Pcs") ? rawUnit : "Pcs";
+        const mult = unit === "Carton" ? packSize : unit === "Bag" ? bagSize : unit === "Dozen" ? 12 : 1;
+        const isPack = mult > 1 && it.qty >= mult && it.qty % mult === 0;
+        const lineQty = isPack ? it.qty / mult : it.qty;
+        const effectiveUnit = isPack ? unit : (mult > 1 && it.qty < mult ? "Pcs" : unit);
+        const effectiveMult = effectiveUnit === "Carton" ? packSize : effectiveUnit === "Bag" ? bagSize : effectiveUnit === "Dozen" ? 12 : 1;
+
+        const ratePerUnitPaise = it.unitPricePaise * effectiveMult;
+        const mrpPerUnitPaise = (it.mrpPaise || 0) * effectiveMult;
+        const discPercent = (it.discountBp || 0) / 100;
+
         return {
           id: `edit-line-${idx}-${it.productId}`,
           productId: it.productId,
           product: prod as any,
-          qty: it.qty,
-          unit: "Pcs" as const,
-          lineDiscountPercent: (it.discountBp || 0) / 100,
-          customRatePaise: it.unitPricePaise,
-          customRateInput: (it.unitPricePaise / 100).toFixed(2),
+          qty: lineQty,
+          unit: effectiveUnit,
+          lineDiscountPercent: discPercent,
+          customRatePaise: ratePerUnitPaise,
+          customRateInput: (ratePerUnitPaise / 100).toFixed(2),
           isCustomRate: true,
-          customMrpPaise: it.mrpPaise,
-          customMrpInput: ((it.mrpPaise || 0) / 100).toFixed(2),
+          customMrpPaise: mrpPerUnitPaise > 0 ? (effectiveMult > 1 ? Math.round(mrpPerUnitPaise / effectiveMult) : mrpPerUnitPaise) : it.mrpPaise,
+          customMrpInput: ((mrpPerUnitPaise || 0) / 100).toFixed(2),
+          customDiscInput: discPercent > 0 ? discPercent.toFixed(1) : "0",
         };
       });
 
@@ -1469,6 +1484,7 @@ export function PosClient({
               mrpPaise: c.customMrpPaise ?? c.product.mrpPaise ?? 0,
               ratePaise,
               discountBp: Math.round((c.lineDiscountPercent || 0) * 100),
+              unitLabel: c.unit,
             };
           });
 

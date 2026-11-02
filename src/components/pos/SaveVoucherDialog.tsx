@@ -70,7 +70,7 @@ export function SaveVoucherDialog({
         e.preventDefault();
         onCancel();
       } else if (e.key === "Enter" && !isSaving) {
-        if (isEditMode && (!editReason || editReason.trim().length < 3)) return;
+        // Allow Enter without blocking; fallback to default reason if empty
         e.preventDefault();
         onConfirm();
       } else if (e.key === "ArrowDown") {
@@ -127,6 +127,18 @@ export function SaveVoucherDialog({
           </div>
 
           {/* Insufficient Stock Warning Banner */}
+          {isEditMode && (
+            <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-1 text-xs">
+              <label className="font-bold text-amber-950 block">Reason for Edit / Revision:</label>
+              <input
+                type="text"
+                value={editReason}
+                onChange={(e) => onEditReasonChange?.(e.target.value)}
+                placeholder="Reason (e.g. rate correction, discount update) — defaults to: POS voucher edit"
+                className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500 font-medium"
+              />
+            </div>
+          )}
           {hasShortage && (
             <div className="p-3 bg-rose-50 border-2 border-rose-400 rounded-xl text-rose-900 text-xs font-bold flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
@@ -267,7 +279,7 @@ export function SaveVoucherDialog({
           <button
             type="button"
             onClick={onCancel}
-            disabled={isSaving || (isEditMode && (!editReason || editReason.trim().length < 3))}
+            disabled={isSaving}
             className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-bold rounded-xl transition shadow-2xs active:scale-95"
           >
             No, Continue Editing [Esc / N]
