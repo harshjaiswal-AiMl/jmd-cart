@@ -68,6 +68,8 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
         name: true,
         type: true,
         phone: true,
+        address: true,
+        city: true,
         creditEnabled: true,
         creditLimitPaise: true,
         ledgerEntries: {
@@ -139,6 +141,8 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
       name: party.name,
       type: party.type,
       phone: party.phone,
+      address: party.address,
+      city: party.city,
       creditEnabled: party.creditEnabled,
       creditLimitPaise: party.creditLimitPaise,
       currentOutstandingPaise,

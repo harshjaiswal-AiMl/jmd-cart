@@ -119,33 +119,61 @@ export function PrintViewer({
                 </button>
               </>
             ) : isCredit ? (
-              // Credit Retail sale: only Credit Bill
-              <button
-                type="button"
-                onClick={() => setFormat("demand_bill")}
-                className={`px-3 py-1.5 rounded-md transition flex items-center gap-1 ${
-                  format === "demand_bill"
-                    ? "bg-white text-purple-900 shadow-sm font-bold border border-purple-400"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="Credit Bill with Previous & Outstanding Balance"
-              >
-                <span>📋 Credit Bill (Thermal)</span>
-              </button>
+              // Credit Retail sale: both Demand Bill and Thermal (80mm)
+              <>
+                <button
+                  type="button"
+                  onClick={() => setFormat("demand_bill")}
+                  className={`px-3 py-1.5 rounded-md transition flex items-center gap-1 ${
+                    format === "demand_bill"
+                      ? "bg-white text-purple-900 shadow-sm font-bold border border-purple-400"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  title="Demand Bill format (with Dues stamp)"
+                >
+                  <span>📋 Demand Bill</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormat("cash_receipt")}
+                  className={`px-3 py-1.5 rounded-md transition flex items-center gap-1 ${
+                    format === "cash_receipt"
+                      ? "bg-white text-emerald-800 shadow-sm font-bold border border-emerald-500/30"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  title="Compact 80mm Thermal Receipt Slip"
+                >
+                  <span>🧾 Thermal (80mm)</span>
+                </button>
+              </>
             ) : (
-              // Cash / UPI Retail sale: only Thermal 80mm cash receipt
-              <button
-                type="button"
-                onClick={() => setFormat("cash_receipt")}
-                className={`px-3 py-1.5 rounded-md transition flex items-center gap-1 ${
-                  format === "cash_receipt"
-                    ? "bg-white text-emerald-800 shadow-sm font-bold border border-emerald-500/30"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-                title="Thermal Cash & UPI Slip (80mm)"
-              >
-                <span>💵 Thermal (80mm)</span>
-              </button>
+              // Cash / UPI Retail sale:
+              <>
+                <button
+                  type="button"
+                  onClick={() => setFormat("cash_receipt")}
+                  className={`px-3 py-1.5 rounded-md transition flex items-center gap-1 ${
+                    format === "cash_receipt"
+                      ? "bg-white text-emerald-800 shadow-sm font-bold border border-emerald-500/30"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  title="Thermal Cash & UPI Slip (80mm)"
+                >
+                  <span>💵 Thermal (80mm)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormat("demand_bill")}
+                  className={`px-3 py-1.5 rounded-md transition flex items-center gap-1 ${
+                    format === "demand_bill"
+                      ? "bg-white text-purple-900 shadow-sm font-bold border border-purple-400"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                  title="Demand Bill format"
+                >
+                  <span>📋 Demand Bill</span>
+                </button>
+              </>
             )}
           </div>
 

@@ -106,6 +106,41 @@ export interface PartyItem {
   currentOutstandingPaise: number;
 }
 
+// Helper to get tier unit price per piece (with standard % discount fallback if explicit price A/B is unset)
+export function getTierUnitPrice(
+  product: { mrpPaise?: number | null; priceAPaise?: number | null; priceBPaise?: number | null; priceCPaise?: number | null },
+  targetTier: "WHOLESALER" | "RETAILER" | "CUSTOMER",
+  customMrpPaise?: number | null
+): number {
+  const effectiveBaseMrp = (customMrpPaise != null && customMrpPaise > 0)
+    ? customMrpPaise
+    : (product.mrpPaise && product.mrpPaise > 0 ? product.mrpPaise : 0);
+
+  if (targetTier === "WHOLESALER") {
+    if (product.priceAPaise != null && product.priceAPaise > 0) {
+      return product.priceAPaise;
+    }
+    if (effectiveBaseMrp > 0) {
+      return Math.round(effectiveBaseMrp * 0.85); // 15% discount for Tier A
+    }
+  } else if (targetTier === "RETAILER") {
+    if (product.priceBPaise != null && product.priceBPaise > 0) {
+      return product.priceBPaise;
+    }
+    if (effectiveBaseMrp > 0) {
+      return Math.round(effectiveBaseMrp * 0.92); // 8% discount for Tier B
+    }
+  } else {
+    if (product.priceCPaise != null && product.priceCPaise > 0) {
+      return product.priceCPaise;
+    }
+    if (effectiveBaseMrp > 0) {
+      return effectiveBaseMrp; // Tier C = MRP / list C
+    }
+  }
+  return effectiveBaseMrp;
+}
+
 export interface PosCartLine {
   id: string;
   productId: string;
@@ -219,7 +254,7 @@ export function PosClient({
     }
   }, []);
 
-  // Line MRP editing & master MRP flag
+  // Line MRP editing & bidirectional sync with Rate & Disc %
   const updateLineMrp = (lineId: string, value: string) => {
     const valNum = parseFloat(value);
     const paise = !isNaN(valNum) && valNum >= 0 ? Math.round(valNum * 100) : 0;
@@ -232,16 +267,35 @@ export function PosClient({
         const mult = item.unit === "Carton" ? packSize : item.unit === "Bag" ? bagSize : item.unit === "Dozen" ? 12 : 1;
         const pieceMrp = mult > 0 ? Math.round(paise / mult) : paise;
 
-        const currentRate = item.customRatePaise ?? 0;
-        const newDisc = paise > 0 && currentRate < paise
-          ? Math.round(((paise - currentRate) / paise) * 10000) / 100
-          : 0;
+        let newRatePaise: number;
+        let newDisc: number;
+
+        if (item.lineDiscountPercent && item.lineDiscountPercent > 0) {
+          // Disc% active: keep Disc%, recalculate Rate from new MRP
+          newRatePaise = Math.round(paise * (1 - item.lineDiscountPercent / 100));
+          newDisc = item.lineDiscountPercent;
+        } else if (item.customRatePaise != null && item.customRatePaise > 0) {
+          // Rate was entered: recalculate Disc%
+          if (paise > item.customRatePaise) {
+            newRatePaise = item.customRatePaise;
+            newDisc = Math.round(((paise - newRatePaise) / paise) * 10000) / 100;
+          } else {
+            newRatePaise = paise;
+            newDisc = 0;
+          }
+        } else {
+          newRatePaise = paise;
+          newDisc = 0;
+        }
 
         return {
           ...item,
           customMrpInput: value,
           customMrpPaise: pieceMrp,
-          customDiscInput: newDisc > 0 ? newDisc.toFixed(1) : item.customDiscInput,
+          customRatePaise: newRatePaise,
+          customRateInput: (newRatePaise / 100).toFixed(2),
+          customDiscInput: newDisc > 0 ? newDisc.toFixed(1) : "0",
+          lineDiscountPercent: newDisc,
         };
       }),
     });
@@ -524,7 +578,7 @@ export function PosClient({
     return "CUSTOMER";
   }, [activeTab.selectedTierMode, selectedParty, activeTab.cart]);
 
-  // Tier change handler that actively reprices all non-custom lines
+  // Tier change handler that actively reprices ALL lines to chosen Tier (A/B/C/Auto)
   const handleTierChange = (newTierMode: "AUTO" | "WHOLESALER" | "RETAILER" | "CUSTOMER") => {
     let targetTier: "WHOLESALER" | "RETAILER" | "CUSTOMER";
     if (newTierMode !== "AUTO") {
@@ -536,45 +590,34 @@ export function PosClient({
     }
 
     const tierLetter = targetTier === "WHOLESALER" ? "A" : targetTier === "RETAILER" ? "B" : "C";
-    let missingCount = 0;
 
     const repricedCart = activeTab.cart.map((line) => {
-      if (line.isCustomRate) {
-        return line;
-      }
-
-      const resolved = resolvePrice(
-        {
-          mrpPaise: line.product.mrpPaise,
-          priceAPaise: line.product.priceAPaise,
-          priceBPaise: line.product.priceBPaise,
-          priceCPaise: line.product.priceCPaise,
-        },
-        targetTier
-      );
-
       const packSize = Math.max(1, line.product.packSize);
-      const multiplier = line.unit === "Carton" || line.unit === "Bag" ? packSize : line.unit === "Dozen" ? 12 : 1;
+      const bagSize = (line.product as any).bagSize || packSize;
+      const multiplier = line.unit === "Carton" ? packSize : line.unit === "Bag" ? bagSize : line.unit === "Dozen" ? 12 : 1;
 
-      if (resolved.unitPricePaise > 0) {
-        const newRatePaise = resolved.unitPricePaise * multiplier;
-        const baseMrp = (line.product.mrpPaise && line.product.mrpPaise > 0)
-          ? line.product.mrpPaise
-          : resolved.unitPricePaise;
-        const mrpPerUnit = line.unit === "Carton" || line.unit === "Bag" ? baseMrp * packSize : line.unit === "Dozen" ? baseMrp * 12 : baseMrp;
+      const unitPricePaise = getTierUnitPrice(line.product, targetTier, line.customMrpPaise);
+
+      const effectiveBaseMrp = (line.customMrpPaise != null && line.customMrpPaise > 0)
+        ? line.customMrpPaise
+        : (line.product.mrpPaise && line.product.mrpPaise > 0 ? line.product.mrpPaise : unitPricePaise);
+      const mrpPerUnit = effectiveBaseMrp * multiplier;
+
+      if (unitPricePaise > 0) {
+        const newRatePaise = unitPricePaise * multiplier;
         const newDisc = mrpPerUnit > newRatePaise
           ? Math.round(((mrpPerUnit - newRatePaise) / mrpPerUnit) * 10000) / 100
           : 0;
 
         return {
           ...line,
-          customRatePaise: null,
+          customRatePaise: newRatePaise,
           customRateInput: (newRatePaise / 100).toFixed(2),
           customDiscInput: newDisc > 0 ? newDisc.toFixed(1) : "0",
           lineDiscountPercent: newDisc,
+          isCustomRate: false,
         };
       } else {
-        missingCount++;
         return line;
       }
     });
@@ -583,12 +626,7 @@ export function PosClient({
       selectedTierMode: newTierMode,
       cart: repricedCart,
     });
-
-    if (missingCount > 0) {
-      setErrorMessage(`Prices updated to list ${tierLetter} (${missingCount} item${missingCount > 1 ? "s have" : " has"} no list ${tierLetter} price)`);
-    } else {
-      setErrorMessage(null);
-    }
+    setErrorMessage(null);
   };
 
   // Party Options for SearchableSelect
@@ -750,20 +788,16 @@ export function PosClient({
 
   // Add Item to active cart
   const addItemToCart = (product: ProductCatalogItem, unit: "Pcs" | "Carton" | "Dozen" | "Bag" = "Pcs", qty: number = 1): string => {
-    const resolved = resolvePrice(
-      {
-        mrpPaise: product.mrpPaise,
-        priceAPaise: product.priceAPaise,
-        priceBPaise: product.priceBPaise,
-        priceCPaise: product.priceCPaise,
-      },
-      effectiveTier
-    );
-
     const packSize = Math.max(1, product.packSize);
-    const multiplier = unit === "Carton" || unit === "Bag" ? packSize : unit === "Dozen" ? 12 : 1;
-    const initialRatePaise = resolved.unitPricePaise > 0 
-      ? resolved.unitPricePaise * multiplier
+    const bagSize = (product as any).bagSize || packSize;
+    const multiplier = unit === "Carton" ? packSize : unit === "Bag" ? bagSize : unit === "Dozen" ? 12 : 1;
+
+    const tierUnitPrice = getTierUnitPrice(product, effectiveTier);
+    const initialRatePaise = tierUnitPrice * multiplier;
+    const baseMrp = (product.mrpPaise && product.mrpPaise > 0) ? product.mrpPaise : tierUnitPrice;
+    const initialMrpPerUnit = baseMrp * multiplier;
+    const initialDisc = initialMrpPerUnit > initialRatePaise
+      ? Math.round(((initialMrpPerUnit - initialRatePaise) / initialMrpPerUnit) * 10000) / 100
       : 0;
 
     const existingIndex = activeTab.cart.findIndex(
@@ -785,9 +819,12 @@ export function PosClient({
         product,
         qty,
         unit,
-        lineDiscountPercent: 0,
-        customRatePaise: null,
+        lineDiscountPercent: initialDisc,
+        customRatePaise: initialRatePaise > 0 ? initialRatePaise : null,
         customRateInput: initialRatePaise > 0 ? (initialRatePaise / 100).toFixed(2) : "",
+        customDiscInput: initialDisc > 0 ? initialDisc.toFixed(1) : "0",
+        customMrpPaise: product.mrpPaise ?? null,
+        customMrpInput: initialMrpPerUnit > 0 ? (initialMrpPerUnit / 100).toFixed(2) : "",
         isCustomRate: false,
       };
       newCart = [...activeTab.cart, newLine];
@@ -820,20 +857,21 @@ export function PosClient({
       cart: activeTab.cart.map((item) => {
         if (item.id !== lineId) return item;
         const packSize = Math.max(1, item.product.packSize);
-        const resolved = resolvePrice(
-          {
-            mrpPaise: item.product.mrpPaise,
-            priceAPaise: item.product.priceAPaise,
-            priceBPaise: item.product.priceBPaise,
-            priceCPaise: item.product.priceCPaise,
-          },
-          effectiveTier
-        );
-        const defaultBaseRate = item.unit === "Carton" || item.unit === "Bag" ? resolved.unitPricePaise * packSize : item.unit === "Dozen" ? resolved.unitPricePaise * 12 : resolved.unitPricePaise;
-        const baseMrp = (item.product.mrpPaise && item.product.mrpPaise > 0)
-          ? item.product.mrpPaise
-          : (defaultBaseRate > 0 ? (item.unit === "Carton" || item.unit === "Bag" ? Math.round(defaultBaseRate / packSize) : item.unit === "Dozen" ? Math.round(defaultBaseRate / 12) : defaultBaseRate) : paise);
-        const mrpPerUnit = item.unit === "Carton" || item.unit === "Bag" ? baseMrp * packSize : item.unit === "Dozen" ? baseMrp * 12 : baseMrp;
+        const bagSize = (item.product as any).bagSize || packSize;
+        const mult = item.unit === "Carton" ? packSize : item.unit === "Bag" ? bagSize : item.unit === "Dozen" ? 12 : 1;
+
+        const effectiveBaseMrp = (item.customMrpPaise != null && item.customMrpPaise > 0)
+          ? item.customMrpPaise
+          : (item.product.mrpPaise && item.product.mrpPaise > 0 ? item.product.mrpPaise : (paise > 0 ? Math.round(paise / mult) : 0));
+        let mrpPerUnit = effectiveBaseMrp * mult;
+
+        let updatedPieceMrp = item.customMrpPaise;
+        let updatedMrpInput = item.customMrpInput;
+        if (paise > mrpPerUnit) {
+          mrpPerUnit = paise;
+          updatedPieceMrp = Math.round(paise / mult);
+          updatedMrpInput = (paise / 100).toFixed(2);
+        }
 
         const newDisc = mrpPerUnit > 0 && paise < mrpPerUnit
           ? Math.round(((mrpPerUnit - paise) / mrpPerUnit) * 10000) / 100
@@ -841,9 +879,12 @@ export function PosClient({
 
         return {
           ...item,
+          customMrpPaise: updatedPieceMrp,
+          customMrpInput: updatedMrpInput,
           customRateInput: value,
           customRatePaise: paise,
           customDiscInput: newDisc > 0 ? newDisc.toFixed(1) : "0",
+          lineDiscountPercent: newDisc,
           isCustomRate: true,
         };
       }),
@@ -856,20 +897,13 @@ export function PosClient({
       cart: activeTab.cart.map((item) => {
         if (item.id !== lineId) return item;
         const packSize = Math.max(1, item.product.packSize);
-        const resolved = resolvePrice(
-          {
-            mrpPaise: item.product.mrpPaise,
-            priceAPaise: item.product.priceAPaise,
-            priceBPaise: item.product.priceBPaise,
-            priceCPaise: item.product.priceCPaise,
-          },
-          effectiveTier
-        );
-        const defaultBaseRate = item.unit === "Carton" || item.unit === "Bag" ? resolved.unitPricePaise * packSize : item.unit === "Dozen" ? resolved.unitPricePaise * 12 : resolved.unitPricePaise;
-        const baseMrp = (item.product.mrpPaise && item.product.mrpPaise > 0)
-          ? item.product.mrpPaise
-          : (defaultBaseRate > 0 ? (item.unit === "Carton" || item.unit === "Bag" ? Math.round(defaultBaseRate / packSize) : item.unit === "Dozen" ? Math.round(defaultBaseRate / 12) : defaultBaseRate) : 0);
-        const mrpPerUnit = item.unit === "Carton" || item.unit === "Bag" ? baseMrp * packSize : item.unit === "Dozen" ? baseMrp * 12 : baseMrp;
+        const bagSize = (item.product as any).bagSize || packSize;
+        const mult = item.unit === "Carton" ? packSize : item.unit === "Bag" ? bagSize : item.unit === "Dozen" ? 12 : 1;
+
+        const effectiveBaseMrp = (item.customMrpPaise != null && item.customMrpPaise > 0)
+          ? item.customMrpPaise
+          : (item.product.mrpPaise && item.product.mrpPaise > 0 ? item.product.mrpPaise : 0);
+        const mrpPerUnit = effectiveBaseMrp * mult;
 
         if (isNaN(discNum) || discNum < 0) {
           return {
@@ -879,14 +913,12 @@ export function PosClient({
         }
 
         const safeDisc = Math.min(100, Math.max(0, discNum));
-        let newRatePaise = mrpPerUnit;
-        if (mrpPerUnit > 0) {
-          newRatePaise = Math.round(mrpPerUnit * (1 - safeDisc / 100));
-        }
+        const newRatePaise = mrpPerUnit > 0 ? Math.round(mrpPerUnit * (1 - safeDisc / 100)) : 0;
 
         return {
           ...item,
           customDiscInput: discInput,
+          lineDiscountPercent: safeDisc,
           customRatePaise: newRatePaise,
           customRateInput: (newRatePaise / 100).toFixed(2),
           isCustomRate: true,
@@ -1043,42 +1075,38 @@ export function PosClient({
       cart: activeTab.cart.map((item) => {
         if (item.id !== lineId) return item;
         const packSize = Math.max(1, item.product.packSize);
-        const resolved = resolvePrice(
-          {
-            mrpPaise: item.product.mrpPaise,
-            priceAPaise: item.product.priceAPaise,
-            priceBPaise: item.product.priceBPaise,
-            priceCPaise: item.product.priceCPaise,
-          },
-          effectiveTier
-        );
+        const bagSize = (item.product as any).bagSize || packSize;
+        const oldMult = item.unit === "Carton" ? packSize : item.unit === "Bag" ? bagSize : item.unit === "Dozen" ? 12 : 1;
+        const newMult = newUnit === "Carton" ? packSize : newUnit === "Bag" ? bagSize : newUnit === "Dozen" ? 12 : 1;
 
-        const oldMultiplier = item.unit === "Carton" || item.unit === "Bag" ? packSize : item.unit === "Dozen" ? 12 : 1;
-        const newMultiplier = newUnit === "Carton" || newUnit === "Bag" ? packSize : newUnit === "Dozen" ? 12 : 1;
+        const effectiveBaseMrp = (item.customMrpPaise != null && item.customMrpPaise > 0)
+          ? item.customMrpPaise
+          : (item.product.mrpPaise && item.product.mrpPaise > 0 ? item.product.mrpPaise : 0);
+        const newMrpPerUnit = effectiveBaseMrp * newMult;
 
-        let newRatePaise: number | null = null;
-        if (item.isCustomRate && item.customRatePaise != null && item.customRatePaise > 0) {
-          const pieceRate = item.customRatePaise / oldMultiplier;
-          newRatePaise = Math.round(pieceRate * newMultiplier);
-        } else if (resolved.unitPricePaise > 0) {
-          newRatePaise = resolved.unitPricePaise * newMultiplier;
+        let newRatePaise: number;
+        if (item.lineDiscountPercent && item.lineDiscountPercent > 0) {
+          newRatePaise = Math.round(newMrpPerUnit * (1 - item.lineDiscountPercent / 100));
+        } else if (item.customRatePaise != null && item.customRatePaise > 0) {
+          const pieceRate = item.customRatePaise / oldMult;
+          newRatePaise = Math.round(pieceRate * newMult);
+        } else {
+          const tierUnitPrice = getTierUnitPrice(item.product, effectiveTier, item.customMrpPaise);
+          newRatePaise = tierUnitPrice * newMult;
         }
 
-        const baseMrp = (item.product.mrpPaise && item.product.mrpPaise > 0)
-          ? item.product.mrpPaise
-          : (resolved.unitPricePaise > 0 ? resolved.unitPricePaise : (newRatePaise ? Math.round(newRatePaise / newMultiplier) : 0));
-        const mrpPerUnit = baseMrp * newMultiplier;
-
-        const effectiveDisc = (mrpPerUnit > 0 && newRatePaise != null && newRatePaise < mrpPerUnit)
-          ? Math.round(((mrpPerUnit - newRatePaise) / mrpPerUnit) * 10000) / 100
+        const effectiveDisc = (newMrpPerUnit > 0 && newRatePaise < newMrpPerUnit)
+          ? Math.round(((newMrpPerUnit - newRatePaise) / newMrpPerUnit) * 10000) / 100
           : 0;
 
         return {
           ...item,
           unit: newUnit,
+          customMrpInput: newMrpPerUnit > 0 ? (newMrpPerUnit / 100).toFixed(2) : "",
           customRatePaise: newRatePaise,
-          customRateInput: newRatePaise && newRatePaise > 0 ? (newRatePaise / 100).toFixed(2) : "",
+          customRateInput: newRatePaise > 0 ? (newRatePaise / 100).toFixed(2) : "",
           customDiscInput: effectiveDisc > 0 ? effectiveDisc.toFixed(1) : "0",
+          lineDiscountPercent: effectiveDisc,
         };
       }),
     });
@@ -1750,8 +1778,7 @@ export function PosClient({
         ? line.customRatePaise
         : defaultRatePaise;
 
-      const lineDiscountMultiplier = 1 - (line.lineDiscountPercent || 0) / 100;
-      const amountPaise = Math.round(line.qty * ratePerUnitPaise * lineDiscountMultiplier);
+      const amountPaise = Math.round(line.qty * ratePerUnitPaise);
       const totalPieces = line.unit === "Carton" || line.unit === "Bag"
         ? line.qty * packSize
         : line.unit === "Dozen"
@@ -2539,14 +2566,15 @@ export function PosClient({
                       ? line.customRatePaise
                       : defaultRatePaise;
 
-                    const baseMrp = (line.product.mrpPaise && line.product.mrpPaise > 0)
-                      ? line.product.mrpPaise
-                      : (ratePerUnitPaise > 0 ? (line.unit === "Carton" || line.unit === "Bag" ? Math.round(ratePerUnitPaise / packSize) : line.unit === "Dozen" ? Math.round(ratePerUnitPaise / 12) : ratePerUnitPaise) : 0);
+                    const baseMrp = (line.customMrpPaise != null && line.customMrpPaise > 0)
+                      ? line.customMrpPaise
+                      : ((line.product.mrpPaise && line.product.mrpPaise > 0)
+                        ? line.product.mrpPaise
+                        : (ratePerUnitPaise > 0 ? (line.unit === "Carton" || line.unit === "Bag" ? Math.round(ratePerUnitPaise / packSize) : line.unit === "Dozen" ? Math.round(ratePerUnitPaise / 12) : ratePerUnitPaise) : 0));
 
                     const mrpPerUnitPaise = line.unit === "Carton" || line.unit === "Bag" ? baseMrp * packSize : line.unit === "Dozen" ? baseMrp * 12 : baseMrp;
 
-                    const lineDiscountMultiplier = 1 - (line.lineDiscountPercent || 0) / 100;
-                    const lineAmountPaise = Math.round(line.qty * ratePerUnitPaise * lineDiscountMultiplier);
+                    const lineAmountPaise = Math.round(line.qty * ratePerUnitPaise);
 
                     // Stock calculation (Carton/Bag checks Godown stock, Pcs/Dozen checks Shop counter stock)
                     const isCarton = line.unit === "Carton" || line.unit === "Bag";

@@ -215,19 +215,20 @@ export function PartySearchBox<T extends SearchableParty>({
                       )}
                     </div>
 
-                    <div className={`flex items-center gap-2 mt-1 text-[11px] ${isSelected ? "text-slate-300" : "text-slate-500"}`}>
-                      {p.phone && (
-                        <span className="flex items-center gap-0.5 font-mono">
-                          <Phone className="w-2.5 h-2.5" />
-                          {p.phone}
+                    <div className={`flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[11px] ${isSelected ? "text-slate-200" : "text-slate-600"}`}>
+                      <span className="flex items-center gap-1 font-mono">
+                        <Phone className={`w-3 h-3 shrink-0 ${isSelected ? "text-emerald-300" : "text-emerald-600"}`} />
+                        <span className={p.phone ? "font-semibold" : "italic text-slate-400"}>
+                          {p.phone || "No Phone"}
                         </span>
-                      )}
-                      {(p.city || p.address) && (
-                        <span className="flex items-center gap-0.5 truncate max-w-[220px]">
-                          <MapPin className="w-2.5 h-2.5 shrink-0" />
-                          {p.city ? p.city : p.address}
+                      </span>
+
+                      <span className="flex items-center gap-1 truncate max-w-[280px]">
+                        <MapPin className={`w-3 h-3 shrink-0 ${isSelected ? "text-rose-300" : "text-rose-500"}`} />
+                        <span className={(p.address || p.city) ? "font-medium" : "italic text-slate-400"}>
+                          {[p.address, p.city].filter(Boolean).join(", ") || "No Address"}
                         </span>
-                      )}
+                      </span>
                     </div>
                   </div>
 
