@@ -54,6 +54,7 @@ interface GodownOrder {
   totalPaise: number;
   createdAt: string;
   status: string;
+  isInvoice?: boolean;
   items: Array<{
     id: string;
     productName: string;
@@ -118,6 +119,148 @@ export function GodownMobileClient({
   // Test push state
   const [testPushStatus, setTestPushStatus] = useState<string | null>(null);
   const [pushSubscribed, setPushSubscribed] = useState(false);
+
+  const [allProducts, setAllProducts] = useState<GodownProduct[]>(initialProducts);
+  const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
+  const [quickAddForm, setQuickAddForm] = useState({
+    name: "",
+    weight: "",
+    shortCode: "",
+    packSize: "24",
+    mrp: "",
+    addCartons: "1",
+    addPieces: "0",
+  });
+  const [quickAddLoading, setQuickAddLoading] = useState(false);
+  const [quickAddError, setQuickAddError] = useState<string | null>(null);
+
+  const updateCartons = (productId: string, delta: number) => {
+    setLoadItems((prev) => {
+      const cur = prev[productId] || { cartons: 0, pieces: 0 };
+      const nextCartons = Math.max(0, cur.cartons + delta);
+      if (nextCartons === 0 && cur.pieces === 0) {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      }
+      return { ...prev, [productId]: { cartons: nextCartons, pieces: cur.pieces } };
+    });
+  };
+
+  const updatePieces = (productId: string, delta: number) => {
+    setLoadItems((prev) => {
+      const cur = prev[productId] || { cartons: 0, pieces: 0 };
+      const nextPieces = Math.max(0, cur.pieces + delta);
+      if (cur.cartons === 0 && nextPieces === 0) {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      }
+      return { ...prev, [productId]: { cartons: cur.cartons, pieces: nextPieces } };
+    });
+  };
+
+  const handleMarkPacked = async (ord: GodownOrder) => {
+    try {
+      await completeGodownOrderAction(ord.id, ord.isInvoice);
+      setOrders((prev) => prev.filter((o) => o.id !== ord.id));
+    } catch (e: any) {
+      alert("Failed to mark packed: " + e.message);
+    }
+  };
+
+  const handleConfirmIssue = async () => {
+    setIssueSubmitting(true);
+    setIssueError(null);
+    try {
+      const items = selectedIssueList.map((it) => ({
+        productId: it.id,
+        cartons: it.cartons,
+        pieces: it.pieces,
+      }));
+      const res = await issueVanLoadSheetAction({
+        vanLocationId: selectedVanId,
+        items,
+      });
+      if (res.success) {
+        setIssueSuccess(`Van load sheet issued successfully! (${res.count} items transferred)`);
+        setLoadItems({});
+        setIssueStep(1);
+      } else {
+        setIssueError(res.error || "Failed to issue load sheet");
+      }
+    } catch (e: any) {
+      setIssueError(e.message || "Failed to issue load sheet");
+    } finally {
+      setIssueSubmitting(false);
+    }
+  };
+
+  const handleQuickAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickAddForm.name.trim()) {
+      setQuickAddError("Product name is required");
+      return;
+    }
+    setQuickAddLoading(true);
+    setQuickAddError(null);
+    try {
+      const packSize = parseInt(quickAddForm.packSize) || 24;
+      const addCartons = parseInt(quickAddForm.addCartons) || 0;
+      const addPieces = parseInt(quickAddForm.addPieces) || 0;
+      const mrpPaise = quickAddForm.mrp ? Math.round(parseFloat(quickAddForm.mrp) * 100) : 0;
+
+      const res = await quickAddOrUpdateGodownProductAction({
+        name: quickAddForm.name.trim(),
+        weight: quickAddForm.weight.trim() || undefined,
+        shortCode: quickAddForm.shortCode.trim() || undefined,
+        packSize,
+        mrpPaise,
+        addCartons,
+        addPieces,
+      });
+
+      if (!res.success || !res.product) {
+        setQuickAddError(res.error || "Failed to save product");
+        return;
+      }
+
+      const prod = res.product;
+      setAllProducts((prev) => {
+        const idx = prev.findIndex((p) => p.id === prod.id);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = prod;
+          return updated;
+        }
+        return [prod, ...prev];
+      });
+
+      // Automatically add to Morning Issue load sheet
+      setLoadItems((prev) => ({
+        ...prev,
+        [prod.id]: {
+          cartons: Math.max(1, addCartons),
+          pieces: addPieces,
+        },
+      }));
+
+      setQuickAddModalOpen(false);
+      setQuickAddForm({
+        name: "",
+        weight: "",
+        shortCode: "",
+        packSize: "24",
+        mrp: "",
+        addCartons: "1",
+        addPieces: "0",
+      });
+    } catch (e: any) {
+      setQuickAddError(e.message || "Failed to add product");
+    } finally {
+      setQuickAddLoading(false);
+    }
+  };
 
   // Web Audio Ring Generator
   const playRingSound = () => {
@@ -219,12 +362,15 @@ export function GodownMobileClient({
           const data = await res.json();
           if (data.alerts && data.alerts.length > 0) {
             const first = data.alerts[0];
-            if (!activeRingAlert || activeRingAlert.orderId !== first.orderId) {
+            const alertRef = first.orderId || first.invoiceId || first.id;
+            if (!activeRingAlert || (activeRingAlert as any).alertId !== first.id) {
               const cartonCount = first.order?.items?.length || 1;
+              const ordNum = first.order?.orderNumber || first.title?.replace("🚨 New Order: ", "").replace("🚨 Godown Dispatch: ", "") || "Dispatch";
               startRinging({
-                orderId: first.orderId,
-                orderNumber: first.order?.number || "ORD",
-                customerName: first.order?.party?.name || "Customer",
+                alertId: first.id,
+                orderId: alertRef,
+                orderNumber: ordNum,
+                customerName: first.order?.party?.name || first.order?.customerNotes || "Customer",
                 amountPaise: first.order?.totalPaise || 0,
                 cartonCount,
               });
@@ -361,30 +507,30 @@ export function GodownMobileClient({
   // Smart search for Morning Issue
   const issueFilteredProducts = useMemo(() => {
     if (!issueSearch.trim()) {
-      return [...initialProducts].sort((a, b) => {
+      return [...allProducts].sort((a, b) => {
         const aStock = a.godownQty > 0 ? 1 : 0;
         const bStock = b.godownQty > 0 ? 1 : 0;
         if (aStock !== bStock) return bStock - aStock;
         return a.name.localeCompare(b.name);
       });
     }
-    const hits = searchItems(issueSearch, initialProducts as any, { limit: 25 });
+    const hits = searchItems(issueSearch, allProducts as any, { limit: 25 });
     return (hits as unknown as GodownProduct[]);
-  }, [initialProducts, issueSearch]);
+  }, [allProducts, issueSearch]);
 
   // Stock Tab search
   const stockFilteredProducts = useMemo(() => {
-    if (!stockSearch.trim()) return initialProducts;
-    const hits = searchItems(stockSearch, initialProducts as any, { limit: 50 });
+    if (!stockSearch.trim()) return allProducts;
+    const hits = searchItems(stockSearch, allProducts as any, { limit: 50 });
     return (hits as unknown as GodownProduct[]);
-  }, [initialProducts, stockSearch]);
+  }, [allProducts, stockSearch]);
 
   // Selected issue items summary
   const selectedIssueList = useMemo(() => {
     return Object.entries(loadItems)
       .filter(([_, counts]) => counts.cartons > 0 || counts.pieces > 0)
       .map(([id, counts]) => {
-        const prod = initialProducts.find((p) => p.id === id);
+        const prod = allProducts.find((p) => p.id === id);
         return {
           id,
           product: prod,
@@ -393,7 +539,7 @@ export function GodownMobileClient({
           totalPcs: counts.cartons * (prod?.packSize || 1) + counts.pieces,
         };
       });
-  }, [loadItems, initialProducts]);
+  }, [loadItems, allProducts]);
 
   return (
     <div className="space-y-4 max-w-md mx-auto font-sans pb-16">
@@ -643,7 +789,7 @@ export function GodownMobileClient({
                             onChange={() => {}}
                             className="rounded text-emerald-600 focus:ring-0"
                           />
-                          <span className="font-medium">{it.productName}</span>
+                          <span className="font-medium">{it.productName} {it.weight ? <span className="text-blue-700 font-bold">({it.weight})</span> : null}</span>
                         </div>
                         <span className="font-mono font-bold">
                           {it.cartons > 0 ? `${it.cartons} Ctn` : `${it.totalPieces} Pcs`}
@@ -774,9 +920,11 @@ export function GodownMobileClient({
                           className="p-3 flex items-center justify-between hover:bg-slate-50 transition"
                         >
                           <div>
-                            <div className="font-bold text-xs text-slate-900">{p.name}</div>
+                            <div className="font-bold text-xs text-slate-900">
+                              {p.name} {p.weight ? <span className="text-blue-700 font-semibold">({p.weight})</span> : null}
+                            </div>
                             <div className="text-[10px] text-slate-500 font-mono">
-                              Stock: {p.godownQty} pcs ({Math.floor(p.godownQty / p.packSize)} ctn)
+                              Stock: {p.godownQty} pcs ({Math.floor(p.godownQty / p.packSize)} ctn) · 1 Ctn = {p.packSize} pcs
                             </div>
                           </div>
                           <button
@@ -806,6 +954,16 @@ export function GodownMobileClient({
                 </div>
               )}
 
+              {/* Quick Add Missing Product / Stock Button */}
+              <button
+                type="button"
+                onClick={() => setQuickAddModalOpen(true)}
+                className="w-full py-2.5 px-3 bg-amber-50 hover:bg-amber-100 border border-dashed border-amber-300 rounded-xl text-amber-900 text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4 text-amber-700" />
+                <span>+ Quick Add Product or Missing Stock (Godown)</span>
+              </button>
+
               {/* Running Selected Items List */}
               <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -833,70 +991,79 @@ export function GodownMobileClient({
                     {selectedIssueList.map((item) => (
                       <div
                         key={item.id}
-                        className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-2"
+                        className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="font-bold text-xs text-slate-900 truncate">
-                            {item.product?.name || "Product"}
+                            {item.product?.name || "Product"} {item.product?.weight ? <span className="text-blue-700 font-semibold">({item.product.weight})</span> : null}
                           </div>
                           <div className="text-[10px] text-slate-500 font-mono">
-                            Available: {item.product?.godownQty || 0} pcs
+                            Stock: {item.product?.godownQty || 0} pcs · 1 Ctn = {item.product?.packSize || 1} pcs
                           </div>
                         </div>
 
-                        {/* Stepper for Cartons */}
-                        <div className="flex items-center gap-1.5">
+                        {/* Dual Steppers: Cartons AND Loose Pieces */}
+                        <div className="flex items-center gap-2 self-end sm:self-auto">
+                          {/* Cartons Stepper */}
+                          <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-0.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => updateCartons(item.id, -1)}
+                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center text-xs text-slate-700"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="font-mono font-bold text-xs w-5 text-center text-slate-900">
+                              {item.cartons}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateCartons(item.id, 1)}
+                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center text-xs text-slate-700"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                            <span className="text-[9px] font-bold text-slate-500 pr-1">Ctn</span>
+                          </div>
+
+                          {/* Loose Pieces Stepper */}
+                          <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-0.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => updatePieces(item.id, -1)}
+                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center text-xs text-slate-700"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="font-mono font-bold text-xs w-5 text-center text-slate-900">
+                              {item.pieces}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updatePieces(item.id, 1)}
+                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 font-bold flex items-center justify-center text-xs text-slate-700"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                            <span className="text-[9px] font-bold text-slate-500 pr-1">Loose</span>
+                          </div>
+
+                          {/* Remove Button */}
                           <button
                             type="button"
                             onClick={() => {
                               setLoadItems((prev) => {
-                                const current = prev[item.id]?.cartons || 0;
-                                const newCartons = Math.max(0, current - 1);
-                                if (newCartons === 0 && (prev[item.id]?.pieces || 0) === 0) {
-                                  const copy = { ...prev };
-                                  delete copy[item.id];
-                                  return copy;
-                                }
-                                return { ...prev, [item.id]: { cartons: newCartons, pieces: prev[item.id]?.pieces || 0 } };
+                                const copy = { ...prev };
+                                delete copy[item.id];
+                                return copy;
                               });
                             }}
-                            className="w-7 h-7 rounded-lg bg-white border border-slate-300 font-bold flex items-center justify-center text-xs"
+                            className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg transition"
+                            title="Remove item"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                          <span className="font-mono font-bold text-xs w-6 text-center">
-                            {item.cartons}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setLoadItems((prev) => ({
-                                ...prev,
-                                [item.id]: { cartons: (prev[item.id]?.cartons || 0) + 1, pieces: prev[item.id]?.pieces || 0 },
-                              }));
-                            }}
-                            className="w-7 h-7 rounded-lg bg-white border border-slate-300 font-bold flex items-center justify-center text-xs"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                          <span className="text-[10px] text-slate-500">Ctn</span>
                         </div>
-
-                        {/* Remove Button */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLoadItems((prev) => {
-                              const copy = { ...prev };
-                              delete copy[item.id];
-                              return copy;
-                            });
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg transition"
-                          title="Remove item"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     ))}
                   </div>
@@ -959,14 +1126,7 @@ export function GodownMobileClient({
                 <button
                   type="button"
                   disabled={issueSubmitting}
-                  onClick={() => {
-                    setIssueSubmitting(true);
-                    setTimeout(() => {
-                      setIssueSubmitting(false);
-                      setIssueSuccess("Van load sheet issued successfully! Stock transferred to Van.");
-                      setLoadItems({});
-                    }, 800);
-                  }}
+                  onClick={handleConfirmIssue}
                   className="w-2/3 py-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition disabled:opacity-50"
                 >
                   {issueSubmitting ? "Issuing..." : "Confirm & Issue Van"}
@@ -1142,6 +1302,125 @@ export function GodownMobileClient({
           </button>
         </div>
       </div>
+      {/* QUICK ADD PRODUCT / STOCK MODAL */}
+      {quickAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-sm text-slate-900">Add Product / Missing Stock</h3>
+                <p className="text-[11px] text-slate-500">Instantly add physical godown inventory</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickAddModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {quickAddError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg text-xs font-semibold text-red-700">
+                {quickAddError}
+              </div>
+            )}
+
+            <form onSubmit={handleQuickAddSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Product Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Bikaji Bhujia, MDH Mirch"
+                  value={quickAddForm.name}
+                  onChange={(e) => setQuickAddForm({ ...quickAddForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Weight / Size
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 15g, 100g, 1kg"
+                    value={quickAddForm.weight}
+                    onChange={(e) => setQuickAddForm({ ...quickAddForm, weight: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Pack Size (pcs/ctn)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="24"
+                    value={quickAddForm.packSize}
+                    onChange={(e) => setQuickAddForm({ ...quickAddForm, packSize: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 space-y-2">
+                <span className="block text-[11px] font-bold text-amber-900">
+                  Initial Quantity to Issue / Add:
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-amber-800 font-semibold mb-0.5">
+                      Cartons
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={quickAddForm.addCartons}
+                      onChange={(e) => setQuickAddForm({ ...quickAddForm, addCartons: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-amber-800 font-semibold mb-0.5">
+                      Loose Pcs
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={quickAddForm.addPieces}
+                      onChange={(e) => setQuickAddForm({ ...quickAddForm, addPieces: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-xs font-mono font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setQuickAddModalOpen(false)}
+                  className="w-1/3 py-2.5 border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={quickAddLoading}
+                  className="w-2/3 py-2.5 bg-[#12355B] hover:bg-[#0c2340] text-white font-bold rounded-xl shadow-xs transition disabled:opacity-50"
+                >
+                  {quickAddLoading ? "Adding..." : "+ Add to Load Sheet"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -160,21 +160,10 @@ export async function finalizeBillAction(input: {
         const ps = Math.max(1, prod.packSize || 1);
         const reqPcs = item.qty;
 
-        if (isCtn) {
-          if (gBal <= 0 || reqPcs > gBal) {
-            return {
-              success: false,
-              error: `Insufficient stock for "${prod.name}": Requested ${Math.round(reqPcs / ps)} ctn (${reqPcs} pcs), but Godown has only ${Math.floor(gBal / ps)} ctn (${gBal} pcs). Order cannot be finalized.`,
-            };
-          }
-        } else {
-          const tot = gBal + sBal;
-          if (tot <= 0 || reqPcs > tot) {
-            return {
-              success: false,
-              error: `Insufficient stock for "${prod.name}": Requested ${reqPcs} pcs, but only ${tot} pcs available in stock. Order cannot be finalized.`,
-            };
-          }
+        if (isCtn && (gBal <= 0 || reqPcs > gBal)) {
+          console.warn(`[finalizeBill: Godown shortage for ${prod.name}] Requested ${reqPcs} pcs, available ${gBal} pcs`);
+        } else if (!isCtn && (gBal + sBal <= 0 || reqPcs > (gBal + sBal))) {
+          console.warn(`[finalizeBill: Shop shortage for ${prod.name}] Requested ${reqPcs} pcs, available ${gBal + sBal} pcs`);
         }
       }
     }
@@ -204,19 +193,29 @@ export async function finalizeBillAction(input: {
       session.user.id
     );
 
-    // Instant order alert to warehouse manager
-    try {
-      await pushNotificationService.triggerOrderAlert({
-        id: invoice.id,
-        number: invoice.number,
-        orderNumber: invoice.number,
-        totalAmountPaise: invoice.totalPaise,
-        totalPaise: invoice.totalPaise,
-        customerName: input.customerName || "Shop POS Counter Sale",
-        lineCount: input.items.length,
-      });
-    } catch (notifErr) {
-      console.warn("[finalizeBillAction: push notification warning]:", notifErr);
+    // Instant order alert to warehouse manager (Carton items ONLY per store policy)
+    const cartonItems = input.items.filter((it: any) => {
+      const unit = (it.unitLabel || it.unit || "").toLowerCase();
+      return unit === "carton" || unit === "bag";
+    });
+
+    if (cartonItems.length > 0) {
+      try {
+        await pushNotificationService.triggerOrderAlert({
+          id: invoice.id,
+          number: invoice.number,
+          orderNumber: invoice.number,
+          totalAmountPaise: invoice.totalPaise,
+          totalPaise: invoice.totalPaise,
+          customerName: input.customerName || "Shop POS Counter Sale",
+          lineCount: cartonItems.length,
+          isInvoice: true,
+          hasCartonItems: true,
+          items: cartonItems,
+        });
+      } catch (notifErr) {
+        console.warn("[finalizeBillAction: push notification warning]:", notifErr);
+      }
     }
 
     return {

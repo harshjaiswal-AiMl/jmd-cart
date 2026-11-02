@@ -69,7 +69,7 @@ export function SaveVoucherDialog({
       if (e.key === "Escape" || e.key === "n" || e.key === "N") {
         e.preventDefault();
         onCancel();
-      } else if (e.key === "Enter" && !isSaving && !hasShortage) {
+      } else if (e.key === "Enter" && !isSaving) {
         if (isEditMode && (!editReason || editReason.trim().length < 3)) return;
         e.preventDefault();
         onConfirm();
@@ -88,7 +88,7 @@ export function SaveVoucherDialog({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onConfirm, onCancel, isSaving, isEditMode, editReason, hasShortage]);
+  }, [isOpen, onConfirm, onCancel, isSaving, isEditMode, editReason]);
 
   if (!isOpen) return null;
 
@@ -131,8 +131,8 @@ export function SaveVoucherDialog({
             <div className="p-3 bg-rose-50 border-2 border-rose-400 rounded-xl text-rose-900 text-xs font-bold flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
               <div>
-                <p className="font-extrabold text-rose-950">STRICT STOCK BLOCK: Insufficient Stock Detected</p>
-                <p className="text-[11px] text-rose-700 font-normal">One or more items in this bill have 0 or insufficient stock (highlighted in red below). Bill cannot be saved until stock is corrected or quantities reduced.</p>
+                <p className="font-extrabold text-rose-950">Stock Notice: Insufficient Inventory Recorded</p>
+                <p className="text-[11px] text-rose-700 font-normal">One or more items in this bill have 0 or insufficient stock (highlighted in red below). Items with insufficient stock are highlighted. Bill can still be finalized as inventory will update.</p>
               </div>
             </div>
           )}
@@ -275,7 +275,7 @@ export function SaveVoucherDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isSaving || hasShortage}
+            disabled={isSaving}
             className="px-5 py-2 bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-2xs flex items-center gap-2 active:scale-95"
           >
             {isSaving ? (

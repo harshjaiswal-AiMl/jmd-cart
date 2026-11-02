@@ -1513,7 +1513,7 @@ export function PosClient({
               : `Insufficient stock for "${first.product.name}": Available in Shop: ${availablePcs} pcs, Requested: ${requestedPcs} pcs (Short by ${requestedPcs - availablePcs} pcs).`
           );
           setHighlightedProductId(first.productId);
-          return;
+          // Non-blocking per owner policy: physical stock present, allow finalizing bill
         }
 
         const finalizeItems = activeTab.cart.map((c) => {
@@ -1655,11 +1655,6 @@ export function PosClient({
         itemSearchInputRef.current?.select();
       } else if (e.key === "F2") {
         e.preventDefault();
-        const insufficient = getInsufficientStockItems(activeTab.cart);
-        if (insufficient.length > 0) {
-          handleFinalizeBill();
-          return;
-        }
         if (activeTab.cart.length > 0) {
           setIsSaveConfirmOpen(true);
         } else {
@@ -1704,11 +1699,6 @@ export function PosClient({
         discInput?.select();
       } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
-        const insufficient = getInsufficientStockItems(activeTab.cart);
-        if (insufficient.length > 0) {
-          handleFinalizeBill();
-          return;
-        }
         if (activeTab.cart.length > 0) {
           setIsSaveConfirmOpen(true);
         } else {
@@ -3223,16 +3213,9 @@ export function PosClient({
             })()}
 
             {(() => {
-              const insufficientList = getInsufficientStockItems(activeTab.cart);
-              const hasInsufficient = insufficientList.length > 0;
-
               return (
                 <button
                   onClick={() => {
-                    if (hasInsufficient) {
-                      handleFinalizeBill();
-                      return;
-                    }
                     if (activeTab.cart.length > 0) {
                       setIsSaveConfirmOpen(true);
                     } else {

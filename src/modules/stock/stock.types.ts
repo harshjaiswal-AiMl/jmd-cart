@@ -16,6 +16,7 @@ export interface PostMovementInput {
   actorId?: string | null;
   branchId?: number;
   effectiveDate?: Date | null;
+  allowNegative?: boolean;
 }
 
 export interface StockMovementResult {

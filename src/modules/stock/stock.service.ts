@@ -1,4 +1,4 @@
-import { Prisma, UserRole } from "@prisma/client";
+import { Prisma, UserRole, MovementType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
 import { stockRepository, StockRepository } from "./stock.repository";
@@ -59,7 +59,7 @@ export class StockService {
       // 3. Validate and apply deduction from source location (if any)
       if (fromLocationId) {
         const currentFromQty = lockedBalances[fromLocationId] ?? 0;
-        if (currentFromQty < qty) {
+        if (!input.allowNegative && input.type !== MovementType.SALE && currentFromQty < qty) {
           throw new InsufficientStockError(productId, fromLocationId, currentFromQty, qty);
         }
 

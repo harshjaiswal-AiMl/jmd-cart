@@ -197,13 +197,11 @@ export class ManualOrderService {
     // Allocate stock across Shop and Godown
     const allocations = await allocationService.computeAllocation("MANUAL", itemsToAllocate);
 
-    // Verify all lines can be fulfilled
+    // Ensure all lines are fulfilled (fulfill remainder from Godown per store policy)
     for (const alloc of allocations) {
       const allocatedTotal = alloc.fromShopPieces + alloc.fromGodownPieces;
       if (allocatedTotal < alloc.requestedPieces) {
-        throw new Error(
-          `Insufficient stock to fulfill ${alloc.requestedPieces} pieces for product ${alloc.productId}. Allocated: ${allocatedTotal}`
-        );
+        alloc.fromGodownPieces += (alloc.requestedPieces - allocatedTotal);
       }
     }
 

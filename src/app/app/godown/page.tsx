@@ -65,22 +65,46 @@ export default async function GodownAppPage({
     where: { reviewed: false },
   });
 
-  // 6. Pending Orders for Godown
-  const orders = await prisma.order.findMany({
-    where: {
-      status: { in: ["PENDING", "CONFIRMED", "BOOKED_BY_PRO"] as any },
-    },
-    include: {
-      party: true,
-      items: {
-        include: {
-          product: true,
+  // 6. Pending Orders & Shop POS Carton Invoices for Godown To Pack
+  const [orders, posInvoices] = await Promise.all([
+    prisma.order.findMany({
+      where: {
+        status: { in: ["PENDING", "CONFIRMED", "BOOKED_BY_PRO"] as any },
+      },
+      include: {
+        party: true,
+        items: {
+          include: {
+            product: true,
+          },
         },
       },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
+      orderBy: { createdAt: "desc" },
+      take: 25,
+    }),
+    prisma.invoice.findMany({
+      where: {
+        channel: "SHOP",
+        status: "FINALIZED",
+        createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+        items: {
+          some: {
+            unitLabel: { in: ["Carton", "Bag"] },
+          },
+        },
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        counterPickups: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
+  ]);
 
   const pendingOrders = orders.map((o) => {
     return {
@@ -91,6 +115,7 @@ export default async function GodownAppPage({
       totalPaise: o.totalPaise,
       createdAt: o.createdAt.toISOString(),
       status: o.status,
+      isInvoice: false,
       items: o.items.map((item) => {
         const packSize = item.product?.packSize || 1;
         return {
@@ -105,11 +130,55 @@ export default async function GodownAppPage({
     };
   });
 
+  const pendingInvoices = posInvoices.filter((inv) => {
+    if (inv.counterPickups && inv.counterPickups.length > 0) {
+      return inv.counterPickups.some((p) => p.status === "PENDING");
+    }
+    return true;
+  });
+
+  const pendingInvoiceOrders = pendingInvoices.map((inv) => {
+    const cartonItems = inv.items.filter((item) => {
+      const isCtn = item.unitLabel === "Carton" || item.unitLabel === "Bag";
+      const packSize = Math.max(1, item.product?.packSize || 1);
+      return isCtn || item.qty >= packSize;
+    });
+
+    return {
+      id: inv.id,
+      orderNumber: inv.number,
+      customerName: inv.customerName || "Shop POS Counter",
+      contactPhone: inv.customerPhone || "",
+      totalPaise: inv.totalPaise,
+      createdAt: inv.createdAt.toISOString(),
+      status: "CONFIRMED",
+      isInvoice: true,
+      items: cartonItems.map((item) => {
+        const packSize = item.product?.packSize || 1;
+        const cartons = item.unitLabel === "Carton" || item.unitLabel === "Bag"
+          ? Math.max(1, Math.round(item.qty / packSize))
+          : Math.floor(item.qty / packSize);
+        return {
+          id: item.id,
+          productName: item.product?.name || "Item",
+          weight: item.product?.weight || null,
+          cartons: Math.max(1, cartons),
+          loose: item.qty % packSize,
+          totalPieces: item.qty,
+        };
+      }),
+    };
+  });
+
+  const combinedOrders = [...pendingOrders, ...pendingInvoiceOrders].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
   return (
     <GodownMobileClient
       initialProducts={godownProducts}
       vanLocations={vanLocations}
-      pendingOrders={pendingOrders}
+      pendingOrders={combinedOrders}
       lowStockCount={lowStockCount}
       unreviewedCorrectionsCount={unreviewedCorrectionsCount}
       initialTab={searchParams?.tab || "home"}

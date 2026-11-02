@@ -118,9 +118,7 @@ export class OrderService {
 
       const totalAvailable = balances.reduce((acc, b) => acc + b.qty, 0);
       if (totalAvailable < item.qty) {
-        throw new Error(
-          `Insufficient stock for "${item.productName}". Requested: ${item.qty}, Available in distribution centers: ${totalAvailable}`
-        );
+        console.warn(`[createOrderFromCart: Low stock warning for ${item.productName}] Requested: ${item.qty}, recorded: ${totalAvailable}`);
       }
     }
 

@@ -152,6 +152,7 @@ export class PushNotificationService {
 
   /**
    * Dispatches instant order alerts to warehouse manager(s) when an order is created.
+   * Enforces STORE POLICY: CARTON items ONLY alert Godown!
    */
   async triggerOrderAlert(order: {
     id: string;
@@ -162,8 +163,49 @@ export class PushNotificationService {
     customerName?: string | null;
     lineCount?: number;
     party?: { name?: string | null } | null;
+    isInvoice?: boolean;
+    hasCartonItems?: boolean;
     items?: any[];
   }) {
+    // 0. Check carton-only rule: Only alert godown if order contains carton items!
+    let hasCartons = false;
+    if (typeof order.hasCartonItems === "boolean") {
+      hasCartons = order.hasCartonItems;
+    } else if (order.items && order.items.length > 0) {
+      hasCartons = order.items.some((it: any) => {
+        const unit = (it.unitLabel || it.unit || "").toLowerCase();
+        const isCtn = unit === "carton" || unit === "bag";
+        const packSize = Math.max(1, it.product?.packSize || it.packSize || 1);
+        const qty = it.qty || 0;
+        return isCtn || (packSize > 1 && qty >= packSize);
+      });
+    } else {
+      if (order.isInvoice) {
+        const inv = await prisma.invoice.findUnique({
+          where: { id: order.id },
+          include: { items: { include: { product: true } } },
+        });
+        hasCartons = (inv?.items || []).some((it) => {
+          const unit = (it.unitLabel || "").toLowerCase();
+          const ps = Math.max(1, it.product?.packSize || 1);
+          return unit === "carton" || unit === "bag" || (ps > 1 && it.qty >= ps);
+        });
+      } else {
+        const ord = await prisma.order.findUnique({
+          where: { id: order.id },
+          include: { items: { include: { product: true } } },
+        });
+        hasCartons = (ord?.items || []).some((it) => {
+          const ps = Math.max(1, it.product?.packSize || 1);
+          return ps > 1 && it.qty >= ps;
+        });
+      }
+    }
+
+    if (!hasCartons) {
+      return { success: false, reason: "Carton-only policy: No carton items in order; godown notification skipped." };
+    }
+
     // 1. Find warehouse managers and godown users
     const warehouseUsers = await prisma.user.findMany({
       where: {
@@ -177,25 +219,31 @@ export class PushNotificationService {
       return { success: false, reason: "No warehouse users found" };
     }
 
+    const isInvoice = Boolean(order.isInvoice);
     const orderRef = order.number || order.orderNumber || "Godown Dispatch";
-    const title = `🚨 New Order: ${orderRef}`;
+    const title = isInvoice ? `🚨 Godown Dispatch: ${orderRef}` : `🚨 New Order: ${orderRef}`;
     const totalAmount = order.totalAmountPaise || order.totalPaise || 0;
     const amountStr = totalAmount > 0
       ? ` · ₹${(totalAmount / 100).toFixed(0)}`
       : "";
-    const body = `${order.lineCount || 1} item(s)${amountStr} · ${order.customerName || "Customer"}`;
+    const body = `${order.lineCount || 1} carton item(s)${amountStr} · ${order.customerName || "Customer"}`;
 
-    // 2. Create OrderAlert records
+    const orderId = isInvoice ? null : order.id;
+    const invoiceId = isInvoice ? order.id : null;
+    const deepLink = isInvoice ? `/app/godown?tab=orders` : `/app/godown?order=${order.id}`;
+
+    // 2. Create OrderAlert records without foreign key mismatch
     const alerts = await Promise.all(
       warehouseUsers.map((u) =>
         prisma.orderAlert.create({
           data: {
-            orderId: order.id,
+            orderId,
+            invoiceId,
             userId: u.id,
             state: OrderAlertState.NOTIFIED,
             title,
             body,
-            deepLink: `/app/godown?order=${order.id}`,
+            deepLink,
           },
         })
       )
@@ -209,7 +257,7 @@ export class PushNotificationService {
         body,
         orderId: order.id,
         tag: `order-${order.id}`,
-        url: `/app/godown?order=${order.id}`,
+        url: deepLink,
       }
     );
 
@@ -219,10 +267,14 @@ export class PushNotificationService {
   /**
    * Accept an order alert (stops ring and escalation across all warehouse managers).
    */
-  async acceptOrderAlert(orderId: string, acceptedByUserId: string) {
+  async acceptOrderAlert(refId: string, acceptedByUserId: string) {
     const updated = await prisma.orderAlert.updateMany({
       where: {
-        orderId,
+        OR: [
+          { orderId: refId },
+          { invoiceId: refId },
+          { id: refId },
+        ],
         state: { in: [OrderAlertState.NOTIFIED, OrderAlertState.SEEN] },
       },
       data: {
@@ -236,9 +288,10 @@ export class PushNotificationService {
 
   /**
    * Fetch active, unaccepted alerts for a user or role.
+   * Seamlessly resolves both online orders and POS counter invoices!
    */
   async getActiveAlertsForUser(userId: string) {
-    return prisma.orderAlert.findMany({
+    const alerts = await prisma.orderAlert.findMany({
       where: {
         userId,
         state: { in: [OrderAlertState.NOTIFIED, OrderAlertState.SEEN] },
@@ -266,16 +319,71 @@ export class PushNotificationService {
       orderBy: { createdAt: "desc" },
       take: 10,
     });
+
+    // Populate invoice details for invoice-based alerts
+    const invoiceIds = alerts.map((a) => a.invoiceId).filter((id): id is string => Boolean(id));
+    if (invoiceIds.length === 0) {
+      return alerts;
+    }
+
+    const invoices = await prisma.invoice.findMany({
+      where: { id: { in: invoiceIds } },
+      select: {
+        id: true,
+        number: true,
+        customerName: true,
+        customerPhone: true,
+        totalPaise: true,
+        createdAt: true,
+        items: {
+          select: {
+            id: true,
+            qty: true,
+            unitLabel: true,
+            product: { select: { name: true, weight: true, packSize: true } },
+          },
+        },
+      },
+    });
+
+    const invMap = new Map(invoices.map((inv) => [inv.id, inv]));
+
+    return alerts.map((a) => {
+      if (!a.order && a.invoiceId) {
+        const inv = invMap.get(a.invoiceId);
+        if (inv) {
+          return {
+            ...a,
+            order: {
+              id: inv.id,
+              status: "CONFIRMED",
+              orderNumber: inv.number,
+              customerNotes: "Shop POS Bill (Carton Dispatch)",
+              totalPaise: inv.totalPaise,
+              createdAt: inv.createdAt,
+              party: { id: inv.id, name: inv.customerName, phone: inv.customerPhone },
+              items: inv.items.map((it) => ({
+                id: it.id,
+                qty: it.qty,
+                product: { name: it.product.name, weight: it.product.weight },
+              })),
+            },
+          };
+        }
+      }
+      return a;
+    });
   }
 
   /**
    * Sends a test alert specifically to the requesting user's registered device.
    */
   async sendTestAlert(userId: string) {
-    // 1. Create live OrderAlert in database so in-app polling & native bridge instantly ring
+    // 1. Create live OrderAlert without foreign key trap
     const alert = await prisma.orderAlert.create({
       data: {
-        orderId: `test-${Date.now()}`,
+        orderId: null,
+        invoiceId: null,
         userId,
         state: OrderAlertState.NOTIFIED,
         title: "🚨 JMD Cart Order Alert Test",
