@@ -179,6 +179,20 @@ export function GodownMobileClient({
     if (!ringIntervalRef.current) {
       ringIntervalRef.current = setInterval(playRingSound, 1600);
     }
+    // Android Native Wrapper Continuous Telephone Ring Bridge
+    if (typeof window !== "undefined" && (window as any).AndroidGodownBridge?.triggerRing) {
+      try {
+        const amt = alert.amountPaise ? `₹${(alert.amountPaise / 100).toFixed(0)}` : "";
+        (window as any).AndroidGodownBridge.triggerRing(
+          alert.orderId || "",
+          alert.orderNumber || "New Order",
+          alert.customerName || "Customer",
+          amt
+        );
+      } catch (e) {
+        console.warn("AndroidGodownBridge triggerRing error", e);
+      }
+    }
   };
 
   const stopRinging = () => {
@@ -186,6 +200,13 @@ export function GodownMobileClient({
     if (ringIntervalRef.current) {
       clearInterval(ringIntervalRef.current);
       ringIntervalRef.current = null;
+    }
+    if (typeof window !== "undefined" && (window as any).AndroidGodownBridge?.stopRing) {
+      try {
+        (window as any).AndroidGodownBridge.stopRing();
+      } catch (e) {
+        console.warn("AndroidGodownBridge stopRing error", e);
+      }
     }
   };
 
@@ -243,6 +264,9 @@ export function GodownMobileClient({
       }
       const reg = await navigator.serviceWorker.ready;
       const keyRes = await fetch("/api/notifications/vapid-public-key");
+      if (!keyRes.ok) {
+        throw new Error("Server returned status " + keyRes.status);
+      }
       const { publicKey } = await keyRes.json();
 
       const sub = await reg.pushManager.subscribe({
@@ -250,7 +274,7 @@ export function GodownMobileClient({
         applicationServerKey: publicKey,
       });
 
-      await fetch("/api/notifications/push-subscription", {
+      const subRes = await fetch("/api/notifications/push-subscription", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -259,9 +283,15 @@ export function GodownMobileClient({
         }),
       });
 
+      if (!subRes.ok) {
+        throw new Error("Failed to register subscription with server: " + subRes.status);
+      }
+
       setPushSubscribed(true);
+      setTestPushStatus("Push notifications successfully enabled on this phone!");
       alert("Push notifications successfully enabled for Godown alerts!");
     } catch (err: any) {
+      setTestPushStatus("Failed to enable: " + (err.message || "Permission denied"));
       alert("Failed to enable push: " + (err.message || "Permission denied"));
     }
   };
@@ -271,12 +301,25 @@ export function GodownMobileClient({
     setTestPushStatus("Sending test alert...");
     try {
       const res = await fetch("/api/notifications/alerts/test", { method: "POST" });
+      if (!res.ok) {
+        const text = await res.text();
+        let errMsg = `Server error (${res.status})`;
+        try {
+          const json = JSON.parse(text);
+          errMsg = json.error || errMsg;
+        } catch {
+          // not json
+        }
+        setTestPushStatus("Error: " + errMsg);
+        return;
+      }
       const data = await res.json();
       if (data.success) {
-        setTestPushStatus("Test alert sent to your phone! Check notification bar.");
+        setTestPushStatus("Test alert sent! Notification & Ring triggered.");
         playRingSound();
       } else {
-        setTestPushStatus("Error: " + (data.error || "No device subscribed. Tap 'Enable Push Notifications' first."));
+        setTestPushStatus("Note: " + (data.reason || data.error || "Alert recorded. Please tap 'Enable Push Notifications' to register this device."));
+        playRingSound();
       }
     } catch (err: any) {
       setTestPushStatus("Failed: " + err.message);

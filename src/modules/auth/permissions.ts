@@ -245,6 +245,11 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
     return true;
   }
 
+  // System notifications, alerts and push subscriptions are accessible to all authenticated users
+  if (pathname.startsWith("/api/notifications")) {
+    return true;
+  }
+
   // GODOWN cannot access /admin/catalog/import or /admin/catalog/price-lists
   if (
     role === UserRole.GODOWN &&

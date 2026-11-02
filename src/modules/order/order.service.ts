@@ -20,6 +20,7 @@ import { getEInvoiceProvider } from "@/lib/e-invoice";
 import { settingsService } from "@/modules/settings/settings.service";
 import { billingRepository } from "@/modules/billing/billing.repository";
 import { autoConvertService } from "@/modules/godown/auto-convert.service";
+import { pushNotificationService } from "@/modules/notifications/push-notification.service";
 import {
   CreateOrderInput,
   createOrderInputSchema,
@@ -231,6 +232,21 @@ export class OrderService {
       },
       ip,
     });
+
+    // Instant order alert & continuous phone ring to warehouse manager
+    try {
+      await pushNotificationService.triggerOrderAlert({
+        id: order.id,
+        number: order.orderNumber,
+        orderNumber: order.orderNumber,
+        totalAmountPaise: order.totalPaise,
+        totalPaise: order.totalPaise,
+        customerName: user.name || user.party?.name || "Online Store Customer",
+        lineCount: order.items.length,
+      });
+    } catch (notifErr) {
+      console.warn("[createOrderFromCart: push notification warning]:", notifErr);
+    }
 
     return this.mapOrderToSummary(order);
   }

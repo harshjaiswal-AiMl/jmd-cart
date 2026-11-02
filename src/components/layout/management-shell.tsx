@@ -269,23 +269,35 @@ export function ManagementShell({
           return;
         }
 
-        // 2. Clear non-empty search / input box
+        // 2. If an input/textarea is focused with text, clear text first; if empty, blur and continue to navigate back
         if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
           const inputEl = activeEl as HTMLInputElement;
           if (inputEl.value && inputEl.value.length > 0) {
             e.preventDefault();
             inputEl.value = "";
             inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+            inputEl.blur();
             return;
           }
           activeEl.blur();
-          return;
         }
 
-        // 3. Navigate back to previous page or parent route
+        // 3. Global Esc back navigation across all management pages
         e.preventDefault();
-        if (window.history.length > 1) {
+        const currentPath = pathname;
+        if (typeof window !== "undefined" && window.history.length > 1) {
           router.back();
+          // Fallback: If route did not change within 120ms (e.g. entry page), go to parent section
+          setTimeout(() => {
+            if (typeof window !== "undefined" && window.location.pathname === currentPath) {
+              const segments = currentPath.split("/").filter(Boolean);
+              if (segments.length > 1) {
+                router.push("/" + segments.slice(0, -1).join("/"));
+              } else {
+                router.push("/admin");
+              }
+            }
+          }, 120);
         } else {
           const segments = pathname.split("/").filter(Boolean);
           if (segments.length > 1) {

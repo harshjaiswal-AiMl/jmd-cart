@@ -13,6 +13,7 @@ const ALL_ROLES = [
   { role: UserRole.WAREHOUSE_MANAGER, label: "WAREHOUSE_MANAGER" },
   { role: UserRole.GODOWN, label: "GODOWN (Warehouse Staff)" },
   { role: UserRole.ADMIN, label: "ADMIN" },
+  { role: UserRole.PRO, label: "PRO (Field Sales Executive)" },
 ];
 
 export function IncentiveSettingsClient({

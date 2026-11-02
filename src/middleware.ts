@@ -51,6 +51,7 @@ export default auth((req) => {
     pathname.startsWith("/store") ||
     pathname === "/management" ||
     pathname.startsWith("/api/store") ||
+    pathname.startsWith("/api/notifications") ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname === "/cookie-policy" ||
@@ -92,6 +93,9 @@ export default auth((req) => {
 
   // Check RBAC permission for route
   if (user?.role && !canAccessRoute(user.role, pathname)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Access Denied: Insufficient permissions" }, { status: 403 });
+    }
     const dashboard = getDefaultDashboard(user.role);
     const html = `<!DOCTYPE html>
     <html lang="en">

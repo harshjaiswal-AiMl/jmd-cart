@@ -1297,6 +1297,29 @@ export function PosClient({
   const [isFinalizing, startFinalizeTransition] = useTransition();
 
   // Finalize Bill Action
+  const getInsufficientStockItems = (cart: PosCartLine[]) => {
+    return cart.filter((c) => {
+      const packSize = Math.max(1, c.product.packSize);
+      const isCarton = c.unit === "Carton" || c.unit === "Bag";
+      const requestedPcs = isCarton
+        ? c.qty * packSize
+        : c.unit === "Dozen"
+        ? c.qty * 12
+        : c.qty;
+
+      const availableGodownPcs = c.product.godownStockQty ?? 0;
+      const availableShopPcs = c.product.shopStockQty ?? 0;
+      const availableGodownCtn = c.product.godownCartons ?? Math.floor(availableGodownPcs / packSize);
+
+      if (isCarton) {
+        return availableGodownPcs <= 0 || availableGodownCtn <= 0 || requestedPcs > availableGodownPcs || c.qty > availableGodownCtn;
+      } else {
+        const totalPcsAvailable = availableShopPcs + availableGodownPcs;
+        return totalPcsAvailable <= 0 || requestedPcs > totalPcsAvailable;
+      }
+    });
+  };
+
   const handleFinalizeBill = (explicitOverride?: { approvedByUserId: string; reason: string }) => {
     if (!pricingResult || activeTab.cart.length === 0) return;
     setErrorMessage(null);
@@ -1446,19 +1469,8 @@ export function PosClient({
           return;
         }
 
-        // Pre-flight check: Insufficient stock check before finalization (Cartons check Godown, Pcs check Shop)
-        const insufficientItems = activeTab.cart.filter((c) => {
-          const packSize = Math.max(1, c.product.packSize);
-          if (c.unit === "Carton") {
-            const requestedPcs = c.qty * packSize;
-            const availableGodownPcs = c.product.godownStockQty ?? 0;
-            return requestedPcs > availableGodownPcs;
-          } else {
-            const requestedPcs = c.qty;
-            const availableShopPcs = c.product.shopStockQty ?? 0;
-            return requestedPcs > availableShopPcs;
-          }
-        });
+        // Pre-flight check: Strict zero & insufficient stock block before finalization
+        const insufficientItems = getInsufficientStockItems(activeTab.cart);
 
         if (insufficientItems.length > 0) {
           const first = insufficientItems[0];
@@ -1641,6 +1653,11 @@ export function PosClient({
         itemSearchInputRef.current?.select();
       } else if (e.key === "F2") {
         e.preventDefault();
+        const insufficient = getInsufficientStockItems(activeTab.cart);
+        if (insufficient.length > 0) {
+          handleFinalizeBill();
+          return;
+        }
         if (activeTab.cart.length > 0) {
           setIsSaveConfirmOpen(true);
         } else {
@@ -1685,6 +1702,11 @@ export function PosClient({
         discInput?.select();
       } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         e.preventDefault();
+        const insufficient = getInsufficientStockItems(activeTab.cart);
+        if (insufficient.length > 0) {
+          handleFinalizeBill();
+          return;
+        }
         if (activeTab.cart.length > 0) {
           setIsSaveConfirmOpen(true);
         } else {
@@ -1700,12 +1722,54 @@ export function PosClient({
         itemSearchInputRef.current?.focus();
         itemSearchInputRef.current?.select();
       } else if (e.key === "Escape") {
-        setShowHeldModal(false);
-        setQuickCustomerModalOpen(false);
-        setOverrideModalOpen(false);
-        setManualRateModalOpen(false);
-        setShowHistoryDrawer(false);
-        setShowRecentBillsPopover(false);
+        if (showQuickAddModal) {
+          setShowQuickAddModal(false);
+          return;
+        }
+        if (quickStockModal.isOpen) {
+          setQuickStockModal({ isOpen: false, product: null, defaultPcs: 1 });
+          return;
+        }
+        if (stockAlertInfo && stockAlertInfo.isOpen) {
+          setStockAlertInfo(null);
+          return;
+        }
+        if (isSaveConfirmOpen) {
+          setIsSaveConfirmOpen(false);
+          return;
+        }
+        if (showHeldModal || quickCustomerModalOpen || overrideModalOpen || manualRateModalOpen || showHistoryDrawer || showRecentBillsPopover || showTodaySalesModal || showRevisionHistory) {
+          setShowHeldModal(false);
+          setQuickCustomerModalOpen(false);
+          setOverrideModalOpen(false);
+          setManualRateModalOpen(false);
+          setShowHistoryDrawer(false);
+          setShowRecentBillsPopover(false);
+          setShowTodaySalesModal(false);
+          setShowRevisionHistory(false);
+          return;
+        }
+        if (itemSearchTerm) {
+          setItemSearchTerm("");
+          setSearchSelectedIndex(0);
+          return;
+        }
+        // Esc goes back from POS to management dashboard
+        if (activeTab.cart.length === 0) {
+          if (typeof window !== "undefined" && window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/admin");
+          }
+        } else {
+          if (confirm("Go back to previous page? Current unsaved bill tab will be closed.")) {
+            if (typeof window !== "undefined" && window.history.length > 1) {
+              router.back();
+            } else {
+              router.push("/admin");
+            }
+          }
+        }
       }
     };
 
@@ -3156,20 +3220,46 @@ export function PosClient({
               );
             })()}
 
-            <button
-              onClick={() => handleFinalizeBill()}
-              disabled={activeTab.cart.length === 0 || isFinalizing}
-              className="w-full py-4 px-4 rounded-xl font-black text-base bg-[#12355B] hover:bg-[#0E2843] text-white shadow-xl hover:shadow-2xl disabled:opacity-40 transition-all flex items-center justify-center gap-2 group cursor-pointer"
-            >
-              {isFinalizing ? (
-                <span>Finalizing Invoice...</span>
-              ) : (
-                <>
-                  <span>Finalize & Print (F2)</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </button>
+            {(() => {
+              const insufficientList = getInsufficientStockItems(activeTab.cart);
+              const hasInsufficient = insufficientList.length > 0;
+
+              return (
+                <button
+                  onClick={() => {
+                    if (hasInsufficient) {
+                      handleFinalizeBill();
+                      return;
+                    }
+                    if (activeTab.cart.length > 0) {
+                      setIsSaveConfirmOpen(true);
+                    } else {
+                      handleFinalizeBill();
+                    }
+                  }}
+                  disabled={activeTab.cart.length === 0 || isFinalizing}
+                  className={`w-full py-4 px-4 rounded-xl font-black text-base shadow-xl hover:shadow-2xl disabled:opacity-40 transition-all flex items-center justify-center gap-2 group cursor-pointer ${
+                    hasInsufficient
+                      ? "bg-rose-700 hover:bg-rose-800 text-white border-2 border-rose-400"
+                      : "bg-[#12355B] hover:bg-[#0E2843] text-white"
+                  }`}
+                >
+                  {isFinalizing ? (
+                    <span>Finalizing Invoice...</span>
+                  ) : hasInsufficient ? (
+                    <>
+                      <AlertTriangle className="w-5 h-5 text-amber-300 animate-bounce" />
+                      <span>Stock Deficit ({insufficientList.length}) - Review</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Finalize &amp; Print (F2)</span>
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </>
+                  )}
+                </button>
+              );
+            })()}
           </div>
         </aside>
       </div>

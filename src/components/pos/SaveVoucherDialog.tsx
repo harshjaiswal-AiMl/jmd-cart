@@ -68,7 +68,7 @@ export function SaveVoucherDialog({
       if (e.key === "Escape" || e.key === "n" || e.key === "N") {
         e.preventDefault();
         onCancel();
-      } else if (e.key === "Enter" && !isSaving) {
+      } else if (e.key === "Enter" && !isSaving && !hasShortage) {
         if (isEditMode && (!editReason || editReason.trim().length < 3)) return;
         e.preventDefault();
         onConfirm();
@@ -91,6 +91,7 @@ export function SaveVoucherDialog({
 
   if (!isOpen) return null;
 
+  const hasShortage = lines.some((l) => l.isShortage);
   const amountInWords = paiseToIndianWords(totalAmountPaise);
 
   return (
@@ -124,6 +125,17 @@ export function SaveVoucherDialog({
               Press <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono text-[11px] font-bold">Enter</kbd> to Confirm &amp; Print, or <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono text-[11px] font-bold">Esc</kbd> to return to editing.
             </p>
           </div>
+
+          {/* Insufficient Stock Warning Banner */}
+          {hasShortage && (
+            <div className="p-3 bg-rose-50 border-2 border-rose-400 rounded-xl text-rose-900 text-xs font-bold flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+              <div>
+                <p className="font-extrabold text-rose-950">STRICT STOCK BLOCK: Insufficient Stock Detected</p>
+                <p className="text-[11px] text-rose-700 font-normal">One or more items in this bill have 0 or insufficient stock (highlighted in red below). Bill cannot be saved until stock is corrected or quantities reduced.</p>
+              </div>
+            </div>
+          )}
 
           {/* Scrollable Item Preview Table (Part D) */}
           {lines.length > 0 && (
@@ -263,7 +275,7 @@ export function SaveVoucherDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isSaving}
+            disabled={isSaving || hasShortage}
             className="px-5 py-2 bg-[#0f172a] hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition shadow-2xs flex items-center gap-2 active:scale-95"
           >
             {isSaving ? (

@@ -107,6 +107,7 @@ export const CRUD_ENTITIES: Record<CrudEntityKey, CrudEntityConfig> = {
         options: [
           { label: "SUPER_ADMIN", value: "SUPER_ADMIN" },
           { label: "ADMIN", value: "ADMIN" },
+          { label: "PRO (Field Sales Executive)", value: "PRO" },
           { label: "GODOWN (Warehouse Manager)", value: "GODOWN" },
           { label: "SHOP (Cashier)", value: "SHOP" },
           { label: "SALESPERSON (Van)", value: "SALESPERSON" },

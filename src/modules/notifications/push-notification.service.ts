@@ -166,7 +166,7 @@ export class PushNotificationService {
     // 1. Find warehouse managers and godown users
     const warehouseUsers = await prisma.user.findMany({
       where: {
-        role: { in: [UserRole.WAREHOUSE_MANAGER, UserRole.GODOWN] },
+        role: { in: [UserRole.WAREHOUSE_MANAGER, UserRole.GODOWN, UserRole.ADMIN, UserRole.SUPER_ADMIN] },
         active: true,
       },
       select: { id: true, name: true, role: true },
@@ -176,11 +176,13 @@ export class PushNotificationService {
       return { success: false, reason: "No warehouse users found" };
     }
 
-    const title = `🚨 New Order: ${order.number || "Godown Dispatch"}`;
-    const amountStr = order.totalAmountPaise
-      ? ` · ₹${(order.totalAmountPaise / 100).toFixed(0)}`
+    const orderRef = order.number || order.orderNumber || "Godown Dispatch";
+    const title = `🚨 New Order: ${orderRef}`;
+    const totalAmount = order.totalAmountPaise || order.totalPaise || 0;
+    const amountStr = totalAmount > 0
+      ? ` · ₹${(totalAmount / 100).toFixed(0)}`
       : "";
-    const body = `${order.lineCount || 1} lines${amountStr} · ${order.customerName || "Customer"}`;
+    const body = `${order.lineCount || 1} item(s)${amountStr} · ${order.customerName || "Customer"}`;
 
     // 2. Create OrderAlert records
     const alerts = await Promise.all(

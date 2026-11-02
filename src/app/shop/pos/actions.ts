@@ -1,3 +1,4 @@
+import { pushNotificationService } from "@/modules/notifications/push-notification.service";
 "use server";
 
 import { auth } from "@/auth";
@@ -144,6 +145,39 @@ export async function finalizeBillAction(input: {
       };
     }
 
+    // Pre-flight strict stock verification: block if 0 or insufficient stock
+    const godownLoc = await prisma.location.findFirst({ where: { type: "GODOWN", active: true } });
+    for (const item of input.items) {
+      const prod = await prisma.product.findUnique({
+        where: { id: item.productId },
+        select: { name: true, packSize: true, stockBalances: true },
+      });
+      if (prod) {
+        const gBal = prod.stockBalances.find((b) => b.locationId === godownLoc?.id)?.qty ?? 0;
+        const sBal = prod.stockBalances.find((b) => b.locationId === input.locationId)?.qty ?? 0;
+        const isCtn = item.unitLabel === "Carton" || item.unitLabel === "Bag";
+        const ps = Math.max(1, prod.packSize || 1);
+        const reqPcs = item.qty;
+
+        if (isCtn) {
+          if (gBal <= 0 || reqPcs > gBal) {
+            return {
+              success: false,
+              error: `Insufficient stock for "${prod.name}": Requested ${Math.round(reqPcs / ps)} ctn (${reqPcs} pcs), but Godown has only ${Math.floor(gBal / ps)} ctn (${gBal} pcs). Order cannot be finalized.`,
+            };
+          }
+        } else {
+          const tot = gBal + sBal;
+          if (tot <= 0 || reqPcs > tot) {
+            return {
+              success: false,
+              error: `Insufficient stock for "${prod.name}": Requested ${reqPcs} pcs, but only ${tot} pcs available in stock. Order cannot be finalized.`,
+            };
+          }
+        }
+      }
+    }
+
     const invoice = await billingService.finalizeInvoice(
       session.user.role,
       {
@@ -168,6 +202,21 @@ export async function finalizeBillAction(input: {
       },
       session.user.id
     );
+
+    // Instant order alert to warehouse manager
+    try {
+      await pushNotificationService.triggerOrderAlert({
+        id: invoice.id,
+        number: invoice.number,
+        orderNumber: invoice.number,
+        totalAmountPaise: invoice.totalPaise,
+        totalPaise: invoice.totalPaise,
+        customerName: input.customerName || "Shop POS Counter Sale",
+        lineCount: input.items.length,
+      });
+    } catch (notifErr) {
+      console.warn("[finalizeBillAction: push notification warning]:", notifErr);
+    }
 
     return {
       success: true,
