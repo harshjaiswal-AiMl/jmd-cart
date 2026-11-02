@@ -570,3 +570,8 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
      - Field sales app at `/app/pro` (`pro-mobile-client.tsx`) with 4 bottom tabs: **Parties · Punch Order · My Orders · Today**.
      - Orders punched with status `BOOKED_BY_PRO`, tagging agent code, and immediately triggering warehouse alert.
      - Cancel permitted only prior to godown acceptance; 1-click "Reorder" shortcut.
+  10. **Prompt #18 Follow-ups & Hotfixes (Revisions `00072-rn7` & `00073-ccb`):**
+      - **PRO Role in Crud & Settings:** Added `{ label: "PRO (Field Sales Executive)", value: "PRO" }` to `crud.registry.ts` and `settings-client.tsx` (now visible in New User modal dropdown).
+      - **Strict Zero/Insufficient Stock Block:** In POS (`pos-client.tsx`), F2 / Ctrl+Enter / Finalize button are blocked from opening Save Voucher when stock is 0 or insufficient. Save dialog Confirm button disabled with warning banner. Backend pre-flight check in `finalizeBillAction` strictly validates live DB stock before creating invoices.
+      - **Esc Navigation Everywhere:** In `management-shell.tsx` and `pos-client.tsx`, Esc closes active modals/search and calls `router.back()`.
+      - **Instant Order Notifications & Continuous Telephone Ring:** Wired `pushNotificationService.triggerOrderAlert` in `finalizeBillAction` (Shop POS) and `orderService.createOrderFromCart` (Online Storefront). Fixed middleware RBAC blocking notification routes with HTML. Added Android WebView native device registration and live OrderAlert creation in `sendTestAlert`, ensuring continuous ringing works on both PWA and native Android wrapper.
