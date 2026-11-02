@@ -211,26 +211,7 @@ export function EditVanIssueClient({ vanDay, products }: EditVanIssueClientProps
         return;
       }
 
-      // Check godown stock sufficiency for increases
-      if (line.deltaPieces > 0) {
-        if (line.deltaPieces > prod.godownQty) {
-          setError(
-            `Insufficient Godown stock for additional ${line.deltaPieces} pcs of '${prod.name}'. Godown only has ${prod.godownQty} pcs available.`
-          );
-          return;
-        }
-      }
-
-      // Check van stock sufficiency for decreases
-      if (line.deltaPieces < 0) {
-        const returnQty = -line.deltaPieces;
-        if (returnQty > prod.vanQty) {
-          setError(
-            `Cannot return ${returnQty} pcs of '${prod.name}' to Godown. Van only has ${prod.vanQty} pcs available in stock.`
-          );
-          return;
-        }
-      }
+      // Stock availability does not block van load adjustments
     }
 
     setLoading(true);

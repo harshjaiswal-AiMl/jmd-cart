@@ -150,17 +150,10 @@ export class GodownService {
     const productMap = new Map(products.map((p) => [p.id, p]));
     const balanceMap = new Map(balances.map((b) => [b.productId, b.qty]));
 
-    // Check stock sufficiency
+    // Check stock sufficiency: non-blocking for physical operations
     for (const item of data.items) {
       if (item.qty <= 0) {
         throw new Error("Quantity must be greater than zero for all items");
-      }
-      const prod = productMap.get(item.productId);
-      const available = balanceMap.get(item.productId) ?? 0;
-      if (available < item.qty) {
-        throw new Error(
-          `Insufficient stock for '${prod?.name || item.productId}'. Available: ${available}, Requested: ${item.qty}`
-        );
       }
     }
 
@@ -182,6 +175,7 @@ export class GodownService {
             reason: data.reason || "Inter-location multi-product stock transfer",
             idempotencyKey,
             actorId,
+            allowNegative: true,
           },
           tx
         );

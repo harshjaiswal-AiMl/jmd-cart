@@ -75,6 +75,7 @@ export interface ActiveVanLoad {
   issueSheetNo: string;
   date: string;
   status: string;
+  vanLocationId?: string;
   vanName: string;
   salespersonName: string;
   salespersonPhone: string | null;
@@ -83,6 +84,7 @@ export interface ActiveVanLoad {
   totalCartons: number;
   lines: Array<{
     id: string;
+    productId: string;
     productName: string;
     issuedQty: number;
     packSize: number;
@@ -111,7 +113,62 @@ export function GodownMobileClient({
   user,
 }: Props) {
   const [lastIssued, setLastIssued] = useState<{ id: string; issueSheetNo: string } | null>(null);
+  const [editingVanDayId, setEditingVanDayId] = useState<string | null>(null);
+  const [editingSheetNo, setEditingSheetNo] = useState<string | null>(null);
+  const [suggestionInputs, setSuggestionInputs] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  const startEditLoad = (vl: ActiveVanLoad) => {
+    setEditingVanDayId(vl.id);
+    setEditingSheetNo(vl.issueSheetNo);
+    const van = vanLocations.find((v) => v.id === vl.vanLocationId || v.name === vl.vanName) || vanLocations[0];
+    if (van) setSelectedVanId(van.id);
+
+    const items: Record<string, { cartons: number; pieces: number }> = {};
+    for (const line of vl.lines) {
+      const ps = line.packSize > 0 ? line.packSize : 1;
+      items[line.productId] = {
+        cartons: Math.floor(line.issuedQty / ps),
+        pieces: line.issuedQty % ps,
+      };
+    }
+    setLoadItems(items);
+    setActiveTab("issue");
+    setIssueStep(2);
+  };
+
+  const cancelEditLoad = () => {
+    setEditingVanDayId(null);
+    setEditingSheetNo(null);
+    setLoadItems({});
+    setIssueStep(1);
+  };
+
+  const setCartonsExact = (productId: string, val: number) => {
+    const safeVal = Math.max(0, isNaN(val) ? 0 : val);
+    setLoadItems((prev) => {
+      const cur = prev[productId] || { cartons: 0, pieces: 0 };
+      if (safeVal === 0 && cur.pieces === 0) {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      }
+      return { ...prev, [productId]: { cartons: safeVal, pieces: cur.pieces } };
+    });
+  };
+
+  const setPiecesExact = (productId: string, val: number) => {
+    const safeVal = Math.max(0, isNaN(val) ? 0 : val);
+    setLoadItems((prev) => {
+      const cur = prev[productId] || { cartons: 0, pieces: 0 };
+      if (safeVal === 0 && cur.cartons === 0) {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      }
+      return { ...prev, [productId]: { cartons: cur.cartons, pieces: safeVal } };
+    });
+  };
 
   // Alert Mode & Web Audio Ringing state
   const [alertMode, setAlertMode] = useState(false);
@@ -679,14 +736,17 @@ export function GodownMobileClient({
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setActiveTab("issue")}
+              onClick={() => {
+                cancelEditLoad();
+                setActiveTab("issue");
+              }}
               className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs text-left hover:border-blue-400 active:scale-95 transition"
             >
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-800 flex items-center justify-center mb-2">
                 <Truck className="w-5 h-5" />
               </div>
-              <div className="font-bold text-xs text-slate-900">Morning Issue</div>
-              <p className="text-[10px] text-slate-500 mt-0.5">3-step van load sheet</p>
+              <div className="font-bold text-xs text-slate-900">+ New Van Issue</div>
+              <p className="text-[10px] text-slate-500 mt-0.5">Morning load dispatch</p>
             </button>
 
             <button
@@ -701,6 +761,85 @@ export function GodownMobileClient({
               <p className="text-[10px] text-slate-500 mt-0.5">Physical counts &amp; logs</p>
             </button>
           </div>
+
+          {/* Active Van Loads Card directly on HOME */}
+          {activeVanLoads && activeVanLoads.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-[#12355B]" />
+                  <h3 className="font-black text-xs uppercase tracking-wider text-slate-800">
+                    Active Van Loads ({activeVanLoads.length})
+                  </h3>
+                </div>
+                <Link
+                  href="/godown/van-issues"
+                  className="text-[11px] font-bold text-blue-600 hover:underline"
+                >
+                  View All &rarr;
+                </Link>
+              </div>
+
+              <div className="space-y-2">
+                {activeVanLoads.map((vl) => (
+                  <div
+                    key={vl.id}
+                    className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition space-y-2"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-xs text-blue-700">
+                            {vl.issueSheetNo}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              vl.status === "OPEN"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-emerald-100 text-emerald-800"
+                            }`}
+                          >
+                            {vl.status}
+                          </span>
+                        </div>
+                        <div className="font-bold text-xs text-slate-900 mt-0.5">
+                          🚐 {vl.vanName}
+                        </div>
+                        <div className="text-[11px] text-slate-600">
+                          👤 {vl.salespersonName} {vl.salespersonPhone ? `(📞 ${vl.salespersonPhone})` : ""}
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-xs text-slate-800">
+                          {vl.totalCartons} Cartons
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                          {vl.totalLines} lines ({vl.totalPieces} pcs)
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-1.5 border-t border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => startEditLoad(vl)}
+                        className="flex-1 py-1.5 px-3 text-center bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1 shadow-2xs"
+                      >
+                        <span>✏️ Edit Load</span>
+                      </button>
+                      <Link
+                        href={`/godown/van-issues/${vl.id}/print`}
+                        className="flex-1 py-1.5 px-3 text-center bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1"
+                      >
+                        <span>🖨️ Print Sheet</span>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Unreviewed Stock Corrections Banner if any */}
           {unreviewedCorrectionsCount > 0 && (
@@ -1045,9 +1184,17 @@ export function GodownMobileClient({
                             >
                               <Minus className="w-3 h-3" />
                             </button>
-                            <span className="font-mono font-bold text-xs w-5 text-center text-slate-900">
-                              {item.cartons}
-                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.cartons === 0 ? "" : item.cartons}
+                              placeholder="0"
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value);
+                                setCartonsExact(item.id, isNaN(v) ? 0 : v);
+                              }}
+                              className="font-mono font-bold text-xs w-11 text-center text-slate-900 bg-white border border-slate-300 rounded px-1 py-0.5 focus:border-blue-500 focus:outline-none"
+                            />
                             <button
                               type="button"
                               onClick={() => updateCartons(item.id, 1)}
@@ -1067,9 +1214,17 @@ export function GodownMobileClient({
                             >
                               <Minus className="w-3 h-3" />
                             </button>
-                            <span className="font-mono font-bold text-xs w-5 text-center text-slate-900">
-                              {item.pieces}
-                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.pieces === 0 ? "" : item.pieces}
+                              placeholder="0"
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value);
+                                setPiecesExact(item.id, isNaN(v) ? 0 : v);
+                              }}
+                              className="font-mono font-bold text-xs w-11 text-center text-slate-900 bg-white border border-slate-300 rounded px-1 py-0.5 focus:border-blue-500 focus:outline-none"
+                            />
                             <button
                               type="button"
                               onClick={() => updatePieces(item.id, 1)}
@@ -1161,7 +1316,7 @@ export function GodownMobileClient({
                   onClick={handleConfirmIssue}
                   className="w-2/3 py-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition disabled:opacity-50"
                 >
-                  {issueSubmitting ? "Issuing..." : "Confirm & Issue Van"}
+                  {issueSubmitting ? "Saving..." : (editingVanDayId ? "Save & Update Van Load" : "Confirm & Issue Van")}
                 </button>
               </div>
             </div>

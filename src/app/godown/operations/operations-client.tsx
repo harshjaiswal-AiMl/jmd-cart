@@ -222,16 +222,7 @@ export function OperationsClient({
     const isFromGodown =
       sourceLoc?.type === "GODOWN" || sourceLoc?.name.toLowerCase().includes("godown");
 
-    if (isFromGodown) {
-      for (const item of itemsToSubmit) {
-        if (item.prod && item.prod.godownQty !== undefined && item.qty > item.prod.godownQty) {
-          setBatchTransferError(
-            `Insufficient stock for '${item.prod.name}'. Godown balance: ${item.prod.godownQty} pcs, Transfer requested: ${item.qty} pcs.`
-          );
-          return;
-        }
-      }
-    }
+    // Non-blocking transfer
 
     setTransferSubmitting(true);
     try {

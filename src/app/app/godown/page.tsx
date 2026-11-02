@@ -206,6 +206,7 @@ export default async function GodownAppPage({
       issueSheetNo: vd.issueSheetNo,
       date: vd.date.toISOString(),
       status: vd.status,
+      vanLocationId: vd.vanLocationId,
       vanName: vd.vanLocation.name,
       salespersonName: vd.salesperson.name,
       salespersonPhone: vd.salesperson.phone,
@@ -214,6 +215,7 @@ export default async function GodownAppPage({
       totalCartons,
       lines: vd.lines.map((l) => ({
         id: l.id,
+        productId: l.productId,
         productName: l.product?.name || "Item",
         issuedQty: l.issuedQty,
         packSize: l.product?.packSize || 1,

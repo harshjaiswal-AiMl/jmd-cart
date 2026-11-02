@@ -441,15 +441,11 @@ export class VanRepository {
               },
             });
             const godownQtyBefore = godownBal?.qty ?? 0;
-            if (godownQtyBefore < delta) {
-              throw new Error(
-                `Insufficient Godown stock for '${product.name}'. Required additional: ${delta} pcs, Available: ${godownQtyBefore} pcs.`
-              );
-            }
+            // Stock shortage does not block van load additions
 
             // Auto conversion check if loose pieces requested
             const requestedLoose = counts.pieces > 0 ? counts.pieces : delta % product.packSize;
-            if (requestedLoose > 0 && product.packSize > 1) {
+            if (requestedLoose > 0 && product.packSize > 1 && godownQtyBefore >= requestedLoose) {
               await autoConvertService.checkAndRecordAutoConvertInTx(tx, {
                 productId: product.id,
                 productName: product.name,
@@ -510,11 +506,7 @@ export class VanRepository {
               },
             });
             const vanQtyAvailable = vanBal?.qty ?? 0;
-            if (vanQtyAvailable < returnQty) {
-              throw new Error(
-                `Cannot return ${returnQty} pcs of '${product.name}' to Godown. Van only has ${vanQtyAvailable} pcs available.`
-              );
-            }
+            // Negative/short van balance does not block load reductions
 
             if (newTotalPieces === 0) {
               // Line completely removed
@@ -559,14 +551,10 @@ export class VanRepository {
               },
             });
             const godownQtyBefore = godownBal?.qty ?? 0;
-            if (godownQtyBefore < newTotalPieces) {
-              throw new Error(
-                `Insufficient Godown stock for '${product.name}'. Required: ${newTotalPieces} pcs, Available: ${godownQtyBefore} pcs.`
-              );
-            }
+            // Stock shortage does not block new product additions to van load
 
             const requestedLoose = counts.pieces > 0 ? counts.pieces : newTotalPieces % product.packSize;
-            if (requestedLoose > 0 && product.packSize > 1) {
+            if (requestedLoose > 0 && product.packSize > 1 && godownQtyBefore >= requestedLoose) {
               await autoConvertService.checkAndRecordAutoConvertInTx(tx, {
                 productId: product.id,
                 productName: product.name,
@@ -636,11 +624,7 @@ export class VanRepository {
             },
           });
           const vanQtyAvailable = vanBal?.qty ?? 0;
-          if (vanQtyAvailable < existingLine.issuedQty) {
-            throw new Error(
-              `Cannot return ${existingLine.issuedQty} pcs of '${prodName}' to Godown. Van only has ${vanQtyAvailable} pcs available.`
-            );
-          }
+          // Short van balance does not block line removal
 
           // Delete line
           await tx.vanDayLine.delete({
