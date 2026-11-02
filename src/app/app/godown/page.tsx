@@ -85,7 +85,7 @@ export default async function GodownAppPage({
     prisma.invoice.findMany({
       where: {
         channel: "SHOP",
-        status: "FINALIZED",
+        status: "FINAL",
         createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
         items: {
           some: {
