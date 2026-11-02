@@ -60,6 +60,7 @@ export function SaveVoucherDialog({
   onEditReasonChange,
 }: SaveVoucherDialogProps) {
   const tableContainerRef = useRef<HTMLDivElement>(null);
+  const hasShortage = lines.some((l) => l.isShortage);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -87,11 +88,10 @@ export function SaveVoucherDialog({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onConfirm, onCancel, isSaving, isEditMode, editReason]);
+  }, [isOpen, onConfirm, onCancel, isSaving, isEditMode, editReason, hasShortage]);
 
   if (!isOpen) return null;
 
-  const hasShortage = lines.some((l) => l.isShortage);
   const amountInWords = paiseToIndianWords(totalAmountPaise);
 
   return (

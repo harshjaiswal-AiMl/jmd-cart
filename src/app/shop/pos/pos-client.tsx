@@ -1727,7 +1727,7 @@ export function PosClient({
           return;
         }
         if (quickStockModal.isOpen) {
-          setQuickStockModal({ isOpen: false, product: null, defaultPcs: 1 });
+          setQuickStockModal({ isOpen: false, product: null, addQty: "", unit: "Pcs", isLoading: false });
           return;
         }
         if (stockAlertInfo && stockAlertInfo.isOpen) {
