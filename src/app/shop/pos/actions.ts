@@ -1,5 +1,6 @@
-import { pushNotificationService } from "@/modules/notifications/push-notification.service";
 "use server";
+
+import { pushNotificationService } from "@/modules/notifications/push-notification.service";
 
 import { auth } from "@/auth";
 import { pricingService } from "@/modules/pricing/pricing.service";
