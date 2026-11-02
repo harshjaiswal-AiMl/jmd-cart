@@ -1471,50 +1471,8 @@ export function PosClient({
           return;
         }
 
-        // Pre-flight check: Strict zero & insufficient stock block before finalization
-        const insufficientItems = getInsufficientStockItems(activeTab.cart);
-
-        if (insufficientItems.length > 0) {
-          const first = insufficientItems[0];
-          const packSize = Math.max(1, first.product.packSize);
-          const isCarton = first.unit === "Carton";
-          const requestedPcs = isCarton ? first.qty * packSize : first.qty;
-          const availablePcs = isCarton ? (first.product.godownStockQty ?? 0) : (first.product.shopStockQty ?? 0);
-
-          setStockAlertInfo({
-            isOpen: true,
-            productName: first.product.name,
-            shortCode: first.product.shortCode,
-            productId: first.productId,
-            lineId: first.id,
-            requestedPcs,
-            availableShopPcs: first.product.shopStockQty ?? 0,
-            availableGodownPcs: first.product.godownStockQty ?? 0,
-            availableGodownCtn: first.product.godownCartons ?? 0,
-            packSize,
-            allInsufficient: insufficientItems.map((item) => {
-              const ps = Math.max(1, item.product.packSize);
-              const itemIsCarton = item.unit === "Carton";
-              return {
-                lineId: item.id,
-                productId: item.productId,
-                productName: item.product.name,
-                shortCode: item.product.shortCode,
-                requestedPcs: itemIsCarton ? item.qty * ps : item.qty,
-                availableShopPcs: item.product.shopStockQty ?? 0,
-                availableGodownCtn: item.product.godownCartons ?? 0,
-              };
-            }),
-          });
-
-          setErrorMessage(
-            isCarton
-              ? `Insufficient stock for "${first.product.name}": Available in Godown: ${first.product.godownCartons ?? 0} ctn (${availablePcs} pcs), Requested: ${first.qty} ctn.`
-              : `Insufficient stock for "${first.product.name}": Available in Shop: ${availablePcs} pcs, Requested: ${requestedPcs} pcs (Short by ${requestedPcs - availablePcs} pcs).`
-          );
-          setHighlightedProductId(first.productId);
-          // Non-blocking per owner policy: physical stock present, allow finalizing bill
-        }
+        // Owner Policy: Stock restriction removed completely - bill any product regardless of stock
+        // Insufficient stock items proceed directly to finalization without blocking or popups
 
         const finalizeItems = activeTab.cart.map((c) => {
           const packSize = Math.max(1, c.product.packSize);
@@ -3223,19 +3181,10 @@ export function PosClient({
                     }
                   }}
                   disabled={activeTab.cart.length === 0 || isFinalizing}
-                  className={`w-full py-4 px-4 rounded-xl font-black text-base shadow-xl hover:shadow-2xl disabled:opacity-40 transition-all flex items-center justify-center gap-2 group cursor-pointer ${
-                    hasInsufficient
-                      ? "bg-rose-700 hover:bg-rose-800 text-white border-2 border-rose-400"
-                      : "bg-[#12355B] hover:bg-[#0E2843] text-white"
-                  }`}
+                  className="w-full py-4 px-4 rounded-xl font-black text-base shadow-xl hover:shadow-2xl disabled:opacity-40 transition-all flex items-center justify-center gap-2 group cursor-pointer bg-[#12355B] hover:bg-[#0E2843] text-white"
                 >
                   {isFinalizing ? (
                     <span>Finalizing Invoice...</span>
-                  ) : hasInsufficient ? (
-                    <>
-                      <AlertTriangle className="w-5 h-5 text-amber-300 animate-bounce" />
-                      <span>Stock Deficit ({insufficientList.length}) - Review</span>
-                    </>
                   ) : (
                     <>
                       <span>Finalize &amp; Print (F2)</span>

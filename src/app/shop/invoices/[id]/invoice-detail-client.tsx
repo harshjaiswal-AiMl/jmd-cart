@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { formatISTDate, formatISTDateTime } from "@/lib/date";
 import { cancelInvoiceAction } from "../actions";
@@ -15,7 +17,20 @@ export function InvoiceDetailClient({
   invoice,
   canCancel,
 }: InvoiceDetailClientProps) {
+  const router = useRouter();
   const [showCancelModal, setShowCancelModal] = useState(false);
+
+  // Esc key: Return to New Sale (POS)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !showCancelModal) {
+        e.preventDefault();
+        router.push("/shop/pos");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [router, showCancelModal]);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -50,6 +65,13 @@ export function InvoiceDetailClient({
             className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 transition"
           >
             ← Back to Invoices
+          </Link>
+          <Link
+            href="/shop/pos"
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition flex items-center gap-1.5"
+          >
+            <span>+ New Sale (POS)</span>
+            <kbd className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-[10px] font-mono font-bold">Esc</kbd>
           </Link>
           <div>
             <div className="flex items-center gap-2">

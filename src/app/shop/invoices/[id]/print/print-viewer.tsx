@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { BusinessDetails } from "@/modules/settings/settings.types";
 import { A4Invoice } from "@/components/printing/a4-invoice";
@@ -32,9 +33,22 @@ export function PrintViewer({
   isGstBill = false,
   isCredit = false,
 }: PrintViewerProps) {
+  const router = useRouter();
   const [format, setFormat] = useState<PrintFormat>(initialFormat);
   const [copyTitle, setCopyTitle] = useState("Original for Recipient");
   const [otherFormatsOpen, setOtherFormatsOpen] = useState(false);
+
+  // Esc key: Return directly to New Sale (POS)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        router.push("/shop/pos");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [router]);
 
   useEffect(() => {
     if (autoPrint) {
@@ -58,9 +72,10 @@ export function PrintViewer({
           </Link>
           <Link
             href="/shop/pos"
-            className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition"
+            className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-lg border border-blue-200 hover:bg-blue-50 transition flex items-center gap-1.5"
           >
-            + New Sale (POS)
+            <span>+ New Sale (POS)</span>
+            <kbd className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-[10px] font-mono font-bold">Esc</kbd>
           </Link>
           <span className="text-sm font-bold text-slate-800 ml-2">
             Invoice: <span className="font-mono text-blue-900">{invoice.number}</span>
