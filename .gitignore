@@ -36,3 +36,6 @@ ocr-samples/
 .local-media/
 *.traineddata
 !src/modules/ocr/vendor/tessdata/*.traineddata
+
+*.apk
+
