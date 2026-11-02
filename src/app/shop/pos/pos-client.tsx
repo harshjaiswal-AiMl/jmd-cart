@@ -5,6 +5,7 @@ import { FontSizeToggle } from "@/components/common/font-size-provider";
 
 import React, { useState, useTransition, useEffect, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PaymentMode } from "@prisma/client";
 import {
   Search,
@@ -171,6 +172,7 @@ export function PosClient({
   nextInvoicePreview,
   initialEditInvoice,
 }: PosClientProps) {
+  const router = useRouter();
   // Admin check for backdated billing
   const isAdmin = cashierRole === "SUPER_ADMIN" || cashierRole === "ADMIN";
   const isPrivilegedDateUser = isAdmin || cashierRole === "ACCOUNTS";
