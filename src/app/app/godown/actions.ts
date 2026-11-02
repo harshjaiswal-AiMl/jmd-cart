@@ -20,7 +20,7 @@ export async function completeGodownOrderAction(refId: string, isInvoice?: boole
         where: { invoiceId: refId },
         data: {
           status: "COMPLETED",
-          updatedAt: new Date(),
+          completedAt: new Date(),
         },
       });
     } else {
