@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">JMD Cart</string>
+    <string name="channel_order_updates">Order Updates</string>
+    <string name="channel_order_desc">Real-time status of your groceries and kirana orders</string>
+    <string name="channel_stock_alerts">Stock Alerts</string>
+    <string name="channel_stock_desc">Notifies you when requested out-of-stock items return</string>
+    <string name="channel_offers">Offers and Promos</string>
+    <string name="channel_offers_desc">Discounts, festivals and bulk wholesale savings</string>
+</resources>

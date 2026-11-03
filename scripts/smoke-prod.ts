@@ -165,6 +165,45 @@ async function run() {
     });
   }
 
+  // 10. Mobile App Storefront & API v1 Verification (Prompt #20)
+  await check('10a. Storefront /api/store/v1/app-config → 200 JSON', async () => {
+    const r = await fetch(`${STOREFRONT}/api/store/v1/app-config`);
+    if (r.status !== 200) throw new Error(`Got ${r.status}`);
+    const j = await r.json();
+    if (!j.version?.minSupportedVersion || !j.featureFlags) throw new Error('Invalid app-config');
+  });
+
+  await check('10b. Storefront /.well-known/assetlinks.json → 200 with com.jmdcart.shop', async () => {
+    const r = await fetch(`${STOREFRONT}/.well-known/assetlinks.json`);
+    if (r.status !== 200) throw new Error(`Got ${r.status}`);
+    const j = await r.json();
+    const hasPkg = Array.isArray(j) && j.some((entry: any) => entry.target?.package_name === 'com.jmdcart.shop');
+    if (!hasPkg) throw new Error('com.jmdcart.shop not declared in assetlinks');
+  });
+
+  await check('10c. Storefront /api/store/v1/openapi → 200 OpenAPI doc', async () => {
+    const r = await fetch(`${STOREFRONT}/api/store/v1/openapi`);
+    if (r.status !== 200) throw new Error(`Got ${r.status}`);
+    const j = await r.json();
+    if (!j.openapi?.startsWith('3.') || !j.paths?.['/app-config']) throw new Error('Invalid OpenAPI doc');
+  });
+
+  await check('10d. Storefront /api/store/v1/devices/register rejects bad request with 400', async () => {
+    const r = await fetch(`${STOREFRONT}/api/store/v1/devices/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    if (r.status !== 400) throw new Error(`Got ${r.status}, expected 400`);
+  });
+
+  await check('10e. Storefront /delete-account (Google Play Compliance) → 200', async () => {
+    const r = await fetch(`${STOREFRONT}/delete-account`);
+    if (r.status !== 200) throw new Error(`Got ${r.status}`);
+    const body = await r.text();
+    if (!body.includes('Account') && !body.includes('Deletion')) throw new Error('Deletion form missing');
+  });
+
   console.log(`\nResults: ${passed} PASS, ${failed} FAIL`);
   if (failed > 0) process.exit(1);
 }

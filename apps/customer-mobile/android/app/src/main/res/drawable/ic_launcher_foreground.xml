@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- JMD Cart Bag & "J" Monogram -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,40 L74,40 L78,80 L30,80 Z"/>
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:pathData="M44,40 C44,30 64,30 64,40"/>
+    <path
+        android:fillColor="#7A2433"
+        android:pathData="M52,50 L56,50 L56,66 C56,70 52,72 48,70 L48,66 C50,67 52,66 52,64 Z"/>
+</vector>

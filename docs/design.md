@@ -157,3 +157,20 @@ The system ships with **zero products, zero stock, zero parties, zero bills**. E
 - **Roles Matrix & In-POS Editing**:
   - Visual roles matrix screen at `/admin/roles` displaying permissions across all 7 operational roles with field-level access rules.
   - In-POS invoice modification (`/shop/pos?edit=<id>`) displaying revision count banner, price change highlights, and mandatory reason dialog.
+
+## Customer Native Mobile App Design System & Adaptations (Prompt #20)
+- **Stitch Project Reference**: `projects/2516034325085804188` ("Remix of JMD Cart Quick-Commerce Storefront").
+- **Tokens & Theme Invariance**:
+  - Primary: `#7A2433` (Deep Maroon, primary headers & wholesale anchors).
+  - Secondary: `#FC9430` (Warm Orange, primary CTAs, Add-to-cart, action highlights).
+  - Tertiary: `#1B7837` (Forest Green, wholesale savings badges, delivery confirmed).
+  - Surface: `#FFF9F1` (Warm Cream low-fatigue background canvas).
+  - Typography: Epilogue for bold headlines & section anchors; Inter for all tabular figures, pricing, and bilingual copy.
+  - Border Radius: 12px for product cards & modals; 8px for buttons & steppers; full pill for status badges.
+- **Native Conventions**:
+  - Bottom Tab bar with Home, Categories, Cart (with badge), Orders, and Account.
+  - Sticky bottom cart bar on listing screens.
+  - Pull-to-refresh on all feeds with brand-tinted spinner.
+  - 48px minimum touch targets for all interactive steppers and buttons.
+  - Offline red alert banner across the top when network disconnected, seamlessly falling back to cached products.
+  - High-contrast sunlight readability tuned for Tier-2/Tier-3 Android displays.

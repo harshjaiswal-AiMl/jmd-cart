@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=360, height=800, initial-scale=1.0">
+  <title>Choose Language / भाषा चुनें</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { width: 360px; height: 800px; background: #FFF9F1; padding: 24px 20px; display: flex; flex-direction: column; justify-content: space-between; }
+    .header { margin-top: 40px; text-align: center; }
+    h1 { font-family: 'Epilogue', serif; font-size: 24px; color: #7A2433; margin-bottom: 8px; }
+    p { font-size: 14px; color: #554243; }
+    .options { display: flex; flex-direction: column; gap: 16px; margin-top: 40px; }
+    .card { background: #FFF; border: 2px solid #EAE3DC; border-radius: 16px; padding: 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .card.selected { border-color: #7A2433; background: #FFFBFA; }
+    .lang-name { font-size: 18px; font-weight: 700; color: #1B1C1C; }
+    .lang-sub { font-size: 13px; color: #707070; margin-top: 4px; }
+    .check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #7A2433; display: flex; align-items: center; justify-content: center; background: #7A2433; color: #FFF; font-size: 12px; }
+    .btn { background: #7A2433; color: #FFF; font-weight: 600; padding: 16px; border-radius: 12px; text-align: center; font-size: 16px; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="header">
+      <h1>Select Language</h1>
+      <p>अपनी पसंदीदा भाषा चुनें</p>
+    </div>
+    <div class="options">
+      <div class="card selected">
+        <div>
+          <div class="lang-name">English</div>
+          <div class="lang-sub">Use English for app text</div>
+        </div>
+        <div class="check">✓</div>
+      </div>
+      <div class="card">
+        <div>
+          <div class="lang-name">हिन्दी (Hindi)</div>
+          <div class="lang-sub">ऐप को हिन्दी में चलाएं</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button class="btn">Continue / आगे बढ़ें</button>
+</body>
+</html>

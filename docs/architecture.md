@@ -283,3 +283,31 @@ One codebase, one database, two hostnames routed by Next.js `middleware.ts` base
 - **JMD PRO Mobile App**:
   - Dedicated mobile PWA at `/app/pro` with 4 bottom tabs (**Parties · Punch Order · My Orders · Today**).
   - Field executives punch orders on behalf of parties, resolve price tiers, check credit, and immediately trigger warehouse alert.
+
+## 20. Customer Native Mobile App (com.jmdcart.shop) & Store API v1 (Prompt #20)
+- **Shared Architecture**:
+  - Complete JSON API suite under `/api/store/v1` sharing the exact same services (`StoreService`, `CartService`, `OrderService`, `PricingService`, `AddressService`, `SettingsService`) as the web storefront.
+  - Published OpenAPI 3.1 specification at `/api/store/v1/openapi`.
+- **Dual Token Model & Session Security**:
+  - Short-lived HMAC-SHA256 JWT access token (15 mins) + rotating 30-day device-bound refresh token in `app_refresh_tokens`.
+  - Refresh tokens are hashed using SHA-256 before storage, rotated on each refresh, and revoked on device logout.
+- **Phone OTP & Android SMS Auto-Fill**:
+  - 6-digit cryptographically secure OTP with rate-limiting (max 3 per 10 mins).
+  - Dispatched via own messaging gateway (`Fast2SMS` / `Twilio` / `Meta Cloud API`).
+  - Strict Android SMS Retriever format: `<#> Your JMD Cart verification code is 123456. Valid for 5 minutes. DO NOT share this code.\nFA+9qCX9VSu`.
+- **FCM Push Channels & Privacy**:
+  - Three distinct Android Notification Channels:
+    1. `order_updates` (High Importance, Vibrate, Sound, Lights).
+    2. `stock_alerts` (Default Importance, Back-in-stock alerts for Notify Me items).
+    3. `offers` (Low Importance, Promotional, strictly opt-in requiring `notificationPreferences.promotional === true`).
+- **Deep Links & Android App Links**:
+  - Digital Asset Links served from `/.well-known/assetlinks.json` binding `com.jmdcart.shop` with SHA-256 fingerprints.
+  - Intercepts `https://jmdcart.com/product/*`, `/category/*`, `/brand/*`, `/orders/*`, `/b/*`, and `jmdcart://*`.
+- **Native Android Build Pipeline**:
+  - Standalone Gradle project in `apps/customer-mobile/android/` compiling with local Android SDK (Target SDK 34).
+  - Clean local build via `scripts/build-customer-app.ps1`.
+  - Produces lightweight, signed release APK (5.1 MB) and Google Play AAB (4.5 MB).
+- **Google Play Data Safety & Account Deletion**:
+  - Account deletion endpoint (`/api/store/v1/account/delete-account`) and public web form at `/delete-account`.
+  - Personal data anonymized, device/refresh tokens revoked, statutory GST tax invoices legally preserved for Indian accounting compliance.
+  - Zero third-party ad or tracking SDKs. Direct APK download page published at `/store/app`.

@@ -233,6 +233,10 @@ model User {
   pushSubscriptions      PushSubscription[]
   orderAlerts            OrderAlert[]
   stockCorrections       StockCorrection[]
+  customerDevices        CustomerDevice[]
+  refreshTokens          AppRefreshToken[]
+  savedShoppingLists     SavedShoppingList[]
+  productNotificationRequests ProductNotificationRequest[]
 
   @@map("users")
 }
@@ -348,6 +352,8 @@ model Product {
   shopRequestLines    ShopRequestLine[]
   incentiveRules      IncentiveRule[]
   revisions           ProductRevision[]
+  savedListItems      SavedShoppingListItem[]
+  notificationRequests ProductNotificationRequest[]
 
   @@index([name])
   @@index([companyId])
@@ -1561,4 +1567,90 @@ model SmsGatewayDevice {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("sms_gateway_devices")
+}
+
+model CustomerDevice {
+  id                      String    @id @default(cuid())
+  userId                  String?   @map("user_id")
+  deviceId                String    @unique @map("device_id")
+  platform                String    // "android" or "ios"
+  fcmToken                String?   @map("fcm_token")
+  appVersion              String?   @map("app_version")
+  locale                  String    @default("en")
+  notificationPreferences Json      @default("{\"orderUpdates\":true,\"backInStock\":true,\"promotional\":false}") @map("notification_preferences")
+  lastSeenAt              DateTime  @default(now()) @map("last_seen_at")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([fcmToken])
+  @@map("customer_devices")
+}
+
+model AppRefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  deviceId  String   @map("device_id")
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, deviceId])
+  @@index([expiresAt, revoked])
+  @@map("app_refresh_tokens")
+}
+
+model SavedShoppingList {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items SavedShoppingListItem[]
+
+  @@index([userId])
+  @@map("saved_shopping_lists")
+}
+
+model SavedShoppingListItem {
+  id        String   @id @default(cuid())
+  listId    String   @map("list_id")
+  productId String   @map("product_id")
+  quantity  Int      @default(1)
+  unit      String   @default("Pcs")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  list    SavedShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  product Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([listId])
+  @@index([productId])
+  @@map("saved_shopping_list_items")
+}
+
+model ProductNotificationRequest {
+  id         String    @id @default(cuid())
+  productId  String    @map("product_id")
+  userId     String?   @map("user_id")
+  phone      String?
+  deviceId   String?   @map("device_id")
+  fcmToken   String?   @map("fcm_token")
+  status     String    @default("PENDING") // PENDING, SENT, CANCELLED
+  createdAt  DateTime  @default(now()) @map("created_at")
+  notifiedAt DateTime? @map("notified_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([productId, status])
+  @@index([userId])
+  @@index([phone])
+  @@map("product_notification_requests")
 }

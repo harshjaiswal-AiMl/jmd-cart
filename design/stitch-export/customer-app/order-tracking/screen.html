@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=360, height=800, initial-scale=1.0">
+  <title>Order Tracking</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { width: 360px; height: 800px; background: #FFF9F1; display: flex; flex-direction: column; }
+    .header { height: 50px; background: #7A2433; color: #FFF; display: flex; align-items: center; padding: 0 16px; font-weight: 700; }
+    .content { flex: 1; overflow-y: auto; padding: 16px; }
+    .card { background: #FFF; border: 1px solid #EAE3DC; border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+    .order-num { font-size: 16px; font-weight: 700; color: #1B1C1C; margin-bottom: 4px; }
+    .order-meta { font-size: 12px; color: #707070; }
+    .stepper { margin: 16px 0; }
+    .step { display: flex; gap: 12px; margin-bottom: 16px; position: relative; }
+    .step::before { content: ''; position: absolute; left: 11px; top: 24px; bottom: -12px; width: 2px; background: #E0E0E0; }
+    .step:last-child::before { display: none; }
+    .step.done::before { background: #1B7837; }
+    .dot { width: 24px; height: 24px; border-radius: 50%; background: #E0E0E0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #FFF; font-weight: 700; z-index: 1; }
+    .step.done .dot { background: #1B7837; }
+    .step.current .dot { background: #FC9430; box-shadow: 0 0 0 4px rgba(252,148,48,0.2); }
+    .step-title { font-size: 13px; font-weight: 700; color: #1B1C1C; }
+    .step-desc { font-size: 11px; color: #707070; margin-top: 2px; }
+    .delivery-box { background: #E8F5E9; border-radius: 12px; padding: 12px; display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+    .call-btn { background: #1B7837; color: #FFF; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="header">Order Tracking</div>
+  <div class="content">
+    <div class="card">
+      <div class="order-num">Order #ORD-202611-0082</div>
+      <div class="order-meta">Placed on Today, 3:45 PM • 3 Items • ₹1,240 (COD)</div>
+      <div class="stepper">
+        <div class="step done">
+          <div class="dot">✓</div>
+          <div>
+            <div class="step-title">Order Booked</div>
+            <div class="step-desc">Your order was received and logged</div>
+          </div>
+        </div>
+        <div class="step done">
+          <div class="dot">✓</div>
+          <div>
+            <div class="step-title">Order Accepted</div>
+            <div class="step-desc">Shop godown confirmed inventory</div>
+          </div>
+        </div>
+        <div class="step done">
+          <div class="dot">✓</div>
+          <div>
+            <div class="step-title">Packing Complete</div>
+            <div class="step-desc">Items boxed & sealed with invoice</div>
+          </div>
+        </div>
+        <div class="step current">
+          <div class="dot">🚚</div>
+          <div>
+            <div class="step-title">Out for Delivery</div>
+            <div class="step-desc">Delivery partner is on the way</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="dot">📍</div>
+          <div>
+            <div class="step-title">Delivered</div>
+            <div class="step-desc">Expected by 4:30 PM</div>
+          </div>
+        </div>
+      </div>
+      <div class="delivery-box">
+        <div>
+          <div style="font-size: 12px; font-weight: 700; color: #1B7837;">Ramesh Kumar</div>
+          <div style="font-size: 11px; color: #555;">Delivery Executive • Van #BR-01-9482</div>
+        </div>
+        <a href="tel:+919876543210" class="call-btn">📞 Call</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:name=".MainApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.JMDCart">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.JMDCart.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- App Links & Deep Links: jmdcart.com/* -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="jmdcart.com"
+                    android:pathPrefix="/product" />
+                <data
+                    android:scheme="https"
+                    android:host="jmdcart.com"
+                    android:pathPrefix="/category" />
+                <data
+                    android:scheme="https"
+                    android:host="jmdcart.com"
+                    android:pathPrefix="/brand" />
+                <data
+                    android:scheme="https"
+                    android:host="jmdcart.com"
+                    android:pathPrefix="/orders" />
+                <data
+                    android:scheme="https"
+                    android:host="jmdcart.com"
+                    android:pathPrefix="/b" />
+            </intent-filter>
+
+            <!-- Custom URI Scheme: jmdcart:// -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="jmdcart" />
+            </intent-filter>
+        </activity>
+
+        <!-- Firebase Cloud Messaging Push Service -->
+        <service
+            android:name=".push.FCMService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="order_updates" />
+    </application>
+
+</manifest>

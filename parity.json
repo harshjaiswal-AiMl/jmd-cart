@@ -1,0 +1,266 @@
+{
+  "version": "1.0.0",
+  "appId": "com.jmdcart.shop",
+  "generatedAt": "2026-11-03T20:40:00+05:30",
+  "mappings": [
+    {
+      "featureId": "home_banners",
+      "websiteUrl": "/store",
+      "appScreen": "HomeScreen",
+      "component": "BannerCarousel",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "home_categories",
+      "websiteUrl": "/store",
+      "appScreen": "HomeScreen",
+      "component": "CategoryRail",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "home_featured_products",
+      "websiteUrl": "/store",
+      "appScreen": "HomeScreen",
+      "component": "ProductGrid",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "home_announcement",
+      "websiteUrl": "/store",
+      "appScreen": "HomeScreen",
+      "component": "AnnouncementBar",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "category_catalog",
+      "websiteUrl": "/store/category/:slug",
+      "appScreen": "CategoriesScreen",
+      "component": "CategoryProductGrid",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "brand_catalog",
+      "websiteUrl": "/store/brand/:slug",
+      "appScreen": "BrandsScreen",
+      "component": "BrandProductGrid",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "search_instant_suggestions",
+      "websiteUrl": "/store/search",
+      "appScreen": "SearchScreen",
+      "component": "SearchSuggestions",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "search_weight_matching",
+      "websiteUrl": "/store/search",
+      "appScreen": "SearchScreen",
+      "component": "RankedSearchResults",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "product_detail_gallery",
+      "websiteUrl": "/store/product/:slug",
+      "appScreen": "ProductDetailScreen",
+      "component": "ProductGallery",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "product_pack_options",
+      "websiteUrl": "/store/product/:slug",
+      "appScreen": "ProductDetailScreen",
+      "component": "PackUnitSelector",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "product_tier_pricing",
+      "websiteUrl": "/store/product/:slug",
+      "appScreen": "ProductDetailScreen",
+      "component": "WholesaleTierTable",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "wholesale_nudge",
+      "websiteUrl": "/store/product/:slug",
+      "appScreen": "ProductDetailScreen",
+      "component": "WholesaleSavingsNudge",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "wholesale_registration",
+      "websiteUrl": "/store/register",
+      "appScreen": "WholesaleRegistrationScreen",
+      "component": "GstinRegistrationForm",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "cart_live_pricing",
+      "websiteUrl": "/store/cart",
+      "appScreen": "CartScreen",
+      "component": "LivePriceSummary",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "cart_delivery_charge",
+      "websiteUrl": "/store/cart",
+      "appScreen": "CartScreen",
+      "component": "FreeDeliveryThresholdBar",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "cart_stepper",
+      "websiteUrl": "/store/cart",
+      "appScreen": "CartScreen",
+      "component": "QuantityStepper",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "checkout_address_selector",
+      "websiteUrl": "/store/checkout",
+      "appScreen": "CheckoutScreen",
+      "component": "AddressSelector",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "checkout_delivery_slot",
+      "websiteUrl": "/store/checkout",
+      "appScreen": "CheckoutScreen",
+      "component": "DeliverySlotPicker",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "checkout_cod_payment",
+      "websiteUrl": "/store/checkout",
+      "appScreen": "CheckoutScreen",
+      "component": "CodPaymentOption",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "checkout_credit_payment",
+      "websiteUrl": "/store/checkout",
+      "appScreen": "CheckoutScreen",
+      "component": "StoreCreditOption",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "checkout_gstin",
+      "websiteUrl": "/store/checkout",
+      "appScreen": "CheckoutScreen",
+      "component": "GstinBillField",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "order_success",
+      "websiteUrl": "/store/orders/success",
+      "appScreen": "OrderSuccessScreen",
+      "component": "SuccessConfirmation",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "order_tracking",
+      "websiteUrl": "/store/orders/:id",
+      "appScreen": "OrderTrackingScreen",
+      "component": "StepTracker",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "order_delivery_call",
+      "websiteUrl": "/store/orders/:id",
+      "appScreen": "OrderTrackingScreen",
+      "component": "CallDeliveryPerson",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "order_cancellation",
+      "websiteUrl": "/store/orders/:id",
+      "appScreen": "OrderTrackingScreen",
+      "component": "CancelOrderAction",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "order_reorder",
+      "websiteUrl": "/store/orders",
+      "appScreen": "OrderHistoryScreen",
+      "component": "ReorderButton",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "invoice_bill_view",
+      "websiteUrl": "/b/:token",
+      "appScreen": "OrderTrackingScreen",
+      "component": "SecureBillViewer",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "wishlist",
+      "websiteUrl": "/store/wishlist",
+      "appScreen": "WishlistScreen",
+      "component": "WishlistProductGrid",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "saved_shopping_lists",
+      "websiteUrl": "/store/lists",
+      "appScreen": "SavedListsScreen",
+      "component": "OneTapAddAllButton",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "notify_me_back_in_stock",
+      "websiteUrl": "/store/product/:slug",
+      "appScreen": "ProductDetailScreen",
+      "component": "NotifyMeButton",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "user_profile",
+      "websiteUrl": "/store/account",
+      "appScreen": "AccountScreen",
+      "component": "ProfileSection",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "user_addresses",
+      "websiteUrl": "/store/account/addresses",
+      "appScreen": "AccountScreen",
+      "component": "AddressManagement",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "user_credit_summary",
+      "websiteUrl": "/store/account/credit",
+      "appScreen": "AccountScreen",
+      "component": "CreditLedgerSection",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "language_toggle_bilingual",
+      "websiteUrl": "/store",
+      "appScreen": "LanguageSelector",
+      "component": "EnglishHindiToggle",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "support_whatsapp_call",
+      "websiteUrl": "/store/contact",
+      "appScreen": "SupportModal",
+      "component": "CallAndWhatsAppButtons",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "delete_account",
+      "websiteUrl": "/delete-account",
+      "appScreen": "AccountScreen",
+      "component": "DeleteAccountModal",
+      "status": "IMPLEMENTED"
+    },
+    {
+      "featureId": "offline_maintenance",
+      "websiteUrl": "/store",
+      "appScreen": "AppShell",
+      "component": "OfflineBannerAndMaintenance",
+      "status": "IMPLEMENTED"
+    }
+  ]
+}
