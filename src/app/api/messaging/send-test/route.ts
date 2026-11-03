@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { MessageChannel } from "@prisma/client";
-import { WhatsAppOpenWaGateway } from "@/modules/messaging/providers/open-wa.provider";
-import { SmsAndroidGateway } from "@/modules/messaging/providers/android-sms.provider";
+import { MessageChannel, MessageProviderType } from "@prisma/client";
+import { MessagingService } from "@/modules/messaging/messaging.service";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { phone, channel } = await req.json();
+    const { phone, channel, provider } = await req.json();
     if (!phone) {
       return NextResponse.json({ error: "Phone number required" }, { status: 400 });
     }
@@ -32,23 +31,31 @@ export async function POST(req: NextRequest) {
     }
 
     const testTime = new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" });
-    const messageBody = `[JMD CART TEST] Hello! Your JMD Cart messaging gateway (${channel || "DEFAULT"}) is active and working properly. Timestamp: ${testTime}. Bharosa Ghar Tak.`;
+    const messageBody = `[JMD CART TEST] Hello! Your JMD Cart automated messaging (${provider || channel || "DEFAULT"}) is active and working. Time: ${testTime}. Bharosa Ghar Tak.`;
 
-    if (channel === "SMS") {
-      const smsProvider = new SmsAndroidGateway();
-      const result = await smsProvider.send({
-        toPhone: cleanedDigits,
-        body: messageBody,
-      });
-      return NextResponse.json({ success: result.success, error: result.error, channel: "SMS" });
-    } else {
-      const waProvider = new WhatsAppOpenWaGateway();
-      const result = await waProvider.send({
-        toPhone: cleanedDigits,
-        body: messageBody,
-      });
-      return NextResponse.json({ success: result.success, error: result.error, channel: "WHATSAPP" });
-    }
+    const targetChannel = channel === "SMS" ? MessageChannel.SMS : MessageChannel.WHATSAPP;
+    let targetProviderType: MessageProviderType | undefined = undefined;
+
+    if (provider === "FAST2SMS") targetProviderType = MessageProviderType.FAST2SMS;
+    else if (provider === "TWILIO") targetProviderType = MessageProviderType.TWILIO;
+    else if (provider === "ANDROID_SMS") targetProviderType = MessageProviderType.ANDROID_SMS;
+    else if (provider === "CLOUD_API") targetProviderType = MessageProviderType.CLOUD_API;
+    else if (provider === "OPEN_WA") targetProviderType = MessageProviderType.OPEN_WA;
+
+    const result = await MessagingService.sendDirect({
+      phone: cleanedDigits,
+      body: messageBody,
+      channel: targetChannel,
+      providerType: targetProviderType,
+    });
+
+    return NextResponse.json({
+      success: result.success,
+      error: result.error,
+      externalMessageId: result.externalMessageId,
+      channel: targetChannel,
+      provider: targetProviderType,
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Failed to send test message" }, { status: 500 });
   }

@@ -1,10 +1,13 @@
 import { MessageChannel, MessageProviderType, MessageStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { BillTokenService } from "./bill-token.service";
-import { IMessageProvider } from "./message-provider.interface";
+import { IMessageProvider, SendMessageResult } from "./message-provider.interface";
 import { WhatsAppOpenWaGateway } from "./providers/open-wa.provider";
 import { SmsAndroidGateway } from "./providers/android-sms.provider";
 import { WaMeLinkProvider } from "./providers/wame-link.provider";
+import { Fast2SmsProvider } from "./providers/fast2sms.provider";
+import { TwilioSmsProvider } from "./providers/twilio.provider";
+import { MetaWhatsAppCloudProvider } from "./providers/meta-whatsapp.provider";
 
 export interface QueueInvoiceMessageOptions {
   invoiceId: string;
@@ -25,8 +28,65 @@ export interface QueueResult {
 
 export class MessagingService {
   private static openWaProvider = new WhatsAppOpenWaGateway();
+  private static metaWaProvider = new MetaWhatsAppCloudProvider();
   private static smsProvider = new SmsAndroidGateway();
+  private static fast2SmsProvider = new Fast2SmsProvider();
+  private static twilioProvider = new TwilioSmsProvider();
   private static waMeProvider = new WaMeLinkProvider();
+
+  /**
+   * Determine active WhatsApp provider from database settings or environment variables
+   */
+  static async getActiveWhatsAppProvider(): Promise<MessageProviderType> {
+    try {
+      const s = await prisma.setting.findUnique({ where: { key: "messaging_whatsapp_provider" } });
+      if (s?.value === "CLOUD_API") return MessageProviderType.CLOUD_API;
+      if (s?.value === "OPEN_WA") return MessageProviderType.OPEN_WA;
+    } catch {
+      // ignore
+    }
+    if (process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN) {
+      return MessageProviderType.CLOUD_API;
+    }
+    return MessageProviderType.OPEN_WA;
+  }
+
+  /**
+   * Determine active SMS provider from database settings or environment variables
+   */
+  static async getActiveSmsProvider(): Promise<MessageProviderType> {
+    try {
+      const s = await prisma.setting.findUnique({ where: { key: "messaging_sms_provider" } });
+      if (s?.value === "FAST2SMS") return MessageProviderType.FAST2SMS;
+      if (s?.value === "TWILIO") return MessageProviderType.TWILIO;
+      if (s?.value === "ANDROID_SMS") return MessageProviderType.ANDROID_SMS;
+    } catch {
+      // ignore
+    }
+    if (process.env.FAST2SMS_API_KEY) return MessageProviderType.FAST2SMS;
+    if (process.env.TWILIO_ACCOUNT_SID) return MessageProviderType.TWILIO;
+    return MessageProviderType.FAST2SMS;
+  }
+
+  /**
+   * Resolves provider driver by type
+   */
+  static getProvider(type: MessageProviderType): IMessageProvider {
+    switch (type) {
+      case MessageProviderType.CLOUD_API:
+        return this.metaWaProvider;
+      case MessageProviderType.FAST2SMS:
+        return this.fast2SmsProvider;
+      case MessageProviderType.TWILIO:
+        return this.twilioProvider;
+      case MessageProviderType.OPEN_WA:
+        return this.openWaProvider;
+      case MessageProviderType.ANDROID_SMS:
+        return this.smsProvider;
+      default:
+        return this.fast2SmsProvider;
+    }
+  }
 
   /**
    * Renders the transactional bill SMS / WhatsApp template
@@ -134,11 +194,14 @@ export class MessagingService {
         ? options.channels
         : [MessageChannel.WHATSAPP, MessageChannel.SMS];
 
+      const activeWa = await this.getActiveWhatsAppProvider();
+      const activeSms = await this.getActiveSmsProvider();
+
       const messageIds: string[] = [];
 
       for (const ch of channels) {
         const idempotencyKey = `${invoice.id}_${ch}_FINAL`;
-        const providerType = ch === MessageChannel.WHATSAPP ? MessageProviderType.OPEN_WA : MessageProviderType.ANDROID_SMS;
+        const providerType = ch === MessageChannel.WHATSAPP ? activeWa : activeSms;
 
         const outbound = await prisma.outboundMessage.upsert({
           where: { idempotencyKey },
@@ -146,6 +209,7 @@ export class MessagingService {
             phone: cleanedDigits,
             renderedContent: renderedBody,
             billToken: billToken.rawToken,
+            provider: providerType,
             status: MessageStatus.QUEUED,
           },
           create: {
@@ -220,9 +284,8 @@ export class MessagingService {
           },
         });
 
-        // 2. Select provider
-        const provider: IMessageProvider =
-          msg.channel === MessageChannel.WHATSAPP ? this.openWaProvider : this.smsProvider;
+        // 2. Select provider dynamically
+        const provider: IMessageProvider = this.getProvider(msg.provider);
 
         const result = await provider.send({
           toPhone: msg.phone,
@@ -245,7 +308,7 @@ export class MessagingService {
           const nextAttempt = msg.attempts + 1;
           const isFinal = nextAttempt >= msg.maxAttempts;
 
-          // Exponential backoff: 1 min, 5 min, etc.
+          // Exponential backoff: 1 min, 4 min, etc.
           const backoffMinutes = Math.pow(nextAttempt, 2);
           const scheduledFor = new Date(Date.now() + backoffMinutes * 60 * 1000);
 
@@ -263,7 +326,7 @@ export class MessagingService {
         console.warn("[MessagingService] Queue worker item skip:", itemErr);
       }
 
-      // Small jitter pause: 200ms to 600ms in worker loop to avoid bursts
+      // Small jitter pause: 100ms to 300ms in worker loop to avoid bursts
       await new Promise((resolve) => setTimeout(resolve, 100 + Math.random() * 200));
     }
 
@@ -310,11 +373,34 @@ export class MessagingService {
   }
 
   /**
+   * Send a direct message immediately
+   */
+  static async sendDirect(params: {
+    phone: string;
+    body: string;
+    channel: MessageChannel;
+    providerType?: MessageProviderType;
+  }): Promise<SendMessageResult> {
+    const providerType = params.providerType ||
+      (params.channel === MessageChannel.WHATSAPP
+        ? await this.getActiveWhatsAppProvider()
+        : await this.getActiveSmsProvider());
+
+    const provider = this.getProvider(providerType);
+    return provider.send({ toPhone: params.phone, body: params.body });
+  }
+
+  /**
    * Get live gateway status for Admin Settings
    */
   static async getGatewaysHealth(): Promise<{
     whatsApp: any;
     sms: any;
+    fast2sms: any;
+    twilio: any;
+    metaWa: any;
+    activeWaProvider: string;
+    activeSmsProvider: string;
     queueStats: {
       queued: number;
       sending: number;
@@ -322,10 +408,16 @@ export class MessagingService {
       failed: number;
     };
   }> {
-    const [whatsAppHealth, smsHealth] = await Promise.all([
-      this.openWaProvider.checkHealth(),
-      this.smsProvider.checkHealth(),
-    ]);
+    const [whatsAppHealth, smsHealth, fast2smsHealth, twilioHealth, metaWaHealth, activeWa, activeSms] =
+      await Promise.all([
+        this.openWaProvider.checkHealth(),
+        this.smsProvider.checkHealth(),
+        this.fast2SmsProvider.checkHealth(),
+        this.twilioProvider.checkHealth(),
+        this.metaWaProvider.checkHealth(),
+        this.getActiveWhatsAppProvider(),
+        this.getActiveSmsProvider(),
+      ]);
 
     const [queued, sending, sent, failed] = await Promise.all([
       prisma.outboundMessage.count({ where: { status: MessageStatus.QUEUED } }),
@@ -337,6 +429,11 @@ export class MessagingService {
     return {
       whatsApp: whatsAppHealth,
       sms: smsHealth,
+      fast2sms: fast2smsHealth,
+      twilio: twilioHealth,
+      metaWa: metaWaHealth,
+      activeWaProvider: activeWa,
+      activeSmsProvider: activeSms,
       queueStats: { queued, sending, sent, failed },
     };
   }

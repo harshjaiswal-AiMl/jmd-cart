@@ -1,14 +1,30 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { saveMessagingConfigAction } from "@/app/actions/messaging-actions";
 
 export function MessagingSettingsForm() {
   const [loading, setLoading] = useState(true);
   const [healthData, setHealthData] = useState<any>(null);
   const [testPhone, setTestPhone] = useState("");
   const [testChannel, setTestChannel] = useState<"WHATSAPP" | "SMS">("WHATSAPP");
+  const [testProvider, setTestProvider] = useState<string>("DEFAULT");
   const [sendingTest, setSendingTest] = useState(false);
   const [testResult, setTestResult] = useState<{ success?: boolean; error?: string } | null>(null);
+
+  // Configuration state
+  const [whatsappProvider, setWhatsappProvider] = useState("CLOUD_API");
+  const [smsProvider, setSmsProvider] = useState("FAST2SMS");
+  const [fast2smsApiKey, setFast2smsApiKey] = useState("");
+  const [twilioSid, setTwilioSid] = useState("");
+  const [twilioToken, setTwilioToken] = useState("");
+  const [twilioFrom, setTwilioFrom] = useState("");
+  const [metaWaPhoneId, setMetaWaPhoneId] = useState("");
+  const [metaWaToken, setMetaWaToken] = useState("");
+  const [openWaUrl, setOpenWaUrl] = useState("http://127.0.0.1:8080");
+
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<{ success?: boolean; error?: string } | null>(null);
 
   const loadHealth = async () => {
     try {
@@ -16,6 +32,8 @@ export function MessagingSettingsForm() {
       if (res.ok) {
         const json = await res.json();
         setHealthData(json);
+        if (json.activeWaProvider) setWhatsappProvider(json.activeWaProvider);
+        if (json.activeSmsProvider) setSmsProvider(json.activeSmsProvider);
       }
     } catch {
       // ignore
@@ -26,9 +44,39 @@ export function MessagingSettingsForm() {
 
   useEffect(() => {
     loadHealth();
-    const interval = setInterval(loadHealth, 10000);
+    const interval = setInterval(loadHealth, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleSaveConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingConfig(true);
+    setSaveStatus(null);
+    try {
+      const res = await saveMessagingConfigAction({
+        whatsappProvider,
+        smsProvider,
+        fast2smsApiKey,
+        twilioSid,
+        twilioToken,
+        twilioFrom,
+        metaWaPhoneNumberId: metaWaPhoneId,
+        metaWaAccessToken: metaWaToken,
+        openWaGatewayUrl: openWaUrl,
+      });
+
+      if (res.success) {
+        setSaveStatus({ success: true });
+        loadHealth();
+      } else {
+        setSaveStatus({ success: false, error: res.error || "Failed to save settings" });
+      }
+    } catch (err: any) {
+      setSaveStatus({ success: false, error: err.message || "Failed to save settings" });
+    } finally {
+      setSavingConfig(false);
+    }
+  };
 
   const handleSendTest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +92,11 @@ export function MessagingSettingsForm() {
       const res = await fetch("/api/messaging/send-test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: testPhone, channel: testChannel }),
+        body: JSON.stringify({
+          phone: testPhone,
+          channel: testChannel,
+          provider: testProvider !== "DEFAULT" ? testProvider : undefined,
+        }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -65,10 +117,10 @@ export function MessagingSettingsForm() {
       <div className="flex items-center justify-between border-b border-slate-100 pb-4">
         <div>
           <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-            <span>💬</span> Bill Messaging &amp; Gateways
+            <span>💬</span> Automated Bill Messaging (WhatsApp &amp; SMS)
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time status of WhatsApp (Open-WA) &amp; in-house Android SIM gateway.
+            Automate WhatsApp &amp; SMS dispatch for every bill with zero manual work. Free tier providers available.
           </p>
         </div>
         <button
@@ -78,87 +130,91 @@ export function MessagingSettingsForm() {
           }}
           className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition"
         >
-          Refresh
+          Refresh Status
         </button>
       </div>
 
       {/* Gateway Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* WhatsApp Gateway Card */}
         <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
           <div className="flex items-center justify-between">
             <span className="font-bold text-xs uppercase tracking-wider text-slate-700">
-              WhatsApp Gateway (Open-WA)
+              WhatsApp Auto Gateway
             </span>
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                healthData?.whatsApp?.ok
+                healthData?.metaWa?.healthy || healthData?.whatsApp?.healthy
                   ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                  : healthData?.whatsApp?.status === "NEEDS_QR_SCAN"
-                  ? "bg-amber-100 text-amber-800 border border-amber-300"
                   : "bg-slate-200 text-slate-700"
               }`}
             >
-              {healthData?.whatsApp?.status || (loading ? "Checking..." : "DISCONNECTED")}
+              {healthData?.activeWaProvider === "CLOUD_API"
+                ? (healthData?.metaWa?.healthy ? "META CLOUD READY" : "SETUP NEEDED")
+                : (healthData?.whatsApp?.healthy ? "OPEN-WA READY" : "STANDBY")}
             </span>
           </div>
 
           <p className="text-xs text-slate-600">
-            Dedicated private service on Compute Engine VM. Uses business number.
+            {healthData?.activeWaProvider === "CLOUD_API"
+              ? "Meta WhatsApp Cloud API (1,000 free messages/mo). 100% automated."
+              : "Open-WA / Local Web Gateway. Dedicated business session."}
           </p>
 
-          {healthData?.whatsApp?.details?.qr && (
-            <div className="p-3 bg-white border border-amber-200 rounded-lg text-center space-y-2">
-              <p className="text-xs font-bold text-amber-800">Scan QR Code with WhatsApp:</p>
-              <img
-                src={healthData.whatsApp.details.qr}
-                alt="WhatsApp QR Code"
-                className="w-48 h-48 mx-auto"
-              />
-            </div>
-          )}
-
           <div className="text-[11px] text-slate-500 font-mono">
-            Fallback: Instant wa.me click-to-chat links always available for cashiers.
+            {healthData?.metaWa?.details || healthData?.whatsApp?.details?.status || "Ready for automated background dispatch."}
           </div>
         </div>
 
-        {/* SMS Gateway Device Card */}
+        {/* Fast2SMS Indian Free-Tier Card */}
         <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
           <div className="flex items-center justify-between">
             <span className="font-bold text-xs uppercase tracking-wider text-slate-700">
-              In-House SMS Gateway (Android SIM)
+              Fast2SMS (Indian Free Tier)
             </span>
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                healthData?.sms?.ok
+                healthData?.fast2sms?.healthy
                   ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                   : "bg-slate-200 text-slate-700"
               }`}
             >
-              {healthData?.sms?.status || (loading ? "Checking..." : "STANDBY")}
+              {healthData?.fast2sms?.healthy ? "CONNECTED" : "KEY NEEDED"}
             </span>
           </div>
 
           <p className="text-xs text-slate-600">
-            Sends directly from owner&apos;s dedicated Android phone &amp; SIM. No third-party vendor.
+            Popular Indian SMS service. Free credits on signup, instant API for Indian 10-digit numbers.
           </p>
 
-          {healthData?.sms?.details?.devices && (
-            <div className="space-y-1 text-xs">
-              {healthData.sms.details.devices.map((d: any, idx: number) => (
-                <div key={idx} className="flex justify-between p-2 bg-white rounded border border-slate-200">
-                  <span className="font-medium text-slate-800">{d.label}</span>
-                  <span className="text-slate-500 font-mono text-[11px]">
-                    Today: {d.dailySent} msgs
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="text-[11px] text-slate-500 font-mono">
+            {healthData?.fast2sms?.details || "Requires Fast2SMS API Key from fast2sms.com."}
+          </div>
+        </div>
 
-          <div className="text-[11px] text-slate-500">
-            Endpoint: <code className="bg-slate-200 px-1 rounded text-slate-700">/api/messaging/sms/pull</code>
+        {/* Twilio SMS Card */}
+        <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-xs uppercase tracking-wider text-slate-700">
+              Twilio SMS ($15 Free Trial)
+            </span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                healthData?.twilio?.healthy
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                  : "bg-slate-200 text-slate-700"
+              }`}
+            >
+              {healthData?.twilio?.healthy ? "CONNECTED" : "NOT SET"}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-600">
+            Global SMS platform. $15.50 free trial credits upon registration.
+          </p>
+
+          <div className="text-[11px] text-slate-500 font-mono">
+            {healthData?.twilio?.details || "Twilio Account SID & Auth Token required."}
           </div>
         </div>
       </div>
@@ -193,10 +249,173 @@ export function MessagingSettingsForm() {
         </div>
       )}
 
+      {/* Provider Configuration Form */}
+      <form onSubmit={handleSaveConfig} className="border-t border-slate-200 pt-5 space-y-4">
+        <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+          <span>⚙️</span> Configure Automated Providers
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* WhatsApp Mode Selector */}
+          <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Automatic WhatsApp Provider
+            </label>
+            <select
+              value={whatsappProvider}
+              onChange={(e) => setWhatsappProvider(e.target.value)}
+              className="w-full px-3 py-2 text-xs font-semibold bg-white border border-slate-300 rounded-lg text-slate-900"
+            >
+              <option value="CLOUD_API">Meta WhatsApp Cloud API (Recommended: 1000 free/mo, No phone needed)</option>
+              <option value="OPEN_WA">Open-WA / Local Web Gateway (Dedicated Browser Session)</option>
+            </select>
+
+            {whatsappProvider === "CLOUD_API" ? (
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600">
+                    Meta Phone Number ID
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1092837465..."
+                    value={metaWaPhoneId}
+                    onChange={(e) => setMetaWaPhoneId(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600">
+                    Meta Permanent Access Token
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="EAAG..."
+                    value={metaWaToken}
+                    onChange={(e) => setMetaWaToken(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Tip: Get free from developers.facebook.com WhatsApp dashboard. 1,000 conversations free every month.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600">
+                    Open-WA Gateway URL
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="http://127.0.0.1:8080"
+                    value={openWaUrl}
+                    onChange={(e) => setOpenWaUrl(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SMS Mode Selector */}
+          <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-3">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Automatic SMS Provider (Free Tier Available)
+            </label>
+            <select
+              value={smsProvider}
+              onChange={(e) => setSmsProvider(e.target.value)}
+              className="w-full px-3 py-2 text-xs font-semibold bg-white border border-slate-300 rounded-lg text-slate-900"
+            >
+              <option value="FAST2SMS">Fast2SMS (Recommended for India: Free signup trial)</option>
+              <option value="TWILIO">Twilio ($15.50 Free Trial Credits)</option>
+              <option value="ANDROID_SMS">In-House Android SIM Phone Gateway</option>
+            </select>
+
+            {smsProvider === "FAST2SMS" && (
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600">
+                    Fast2SMS Authorization API Key
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Enter Fast2SMS API Key from fast2sms.com"
+                    value={fast2smsApiKey}
+                    onChange={(e) => setFast2smsApiKey(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Sign up free at <strong>fast2sms.com</strong>, copy your API key from the Dev API section. Works instantly with 10-digit Indian numbers.
+                </p>
+              </div>
+            )}
+
+            {smsProvider === "TWILIO" && (
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600">Account SID</label>
+                  <input
+                    type="text"
+                    placeholder="AC..."
+                    value={twilioSid}
+                    onChange={(e) => setTwilioSid(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600">Auth Token</label>
+                  <input
+                    type="password"
+                    placeholder="Auth Token"
+                    value={twilioToken}
+                    onChange={(e) => setTwilioToken(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600">From Phone</label>
+                  <input
+                    type="text"
+                    placeholder="+1234567890"
+                    value={twilioFrom}
+                    onChange={(e) => setTwilioFrom(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg text-slate-900"
+                  />
+                </div>
+              </div>
+            )}
+
+            {smsProvider === "ANDROID_SMS" && (
+              <p className="text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+                Dedicated Android SIM gateway polls <code className="bg-slate-100 px-1 rounded">/api/messaging/sms/pull</code>.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
+          {saveStatus && (
+            <p className={`text-xs font-bold ${saveStatus.success ? "text-emerald-600" : "text-rose-600"}`}>
+              {saveStatus.success ? "✓ Configuration saved successfully!" : `✕ ${saveStatus.error}`}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={savingConfig}
+            className="ml-auto px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50"
+          >
+            {savingConfig ? "Saving..." : "Save Configuration"}
+          </button>
+        </div>
+      </form>
+
       {/* Test Message Form */}
-      <form onSubmit={handleSendTest} className="border-t border-slate-100 pt-4 space-y-3">
+      <form onSubmit={handleSendTest} className="border-t border-slate-200 pt-5 space-y-3">
         <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">
-          Send Test Message
+          Send Live Test Message
         </h3>
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -206,7 +425,7 @@ export function MessagingSettingsForm() {
             <input
               type="tel"
               maxLength={10}
-              placeholder="Admin 10-digit mobile number"
+              placeholder="10-digit mobile (e.g. 9234937707)"
               value={testPhone}
               onChange={(e) => setTestPhone(e.target.value.replace(/\D/g, ""))}
               className="w-full pl-11 pr-3 py-2 text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"
@@ -219,7 +438,19 @@ export function MessagingSettingsForm() {
             className="px-3 py-2 text-xs font-semibold bg-white border border-slate-300 rounded-lg text-slate-800"
           >
             <option value="WHATSAPP">WhatsApp</option>
-            <option value="SMS">SMS (In-House)</option>
+            <option value="SMS">SMS</option>
+          </select>
+
+          <select
+            value={testProvider}
+            onChange={(e) => setTestProvider(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold bg-white border border-slate-300 rounded-lg text-slate-800"
+          >
+            <option value="DEFAULT">Default Active Provider</option>
+            <option value="FAST2SMS">Fast2SMS</option>
+            <option value="TWILIO">Twilio</option>
+            <option value="CLOUD_API">Meta WhatsApp Cloud</option>
+            <option value="OPEN_WA">Open-WA Gateway</option>
           </select>
 
           <button
@@ -238,7 +469,7 @@ export function MessagingSettingsForm() {
             }`}
           >
             {testResult.success
-              ? "✓ Test message sent successfully!"
+              ? "✓ Test message dispatched successfully!"
               : `✕ Error: ${testResult.error}`}
           </p>
         )}

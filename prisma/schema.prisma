@@ -1487,6 +1487,8 @@ enum MessageProviderType {
   ANDROID_SMS
   WA_ME
   CLOUD_API
+  FAST2SMS
+  TWILIO
 }
 
 model BillToken {
