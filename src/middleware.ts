@@ -60,6 +60,8 @@ export default auth((req) => {
     pathname === "/management" ||
     pathname.startsWith("/api/store") ||
     pathname.startsWith("/api/notifications") ||
+    pathname.startsWith("/.well-known") ||
+    pathname === "/delete-account" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname === "/cookie-policy" ||

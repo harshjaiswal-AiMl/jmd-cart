@@ -32,6 +32,8 @@ export function isStaticOrPublicAsset(pathname: string): boolean {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/health") ||
     pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/.well-known") ||
+    pathname === "/delete-account" ||
     pathname === "/favicon.ico" ||
     pathname === "/robots.txt" ||
     pathname === "/sitemap.xml" ||
