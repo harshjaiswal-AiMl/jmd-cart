@@ -8,10 +8,13 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -21,6 +24,10 @@ class ContinuousRingtoneService : Service() {
 
     private var mediaPlayer: MediaPlayer? = null
     private var vibrator: Vibrator? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private val timeoutRunnable = Runnable {
+        stopRinging(this)
+    }
 
     companion object {
         const val CHANNEL_ID = "jmd_order_ring_channel"
@@ -29,8 +36,15 @@ class ContinuousRingtoneService : Service() {
         const val EXTRA_ORDER_NUMBER = "order_number"
         const val EXTRA_CUSTOMER_NAME = "customer_name"
         const val EXTRA_AMOUNT = "amount"
+        const val TIMEOUT_MILLIS = 120_000L // 2 minutes auto-timeout
 
-        fun startRinging(context: Context, orderId: String, orderNumber: String, customerName: String, amount: String) {
+        fun startRinging(
+            context: Context,
+            orderId: String,
+            orderNumber: String,
+            customerName: String,
+            amount: String
+        ) {
             val intent = Intent(context, ContinuousRingtoneService::class.java).apply {
                 putExtra(EXTRA_ORDER_ID, orderId)
                 putExtra(EXTRA_ORDER_NUMBER, orderNumber)
@@ -62,7 +76,7 @@ class ContinuousRingtoneService : Service() {
         val customerName = intent?.getStringExtra(EXTRA_CUSTOMER_NAME) ?: "Customer"
         val amount = intent?.getStringExtra(EXTRA_AMOUNT) ?: ""
 
-        // 1. Build full screen intent to wake phone and show incoming call activity
+        // 1. Build full-screen intent to wake phone and show incoming call activity
         val fullScreenIntent = Intent(this, IncomingOrderCallActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtras(intent ?: Intent())
@@ -74,13 +88,13 @@ class ContinuousRingtoneService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // 2. Start Foreground Notification with CATEGORY_CALL
+        // 2. Start Foreground Notification with CATEGORY_ALARM and high priority
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_notify_chat)
             .setContentTitle("INCOMING JMD ORDER: $orderNumber")
             .setContentText("$customerName • $amount")
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setOngoing(true)
             .setAutoCancel(false)
@@ -88,8 +102,12 @@ class ContinuousRingtoneService : Service() {
 
         startForeground(NOTIFICATION_ID, notification)
 
-        // 3. Play continuous looping telephone ringtone
+        // 3. Play continuous looping alarm on USAGE_ALARM stream
         startLoopingSoundAndVibration()
+
+        // 4. Reset 2-minute safety timeout
+        handler.removeCallbacks(timeoutRunnable)
+        handler.postDelayed(timeoutRunnable, TIMEOUT_MILLIS)
 
         return START_STICKY
     }
@@ -97,14 +115,15 @@ class ContinuousRingtoneService : Service() {
     private fun startLoopingSoundAndVibration() {
         try {
             if (mediaPlayer == null) {
-                val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
                 mediaPlayer = MediaPlayer().apply {
-                    setDataSource(this@ContinuousRingtoneService, ringtoneUri)
+                    setDataSource(this@ContinuousRingtoneService, alarmUri)
                     setAudioAttributes(
                         AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                            .setUsage(AudioAttributes.USAGE_ALARM)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                             .build()
                     )
@@ -141,6 +160,8 @@ class ContinuousRingtoneService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        handler.removeCallbacks(timeoutRunnable)
+
         try {
             mediaPlayer?.stop()
             mediaPlayer?.release()
@@ -164,9 +185,16 @@ class ContinuousRingtoneService : Service() {
                 "JMD Godown Order Ring",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Continuous telephone ring for warehouse manager on incoming orders"
+                description = "Continuous alarm stream ring for warehouse manager on incoming orders"
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 enableVibration(true)
+                setSound(
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)

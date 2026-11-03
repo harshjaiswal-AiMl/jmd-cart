@@ -1,4 +1,5 @@
 "use server";
+import { MessagingService } from "@/modules/messaging/messaging.service";
 
 import { auth } from "@/auth";
 import { UserRole, InvoiceChannel, PaymentMode, PaymentStatus } from "@prisma/client";
@@ -91,6 +92,18 @@ export async function createVanInvoiceAction(input: VanInvoiceActionInput) {
       session.user.id
     );
 
+    // Queue bill messaging (WhatsApp / SMS) - safe and non-blocking
+    let messagingResult: any = null;
+    try {
+      messagingResult = await MessagingService.queueInvoiceMessage({
+        invoiceId: invoice.id,
+        phoneOverride: validated.customerPhone,
+        actorUserId: session.user.id,
+      });
+    } catch (msgErr) {
+      console.warn("[finalizeVanBillAction messaging warning]:", msgErr);
+    }
+
     return {
       success: true,
       invoice: {
@@ -101,6 +114,11 @@ export async function createVanInvoiceAction(input: VanInvoiceActionInput) {
         status: invoice.status,
         channel: invoice.channel,
         paymentStatus: invoice.paymentStatus,
+        billUrl: messagingResult?.billUrl,
+        waMeUrl: messagingResult?.waMeUrl,
+        messagingSkipped: messagingResult?.skipped,
+        messagingReason: messagingResult?.reason,
+        targetPhone: messagingResult?.phone || validated.customerPhone,
         paymentMode:
           invoice.payments.find((p) => p.mode === "CREDIT")?.mode ||
           invoice.payments[0]?.mode ||

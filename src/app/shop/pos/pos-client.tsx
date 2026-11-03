@@ -1,4 +1,5 @@
 "use client";
+import { BillMessagingCard } from "@/components/billing/bill-messaging-card";
 
 import { categorizeWeightBand, STANDARD_WEIGHT_BANDS, WeightBand } from "@/lib/weight";
 import { FontSizeToggle } from "@/components/common/font-size-provider";
@@ -1338,6 +1339,11 @@ export function PosClient({
     number: string;
     totalPaise: number;
     paymentMode: PaymentMode;
+    billUrl?: string | null;
+    waMeUrl?: string | null;
+    targetPhone?: string | null;
+    messagingSkipped?: boolean;
+    messagingReason?: string;
   } | null>(null);
   const [isFinalizing, startFinalizeTransition] = useTransition();
 
@@ -3713,6 +3719,16 @@ export function PosClient({
                 ₹{(finalizedInvoice.totalPaise / 100).toFixed(2)}
               </p>
             </div>
+
+            <BillMessagingCard
+              invoiceId={finalizedInvoice.id}
+              invoiceNumber={finalizedInvoice.number}
+              defaultPhone={finalizedInvoice.targetPhone}
+              billUrl={finalizedInvoice.billUrl}
+              waMeUrl={finalizedInvoice.waMeUrl}
+              initialSkipped={finalizedInvoice.messagingSkipped}
+              initialReason={finalizedInvoice.messagingReason}
+            />
 
             <div className="grid grid-cols-2 gap-2 pt-2">
               <Link

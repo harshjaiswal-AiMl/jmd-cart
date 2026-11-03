@@ -479,6 +479,7 @@ model Party {
   bookedByProId    String?   @map("booked_by_pro_id")
   companyId        String?   @unique @map("company_id")
   active           Boolean   @default(true)
+  messagingPreference String? @default("AUTO") @map("messaging_preference")
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
@@ -492,6 +493,7 @@ model Party {
   users         User[]        @relation("UserParty")
   billScans     BillScan[]
   orders        Order[]       @relation("PartyOrders")
+  outboundMessages OutboundMessage[]
 
   @@map("parties")
 }
@@ -611,6 +613,8 @@ model Invoice {
   counterPickups     CounterPickup[]
   incentiveEntries   IncentiveEntry[]
   revisions          InvoiceRevision[]
+  billToken          BillToken?
+  outboundMessages   OutboundMessage[]
 
   @@index([locationId, createdAt])
   @@index([partyId, createdAt])
@@ -1397,6 +1401,12 @@ model PushSubscription {
   p256dh      String
   auth        String
   deviceLabel String?  @map("device_label")
+  type        PushSubscriptionType @default(WEB)
+  appVersion  String?  @map("app_version")
+  batteryOptDisabled Boolean? @map("battery_opt_disabled")
+  notificationPermitted Boolean? @map("notification_permitted")
+  fullScreenPermitted Boolean? @map("full_screen_permitted")
+  deviceToken String?  @unique @map("device_token")
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
   lastSeenAt  DateTime @default(now()) @map("last_seen_at")
@@ -1419,6 +1429,8 @@ model OrderAlert {
   createdAt  DateTime        @default(now()) @map("created_at")
   seenAt     DateTime?       @map("seen_at")
   acceptedAt DateTime?       @map("accepted_at")
+  snoozedUntil DateTime?     @map("snoozed_until")
+  acknowledgedByDeviceId String? @map("acknowledged_by_device_id")
 
   order      Order?          @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -1449,4 +1461,102 @@ model StockCorrection {
   @@index([locationId, reviewed])
   @@index([productId])
   @@map("stock_corrections")
+}
+
+enum PushSubscriptionType {
+  WEB
+  NATIVE
+}
+
+enum MessageChannel {
+  WHATSAPP
+  SMS
+}
+
+enum MessageStatus {
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
+enum MessageProviderType {
+  OPEN_WA
+  ANDROID_SMS
+  WA_ME
+  CLOUD_API
+}
+
+model BillToken {
+  id             String    @id @default(cuid())
+  invoiceId      String    @unique @map("invoice_id")
+  invoice        Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tokenHash      String    @unique @map("token_hash")
+  tokenPreview   String    @map("token_preview")
+  expiresAt      DateTime  @map("expires_at")
+  revoked        Boolean   @default(false)
+  accessCount    Int       @default(0) @map("access_count")
+  lastAccessedAt DateTime? @map("last_accessed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([expiresAt, revoked])
+  @@map("bill_tokens")
+}
+
+model OutboundMessage {
+  id              String              @id @default(cuid())
+  invoiceId       String?             @map("invoice_id")
+  invoice         Invoice?            @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  partyId         String?             @map("party_id")
+  party           Party?              @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  phone           String
+  channel         MessageChannel
+  provider        MessageProviderType
+  status          MessageStatus       @default(QUEUED)
+  templateName    String?             @map("template_name")
+  renderedContent String              @map("rendered_content")
+  billToken       String?             @map("bill_token")
+  idempotencyKey  String              @unique @map("idempotency_key")
+  attempts        Int                 @default(0)
+  maxAttempts     Int                 @default(3) @map("max_attempts")
+  lastError       String?             @map("last_error")
+  scheduledFor    DateTime            @default(now()) @map("scheduled_for")
+  sentAt          DateTime?           @map("sent_at")
+  deliveredAt     DateTime?           @map("delivered_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  @@index([status, scheduledFor])
+  @@index([phone])
+  @@index([invoiceId])
+  @@map("outbound_messages")
+}
+
+model MessagingOptOut {
+  id         String          @id @default(cuid())
+  phone      String          @unique
+  channel    MessageChannel?
+  reason     String?
+  optedOutAt DateTime        @default(now()) @map("opted_out_at")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  @@index([phone])
+  @@map("messaging_opt_outs")
+}
+
+model SmsGatewayDevice {
+  id             String   @id @default(cuid())
+  deviceToken    String   @unique @map("device_token")
+  deviceLabel    String   @map("device_label")
+  phone          String?
+  active         Boolean  @default(true)
+  lastSeenAt     DateTime @default(now()) @map("last_seen_at")
+  dailySentCount Int      @default(0) @map("daily_sent_count")
+  lastSentDate   String?  @map("last_sent_date")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("sms_gateway_devices")
 }

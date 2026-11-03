@@ -10,6 +10,7 @@ import {
   PaymentModeSettingsForm,
   EInvoiceSettingsForm,
 } from "./settings-forms";
+import { MessagingSettingsForm } from "./messaging-settings-form";
 
 export default async function AdminSettingsPage() {
   const session = await auth();
@@ -36,6 +37,7 @@ export default async function AdminSettingsPage() {
 
         <div className="space-y-6">
           <BusinessDetailsForm initialData={settings.businessDetails} />
+          <MessagingSettingsForm />
           <PaymentModeSettingsForm initialData={settings.paymentModeSettings} />
           <DeliverySettingsForm initialData={settings.deliverySettings} />
           <DiscountLimitsForm initialData={settings.roleDiscountLimits} />

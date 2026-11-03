@@ -9,21 +9,23 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import java.net.HttpURLConnection
-import java.net.URL
-import kotlin.concurrent.thread
 
 class IncomingOrderCallActivity : AppCompatActivity() {
 
+    companion object {
+        var currentInstance: IncomingOrderCallActivity? = null
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        currentInstance = this
 
         // Wake screen and show over keyguard (phone call behavior)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-            keyguardManager.requestDismissKeyguard(this, null)
+            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+            keyguardManager?.requestDismissKeyguard(this, null)
         } else {
             @Suppress("DEPRECATION")
             window.addFlags(
@@ -45,27 +47,12 @@ class IncomingOrderCallActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tvCustomerName).text = customerName
         findViewById<TextView>(R.id.tvAmount).text = amount
 
-        // ACCEPT Button: Stop ringtone, inform server, open app
+        // 1. ACCEPT Button: Stop ringtone, inform server, open app to order
         findViewById<Button>(R.id.btnAccept).setOnClickListener {
             ContinuousRingtoneService.stopRinging(this)
 
-            // Notify backend that order alert was accepted
             if (orderId.isNotEmpty()) {
-                thread {
-                    try {
-                        val url = URL("https://management.jmdcart.com/api/notifications/alerts")
-                        val conn = url.openConnection() as HttpURLConnection
-                        conn.requestMethod = "POST"
-                        conn.setRequestProperty("Content-Type", "application/json")
-                        conn.doOutput = true
-                        conn.outputStream.use { os ->
-                            os.write("{\"orderId\":\"$orderId\",\"action\":\"ACCEPT\"}".toByteArray())
-                        }
-                        conn.responseCode
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
+                DeviceRegistrationManager.acknowledgeAlert(this, orderId)
             }
 
             // Open Godown WebView to order
@@ -77,10 +64,28 @@ class IncomingOrderCallActivity : AppCompatActivity() {
             finish()
         }
 
-        // MUTE / DISMISS Button: Stop ringing only
+        // 2. SNOOZE 1 MINUTE Button
+        findViewById<Button>(R.id.btnSnooze).setOnClickListener {
+            ContinuousRingtoneService.stopRinging(this)
+
+            if (orderId.isNotEmpty()) {
+                DeviceRegistrationManager.snoozeAlert(this, orderId)
+            }
+
+            finish()
+        }
+
+        // 3. MUTE / DISMISS Button: Stop ringing only
         findViewById<Button>(R.id.btnDismiss).setOnClickListener {
             ContinuousRingtoneService.stopRinging(this)
             finish()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (currentInstance == this) {
+            currentInstance = null
         }
     }
 }

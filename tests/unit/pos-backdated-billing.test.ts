@@ -80,8 +80,8 @@ describe("Shop POS Backdated Billing - RBAC & Guard Logic", () => {
     ).rejects.toThrow(ForbiddenError);
   });
 
-  it("rejects future invoice date even for SUPER_ADMIN", async () => {
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  it("rejects future invoice date exceeding max 30 days even for SUPER_ADMIN", async () => {
+    const farFuture = new Date(Date.now() + 40 * 24 * 60 * 60 * 1000);
 
     await expect(
       billingService.finalizeInvoice(
@@ -91,10 +91,10 @@ describe("Shop POS Backdated Billing - RBAC & Guard Logic", () => {
           locationId: "loc_shop_1",
           idempotencyKey: "test_key_future_admin",
           items: [{ productId: "prod_1", qty: 1 }],
-          invoiceDate: tomorrow,
+          invoiceDate: farFuture,
         }
       )
-    ).rejects.toThrow("Invoice date cannot be in the future");
+    ).rejects.toThrow("Future invoice date cannot exceed 30 days");
   });
 
   it("computes the correct financial year for backdated dates across FY boundaries", () => {

@@ -264,54 +264,53 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
 }
 
 /**
+ * Compile-time exhaustiveness map of home dashboard routes for every role.
+ * Adding a role to UserRole without an entry here will fail `tsc --noEmit`.
+ */
+export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
+  SUPER_ADMIN: "/admin",
+  ADMIN: "/admin",
+  WAREHOUSE_MANAGER: "/godown",
+  GODOWN: "/godown",
+  SHOP: "/shop",
+  SALESPERSON: "/van",
+  DELIVERY: "/delivery",
+  ACCOUNTS: "/accounts",
+  PRO: "/app/pro",
+  CUSTOMER: "/store",
+};
+
+/**
+ * Compile-time exhaustiveness map of mobile app routes for every role.
+ */
+export const ROLE_MOBILE_APPS: Record<UserRole, string> = {
+  SUPER_ADMIN: "/app/owner",
+  ADMIN: "/app/owner",
+  WAREHOUSE_MANAGER: "/app/godown",
+  GODOWN: "/app/godown",
+  SHOP: "/app/shop",
+  SALESPERSON: "/app/van",
+  DELIVERY: "/app/delivery",
+  ACCOUNTS: "/app/accounts",
+  PRO: "/app/pro",
+  CUSTOMER: "/store",
+};
+
+/**
  * Return default landing dashboard path for each user role.
  */
 export function getDefaultDashboard(role?: UserRole): string {
-  switch (role) {
-    case UserRole.SUPER_ADMIN:
-    case UserRole.ADMIN:
-      return "/admin";
-    case UserRole.WAREHOUSE_MANAGER:
-    case UserRole.GODOWN:
-      return "/godown";
-    case UserRole.SHOP:
-      return "/shop";
-    case UserRole.SALESPERSON:
-      return "/van";
-    case UserRole.DELIVERY:
-      return "/delivery";
-    case UserRole.ACCOUNTS:
-      return "/accounts";
-    case UserRole.CUSTOMER:
-      return "/store";
-    default:
-      return "/login";
-  }
+  if (!role) return "/login";
+  return ROLE_HOME_ROUTES[role] ?? "/login";
 }
 
 /**
  * Return installable mobile app route for each role (Prompt #13 Part E)
  */
 export function getDefaultAppForRole(role?: UserRole): string {
-  switch (role) {
-    case UserRole.SUPER_ADMIN:
-    case UserRole.ADMIN:
-      return "/app/owner";
-    case UserRole.WAREHOUSE_MANAGER:
-    case UserRole.GODOWN:
-      return "/app/godown";
-    case UserRole.SHOP:
-      return "/app/shop";
-    case UserRole.SALESPERSON:
-      return "/app/van";
-    case UserRole.DELIVERY:
-      return "/app/delivery";
-    case UserRole.ACCOUNTS:
-      return "/app/accounts";
-    case UserRole.CUSTOMER:
-      return "/store";
-    default:
-      return "/login";
-  }
+  if (!role) return "/login";
+  return ROLE_MOBILE_APPS[role] ?? "/login";
 }
+
+
 

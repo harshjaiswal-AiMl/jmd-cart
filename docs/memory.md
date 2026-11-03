@@ -575,3 +575,94 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
       - **Strict Zero/Insufficient Stock Block:** In POS (`pos-client.tsx`), F2 / Ctrl+Enter / Finalize button are blocked from opening Save Voucher when stock is 0 or insufficient. Save dialog Confirm button disabled with warning banner. Backend pre-flight check in `finalizeBillAction` strictly validates live DB stock before creating invoices.
       - **Esc Navigation Everywhere:** In `management-shell.tsx` and `pos-client.tsx`, Esc closes active modals/search and calls `router.back()`.
       - **Instant Order Notifications & Continuous Telephone Ring:** Wired `pushNotificationService.triggerOrderAlert` in `finalizeBillAction` (Shop POS) and `orderService.createOrderFromCart` (Online Storefront). Fixed middleware RBAC blocking notification routes with HTML. Added Android WebView native device registration and live OrderAlert creation in `sendTestAlert`, ensuring continuous ringing works on both PWA and native Android wrapper.
+
+
+### 2026-11-03: Prompt #19 — Bill Messaging (WhatsApp & SMS), PRO Login Bug Root Cause & Fix, Native Godown App Always-On Alerts
+
+#### Part A: PRO Login Bug — Root Cause Analysis
+- **Symptom:** User assigned role `PRO` enters phone and password on `/login`. Submitting gives no error, but also no navigation to the PRO app — the screen returns right to `/login` without any response.
+- **Root Cause:**
+  1. In `src/modules/auth/permissions.ts`:
+     - `getDefaultDashboard(role)` lacked `case UserRole.PRO: return "/app/pro";`. It fell through to `default: return "/login";`.
+     - `getDefaultAppForRole(role)` lacked `case UserRole.PRO: return "/app/pro";`. It fell through to `default: return "/login";`.
+  2. In `src/app/(auth)/login/actions.ts`:
+     - When `callbackUrl` is `"/"` or empty, `loginAction` called `getDefaultDashboard(user.role)`, which returned `"/login"`.
+     - It then executed `signIn("credentials", { phone, password, redirectTo: "/login" })`.
+  3. In `src/middleware.ts` and `src/app/(auth)/login/page.tsx`:
+     - Accessing `/login` while logged in does not automatically redirect to `getDefaultDashboard(user.role)` (unlike `/register`).
+     - Hence, the user was authenticated, a session cookie was established, and NextAuth redirected them back to `/login`, which rendered the clean login form with zero feedback.
+- **Required Fix & Hardening:**
+  1. Add `case UserRole.PRO: return "/app/pro";` to `getDefaultDashboard` and `getDefaultAppForRole`.
+  2. Add compile-time exhaustiveness check (`Record<UserRole, string>`) for role home routes, nav items, and permissions so adding any role in the future without a defined home route fails `pnpm typecheck`.
+  3. Ensure `/login` page and middleware redirect an already-authenticated user directly to their role's default dashboard instead of rendering the login form or bouncing back.
+  4. Ensure `loginAction` logs request/error details with request id and always returns structured error feedback if authentication or redirect fails.
+
+#### Part B: WhatsApp Open-WA & SMS Architecture Findings
+- **open-wa Repository Status:**
+  - `open-wa/wa-automate-nodejs` is a popular WhatsApp Web automation library.
+  - While base code is open, the upstream repository uses restricted/insider licensing tiers for sending messages to numbers not saved in contacts (requires license keys).
+  - Alternatives like `WhiskeySockets/Baileys` (MIT, pure multi-device WebSocket, ~50MB RAM) and `whatsapp-web.js` (Apache-2.0) are fully open.
+  - Driver architecture: `MessageProvider` interface supporting `WhatsAppOpenWaGateway`, `SmsAndroidGateway`, `WaMeLink` (`https://wa.me/<number>?text=...` instant cashier click-to-chat fallback), and Cloud API stub.
+  - Always-on VM in `asia-south1` approved for running the WhatsApp gateway container with persistent disk for session storage.
+
+#### Part C: Native Godown Android App Audit & Root Cause Analysis
+- **App Stack & Location:**
+  - Located at `apps/godown-android/`.
+  - Android native application using Kotlin 1.9.22, Gradle 8.6, compileSdk 34, minSdk 26, targetSdk 34.
+  - Package ID: `com.jmdcart.godown`.
+  - Key components:
+    - `MainActivity.kt`: Wraps `https://management.jmdcart.com/app/godown` in a WebView, exposes `AndroidGodownBridge` for JS interop (`triggerRing`, `stopRing`).
+    - `ContinuousRingtoneService.kt`: Foreground service playing looping ringtone and vibrating.
+    - `IncomingOrderCallActivity.kt`: Full-screen activity configured with `showWhenLocked="true"` and `turnScreenOn="true"` to display incoming order alerts over the lock screen.
+    - `OrderAlertNotificationService.kt`: FirebaseMessagingService receiving incoming push events.
+- **Root Cause of Owner's Complaints:**
+  1. *Complaint 1: Alerts must be switched on every time the app opens:*
+     - In the web app at `/app/godown`, alerts relied on web audio and in-memory toggle state.
+     - In `MainActivity.kt`, the native app did not automatically register the device token or notify the backend of its native status.
+     - In `OrderAlertNotificationService.kt`, `onNewToken` was an empty stub (`// Register token with backend if user is authenticated`), so FCM device registration was never completed natively with the server.
+     - As a result, warehouse staff had to manually toggle audio alerts in the web UI on every launch.
+  2. *Complaint 2: No ring when the app is closed:*
+     - Because `OrderAlertNotificationService.onNewToken` never registered the native device token with the server's `push_subscriptions` table with `type: NATIVE`, the server only sent Web Push notifications to browser endpoints.
+     - When the app is closed/swiped away, Web Push to the Android WebView does not wake the native foreground service.
+     - Furthermore, `ContinuousRingtoneService` configured audio attributes as `USAGE_NOTIFICATION_RINGTONE`, which is silenced when the phone is on mute, vibrate, or Do Not Disturb. Per Prompt #19, it must use `USAGE_ALARM` to guarantee audible alerts.
+     - There was no `BOOT_COMPLETED` receiver or persistent foreground service to maintain alarm readiness across device reboots.
+     - There was no `CANCEL_ALERT` FCM data message handling to stop ringing on other warehouse devices when one device accepts.
+- **Remediation Plan for Part C:**
+  1. Add native device registration manager in `apps/godown-android` that generates and stores a secure device token, posts it to `/api/notifications/native-device/register`, and keeps it refreshed.
+  2. Update `ContinuousRingtoneService` to use `AudioAttributes.USAGE_ALARM` with volume safety, looping until accepted, snoozed (1 min), or timed out (2 mins).
+  3. Add "Snooze 1 min" button to `IncomingOrderCallActivity` and implement snooze API call.
+  4. Handle `CANCEL_ALERT` in `OrderAlertNotificationService` to dismiss alerts when another staff member accepts.
+  5. Add `BootReceiver` for `BOOT_COMPLETED` and `MY_PACKAGE_REPLACED` to ensure alert readiness after restart.
+  6. Add WorkManager periodic heartbeat reporting battery optimization and notification permissions to `/api/notifications/native-device/heartbeat`.
+  7. Provide permission onboarding in `MainActivity` (POST_NOTIFICATIONS, USE_FULL_SCREEN_INTENT, battery optimization exemption).
+  8. Update server `push-notification.service.ts` to send FCM v1 high-priority data messages to native devices with collapse key, and broadcast `CANCEL_ALERT` on accept.
+
+
+#### Part D & E: Prompt #19 Execution Summary & Git Justification
+- **Part A: PRO Login Fix & Exhaustiveness Hardening**
+  - Added compile-time exhaustiveness `ROLE_HOME_ROUTES: Record<UserRole, string>` and `ROLE_MOBILE_APPS: Record<UserRole, string | null>` in `src/modules/auth/permissions.ts`.
+  - Added authenticated redirect in `src/middleware.ts` for users visiting `/login`.
+  - Added error feedback, request ID tracing, and safe role-based redirect fallback in `src/app/(auth)/login/actions.ts`.
+  - Automated test suite `tests/unit/pro-login-roles.test.ts` (8/8 passing).
+- **Part B: Bill Messaging (WhatsApp & SMS) Pipeline**
+  - Additive migration `prisma/migrations/20261103110000_bill_messaging_and_native_alerts` adds `BillToken`, `OutboundMessage`, `MessagingOptOut`, and `SmsGatewayDevice`.
+  - Public bill link `https://jmdcart.com/b/<token>` using 128-bit unguessable crypto tokens hashed with SHA-256 in DB, 90-day expiry, sanitized customer view model (no internal margin or agent codes), `noindex, nofollow`.
+  - Pluggable provider architecture: `WhatsAppOpenWaGateway`, `SmsAndroidGateway` (own phone SIM gateway), and `WaMeLinkProvider` (zero-ban-risk direct click-to-chat fallback).
+  - Outbound message worker with 20/min rate limiting, 2-6s random jitter, retry backoff, and opt-out tracking.
+  - POS and Van billing non-blocking integration: bill finalization succeeds immediately even if messaging gateways are offline.
+  - Interactive `BillMessagingCard` embedded in Shop POS and Van Billing confirmation cards.
+  - Automated test suite `tests/unit/messaging-pipeline.test.ts` (7/7 passing).
+- **Part C: Native Godown Android App Looping Alerts**
+  - Updated `apps/godown-android`:
+    - Upgraded `ContinuousRingtoneService` to `AudioAttributes.USAGE_ALARM` with repeating vibration pattern and 2-minute safety auto-dismissal.
+    - Updated `IncomingOrderCallActivity` with big Accept button, 1-minute Snooze button, and Mute button.
+    - Added `BootReceiver` for `BOOT_COMPLETED` and `MY_PACKAGE_REPLACED`.
+    - Added `DeviceRegistrationManager` with WorkManager periodic heartbeat, token registration, and snooze/ack API integrations.
+    - Added `OrderAlertNotificationService` FCM data message handling for `ORDER_ALERT` (alarm trigger) and `CANCEL_ALERT` (stops ringing across all warehouse devices when one device accepts).
+    - Android APK compiled and placed at `public/downloads/JMD-Godown-Alert.apk` and downloadable from `/app/godown/install`.
+  - Automated test suite `tests/unit/native-alerts.test.ts` (4/4 passing).
+- **Verification Gates**
+  - `pnpm typecheck`: PASSED (0 errors).
+  - `pnpm lint`: PASSED (0 errors).
+  - `pnpm test` (unit suites): 34 suites, 281 tests ALL PASSED.
+  - `pnpm build`: Next.js production build PASSED cleanly.

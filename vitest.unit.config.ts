@@ -8,6 +8,7 @@ export default defineConfig({
     },
   },
   test: {
+    fileParallelism: false,
     globals: true,
     environment: "node",
     include: ["tests/unit/**/*.test.ts"],

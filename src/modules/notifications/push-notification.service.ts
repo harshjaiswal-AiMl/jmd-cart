@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import webpush from "web-push";
-import { OrderAlertState, UserRole } from "@prisma/client";
+import { OrderAlertState, UserRole, PushSubscriptionType } from "@prisma/client";
 
 // Stable fallback development keys if not set in environment
 const DEFAULT_DEV_VAPID = {
@@ -84,6 +84,42 @@ export class PushNotificationService {
   /**
    * Deliver push notification payload to active subscriptions of target users.
    */
+  /**
+   * Send high-priority FCM data messages directly to native Android Godown apps.
+   */
+  async sendFcmDataMessage(tokens: string[], data: Record<string, string>, collapseKey?: string) {
+    if (!tokens || tokens.length === 0) return { sentCount: 0 };
+
+    const fcmServerKey = process.env.FCM_SERVER_KEY;
+    let sentCount = 0;
+
+    for (const token of tokens) {
+      if (fcmServerKey) {
+        try {
+          const res = await fetch("https://fcm.googleapis.com/fcm/send", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `key=${fcmServerKey}`,
+            },
+            body: JSON.stringify({
+              to: token,
+              priority: "high",
+              collapse_key: collapseKey,
+              data,
+            }),
+          });
+          if (res.ok) sentCount++;
+        } catch (err) {
+          console.warn("[FCM send warning]:", err);
+        }
+      } else {
+        sentCount++;
+      }
+    }
+    return { sentCount };
+  }
+
   async sendToUsers(userIds: string[], payload: SendPushPayload) {
     if (userIds.length === 0) return { sentCount: 0 };
 
@@ -261,13 +297,37 @@ export class PushNotificationService {
       }
     );
 
+    // 4. Send High-Priority FCM Data Message to Native Godown Android Devices
+    try {
+      const nativeSubs = await prisma.pushSubscription.findMany({
+        where: { type: PushSubscriptionType.NATIVE, active: true },
+      });
+      const nativeTokens = nativeSubs.map((s) => s.endpoint).filter((t) => t && !t.startsWith("http"));
+      if (nativeTokens.length > 0) {
+        await this.sendFcmDataMessage(
+          nativeTokens,
+          {
+            type: "ORDER_ALERT",
+            orderId: order.id,
+            orderNumber: orderRef,
+            customerName: order.customerName || "Customer",
+            amount: amountStr,
+            deepLink,
+          },
+          `order_${order.id}`
+        );
+      }
+    } catch (fcmErr) {
+      console.warn("[triggerOrderAlert native FCM warning]:", fcmErr);
+    }
+
     return { success: true, alertCount: alerts.length };
   }
 
   /**
    * Accept an order alert (stops ring and escalation across all warehouse managers).
    */
-  async acceptOrderAlert(refId: string, acceptedByUserId: string) {
+  async acceptOrderAlert(refId: string, acceptedByUserId?: string, deviceId?: string) {
     const updated = await prisma.orderAlert.updateMany({
       where: {
         OR: [
@@ -280,8 +340,26 @@ export class PushNotificationService {
       data: {
         state: OrderAlertState.ACCEPTED,
         acceptedAt: new Date(),
+        acknowledgedByDeviceId: deviceId || null,
       },
     });
+
+    // Broadcast CANCEL_ALERT to all other native devices to stop ring immediately
+    try {
+      const nativeSubs = await prisma.pushSubscription.findMany({
+        where: { type: PushSubscriptionType.NATIVE, active: true },
+      });
+      const nativeTokens = nativeSubs.map((s) => s.endpoint).filter((t) => t && !t.startsWith("http"));
+      if (nativeTokens.length > 0) {
+        await this.sendFcmDataMessage(
+          nativeTokens,
+          { type: "CANCEL_ALERT", orderId: refId },
+          `cancel_${refId}`
+        );
+      }
+    } catch (cancelErr) {
+      console.warn("[acceptOrderAlert: cancel broadcast warning]:", cancelErr);
+    }
 
     return { success: true, updatedCount: updated.count };
   }

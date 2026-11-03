@@ -46,8 +46,16 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
+  // Public customer bill link (strictly noindex)
+  if (pathname.startsWith("/b/")) {
+    const res = NextResponse.next();
+    res.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return res;
+  }
+
   // Public storefront catalogue & cart browsing, management hub, public storefront APIs, and legal/information pages
   if (
+    pathname.startsWith("/api/messaging") ||
     pathname.startsWith("/store") ||
     pathname === "/management" ||
     pathname.startsWith("/api/store") ||
@@ -73,7 +81,7 @@ export default auth((req) => {
     pathname === "/forgot-password" ||
     pathname === "/verify-phone"
   ) {
-    if (isLoggedIn && user?.role && pathname === "/register") {
+    if (isLoggedIn && user?.role && (pathname === "/register" || pathname === "/login")) {
       return NextResponse.redirect(new URL(getDefaultDashboard(user.role), req.url));
     }
     return NextResponse.next();

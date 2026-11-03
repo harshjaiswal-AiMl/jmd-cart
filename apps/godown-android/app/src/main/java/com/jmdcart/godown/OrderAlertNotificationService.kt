@@ -1,7 +1,6 @@
 package com.jmdcart.godown
 
 import android.content.Context
-import android.content.Intent
 import android.os.PowerManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
@@ -28,7 +27,7 @@ class OrderAlertNotificationService : FirebaseMessagingService() {
             )
             wakeLock.acquire(30000) // 30 sec timeout
 
-            // 2. Start continuous ringing foreground service
+            // 2. Start continuous ringing foreground service on ALARM stream
             ContinuousRingtoneService.startRinging(
                 this,
                 orderId,
@@ -36,11 +35,22 @@ class OrderAlertNotificationService : FirebaseMessagingService() {
                 customerName,
                 amount
             )
+
+            // Send heartbeat on incoming alert
+            DeviceRegistrationManager.sendHeartbeat(this)
+
+        } else if (type == "CANCEL_ALERT") {
+            // Another warehouse manager accepted the order -> cancel ring immediately!
+            ContinuousRingtoneService.stopRinging(this)
+
+            // Dismiss full-screen activity if currently visible
+            IncomingOrderCallActivity.currentInstance?.finish()
         }
     }
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        // Register token with backend if user is authenticated
+        // Automatically register with backend
+        DeviceRegistrationManager.registerWithBackend(this, token)
     }
 }

@@ -10,10 +10,10 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="INCOMING GODOWN ORDER"
+        android:text="🚨 INCOMING GODOWN ORDER 🚨"
         android:textColor="#F4A259"
         android:textStyle="bold"
-        android:textSize="14sp"
+        android:textSize="15sp"
         android:layout_marginTop="48dp"
         android:letterSpacing="0.1" />
 
@@ -24,8 +24,8 @@
         android:text="ORD-000123"
         android:textColor="#FFFFFF"
         android:textStyle="bold"
-        android:textSize="28sp"
-        android:layout_marginTop="8dp" />
+        android:textSize="32sp"
+        android:layout_marginTop="12dp" />
 
     <TextView
         android:id="@+id/tvCustomerName"
@@ -43,7 +43,7 @@
         android:text="₹12,450.00"
         android:textColor="#34D399"
         android:textStyle="bold"
-        android:textSize="24sp"
+        android:textSize="26sp"
         android:layout_marginTop="12dp" />
 
     <View
@@ -58,6 +58,7 @@
         android:orientation="vertical"
         android:layout_marginBottom="32dp">
 
+        <!-- Big Accept Button -->
         <Button
             android:id="@+id/btnAccept"
             android:layout_width="match_parent"
@@ -69,13 +70,26 @@
             android:backgroundTint="#F4A259"
             android:layout_marginBottom="12dp" />
 
+        <!-- Snooze 1 Min Button -->
+        <Button
+            android:id="@+id/btnSnooze"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="⏰ SNOOZE 1 MINUTE"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#3B82F6"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Mute / Dismiss Button -->
         <Button
             android:id="@+id/btnDismiss"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
+            android:layout_height="48dp"
             android:text="Mute Ring"
-            android:textSize="14sp"
-            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textColor="#9CA3AF"
             android:backgroundTint="#1F2933" />
     </LinearLayout>
 

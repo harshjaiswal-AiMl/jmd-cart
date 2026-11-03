@@ -1,6 +1,7 @@
 "use server";
 
 import { pushNotificationService } from "@/modules/notifications/push-notification.service";
+import { MessagingService } from "@/modules/messaging/messaging.service";
 
 import { auth } from "@/auth";
 import { pricingService } from "@/modules/pricing/pricing.service";
@@ -218,6 +219,18 @@ export async function finalizeBillAction(input: {
       }
     }
 
+    // Queue bill messaging (WhatsApp / SMS) - safe and non-blocking
+    let messagingResult = null;
+    try {
+      messagingResult = await MessagingService.queueInvoiceMessage({
+        invoiceId: invoice.id,
+        phoneOverride: input.customerPhone,
+        actorUserId: session.user.id,
+      });
+    } catch (msgErr) {
+      console.warn("[finalizeBillAction: messaging warning]:", msgErr);
+    }
+
     return {
       success: true,
       invoice: {
@@ -227,6 +240,11 @@ export async function finalizeBillAction(input: {
         status: invoice.status,
         channel: invoice.channel,
         paymentStatus: invoice.paymentStatus,
+        billUrl: messagingResult?.billUrl,
+        waMeUrl: messagingResult?.waMeUrl,
+        messagingSkipped: messagingResult?.skipped,
+        messagingReason: messagingResult?.reason,
+        targetPhone: messagingResult?.phone || input.customerPhone,
         paymentMode:
           invoice.payments.find((p) => p.mode === "CREDIT")?.mode ||
           invoice.payments[0]?.mode ||

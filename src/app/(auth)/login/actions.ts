@@ -31,12 +31,21 @@ export async function loginAction(
     return { error: "Please enter your password" };
   }
 
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
   try {
     const user = await authService.authenticateWithCredentials(phoneOrEmail, password);
-    const targetUrl =
-      callbackUrl && callbackUrl !== "/"
+
+    // Safeguard targetUrl: never redirect an authenticated user to /login
+    const resolvedDefault = getDefaultDashboard(user.role);
+    let targetUrl =
+      callbackUrl && callbackUrl !== "/" && callbackUrl !== "/login"
         ? callbackUrl
-        : getDefaultDashboard(user.role);
+        : resolvedDefault;
+
+    if (!targetUrl || targetUrl === "/login") {
+      targetUrl = resolvedDefault !== "/login" ? resolvedDefault : "/admin";
+    }
 
     await signIn("credentials", {
       phone: user.phone,
@@ -52,17 +61,27 @@ export async function loginAction(
         case "CredentialsSignin":
           return { error: "Invalid mobile number/email or password" };
         default:
+          console.error(`[Login AuthError ${requestId}]`, error);
           return {
-            error: "Authentication failed. Please check credentials or contact administrator.",
+            error: `Authentication failed (Ref: ${requestId}). Please check credentials or contact administrator.`,
           };
       }
     }
     if (error instanceof Error) {
-      return { error: error.message };
+      // User inactive or invalid credentials from authService
+      if (
+        error.message.includes("deactivated") ||
+        error.message.includes("Invalid") ||
+        error.message.includes("password")
+      ) {
+        return { error: error.message };
+      }
+      console.error(`[Login Error ${requestId}]`, error);
+      return { error: `${error.message} (Ref: ${requestId})` };
     }
-    return { error: "Invalid mobile number/email or password" };
+    console.error(`[Login UnknownError ${requestId}]`, error);
+    return { error: `Authentication error occurred (Ref: ${requestId}). Please try again.` };
   }
 
   return undefined;
 }
-

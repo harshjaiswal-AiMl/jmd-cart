@@ -1,4 +1,5 @@
 "use client";
+import { BillMessagingCard } from "@/components/billing/bill-messaging-card";
 
 import React, { useState, useEffect, useMemo } from "react";
 import {
@@ -170,6 +171,11 @@ export function VanBillingClient({
     id: string;
     number: string;
     totalPaise: number;
+    billUrl?: string | null;
+    waMeUrl?: string | null;
+    targetPhone?: string | null;
+    messagingSkipped?: boolean;
+    messagingReason?: string;
   } | null>(null);
 
   // Quick Customer Creation State
@@ -870,6 +876,16 @@ export function VanBillingClient({
               </p>
             </div>
           </div>
+
+          <BillMessagingCard
+            invoiceId={lastInvoice.id}
+            invoiceNumber={lastInvoice.number}
+            defaultPhone={lastInvoice.targetPhone}
+            billUrl={lastInvoice.billUrl}
+            waMeUrl={lastInvoice.waMeUrl}
+            initialSkipped={lastInvoice.messagingSkipped}
+            initialReason={lastInvoice.messagingReason}
+          />
 
           <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-emerald-200">
             <BluetoothPrintButton
