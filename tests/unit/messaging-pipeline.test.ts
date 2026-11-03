@@ -94,22 +94,70 @@ describe("Part B — Bill Messaging Pipeline & Token Security", () => {
   });
 
   describe("B1 & B5. Template Rendering & Idempotency", () => {
-    it("renders clean Hinglish bill template with correct formatting", () => {
-      const text = MessagingService.renderBillTemplate({
-        customerName: "Sachin General Store",
-        invoiceNo: "INV/26-27/000123",
-        totalPaise: 1245050,
-        balanceDuePaise: 500000,
-        isGst: true,
-        billUrl: "https://jmdcart.com/b/testtoken123",
+    it("renders all 5 bill message templates correctly (WhatsApp, SMS, Credit, Pending, GST)", () => {
+      // 1. WhatsApp Standard Bill
+      const waStandard = MessagingService.renderBillTemplate({
+        customerName: "Sachin Ji",
+        invoiceNo: "INV/26-27/000070",
+        totalPaise: 2800,
+        billUrl: "https://jmdcart.com/b/tok1",
+        channel: MessageChannel.WHATSAPP,
       });
+      expect(waStandard).toBe(
+        `Hello Sachin Ji, 🙏\n\nYour bill INV/26-27/000070 for ₹28.00 is ready.\nView your bill: https://jmdcart.com/b/tok1\n\nThanks for shopping with JMD Cart!\nBharosa Ghar Tak.`
+      );
 
-      expect(text).toContain("Namaste Sachin General Store");
-      expect(text).toContain("INV/26-27/000123 (GST Bill)");
-      expect(text).toContain("₹12,450.50");
-      expect(text).toContain("Baqi Rashi: ₹5,000.00");
-      expect(text).toContain("https://jmdcart.com/b/testtoken123");
-      expect(text).toContain("Bharosa Ghar Tak");
+      // 2. SMS (short, plain text)
+      const smsStandard = MessagingService.renderBillTemplate({
+        customerName: "Sachin Ji",
+        invoiceNo: "INV/26-27/000070",
+        totalPaise: 2800,
+        billUrl: "https://jmdcart.com/b/tok2",
+        channel: MessageChannel.SMS,
+      });
+      expect(smsStandard).toBe(
+        `Hello Sachin Ji, your bill INV/26-27/000070 for Rs 28.00 is ready. View: https://jmdcart.com/b/tok2 Thanks for shopping with JMD Cart! - Bharosa Ghar Tak.`
+      );
+
+      // 3. Credit Bill (SMS)
+      const creditSms = MessagingService.renderBillTemplate({
+        customerName: "Sharma Kirana",
+        invoiceNo: "INV/26-27/000071",
+        totalPaise: 50000,
+        isCredit: true,
+        outstandingBalancePaise: 120000,
+        billUrl: "https://jmdcart.com/b/tok3",
+        channel: MessageChannel.SMS,
+      });
+      expect(creditSms).toBe(
+        `Hello Sharma Kirana, your bill INV/26-27/000071 for Rs 500.00 has been added to your account. Outstanding balance: Rs 1,200.00. View: https://jmdcart.com/b/tok3 Thanks for shopping with JMD Cart! - Bharosa Ghar Tak.`
+      );
+
+      // 4. Payment Pending (SMS)
+      const pendingSms = MessagingService.renderBillTemplate({
+        customerName: "Verma Traders",
+        invoiceNo: "INV/26-27/000072",
+        totalPaise: 100000,
+        balanceDuePaise: 40000,
+        billUrl: "https://jmdcart.com/b/tok4",
+        channel: MessageChannel.SMS,
+      });
+      expect(pendingSms).toBe(
+        `Hello Verma Traders, your bill INV/26-27/000072 for Rs 1,000.00 is ready. Payment of Rs 400.00 is pending. View: https://jmdcart.com/b/tok4 Thanks for shopping with JMD Cart! - Bharosa Ghar Tak.`
+      );
+
+      // 5. GST Bill (SMS)
+      const gstSms = MessagingService.renderBillTemplate({
+        customerName: "Gupta Bros",
+        invoiceNo: "INV/26-27/000073",
+        totalPaise: 250000,
+        isGst: true,
+        billUrl: "https://jmdcart.com/b/tok5",
+        channel: MessageChannel.SMS,
+      });
+      expect(gstSms).toBe(
+        `Hello Gupta Bros, your GST invoice INV/26-27/000073 for Rs 2,500.00 is ready. View: https://jmdcart.com/b/tok5 Thanks for shopping with JMD Cart! - Bharosa Ghar Tak.`
+      );
     });
 
     it("generates instant wa.me click-to-chat links with zero ban risk", () => {

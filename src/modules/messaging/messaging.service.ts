@@ -1,4 +1,4 @@
-import { MessageChannel, MessageProviderType, MessageStatus } from "@prisma/client";
+import { MessageChannel, MessageProviderType, MessageStatus, PaymentMode } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { BillTokenService } from "./bill-token.service";
 import { IMessageProvider, SendMessageResult } from "./message-provider.interface";
@@ -89,36 +89,94 @@ export class MessagingService {
   }
 
   /**
-   * Renders the transactional bill SMS / WhatsApp template
+   * Renders the transactional bill SMS / WhatsApp template across all 5 standard scenarios:
+   * 1. WhatsApp (standard / multi-line with emoji and ₹)
+   * 2. SMS (short, plain text with Rs)
+   * 3. Credit bill (with outstanding balance)
+   * 4. Payment pending (with pending due amount)
+   * 5. GST bill (official GST invoice announcement)
    */
   static renderBillTemplate(params: {
     customerName: string;
     invoiceNo: string;
     totalPaise: number;
     balanceDuePaise?: number;
+    outstandingBalancePaise?: number;
+    isCredit?: boolean;
     isGst?: boolean;
     billUrl: string;
+    channel?: MessageChannel;
   }): string {
-    const amountRupees = (params.totalPaise / 100).toLocaleString("en-IN", {
+    const name = params.customerName || "Customer";
+    const invoiceNo = params.invoiceNo;
+    const link = params.billUrl;
+    const isSms = params.channel === MessageChannel.SMS;
+
+    const amountStr = (params.totalPaise / 100).toLocaleString("en-IN", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
 
-    let gstTag = params.isGst ? " (GST Bill)" : "";
-    let balanceTag = "";
+    const isCredit = Boolean(params.isCredit);
+    const hasDue = Boolean(params.balanceDuePaise && params.balanceDuePaise > 0);
+    const isGst = Boolean(params.isGst);
 
-    if (params.balanceDuePaise && params.balanceDuePaise > 0) {
-      const balRupees = (params.balanceDuePaise / 100).toLocaleString("en-IN", {
+    if (isSms) {
+      // 1. Credit bill
+      if (isCredit) {
+        const balPaise = params.outstandingBalancePaise ?? params.balanceDuePaise ?? params.totalPaise;
+        const balanceStr = (balPaise / 100).toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        return `Hello ${name}, your bill ${invoiceNo} for Rs ${amountStr} has been added to your account. Outstanding balance: Rs ${balanceStr}. View: ${link} Thanks for shopping with JMD Cart! - Bharosa Ghar Tak.`;
+      }
+
+      // 2. Payment pending
+      if (hasDue) {
+        const dueStr = ((params.balanceDuePaise || 0) / 100).toLocaleString("en-IN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+        return `Hello ${name}, your bill ${invoiceNo} for Rs ${amountStr} is ready. Payment of Rs ${dueStr} is pending. View: ${link} Thanks for shopping with JMD Cart! - Bharosa Ghar Tak.`;
+      }
+
+      // 3. GST bill
+      if (isGst) {
+        return `Hello ${name}, your GST invoice ${invoiceNo} for Rs ${amountStr} is ready. View: ${link} Thanks for shopping with JMD Cart! - Bharosa Ghar Tak.`;
+      }
+
+      // 4. SMS standard bill (short, plain text)
+      return `Hello ${name}, your bill ${invoiceNo} for Rs ${amountStr} is ready. View: ${link} Thanks for shopping with JMD Cart! - Bharosa Ghar Tak.`;
+    }
+
+    // WhatsApp formatting (multiline, emoji, ₹)
+    // 1. Credit bill WhatsApp
+    if (isCredit) {
+      const balPaise = params.outstandingBalancePaise ?? params.balanceDuePaise ?? params.totalPaise;
+      const balanceStr = (balPaise / 100).toLocaleString("en-IN", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       });
-      balanceTag = ` Baqi Rashi: ₹${balRupees}.`;
+      return `Hello ${name}, 🙏\n\nYour bill ${invoiceNo} for ₹${amountStr} has been added to your account. Outstanding balance: ₹${balanceStr}.\nView your bill: ${link}\n\nThanks for shopping with JMD Cart!\nBharosa Ghar Tak.`;
     }
 
-    return `Namaste ${params.customerName}, JMD Cart se aapka bill ${params.invoiceNo}${gstTag} ₹${amountRupees} ka. 
-Bill dekhein: ${params.billUrl}.${balanceTag} 
-JMD CART SE SHOPPING KARNE KE LIYE Dhanyavaad! 
-Bharosa Ghar Tak.`;
+    // 2. Payment pending WhatsApp
+    if (hasDue) {
+      const dueStr = ((params.balanceDuePaise || 0) / 100).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return `Hello ${name}, 🙏\n\nYour bill ${invoiceNo} for ₹${amountStr} is ready. Payment of ₹${dueStr} is pending.\nView your bill: ${link}\n\nThanks for shopping with JMD Cart!\nBharosa Ghar Tak.`;
+    }
+
+    // 3. GST bill WhatsApp
+    if (isGst) {
+      return `Hello ${name}, 🙏\n\nYour GST invoice ${invoiceNo} for ₹${amountStr} is ready.\nView your bill: ${link}\n\nThanks for shopping with JMD Cart!\nBharosa Ghar Tak.`;
+    }
+
+    // 4. WhatsApp standard bill
+    return `Hello ${name}, 🙏\n\nYour bill ${invoiceNo} for ₹${amountStr} is ready.\nView your bill: ${link}\n\nThanks for shopping with JMD Cart!\nBharosa Ghar Tak.`;
   }
 
   /**
@@ -175,22 +233,27 @@ Bharosa Ghar Tak.`;
       // Generate or retrieve bill token
       const billToken = await BillTokenService.createBillToken(invoice.id);
 
-      // Compute balance due if any
+      // Compute balance due and credit indicators
       const totalPaidPaise = invoice.payments.reduce((acc, p) => acc + p.amountPaise, 0);
       const balanceDuePaise = Math.max(0, invoice.totalPaise - totalPaidPaise);
-      const isGst = invoice.documentType === "TAX_INVOICE" || (invoice.party?.gstin ? invoice.party.gstin.length > 5 : false);
+      const isCredit = invoice.payments.some((p) => p.mode === PaymentMode.CREDIT);
+      const isGst = invoice.documentType === "TAX_INVOICE" || invoice.documentType === "GST" || (invoice.party?.gstin ? invoice.party.gstin.length > 5 : false);
       const customerName = invoice.party?.name || invoice.customerName || "Customer";
+      const outstandingBalancePaise = (invoice.party as any)?.currentBalancePaise ?? (balanceDuePaise > 0 ? balanceDuePaise : invoice.totalPaise);
 
-      const renderedBody = this.renderBillTemplate({
+      const renderedWaBody = this.renderBillTemplate({
         customerName,
         invoiceNo: invoice.number,
         totalPaise: invoice.totalPaise,
         balanceDuePaise,
+        outstandingBalancePaise,
+        isCredit,
         isGst,
         billUrl: billToken.url,
+        channel: MessageChannel.WHATSAPP,
       });
 
-      const waMeUrl = WaMeLinkProvider.generateUrl(cleanedDigits, renderedBody);
+      const waMeUrl = WaMeLinkProvider.generateUrl(cleanedDigits, renderedWaBody);
 
       // Default channels to WHATSAPP & SMS if not specified
       const channels = options.channels && options.channels.length > 0
@@ -205,6 +268,18 @@ Bharosa Ghar Tak.`;
       for (const ch of channels) {
         const idempotencyKey = `${invoice.id}_${ch}_FINAL`;
         const providerType = ch === MessageChannel.WHATSAPP ? activeWa : activeSms;
+
+        const renderedBody = this.renderBillTemplate({
+          customerName,
+          invoiceNo: invoice.number,
+          totalPaise: invoice.totalPaise,
+          balanceDuePaise,
+          outstandingBalancePaise,
+          isCredit,
+          isGst,
+          billUrl: billToken.url,
+          channel: ch,
+        });
 
         const outbound = await prisma.outboundMessage.upsert({
           where: { idempotencyKey },
