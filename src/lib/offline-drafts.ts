@@ -11,6 +11,12 @@ export interface VanDraftItem {
   packSize: number;
   packLabel: string;
   mrpPaise: number;
+  unitPriceOverridePaise?: number;
+  mrpOverridePaise?: number;
+  originalMrpPaise?: number;
+  mrpOverridden?: boolean;
+  rateOverridden?: boolean;
+  unitLabel?: string;
 }
 
 export interface VanDraftInvoice {
@@ -26,6 +32,8 @@ export interface VanDraftInvoice {
     amountPaise: number;
   }>;
   orderDiscountBp?: number;
+  pricingTier?: string;
+  buyerType?: string;
   totalPaise: number;
   createdAt: string;
   syncStatus: "DRAFT" | "SYNCING" | "SYNCED" | "FAILED";

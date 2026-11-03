@@ -15,6 +15,7 @@ export interface QtyUnitPickerProps {
   availablePieces: number;
   onAdd: (qty: number, unit: PickerUnit) => void;
   disabled?: boolean;
+  allowZeroStock?: boolean;
 }
 
 export function QtyUnitPicker({
@@ -27,6 +28,7 @@ export function QtyUnitPicker({
   availablePieces,
   onAdd,
   disabled,
+  allowZeroStock = false,
 }: QtyUnitPickerProps) {
   const [unit, setUnit] = useState<PickerUnit>("PCS");
   const [qty, setQty] = useState(1);
@@ -53,23 +55,24 @@ export function QtyUnitPicker({
       : 1;
 
   const piecesNeeded = qty * unitMultiplier;
-  const isOverStock = piecesNeeded > availablePieces;
-  const cartonDisabled = effectivePackSize <= 1 || cartonAvailable === 0;
-  const bagDisabled = bagAvailable === 0;
-  const dozenDisabled = dozenAvailable === 0;
+  const isOverStock = !allowZeroStock && piecesNeeded > availablePieces;
+  const cartonDisabled = effectivePackSize <= 1 || (!allowZeroStock && cartonAvailable <= 0);
+  const bagDisabled = !allowZeroStock && bagAvailable <= 0;
+  const dozenDisabled = !allowZeroStock && dozenAvailable <= 0;
 
   const pricePerUnit = (mrpPaise * unitMultiplier) / 100;
-  const maxAllowed =
-    unit === "CARTON"
-      ? cartonAvailable
-      : unit === "BAG"
-      ? bagAvailable
-      : unit === "DOZEN"
-      ? dozenAvailable
-      : availablePieces;
+  const maxAllowed = allowZeroStock
+    ? 99999
+    : unit === "CARTON"
+    ? cartonAvailable
+    : unit === "BAG"
+    ? bagAvailable
+    : unit === "DOZEN"
+    ? dozenAvailable
+    : availablePieces;
 
   const handleAdd = () => {
-    if (isOverStock || maxAllowed <= 0) return;
+    if (!allowZeroStock && (isOverStock || maxAllowed <= 0)) return;
     onAdd(qty, unit);
     setQty(1);
     setOpen(false);
@@ -84,7 +87,7 @@ export function QtyUnitPicker({
           setQty(1);
           setOpen(true);
         }}
-        disabled={disabled || availablePieces <= 0}
+        disabled={disabled || (!allowZeroStock && availablePieces <= 0)}
         className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#12355B] hover:bg-[#0E2843] text-white disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-all"
       >
         + Add
@@ -229,7 +232,7 @@ export function QtyUnitPicker({
         <button
           type="button"
           onClick={handleAdd}
-          disabled={isOverStock || maxAllowed <= 0}
+          disabled={!allowZeroStock && (isOverStock || maxAllowed <= 0)}
           className="flex-1 py-1 text-[11px] font-bold text-white bg-[#12355B] hover:bg-[#0E2843] rounded-lg disabled:opacity-40"
         >
           Add {unit}

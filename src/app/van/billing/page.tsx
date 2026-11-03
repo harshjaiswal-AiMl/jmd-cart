@@ -92,9 +92,9 @@ export default async function VanBillingPage() {
   const morningLoadedLines = stockSummary.activeVanDay.lines || [];
   const morningLoadedMap = new Map(morningLoadedLines.map((l) => [l.productId, l]));
 
-  // Strictly filter to items loaded in today's morning load sheet that have available stock (>0)
+  // Do not filter out products based on stock quantity (stock should not block van counter billing)
   const loadedInventory = stockSummary.inventory.filter(
-    (item) => (morningLoadedMap.size === 0 || morningLoadedMap.has(item.product.id)) && item.qty > 0
+    (item) => morningLoadedMap.size === 0 || morningLoadedMap.has(item.product.id)
   );
 
   const billingProducts = loadedInventory
@@ -108,6 +108,9 @@ export default async function VanBillingPage() {
         packSize: item.product.packSize,
         packLabel: item.product.packLabel,
         mrpPaise: item.product.mrpPaise ?? item.product.priceCPaise ?? 0,
+        priceAPaise: item.product.priceAPaise ?? null,
+        priceBPaise: item.product.priceBPaise ?? null,
+        priceCPaise: item.product.priceCPaise ?? null,
         availablePieces: item.qty,
         cartons: item.cartons,
         loosePieces: item.loosePieces,
@@ -118,13 +121,13 @@ export default async function VanBillingPage() {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-
   // Fetch active customer parties and their live balances
   const parties = await prisma.party.findMany({
     where: { active: true },
     select: {
       id: true,
       name: true,
+      type: true,
       phone: true,
       address: true,
       creditEnabled: true,
@@ -145,6 +148,7 @@ export default async function VanBillingPage() {
     return {
       id: p.id,
       name: p.name,
+      type: p.type,
       phone: p.phone,
       address: p.address,
       creditEnabled: p.creditEnabled,

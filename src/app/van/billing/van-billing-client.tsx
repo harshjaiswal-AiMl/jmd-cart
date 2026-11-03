@@ -55,6 +55,9 @@ interface VanProduct {
   packSize: number;
   packLabel: string;
   mrpPaise: number;
+  priceAPaise?: number | null;
+  priceBPaise?: number | null;
+  priceCPaise?: number | null;
   availablePieces: number;
   cartons: number;
   loosePieces: number;
@@ -66,6 +69,7 @@ interface VanProduct {
 interface PartyOption {
   id: string;
   name: string;
+  type?: string;
   phone?: string | null;
   address?: string | null;
   creditEnabled: boolean;
@@ -78,6 +82,49 @@ interface CartLine {
   qty: number;
   unit: PickerUnit;
   unitQty: number;
+  customRatePaise?: number | null;
+  customRateInput?: string;
+  customMrpPaise?: number | null;
+  customMrpInput?: string;
+  isCustomRate?: boolean;
+  isCustomMrp?: boolean;
+}
+
+export function getProductTierUnitPrice(
+  product: VanProduct,
+  targetTier: "WHOLESALER" | "RETAILER" | "CUSTOMER",
+  customMrpPaise?: number | null
+): number {
+  const effectiveBaseMrp =
+    customMrpPaise != null && customMrpPaise > 0
+      ? customMrpPaise
+      : product.mrpPaise && product.mrpPaise > 0
+      ? product.mrpPaise
+      : 0;
+
+  if (targetTier === "WHOLESALER") {
+    if (product.priceAPaise != null && product.priceAPaise > 0) {
+      return product.priceAPaise;
+    }
+    if (effectiveBaseMrp > 0) {
+      return Math.round(effectiveBaseMrp * 0.85); // 15% discount for Tier A
+    }
+  } else if (targetTier === "RETAILER") {
+    if (product.priceBPaise != null && product.priceBPaise > 0) {
+      return product.priceBPaise;
+    }
+    if (effectiveBaseMrp > 0) {
+      return Math.round(effectiveBaseMrp * 0.92); // 8% discount for Tier B
+    }
+  } else {
+    if (product.priceCPaise != null && product.priceCPaise > 0) {
+      return product.priceCPaise;
+    }
+    if (effectiveBaseMrp > 0) {
+      return effectiveBaseMrp;
+    }
+  }
+  return effectiveBaseMrp;
 }
 
 interface VanBillingClientProps {
@@ -102,6 +149,7 @@ export function VanBillingClient({
   // Stepped Workflow: 1 = Customer, 2 = Products (Morning Load Only), 3 = Payment & Finalize
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [customerMode, setCustomerMode] = useState<"PARTY" | "WALKIN">("PARTY");
+  const [selectedTierMode, setSelectedTierMode] = useState<"AUTO" | "WHOLESALER" | "RETAILER" | "CUSTOMER">("AUTO");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -268,8 +316,16 @@ export function VanBillingClient({
   const filteredProducts = useMemo(() => {
     if (!searchTerm.trim()) return products;
     const matches = searchItems(searchTerm, products as any, { limit: 100 });
-    return matches.map((m) => m.product as unknown as VanProduct);
+    return matches.map((m: any) => (m.product ?? m) as VanProduct);
   }, [products, searchTerm]);
+
+  const effectiveTier = useMemo<"WHOLESALER" | "RETAILER" | "CUSTOMER">(() => {
+    if (selectedTierMode !== "AUTO") return selectedTierMode;
+    if (customerMode === "WALKIN") return "CUSTOMER";
+    if (selectedParty?.type === "WHOLESALER") return "WHOLESALER";
+    if (selectedParty?.type === "RETAILER") return "RETAILER";
+    return "CUSTOMER";
+  }, [selectedTierMode, customerMode, selectedParty]);
 
   const partyOptions = useMemo(
     () => [
@@ -285,15 +341,74 @@ export function VanBillingClient({
     [localParties]
   );
 
-  // Totals
+  // Totals calculated using dynamic Pricing Tier & custom rate overrides
   const subtotalPaise = useMemo(() => {
-    return cart.reduce((sum, item) => sum + item.qty * item.product.mrpPaise, 0);
-  }, [cart]);
+    return cart.reduce((sum, line) => {
+      const packSize = Math.max(1, line.product.packSize || 1);
+      const bagSize = (line.product as any).bagSize || packSize;
+      const pieceMultiplier =
+        line.unit === "CARTON"
+          ? packSize
+          : line.unit === "BAG"
+          ? bagSize
+          : line.unit === "DOZEN"
+          ? 12
+          : 1;
+
+      const defaultPieceRatePaise = getProductTierUnitPrice(
+        line.product,
+        effectiveTier,
+        line.isCustomMrp && line.customMrpPaise != null
+          ? Math.round(line.customMrpPaise / pieceMultiplier)
+          : null
+      );
+      const defaultUnitRatePaise = defaultPieceRatePaise * pieceMultiplier;
+      const effectiveUnitRatePaise =
+        line.isCustomRate && line.customRatePaise != null
+          ? line.customRatePaise
+          : defaultUnitRatePaise;
+
+      return sum + line.unitQty * effectiveUnitRatePaise;
+    }, 0);
+  }, [cart, effectiveTier]);
 
   const totalPaise = subtotalPaise;
   const totalPiecesInCart = useMemo(() => cart.reduce((sum, i) => sum + i.qty, 0), [cart]);
 
-  // Add / adjust cart items with unit support
+  // Direct line Rate and MRP updaters
+  const updateLineRate = (productId: string, unit: PickerUnit, inputStr: string) => {
+    setCart((prev) =>
+      prev.map((line) => {
+        if (line.product.id !== productId || line.unit !== unit) return line;
+        const parsed = parseFloat(inputStr);
+        const paise = !isNaN(parsed) && parsed >= 0 ? Math.round(parsed * 100) : null;
+        return {
+          ...line,
+          customRateInput: inputStr,
+          customRatePaise: paise,
+          isCustomRate: paise != null,
+        };
+      })
+    );
+  };
+
+  const updateLineMrp = (productId: string, unit: PickerUnit, inputStr: string) => {
+    setCart((prev) =>
+      prev.map((line) => {
+        if (line.product.id !== productId || line.unit !== unit) return line;
+        const parsed = parseFloat(inputStr);
+        const paise = !isNaN(parsed) && parsed >= 0 ? Math.round(parsed * 100) : null;
+        return {
+          ...line,
+          customMrpInput: inputStr,
+          customMrpPaise: paise,
+          isCustomMrp: paise != null,
+        };
+      })
+    );
+  };
+
+  // Add / adjust cart items with unit support (stock availability check removed so zero stock never blocks billing)
   const addToCart = (
     product: VanProduct,
     addQty: number,
@@ -313,20 +428,8 @@ export function VanBillingClient({
 
     setCart((prev) => {
       const existing = prev.find((i) => i.product.id === product.id && i.unit === unit);
-      const otherPieces = prev
-        .filter((i) => i.product.id === product.id && i.unit !== unit)
-        .reduce((sum, i) => sum + i.qty, 0);
-
       const currentUnitPieces = existing ? existing.qty : 0;
       const targetUnitPieces = currentUnitPieces + addPieces;
-
-      if (targetUnitPieces + otherPieces > product.availablePieces) {
-        setStatusMessage({
-          type: "warning",
-          text: `Cannot add: exceeds total ${product.availablePieces} pcs available on van`,
-        });
-        return prev;
-      }
 
       if (existing) {
         return prev.map((i) =>
@@ -335,7 +438,15 @@ export function VanBillingClient({
             : i
         );
       }
-      return [...prev, { product, qty: targetUnitPieces, unit, unitQty: addQty }];
+      return [
+        ...prev,
+        {
+          product,
+          qty: targetUnitPieces,
+          unit,
+          unitQty: addQty,
+        },
+      ];
     });
   };
 
@@ -483,6 +594,56 @@ export function VanBillingClient({
     const clientTempId = `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const idempotencyKey = `van_${vanId}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
 
+    const mappedItems = cart.map((i) => {
+      const packSize = Math.max(1, i.product.packSize || 1);
+      const bagSize = (i.product as any).bagSize || packSize;
+      const pieceMultiplier =
+        i.unit === "CARTON"
+          ? packSize
+          : i.unit === "BAG"
+          ? bagSize
+          : i.unit === "DOZEN"
+          ? 12
+          : 1;
+
+      const defaultPieceRatePaise = getProductTierUnitPrice(
+        i.product,
+        effectiveTier,
+        i.isCustomMrp && i.customMrpPaise != null
+          ? Math.round(i.customMrpPaise / pieceMultiplier)
+          : null
+      );
+      const defaultUnitRatePaise = defaultPieceRatePaise * pieceMultiplier;
+      const effectiveUnitRatePaise =
+        i.isCustomRate && i.customRatePaise != null
+          ? i.customRatePaise
+          : defaultUnitRatePaise;
+      const pieceRatePaise = Math.round(effectiveUnitRatePaise / pieceMultiplier);
+
+      const defaultUnitMrpPaise = (i.product.mrpPaise || 0) * pieceMultiplier;
+      const effectiveUnitMrpPaise =
+        i.isCustomMrp && i.customMrpPaise != null
+          ? i.customMrpPaise
+          : defaultUnitMrpPaise;
+      const pieceMrpPaise = Math.round(effectiveUnitMrpPaise / pieceMultiplier);
+
+      return {
+        productId: i.product.id,
+        productName: i.product.name,
+        shortCode: i.product.shortCode,
+        qty: i.qty,
+        packSize: i.product.packSize,
+        packLabel: i.product.packLabel,
+        mrpPaise: pieceMrpPaise,
+        unitPriceOverridePaise: pieceRatePaise,
+        mrpOverridePaise: pieceMrpPaise,
+        originalMrpPaise: i.product.mrpPaise,
+        unitLabel: i.unit === "CARTON" ? "Carton" : i.unit === "BAG" ? "Bag" : i.unit === "DOZEN" ? "Dozen" : "Pcs",
+        rateOverridden: Boolean(i.isCustomRate),
+        mrpOverridden: Boolean(i.isCustomMrp),
+      };
+    });
+
     const draftData: VanDraftInvoice = {
       clientTempId,
       idempotencyKey,
@@ -490,16 +651,10 @@ export function VanBillingClient({
       vanName,
       partyId: selectedPartyId || null,
       partyName: selectedParty?.name || walkInName || "Cash Customer",
-      items: cart.map((i) => ({
-        productId: i.product.id,
-        productName: i.product.name,
-        shortCode: i.product.shortCode,
-        qty: i.qty,
-        packSize: i.product.packSize,
-        packLabel: i.product.packLabel,
-        mrpPaise: i.product.mrpPaise,
-      })),
+      items: mappedItems,
       payments: [{ mode: paymentMode, amountPaise: totalPaise }],
+      pricingTier: effectiveTier,
+      buyerType: effectiveTier,
       totalPaise,
       createdAt: new Date().toISOString(),
       syncStatus: "DRAFT",
@@ -525,7 +680,18 @@ export function VanBillingClient({
         customerPhone: selectedPartyId ? undefined : walkInMobile.trim() || undefined,
         customerAddress: selectedPartyId ? undefined : walkInAddress.trim() || undefined,
         idempotencyKey,
-        items: cart.map((i) => ({ productId: i.product.id, qty: i.qty })),
+        pricingTier: effectiveTier,
+        buyerType: effectiveTier,
+        items: mappedItems.map((i) => ({
+          productId: i.productId,
+          qty: i.qty,
+          unitPriceOverridePaise: i.unitPriceOverridePaise,
+          mrpOverridePaise: i.mrpOverridePaise,
+          originalMrpPaise: i.originalMrpPaise,
+          mrpOverridden: i.mrpOverridden,
+          rateOverridden: i.rateOverridden,
+          unitLabel: i.unitLabel,
+        })),
         payments: paymentCollected && paymentMode !== PaymentMode.CREDIT ? [{ mode: paymentMode, amountPaise: totalPaise }] : [],
         paymentStatus: (!paymentCollected || paymentMode === PaymentMode.CREDIT) ? "PENDING" : "PAID",
         creditOverride: overrideToUse || undefined,
@@ -579,7 +745,18 @@ export function VanBillingClient({
             locationId: draft.vanLocationId,
             partyId: draft.partyId || null,
             idempotencyKey: draft.idempotencyKey,
-            items: draft.items.map((i) => ({ productId: i.productId, qty: i.qty })),
+            pricingTier: draft.pricingTier,
+            buyerType: draft.buyerType,
+            items: draft.items.map((i) => ({
+              productId: i.productId,
+              qty: i.qty,
+              unitPriceOverridePaise: i.unitPriceOverridePaise,
+              mrpOverridePaise: i.mrpOverridePaise,
+              originalMrpPaise: i.originalMrpPaise,
+              rateOverridden: i.rateOverridden,
+              mrpOverridden: i.mrpOverridden,
+              unitLabel: i.unitLabel,
+            })),
             payments: draft.payments.map((p) => ({
               mode: p.mode as PaymentMode,
               amountPaise: p.amountPaise,
@@ -1052,6 +1229,69 @@ export function VanBillingClient({
             </button>
           </div>
 
+          {/* Pricing Tier Selector (Auto / Tier A / Tier B / Tier C) */}
+          <div className="flex items-center justify-between gap-2 flex-wrap bg-white p-2.5 px-3.5 rounded-2xl border border-slate-200 shadow-2xs">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Price Tier:</span>
+              <span className={`text-[11px] font-black px-2 py-0.5 rounded-md ${
+                effectiveTier === "WHOLESALER"
+                  ? "bg-purple-100 text-purple-900 border border-purple-200"
+                  : effectiveTier === "RETAILER"
+                  ? "bg-blue-100 text-blue-900 border border-blue-200"
+                  : "bg-emerald-100 text-emerald-900 border border-emerald-200"
+              }`}>
+                {effectiveTier === "WHOLESALER" ? "Tier A (Wholesale)" : effectiveTier === "RETAILER" ? "Tier B (Retail)" : "Tier C (Standard)"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setSelectedTierMode("AUTO")}
+                className={`px-2.5 py-1 rounded-lg text-xs font-black transition ${
+                  selectedTierMode === "AUTO"
+                    ? "bg-[#12355B] text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Auto ({effectiveTier[0]})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTierMode("WHOLESALER")}
+                className={`px-2.5 py-1 rounded-lg text-xs font-black transition ${
+                  selectedTierMode === "WHOLESALER"
+                    ? "bg-purple-700 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                A (Wholesale)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTierMode("RETAILER")}
+                className={`px-2.5 py-1 rounded-lg text-xs font-black transition ${
+                  selectedTierMode === "RETAILER"
+                    ? "bg-blue-700 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                B (Retail)
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedTierMode("CUSTOMER")}
+                className={`px-2.5 py-1 rounded-lg text-xs font-black transition ${
+                  selectedTierMode === "CUSTOMER"
+                    ? "bg-emerald-700 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                C (Standard)
+              </button>
+            </div>
+          </div>
+
           {/* Morning Load Product Search */}
           <div className="relative">
             <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1070,12 +1310,13 @@ export function VanBillingClient({
               <div className="bg-white rounded-3xl p-10 text-center text-slate-400 border border-slate-200 text-xs space-y-2">
                 <Package className="w-8 h-8 text-slate-300 mx-auto" />
                 <p className="font-bold text-slate-600 text-sm">No morning loaded products match search.</p>
-                <p>Only products dispatched on today&apos;s load sheet with available stock appear here.</p>
+                <p>Only products dispatched on today&apos;s load sheet appear here.</p>
               </div>
             ) : (
               filteredProducts.map((p) => {
                 const inCart = cart.filter((i) => i.product.id === p.id);
                 const totalInCartPieces = inCart.reduce((sum, i) => sum + i.qty, 0);
+                const tierPieceRate = getProductTierUnitPrice(p, effectiveTier);
 
                 return (
                   <div
@@ -1105,8 +1346,11 @@ export function VanBillingClient({
                           <span>•</span>
                           <span className="font-mono text-slate-600">{p.shortCode}</span>
                           <span>•</span>
-                          <span className="text-[#12355B] font-black">
-                            ₹{(p.mrpPaise / 100).toFixed(2)}/pc
+                          <span className="text-[#12355B] font-black bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                            Rate: ₹{(tierPieceRate / 100).toFixed(2)}/pc
+                          </span>
+                          <span className="text-slate-500 font-bold line-through">
+                            MRP: ₹{(p.mrpPaise / 100).toFixed(2)}
                           </span>
                         </div>
 
@@ -1124,9 +1368,55 @@ export function VanBillingClient({
 
                         {/* In-cart summary chip */}
                         {totalInCartPieces > 0 && (
-                          <div className="mt-2 text-xs font-black text-blue-900 flex items-center gap-1.5">
+                          <div className="mt-2 text-xs font-black text-blue-900 flex items-center gap-1.5 flex-wrap">
                             <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
                             <span>In Cart: {totalInCartPieces} pcs ({inCart.map(i => `${i.unitQty} ${i.unit}`).join(", ")})</span>
+                          </div>
+                        )}
+
+                        {/* In-cart inline editable MRP & Rate */}
+                        {inCart.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-blue-200/60 space-y-1.5">
+                            {inCart.map((cLine) => {
+                              const packSize = Math.max(1, p.packSize || 1);
+                              const bagSize = (p as any).bagSize || packSize;
+                              const mult = cLine.unit === "CARTON" ? packSize : cLine.unit === "BAG" ? bagSize : cLine.unit === "DOZEN" ? 12 : 1;
+                              const defPieceRate = getProductTierUnitPrice(p, effectiveTier, cLine.isCustomMrp && cLine.customMrpPaise != null ? Math.round(cLine.customMrpPaise / mult) : null);
+                              const defUnitRate = defPieceRate * mult;
+                              const effUnitRate = cLine.isCustomRate && cLine.customRatePaise != null ? cLine.customRatePaise : defUnitRate;
+                              const defUnitMrp = (p.mrpPaise || 0) * mult;
+                              const effUnitMrp = cLine.isCustomMrp && cLine.customMrpPaise != null ? cLine.customMrpPaise : defUnitMrp;
+
+                              return (
+                                <div key={cLine.unit} className="p-1.5 bg-white/90 rounded-xl border border-blue-200 flex items-center justify-between gap-2 flex-wrap text-xs">
+                                  <span className="font-black text-slate-800">{cLine.unitQty} {cLine.unit}:</span>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[10px] font-bold text-slate-500">MRP:</span>
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={cLine.customMrpInput !== undefined ? cLine.customMrpInput : (effUnitMrp / 100).toFixed(2)}
+                                        onChange={(e) => updateLineMrp(p.id, cLine.unit, e.target.value)}
+                                        className="w-16 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded border border-slate-300"
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[10px] font-bold text-slate-500">Rate:</span>
+                                      <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={cLine.customRateInput !== undefined ? cLine.customRateInput : (effUnitRate / 100).toFixed(2)}
+                                        onChange={(e) => updateLineRate(p.id, cLine.unit, e.target.value)}
+                                        className="w-16 px-1.5 py-0.5 text-right font-mono font-bold text-xs rounded border border-emerald-400 bg-emerald-50 text-emerald-950 font-black"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1139,12 +1429,13 @@ export function VanBillingClient({
                           packSize={p.packSize}
                           bagSize={(p as any).bagSize || p.packSize}
                           packLabel={p.packLabel}
-                          mrpPaise={p.mrpPaise}
+                          mrpPaise={tierPieceRate}
                           availablePieces={p.availablePieces}
+                          allowZeroStock={true}
                           onAdd={(qty, unit) => {
                             addToCart(p, qty, unit);
                           }}
-                          disabled={p.availablePieces <= 0}
+                          disabled={false}
                         />
                       </div>
                     </div>
@@ -1233,23 +1524,82 @@ export function VanBillingClient({
             <span className="text-xs font-black text-slate-700 uppercase tracking-wider block">
               Bill Items ({cart.length})
             </span>
-            <div className="border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden">
+            <div className="border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden bg-white shadow-2xs">
               {cart.map((line) => {
-                const lineTotal = (line.qty * line.product.mrpPaise) / 100;
+                const packSize = Math.max(1, line.product.packSize || 1);
+                const bagSize = (line.product as any).bagSize || packSize;
+                const mult = line.unit === "CARTON" ? packSize : line.unit === "BAG" ? bagSize : line.unit === "DOZEN" ? 12 : 1;
+                const defaultPieceRatePaise = getProductTierUnitPrice(
+                  line.product,
+                  effectiveTier,
+                  line.isCustomMrp && line.customMrpPaise != null ? Math.round(line.customMrpPaise / mult) : null
+                );
+                const defaultUnitRatePaise = defaultPieceRatePaise * mult;
+                const effectiveUnitRatePaise = line.isCustomRate && line.customRatePaise != null ? line.customRatePaise : defaultUnitRatePaise;
+
+                const defaultUnitMrpPaise = (line.product.mrpPaise || 0) * mult;
+                const effectiveUnitMrpPaise = line.isCustomMrp && line.customMrpPaise != null ? line.customMrpPaise : defaultUnitMrpPaise;
+
+                const lineTotal = (line.unitQty * effectiveUnitRatePaise) / 100;
+
                 return (
                   <div
                     key={`${line.product.id}_${line.unit}`}
-                    className="p-3 hover:bg-slate-50 flex items-center justify-between gap-3 text-xs"
+                    className="p-3 hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="font-black text-slate-900 truncate">{line.product.name}</p>
-                      <p className="text-[11px] text-slate-500 font-mono">
-                        {line.unitQty} {line.unit} ({line.qty} pcs) @ ₹{(line.product.mrpPaise / 100).toFixed(2)}/pc
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-black text-slate-900 truncate">{line.product.name}</p>
+                        {line.product.weight && (
+                          <span className="text-[10px] font-bold text-amber-900 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                            {line.product.weight}
+                          </span>
+                        )}
+                        <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200">
+                          {effectiveTier === "WHOLESALER" ? "Tier A" : effectiveTier === "RETAILER" ? "Tier B" : "Tier C"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                        {line.unitQty} {line.unit} ({line.qty} pcs)
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-0.5 border border-slate-200">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">MRP:</span>
+                        <div className="relative w-20">
+                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={line.customMrpInput !== undefined ? line.customMrpInput : (effectiveUnitMrpPaise / 100).toFixed(2)}
+                            onChange={(e) => updateLineMrp(line.product.id, line.unit, e.target.value)}
+                            className={`w-full pl-4 pr-1 py-0.5 text-right font-mono font-bold text-xs rounded border ${
+                              line.isCustomMrp ? "border-amber-400 bg-amber-50 text-amber-950 font-black" : "border-slate-300 bg-white text-slate-900"
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-xl border border-slate-200">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">Rate:</span>
+                        <div className="relative w-20">
+                          <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={line.customRateInput !== undefined ? line.customRateInput : (effectiveUnitRatePaise / 100).toFixed(2)}
+                            onChange={(e) => updateLineRate(line.product.id, line.unit, e.target.value)}
+                            className={`w-full pl-4 pr-1 py-0.5 text-right font-mono font-bold text-xs rounded border ${
+                              line.isCustomRate ? "border-emerald-500 bg-emerald-50 text-emerald-950 font-black" : "border-slate-300 bg-white text-slate-900"
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-0.5 border border-slate-200 ml-1">
                         <button
                           type="button"
                           onClick={() => adjustCartQty(line.product.id, line.unit, -1)}
@@ -1267,7 +1617,7 @@ export function VanBillingClient({
                         </button>
                       </div>
 
-                      <strong className="text-sm font-black text-slate-900 font-mono w-16 text-right">
+                      <strong className="text-sm font-black text-slate-900 font-mono w-20 text-right">
                         ₹{lineTotal.toFixed(2)}
                       </strong>
 

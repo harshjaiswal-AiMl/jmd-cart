@@ -16,14 +16,57 @@ export async function completeGodownOrderAction(refId: string, isInvoice?: boole
 
   try {
     if (isInvoice) {
-      // Mark CounterPickup completed
-      await prisma.counterPickup.updateMany({
+      // Find existing counterPickup or create one with COMPLETED
+      const existing = await prisma.counterPickup.findFirst({
         where: { invoiceId: refId },
-        data: {
-          status: "COMPLETED",
-          completedAt: new Date(),
-        },
       });
+      if (existing) {
+        await prisma.counterPickup.update({
+          where: { id: existing.id },
+          data: {
+            status: "COMPLETED",
+            completedAt: new Date(),
+          },
+        });
+      } else {
+        const inv = await prisma.invoice.findUnique({
+          where: { id: refId },
+          include: {
+            creator: { select: { name: true } },
+            items: {
+              include: {
+                product: { select: { id: true, name: true, shortCode: true, packSize: true, packLabel: true } },
+              },
+            },
+          },
+        });
+        if (inv) {
+          await prisma.counterPickup.create({
+            data: {
+              invoiceId: inv.id,
+              billNumber: inv.number,
+              cashierName: inv.creator?.name || "Cashier",
+              status: "COMPLETED",
+              completedAt: new Date(),
+              notes: `Packed & handed over by Godown (${session.user.name || "Staff"})`,
+              items: inv.items.map((line) => {
+                const packSize = line.product?.packSize || 1;
+                return {
+                  productId: line.productId,
+                  productName: line.product?.name || line.productId,
+                  shortCode: line.product?.shortCode || "",
+                  packSize,
+                  packLabel: line.product?.packLabel || "Carton",
+                  qty: line.qty,
+                  cartons: Math.floor(line.qty / packSize),
+                  loose: line.qty % packSize,
+                  packed: true,
+                };
+              }),
+            },
+          });
+        }
+      }
     } else {
       await prisma.order.update({
         where: { id: refId },
@@ -37,6 +80,7 @@ export async function completeGodownOrderAction(refId: string, isInvoice?: boole
     await pushNotificationService.acceptOrderAlert(refId, session.user.id);
 
     revalidatePath("/app/godown");
+    revalidatePath("/godown/dispatch");
     return { success: true };
   } catch (err: any) {
     console.error("[completeGodownOrderAction error]:", err);

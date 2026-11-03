@@ -187,6 +187,8 @@ export function GodownMobileClient({
   // Orders queue state
   const [orders, setOrders] = useState(initialOrders);
   const [orderChecklist, setOrderChecklist] = useState<Record<string, Record<string, boolean>>>({});
+  const [packedOrderIds, setPackedOrderIds] = useState<Record<string, boolean>>({});
+  const [completingOrderId, setCompletingOrderId] = useState<string | null>(null);
 
   // Morning Issue 3-step state
   const [issueStep, setIssueStep] = useState<1 | 2 | 3>(1);
@@ -244,12 +246,34 @@ export function GodownMobileClient({
     });
   };
 
-  const handleMarkPacked = async (ord: GodownOrder) => {
+  const handleMarkPacked = (ord: GodownOrder) => {
+    // Check all items for this order in checklist
+    const itemMap: Record<string, boolean> = {};
+    for (const it of ord.items) {
+      itemMap[it.id] = true;
+    }
+    setOrderChecklist((prev) => ({ ...prev, [ord.id]: itemMap }));
+    setPackedOrderIds((prev) => ({ ...prev, [ord.id]: true }));
+  };
+
+  const handleHandover = async (ord: GodownOrder) => {
+    setCompletingOrderId(ord.id);
     try {
-      await completeGodownOrderAction(ord.id, ord.isInvoice);
-      setOrders((prev) => prev.filter((o) => o.id !== ord.id));
+      const res = await completeGodownOrderAction(ord.id, ord.isInvoice);
+      if (res.success) {
+        setOrders((prev) => prev.filter((o) => o.id !== ord.id));
+        setPackedOrderIds((prev) => {
+          const copy = { ...prev };
+          delete copy[ord.id];
+          return copy;
+        });
+      } else {
+        alert("Failed to complete handover: " + (res.error || "Unknown error"));
+      }
     } catch (e: any) {
-      alert("Failed to mark packed: " + e.message);
+      alert("Failed to complete handover: " + e.message);
+    } finally {
+      setCompletingOrderId(null);
     }
   };
 
@@ -913,78 +937,116 @@ export function GodownMobileClient({
               <p>No orders pending godown dispatch at this time.</p>
             </div>
           ) : (
-            orders.map((ord) => (
-              <div
-                key={ord.id}
-                className="bg-white rounded-2xl border border-slate-200 shadow-xs p-4 space-y-3"
-              >
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <div>
-                    <span className="font-mono font-bold text-xs bg-slate-100 text-slate-900 px-2 py-0.5 rounded">
-                      {ord.orderNumber}
-                    </span>
-                    <span className="text-xs font-bold text-slate-900 ml-2">{ord.customerName}</span>
-                  </div>
-                  <span className="font-mono font-bold text-xs text-emerald-700">
-                    ₹{(ord.totalPaise / 100).toFixed(0)}
-                  </span>
-                </div>
+            orders.map((ord) => {
+              const isPacked = Boolean(packedOrderIds[ord.id]);
+              const isCompleting = completingOrderId === ord.id;
+              const allChecked = ord.items.length > 0 && ord.items.every((it) => orderChecklist[ord.id]?.[it.id]);
 
-                {/* Items checklist */}
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-                    Pack Items Checklist:
-                  </div>
-                  {ord.items.map((it) => {
-                    const isChecked = orderChecklist[ord.id]?.[it.id] || false;
-                    return (
-                      <div
-                        key={it.id}
-                        onClick={() =>
-                          setOrderChecklist((prev) => ({
-                            ...prev,
-                            [ord.id]: {
-                              ...(prev[ord.id] || {}),
-                              [it.id]: !isChecked,
-                            },
-                          }))
-                        }
-                        className={`p-2.5 rounded-xl border text-xs flex items-center justify-between cursor-pointer transition ${
-                          isChecked ? "bg-emerald-50 border-emerald-300 text-emerald-950 line-through" : "bg-slate-50 border-slate-200 text-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {}}
-                            className="rounded text-emerald-600 focus:ring-0"
-                          />
-                          <span className="font-medium">{it.productName} {it.weight ? <span className="text-blue-700 font-bold">({it.weight})</span> : null}</span>
-                        </div>
-                        <span className="font-mono font-bold">
-                          {it.cartons > 0 ? `${it.cartons} Ctn` : `${it.totalPieces} Pcs`}
+              return (
+                <div
+                  key={ord.id}
+                  className={`bg-white rounded-2xl border shadow-xs p-4 space-y-3 transition-all ${
+                    isPacked || allChecked
+                      ? "border-emerald-400 bg-emerald-50/20 shadow-md"
+                      : "border-slate-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div>
+                      <span className="font-mono font-bold text-xs bg-slate-100 text-slate-900 px-2 py-0.5 rounded">
+                        {ord.orderNumber}
+                      </span>
+                      <span className="text-xs font-bold text-slate-900 ml-2">{ord.customerName}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {(isPacked || allChecked) && (
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Packed</span>
                         </span>
-                      </div>
-                    );
-                  })}
-                </div>
+                      )}
+                      <span className="font-mono font-bold text-xs text-emerald-700">
+                        ₹{(ord.totalPaise / 100).toFixed(0)}
+                      </span>
+                    </div>
+                  </div>
 
-                <div className="pt-1 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      alert(`Order ${ord.orderNumber} marked packed and ready for delivery handover!`);
-                      setOrders((prev) => prev.filter((o) => o.id !== ord.id));
-                    }}
-                    className="w-full py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition flex items-center justify-center gap-1.5"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Mark Packed &amp; Ready</span>
-                  </button>
+                  {/* Items checklist */}
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                      Pack Items Checklist:
+                    </div>
+                    {ord.items.map((it) => {
+                      const isChecked = orderChecklist[ord.id]?.[it.id] || false;
+                      return (
+                        <div
+                          key={it.id}
+                          onClick={() =>
+                            setOrderChecklist((prev) => ({
+                              ...prev,
+                              [ord.id]: {
+                                ...(prev[ord.id] || {}),
+                                [it.id]: !isChecked,
+                              },
+                            }))
+                          }
+                          className={`p-2.5 rounded-xl border text-xs flex items-center justify-between cursor-pointer transition ${
+                            isChecked ? "bg-emerald-50 border-emerald-300 text-emerald-950 line-through" : "bg-slate-50 border-slate-200 text-slate-800"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              className="rounded text-emerald-600 focus:ring-0"
+                            />
+                            <span className="font-medium">{it.productName} {it.weight ? <span className="text-blue-700 font-bold">({it.weight})</span> : null}</span>
+                          </div>
+                          <span className="font-mono font-bold">
+                            {it.cartons > 0 ? `${it.cartons} Ctn` : `${it.totalPieces} Pcs`}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Action Buttons: 2-step Packed -> Handover OR Quick Handover */}
+                  <div className="pt-1 flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    {!(isPacked || allChecked) ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleMarkPacked(ord)}
+                          className="flex-1 py-2.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 active:scale-98"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          <span>Mark Packed &amp; Ready</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isCompleting}
+                          onClick={() => handleHandover(ord)}
+                          className="py-2.5 px-3.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 active:scale-98 disabled:opacity-50"
+                        >
+                          <span>{isCompleting ? "Saving..." : "Quick Handover"}</span>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isCompleting}
+                        onClick={() => handleHandover(ord)}
+                        className="w-full py-3 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md transition flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-white" />
+                        <span>{isCompleting ? "Handing Over & Deducting..." : `Hand Over to Customer (${ord.orderNumber})`}</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}

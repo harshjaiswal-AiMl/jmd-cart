@@ -132,6 +132,8 @@ export default async function GodownAppPage({
 
   const pendingInvoices = posInvoices.filter((inv) => {
     if (inv.counterPickups && inv.counterPickups.length > 0) {
+      const hasCompleted = inv.counterPickups.some((p) => p.status === "COMPLETED");
+      if (hasCompleted) return false;
       return inv.counterPickups.some((p) => p.status === "PENDING");
     }
     return true;

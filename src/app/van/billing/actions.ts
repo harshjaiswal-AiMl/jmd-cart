@@ -16,11 +16,19 @@ const vanInvoiceActionSchema = z.object({
   customerAddress: z.string().optional(),
   idempotencyKey: z.string().min(1, "Idempotency key is required"),
   orderDiscountBp: z.number().int().min(0).max(10000).optional().default(0),
+  pricingTier: z.string().optional(),
+  buyerType: z.string().optional(),
   items: z
     .array(
       z.object({
         productId: z.string().min(1),
         qty: z.number().int().positive(),
+        unitPriceOverridePaise: z.number().int().min(0).optional(),
+        mrpOverridePaise: z.number().int().min(0).optional(),
+        originalMrpPaise: z.number().int().min(0).optional(),
+        mrpOverridden: z.boolean().optional(),
+        rateOverridden: z.boolean().optional(),
+        unitLabel: z.string().optional(),
       })
     )
     .min(1, "At least one item is required"),
@@ -72,6 +80,8 @@ export async function createVanInvoiceAction(input: VanInvoiceActionInput) {
         customerAddress: validated.customerAddress,
         idempotencyKey: validated.idempotencyKey,
         orderDiscountBp: validated.orderDiscountBp,
+        pricingTier: validated.pricingTier || validated.buyerType,
+        buyerType: validated.buyerType || validated.pricingTier,
         items: validated.items,
         payments: actualPayments,
         paymentStatus: validated.paymentStatus as PaymentStatus | undefined,
