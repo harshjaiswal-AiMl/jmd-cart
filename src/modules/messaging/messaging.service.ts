@@ -115,7 +115,10 @@ export class MessagingService {
       balanceTag = ` Baqi Rashi: ₹${balRupees}.`;
     }
 
-    return `Namaste ${params.customerName}, JMD Cart se aapka bill ${params.invoiceNo}${gstTag} ₹${amountRupees} ka. Bill dekhein: ${params.billUrl}.${balanceTag} Dhanyavaad! Bharosa Ghar Tak.`;
+    return `Namaste ${params.customerName}, JMD Cart se aapka bill ${params.invoiceNo}${gstTag} ₹${amountRupees} ka. 
+Bill dekhein: ${params.billUrl}.${balanceTag} 
+JMD CART SE SHOPPING KARNE KE LIYE Dhanyavaad! 
+Bharosa Ghar Tak.`;
   }
 
   /**

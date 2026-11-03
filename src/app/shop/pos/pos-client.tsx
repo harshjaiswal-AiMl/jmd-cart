@@ -1159,10 +1159,19 @@ export function PosClient({
 
   // Tab Management
   const handleCreateNewTab = () => {
+    // Single tab focus: If current tab is empty, keep single tab clean and focus search bar
+    if (activeTab.cart.length === 0 && !activeTab.partyId) {
+      setPricingResult(null);
+      setErrorMessage(null);
+      itemSearchInputRef.current?.focus();
+      itemSearchInputRef.current?.select();
+      return;
+    }
+
     const newId = `tab-${Date.now()}`;
     const newTab: PosBillTab = {
       id: newId,
-      tabTitle: `Bill ${tabs.length + 1}`,
+      tabTitle: `Bill 1`,
       partyId: "",
       selectedTierMode: "AUTO",
       cart: [],
@@ -1174,11 +1183,15 @@ export function PosClient({
       isHeld: false,
       billDate: undefined,
     };
-    setTabs((prev) => [...prev, newTab]);
+    setTabs((prev) => {
+      const activeUnempty = prev.filter((t) => t.cart.length > 0 || t.isHeld);
+      return activeUnempty.length > 0 ? [...activeUnempty, newTab] : [newTab];
+    });
     setActiveTabId(newId);
     setPricingResult(null);
     setErrorMessage(null);
     itemSearchInputRef.current?.focus();
+    itemSearchInputRef.current?.select();
   };
 
   const handleHoldCurrentBill = () => {
@@ -1345,6 +1358,7 @@ export function PosClient({
     messagingSkipped?: boolean;
     messagingReason?: string;
   } | null>(null);
+  const [finalizedModalFocusIndex, setFinalizedModalFocusIndex] = useState<number>(0);
   const [isFinalizing, startFinalizeTransition] = useTransition();
 
   // Finalize Bill Action
@@ -1657,6 +1671,44 @@ export function PosClient({
   // Keyboard Shortcuts Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // If Finalized Invoice modal is open: navigate buttons with arrow keys/tab, Enter to select, Esc/F3 to start new bill
+      if (finalizedInvoice) {
+        if (e.key === "Escape" || e.key === "F3") {
+          e.preventDefault();
+          setFinalizedInvoice(null);
+          itemSearchInputRef.current?.focus();
+          itemSearchInputRef.current?.select();
+          return;
+        }
+
+        if (e.key === "ArrowRight" || e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
+          e.preventDefault();
+          setFinalizedModalFocusIndex((prev) => (prev + 1) % 3);
+          return;
+        }
+
+        if (e.key === "ArrowLeft" || e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
+          e.preventDefault();
+          setFinalizedModalFocusIndex((prev) => (prev - 1 + 3) % 3);
+          return;
+        }
+
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (finalizedModalFocusIndex === 0) {
+            router.push(`/shop/invoices/${finalizedInvoice.id}/print`);
+          } else if (finalizedModalFocusIndex === 1) {
+            router.push(`/shop/invoices/${finalizedInvoice.id}/print?format=a4`);
+          } else {
+            setFinalizedInvoice(null);
+            itemSearchInputRef.current?.focus();
+            itemSearchInputRef.current?.select();
+          }
+          return;
+        }
+        return;
+      }
+
       if (e.key === "F1") {
         e.preventDefault();
         itemSearchInputRef.current?.focus();
@@ -3731,33 +3783,46 @@ export function PosClient({
             />
 
             <div className="grid grid-cols-2 gap-2 pt-2">
-              <Link
-                href={`/shop/invoices/${finalizedInvoice.id}/print`}
-                target="_blank"
-                className="py-2.5 px-3 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center gap-1.5 transition"
+              <button
+                type="button"
+                onClick={() => router.push(`/shop/invoices/${finalizedInvoice.id}/print`)}
+                className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition ${
+                  finalizedModalFocusIndex === 0
+                    ? "bg-slate-900 text-white ring-4 ring-[#FC830D] ring-offset-2 scale-[1.02] shadow-lg"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-800"
+                }`}
               >
                 <Printer className="w-4 h-4" />
-                <span>Thermal Slip</span>
-              </Link>
+                <span>Thermal Slip {finalizedModalFocusIndex === 0 ? "↵" : ""}</span>
+              </button>
 
-              <Link
-                href={`/shop/invoices/${finalizedInvoice.id}/print?format=a4`}
-                target="_blank"
-                className="py-2.5 px-3 rounded-xl font-bold text-xs bg-[#12355B] hover:bg-[#0E2843] text-white flex items-center justify-center gap-1.5 transition shadow-xs"
+              <button
+                type="button"
+                onClick={() => router.push(`/shop/invoices/${finalizedInvoice.id}/print?format=a4`)}
+                className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs ${
+                  finalizedModalFocusIndex === 1
+                    ? "bg-[#0E2843] text-white ring-4 ring-[#FC830D] ring-offset-2 scale-[1.02] shadow-lg"
+                    : "bg-[#12355B] hover:bg-[#0E2843] text-white"
+                }`}
               >
                 <Printer className="w-4 h-4" />
-                <span>Print A4</span>
-              </Link>
+                <span>Print A4 {finalizedModalFocusIndex === 1 ? "↵" : ""}</span>
+              </button>
             </div>
 
             <button
+              type="button"
               onClick={() => {
                 setFinalizedInvoice(null);
                 itemSearchInputRef.current?.focus();
               }}
-              className="w-full py-2.5 rounded-xl font-bold text-xs bg-[#FC830D] hover:bg-[#e57406] text-white transition shadow-xs"
+              className={`w-full py-2.5 rounded-xl font-bold text-xs text-white transition shadow-xs ${
+                finalizedModalFocusIndex === 2
+                  ? "bg-[#e57406] ring-4 ring-blue-600 ring-offset-2 scale-[1.02] shadow-lg"
+                  : "bg-[#FC830D] hover:bg-[#e57406]"
+              }`}
             >
-              Start Next Bill (F3)
+              Start Next Bill (F3 / Esc) {finalizedModalFocusIndex === 2 ? "↵" : ""}
             </button>
           </div>
         </div>
