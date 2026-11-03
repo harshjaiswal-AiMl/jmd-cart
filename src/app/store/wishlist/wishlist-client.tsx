@@ -6,6 +6,7 @@ import { WishlistItemDto } from "@/modules/wishlist/wishlist.types";
 import { removeFromWishlistAction, moveToCartAction } from "./actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
+import { ProductImage } from "@/components/common/ProductImage";
 import { formatRupees } from "@/lib/format-price";
 
 interface WishlistClientProps {
@@ -185,9 +186,11 @@ export function WishlistClient({
                   >
                     <div className="w-full h-40 flex items-center justify-center">
                       {item.imageUrl ? (
-                        <img
+                        <ProductImage
                           src={item.imageUrl}
                           alt={item.name}
+                          width={160}
+                          height={160}
                           className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-200"
                         />
                       ) : (

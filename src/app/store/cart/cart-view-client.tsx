@@ -8,6 +8,7 @@ import { DeliveryZone } from "@/modules/delivery/delivery.types";
 import { updateCartQtyAction, removeFromCartAction, clearCartAction } from "./actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
+import { ProductImage } from "@/components/common/ProductImage";
 import { formatPaise, paiseToRupees } from "@/lib/format-price";
 
 interface CartViewClientProps {
@@ -248,10 +249,11 @@ export function CartViewClient({
                               className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white border border-surface-container-high p-1.5 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs group"
                             >
                               {line.imageUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
+                                <ProductImage
                                   src={line.imageUrl}
                                   alt={line.productName}
+                                  width={80}
+                                  height={80}
                                   className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                                 />
                               ) : (

@@ -26,6 +26,7 @@ function checkRateLimit(userId: string): boolean {
 }
 
 import { detectImageType, imageTypeToExt } from "@/lib/storage/image-validation";
+import { generateImageVariants } from "@/lib/storage/image-variants";
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,19 +84,32 @@ export async function POST(req: NextRequest) {
 
     const ext = imageTypeToExt(detectedType);
     const mime = `image/${detectedType === "jpeg" ? "jpeg" : detectedType}`;
-    const primaryKey = `products/${hash}/original.${ext}`;
-    await storage.put(primaryKey, buffer, {
+    const originalKey = `products/${hash}/original.${ext}`;
+
+    // 1. Store original image
+    await storage.put(originalKey, buffer, {
       contentType: mime,
       cacheControl: "public, max-age=31536000, immutable",
     });
-    const variants: string[] = [primaryKey];
+
+    // 2. Generate and store responsive WebP variants (160, 320, 640, 1080)
+    const { primaryKey, variants } = await generateImageVariants(buffer, hash, ext);
+    for (const v of variants) {
+      await storage.put(v.key, v.buffer, {
+        contentType: v.contentType,
+        cacheControl: "public, max-age=31536000, immutable",
+      });
+    }
+
+    const variantKeys = [originalKey, ...variants.map((v) => v.key)];
     const publicUrl = mediaUrl(primaryKey);
 
     return NextResponse.json({
       success: true,
       key: primaryKey,
+      originalKey,
       url: publicUrl,
-      variants,
+      variants: variantKeys,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Failed to upload file";

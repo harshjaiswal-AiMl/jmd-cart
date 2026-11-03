@@ -13,6 +13,7 @@ import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
 import { FloatingCartBar } from "@/components/store/FloatingCartBar";
 import { StoreBannerCarousel } from "@/components/store/StoreBannerCarousel";
+import { ProductImage } from "@/components/common/ProductImage";
 import { formatPaise, formatRupees, paiseToRupees } from "@/lib/format-price";
 
 export interface CatalogueCategory {
@@ -351,11 +352,12 @@ export function CatalogueClient({
             className="block aspect-square bg-surface-container-low rounded-xl border border-outline-variant/30 relative p-2 sm:p-3 overflow-hidden group-hover:border-primary/40 transition-colors"
           >
             {product.imageUrl ? (
-              <img
+              <ProductImage
                 src={product.imageUrl}
                 alt={product.name}
+                width={200}
+                height={200}
                 className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                loading="lazy"
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-center text-outline">
@@ -633,6 +635,9 @@ export function CatalogueClient({
                           src={cat.imageUrl}
                           alt=""
                           aria-hidden="true"
+                          width={80}
+                          height={80}
+                          decoding="async"
                           className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-sm"
                           loading="lazy"
                           onError={(e) => {
@@ -691,11 +696,12 @@ export function CatalogueClient({
                           className="w-full h-full flex items-center justify-center"
                         >
                           {pick.imageUrl ? (
-                            <img
+                            <ProductImage
                               src={pick.imageUrl}
                               alt={pick.name}
+                              width={140}
+                              height={140}
                               className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                              loading="lazy"
                             />
                           ) : (
                             <span className="material-symbols-outlined text-[28px] text-outline">inventory_2</span>
@@ -856,6 +862,9 @@ export function CatalogueClient({
                             <img
                               src={cat.imageUrl}
                               alt={cat.name}
+                              width={32}
+                              height={32}
+                              decoding="async"
                               className="w-full h-full object-contain"
                             />
                           </div>
@@ -913,6 +922,9 @@ export function CatalogueClient({
                       <img
                         src={selectedCategoryData.imageUrl}
                         alt={selectedCategoryData.name}
+                        width={80}
+                        height={80}
+                        decoding="async"
                         className="w-full h-full object-contain"
                       />
                     ) : (
@@ -982,6 +994,9 @@ export function CatalogueClient({
                         <img
                           src={selectedCategoryData.imageUrl}
                           alt={selectedCategoryData.name}
+                          width={64}
+                          height={64}
+                          decoding="async"
                           className="w-full h-full object-contain"
                         />
                       </div>

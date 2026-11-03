@@ -27,6 +27,34 @@ export function QuickAddProductModal({
   const [packSize, setPackSize] = useState("1");
   const [mrpRs, setMrpRs] = useState("");
   const [priceCRs, setPriceCRs] = useState("");
+  const [discPercent, setDiscPercent] = useState("");
+
+  const handleMrpChange = (val: string) => {
+    setMrpRs(val);
+    const mrp = parseFloat(val) || 0;
+    const rate = parseFloat(priceCRs) || 0;
+    if (mrp > 0 && rate > 0) {
+      setDiscPercent(((mrp - rate) / mrp * 100).toFixed(1));
+    }
+  };
+
+  const handleRateChange = (val: string) => {
+    setPriceCRs(val);
+    const mrp = parseFloat(mrpRs) || 0;
+    const rate = parseFloat(val) || 0;
+    if (mrp > 0 && rate > 0) {
+      setDiscPercent(((mrp - rate) / mrp * 100).toFixed(1));
+    }
+  };
+
+  const handlePercentChange = (val: string) => {
+    setDiscPercent(val);
+    const mrp = parseFloat(mrpRs) || 0;
+    const pct = parseFloat(val);
+    if (mrp > 0 && !isNaN(pct) && pct >= 0 && pct < 100) {
+      setPriceCRs((mrp * (1 - pct / 100)).toFixed(2));
+    }
+  };
   const [gstRatePercent, setGstRatePercent] = useState("5");
   const [hsn, setHsn] = useState("21069099");
   const [stockCartons, setStockCartons] = useState("1");
@@ -153,7 +181,7 @@ export function QuickAddProductModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-2">
             <div className="space-y-1">
               <label className="block text-xs font-bold text-slate-700">MRP (₹) *</label>
               <input
@@ -161,13 +189,10 @@ export function QuickAddProductModal({
                 step="0.01"
                 min="0"
                 value={mrpRs}
-                onChange={(e) => {
-                  setMrpRs(e.target.value);
-                  if (!priceCRs) setPriceCRs(e.target.value);
-                }}
+                onChange={(e) => handleMrpChange(e.target.value)}
                 placeholder="100.00"
                 required
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
+                className="w-full text-xs px-2 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold"
               />
             </div>
 
@@ -178,21 +203,39 @@ export function QuickAddProductModal({
                 step="0.01"
                 min="0"
                 value={priceCRs}
-                onChange={(e) => setPriceCRs(e.target.value)}
+                onChange={(e) => handleRateChange(e.target.value)}
                 placeholder="95.00"
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-emerald-700"
+                className="w-full text-xs px-2 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold text-emerald-700"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="block text-xs font-bold text-slate-700">Pcs / Carton</label>
+              <label className="block text-xs font-bold text-slate-700">Disc (%)</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="99.9"
+                  disabled={!mrpRs || parseFloat(mrpRs) <= 0}
+                  value={discPercent}
+                  onChange={(e) => handlePercentChange(e.target.value)}
+                  placeholder="0.0"
+                  className="w-full text-xs pl-2 pr-6 py-2 border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-emerald-800 disabled:bg-gray-100 disabled:opacity-50"
+                />
+                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700">%</span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-slate-700">Pcs / Ctn</label>
               <input
                 type="number"
                 min="1"
                 value={packSize}
                 onChange={(e) => setPackSize(e.target.value)}
                 placeholder="1"
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
+                className="w-full text-xs px-2 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
               />
             </div>
           </div>

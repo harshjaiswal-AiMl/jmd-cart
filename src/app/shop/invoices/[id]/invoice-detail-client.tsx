@@ -117,7 +117,6 @@ export function InvoiceDetailClient({
           )}
           <Link
             href={`/shop/invoices/${invoice.id}/print?format=cash_receipt`}
-            target="_blank"
             className="text-xs font-bold bg-white text-emerald-700 hover:bg-emerald-50 border border-emerald-300 px-3.5 py-2 rounded-lg shadow-sm flex items-center gap-1.5 transition"
           >
             💵 Cash / UPI Bill
@@ -125,7 +124,6 @@ export function InvoiceDetailClient({
 
           <Link
             href={`/shop/invoices/${invoice.id}/print?format=a5`}
-            target="_blank"
             className="text-xs font-bold bg-white text-rose-800 hover:bg-rose-50 border border-rose-300 px-3.5 py-2 rounded-lg shadow-sm flex items-center gap-1.5 transition"
           >
             📄 A5 Invoice
@@ -133,7 +131,6 @@ export function InvoiceDetailClient({
 
           <Link
             href={`/shop/invoices/${invoice.id}/print?format=demand_bill`}
-            target="_blank"
             className="text-xs font-bold bg-white text-purple-700 hover:bg-purple-50 border border-purple-300 px-3.5 py-2 rounded-lg shadow-sm flex items-center gap-1.5 transition"
           >
             📋 Demand Bill (DUES)
@@ -141,7 +138,6 @@ export function InvoiceDetailClient({
 
           <Link
             href={`/shop/invoices/${invoice.id}/print?format=a4`}
-            target="_blank"
             className="text-xs font-bold bg-white text-slate-800 hover:bg-slate-50 border border-slate-300 px-3.5 py-2 rounded-lg shadow-sm flex items-center gap-1.5 transition"
           >
             <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

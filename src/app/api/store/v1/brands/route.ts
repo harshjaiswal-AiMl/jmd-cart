@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { storeService } from "@/modules/store/store.service";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const filterOptions = await storeService.getFilterOptions();
   return NextResponse.json({

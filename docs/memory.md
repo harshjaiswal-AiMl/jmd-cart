@@ -719,3 +719,58 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
 - `i18n.test.ts`: PASSED (1/1 test).
 - `messaging-pipeline.test.ts`: PASSED (7/7 tests).
 - Native Gradle `assembleRelease` & `bundleRelease`: BUILD SUCCESSFUL.
+
+---
+
+### Fix-and-Verify Loop Session (Tasks 1, 2, 3, 4) - 2026-11-04
+
+#### 1. Task 2 (Priority 1 - POS Finalized Modal Keyboard Navigation & Single-Tab Printing)
+- **Modal Keyboard Navigation**:
+  - Replaced stale event listener with a dedicated capture-phase listener (`window.addEventListener("keydown", handleModalKeyDown, true)`).
+  - Autofocuses Thermal Slip button on mount.
+  - Arrow navigation: `ArrowRight` / `ArrowDown` / `Tab` advances focus; `ArrowLeft` / `ArrowUp` / `Shift+Tab` moves backward with wrap-around across [Thermal Slip (3")], [A4 Tax Invoice], [Next Bill (Esc)].
+  - Quick keys `1` (Thermal), `2` (A4), `3` (Next Bill) trigger instantly.
+  - `Enter` executes the currently focused button.
+  - `Escape` / `F3` triggers `handleStartNextBill`: resets billing tabs, navigates clean to `/shop/pos` (clearing `?edit=`), and returns keyboard cursor directly into `#pos-item-search`.
+- **Voucher Discrepancy in Edit Mode**:
+  - Fixed discrepancy where the header showed `${nextInvoicePreview} (auto)` instead of the existing invoice number when editing (`initialEditInvoice`). Now correctly displays `${initialEditInvoice.number} (Editing)`.
+- **Single-Tab Printing**:
+  - Removed `target="_blank"` from all invoice links across `src/app/shop/invoices/invoices-client.tsx`, `src/app/shop/invoices/[id]/invoice-detail-client.tsx`, and POS recent sales drawer.
+  - In `print-viewer.tsx`, `Escape` key navigates straight back to `/shop/pos`.
+- **Tests**: `tests/unit/pos-modal-keyboard.test.ts` (5 tests passing).
+
+#### 2. Task 1 (Priority 2 - Storefront & Management App Performance)
+- **Root Cause Verified**: 43.2 MB mobile payload was caused by uncompressed camera photos served via unconstrained `<img>` tags in `catalogue-client.tsx`, product pages, cart, wishlist, and banner carousel.
+- **Responsive WebP Pipeline**:
+  - Installed `sharp` (0.35.5).
+  - Created `src/lib/storage/image-variants.ts` generating 160, 320, 640, 1080 WebP variants.
+  - Updated `src/app/api/upload/route.ts` to upload all variants with 1-year immutable cache headers (`Cache-Control: public, max-age=31536000, immutable`).
+  - Added on-demand dynamic WebP variant generator route at `src/app/media/[...key]/route.ts`.
+  - Created responsive `ProductImage` component (`src/components/common/ProductImage.tsx`) with `srcSet`, `sizes`, `decoding="async"`, explicit dimensions, and lazy loading.
+  - Updated `StoreBannerCarousel.tsx` with `fetchPriority="high"`, `loading="eager"`, and explicit `width={1280}`, `height={474}` for the LCP slide.
+  - Migration script: `scripts/migrate-r2-images.ts` with `--dry-run`, `--execute`, and `--mock` modes. Mock benchmark verified 75% to 98.6% payload reduction.
+  - Next.js config: Enabled Brotli/Gzip compression and immutable cache headers for `/_next/static/*`, `/media/*`, `/brand/*`.
+
+#### 3. Task 3 (Priority 3 - Catalog Price Lists A/B/C Bi-directional % Link)
+- **Math & Formulas**:
+  - Created `src/modules/pricing/price-percent-link.ts` implementing exact bi-directional linkage:
+    - `percent = ((mrpPaise - pricePaise) / mrpPaise) * 100` (2 decimals)
+    - `pricePaise = Math.round(mrpPaise * (1 - percent / 100))`
+    - Legal Metrology validation (`price > MRP` warning)
+- **UI Integration**:
+  - Updated Admin Catalog table (`src/app/admin/catalog/catalog-client.tsx`) with inline linked `%` inputs under Price A, Price B, Price C.
+  - Integrated bi-directional state into Add Product modal, Edit Product modal, Bulk Add dialog, and Quick Add Product modal (`src/components/pos/QuickAddProductModal.tsx`).
+  - Single source of truth preserved: integer paise stored in database; % is calculated and validated.
+- **Tests**: `tests/unit/price-percent-link.test.ts` (9 tests passing).
+
+#### 4. Task 4 (Priority 4 - Busy 21 POS Grid Redesign)
+- **Grid Structure**:
+  - Enforced 13-row minimum sales voucher grid in `src/app/shop/pos/pos-client.tsx`.
+  - Ultra-dense row height (28-32px matching Busy 21 ERP).
+  - High-contrast solid active cell block highlight (`focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D]`).
+
+#### 5. Verification Matrix
+- `pnpm typecheck`: PASSED (0 errors).
+- `pnpm lint`: PASSED (0 errors).
+- `pnpm build`: PASSED (118 routes compiled, shared first load JS 87.3 kB).
+- Unit Tests: 14/14 tests green across `pos-modal-keyboard.test.ts` and `price-percent-link.test.ts`.

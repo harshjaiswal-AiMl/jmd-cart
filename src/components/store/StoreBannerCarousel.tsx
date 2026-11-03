@@ -93,8 +93,12 @@ export function StoreBannerCarousel({ banners }: StoreBannerCarouselProps) {
                   <img
                     src={banner.imageUrl || ""}
                     alt={banner.title || "Promotional Banner"}
-                    className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.015]"
+                    width={1280}
+                    height={474}
+                    fetchPriority={idx === 0 ? "high" : "auto"}
                     loading={idx === 0 ? "eager" : "lazy"}
+                    decoding={idx === 0 ? "sync" : "async"}
+                    className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.015]"
                   />
                 </div>
               </Link>

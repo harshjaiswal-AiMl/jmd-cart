@@ -1,12 +1,14 @@
 /**
  * Media URL resolution helper.
  * - If key is empty or null, returns empty string.
- * - If key starts with http:// or https://, returns as-is.
+ * - If key starts with http:// or https://, returns as-is (or adjusts variant if matching CDN pattern).
  * - Maps legacy "/uploads/products/<file>" to "/media/uploads/products/<file>" or serves directly if local.
  * - If MEDIA_BASE_URL is set (e.g. CDN), formats as `${MEDIA_BASE_URL}/${cleanKey}`.
  * - Otherwise formats as `/media/${cleanKey}`.
  */
-export function mediaUrl(key: string | null | undefined, size?: 400 | 800 | 1200): string {
+export type MediaVariantSize = 160 | 320 | 400 | 640 | 800 | 1080 | 1200;
+
+export function mediaUrl(key: string | null | undefined, size?: MediaVariantSize): string {
   if (!key || typeof key !== "string" || !key.trim()) {
     return "";
   }
@@ -15,17 +17,21 @@ export function mediaUrl(key: string | null | undefined, size?: 400 | 800 | 1200
 
   // If already absolute URL (http/https), return as-is
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    // If it points to our R2 storage and has a variant request
+    if (size && trimmed.includes("/products/")) {
+      return trimmed.replace(/\/products\/([^/]+)\/[^/]+$/, `/products/$1/${size}.webp`);
+    }
     return trimmed;
   }
 
   // Handle legacy paths like "/uploads/products/abc.jpg"
   let cleanKey = trimmed.replace(/^\/+/, "");
 
-  // If size variant requested and key is in products/<hash>/<size>.webp format
+  // If size variant requested and key is in products/<hash>/<file> format
   if (size && cleanKey.startsWith("products/")) {
     const parts = cleanKey.split("/");
     if (parts.length === 3) {
-      // parts: ["products", hash, "original.webp" or "400.webp" etc.]
+      // parts: ["products", hash, "original.webp" or "320.webp" etc.]
       cleanKey = `products/${parts[1]}/${size}.webp`;
     }
   }
@@ -37,6 +43,18 @@ export function mediaUrl(key: string | null | undefined, size?: 400 | 800 | 1200
   }
 
   return `/media/${cleanKey}`;
+}
+
+/**
+ * Returns a standard responsive srcset string for a product image key.
+ * e.g. "url(160) 160w, url(320) 320w, url(640) 640w"
+ */
+export function mediaSrcSet(
+  key: string | null | undefined,
+  sizes: MediaVariantSize[] = [160, 320, 640]
+): string {
+  if (!key || typeof key !== "string" || !key.trim()) return "";
+  return sizes.map((s) => `${mediaUrl(key, s)} ${s}w`).join(", ");
 }
 
 /**

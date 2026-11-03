@@ -410,7 +410,6 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
                         )}
                         <Link
                           href={`/shop/invoices/${inv.id}/print?format=a4`}
-                          target="_blank"
                           title="Print A4"
                           className="p-1 text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded"
                         >

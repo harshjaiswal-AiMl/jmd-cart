@@ -18,6 +18,13 @@ import { useFormState, useFormStatus } from "react-dom";
 import Link from "next/link";
 import { ProductImage } from "@/components/common/ProductImage";
 import { PackLabelSelector } from "./PackLabelSelector";
+import {
+  calculatePercentFromPrice,
+  calculatePriceFromPercent,
+  paiseToRupeesString,
+  rupeesStringToPaise,
+  validatePriceAgainstMrp,
+} from "@/modules/pricing/price-percent-link";
 
 interface CatalogClientProps {
   initialProducts: ProductWithDetails[];
@@ -141,6 +148,104 @@ export function CatalogClient({
   const [editProductImageUploading, setEditProductImageUploading] = useState(false);
   const [updateProductPending, setUpdateProductPending] = useState(false);
 
+  // Bi-directional Price ↔ Percent State for Add Product Modal
+  const [addMrp, setAddMrp] = useState("");
+  const [addPriceA, setAddPriceA] = useState("");
+  const [addPctA, setAddPctA] = useState("");
+  const [addPriceB, setAddPriceB] = useState("");
+  const [addPctB, setAddPctB] = useState("");
+  const [addPriceC, setAddPriceC] = useState("");
+  const [addPctC, setAddPctC] = useState("");
+
+  const handleAddMrpChange = (val: string) => {
+    setAddMrp(val);
+    const mrpPaise = rupeesStringToPaise(val);
+    setAddPctA(calculatePercentFromPrice(mrpPaise, rupeesStringToPaise(addPriceA)));
+    setAddPctB(calculatePercentFromPrice(mrpPaise, rupeesStringToPaise(addPriceB)));
+    setAddPctC(calculatePercentFromPrice(mrpPaise, rupeesStringToPaise(addPriceC)));
+  };
+
+  const handleAddPriceChange = (tier: "A" | "B" | "C", val: string) => {
+    const mrpPaise = rupeesStringToPaise(addMrp);
+    const pricePaise = rupeesStringToPaise(val);
+    const pct = calculatePercentFromPrice(mrpPaise, pricePaise);
+    if (tier === "A") {
+      setAddPriceA(val);
+      setAddPctA(pct);
+    } else if (tier === "B") {
+      setAddPriceB(val);
+      setAddPctB(pct);
+    } else {
+      setAddPriceC(val);
+      setAddPctC(pct);
+    }
+  };
+
+  const handleAddPercentChange = (tier: "A" | "B" | "C", pctVal: string) => {
+    const mrpPaise = rupeesStringToPaise(addMrp);
+    const pricePaise = calculatePriceFromPercent(mrpPaise, pctVal);
+    const priceStr = pricePaise != null ? paiseToRupeesString(pricePaise) : "";
+    if (tier === "A") {
+      setAddPctA(pctVal);
+      setAddPriceA(priceStr);
+    } else if (tier === "B") {
+      setAddPctB(pctVal);
+      setAddPriceB(priceStr);
+    } else {
+      setAddPctC(pctVal);
+      setAddPriceC(priceStr);
+    }
+  };
+
+  // Bi-directional Price ↔ Percent State for Edit Product Modal
+  const [editMrp, setEditMrp] = useState("");
+  const [editPriceA, setEditPriceA] = useState("");
+  const [editPctA, setEditPctA] = useState("");
+  const [editPriceB, setEditPriceB] = useState("");
+  const [editPctB, setEditPctB] = useState("");
+  const [editPriceC, setEditPriceC] = useState("");
+  const [editPctC, setEditPctC] = useState("");
+
+  const handleEditMrpChange = (val: string) => {
+    setEditMrp(val);
+    const mrpPaise = rupeesStringToPaise(val);
+    setEditPctA(calculatePercentFromPrice(mrpPaise, rupeesStringToPaise(editPriceA)));
+    setEditPctB(calculatePercentFromPrice(mrpPaise, rupeesStringToPaise(editPriceB)));
+    setEditPctC(calculatePercentFromPrice(mrpPaise, rupeesStringToPaise(editPriceC)));
+  };
+
+  const handleEditPriceChange = (tier: "A" | "B" | "C", val: string) => {
+    const mrpPaise = rupeesStringToPaise(editMrp);
+    const pricePaise = rupeesStringToPaise(val);
+    const pct = calculatePercentFromPrice(mrpPaise, pricePaise);
+    if (tier === "A") {
+      setEditPriceA(val);
+      setEditPctA(pct);
+    } else if (tier === "B") {
+      setEditPriceB(val);
+      setEditPctB(pct);
+    } else {
+      setEditPriceC(val);
+      setEditPctC(pct);
+    }
+  };
+
+  const handleEditPercentChange = (tier: "A" | "B" | "C", pctVal: string) => {
+    const mrpPaise = rupeesStringToPaise(editMrp);
+    const pricePaise = calculatePriceFromPercent(mrpPaise, pctVal);
+    const priceStr = pricePaise != null ? paiseToRupeesString(pricePaise) : "";
+    if (tier === "A") {
+      setEditPctA(pctVal);
+      setEditPriceA(priceStr);
+    } else if (tier === "B") {
+      setEditPctB(pctVal);
+      setEditPriceB(priceStr);
+    } else {
+      setEditPctC(pctVal);
+      setEditPriceC(priceStr);
+    }
+  };
+
   // Selection for bulk actions
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPctA, setBulkPctA] = useState("22");
@@ -185,7 +290,7 @@ export function CatalogClient({
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Inline edits state map: productId -> { mrp, a, b, c, packSize }
+  // Inline edits state map: productId -> { mrp, a, b, c, pctA, pctB, pctC, packSize }
   const [inlineEdits, setInlineEdits] = useState<
     Record<
       string,
@@ -194,6 +299,9 @@ export function CatalogClient({
         a: string;
         b: string;
         c: string;
+        pctA?: string;
+        pctB?: string;
+        pctC?: string;
         packSize: string;
         dirty?: boolean;
       }
@@ -241,6 +349,9 @@ export function CatalogClient({
       a: formatPaiseToInput(p.priceAPaise),
       b: formatPaiseToInput(p.priceBPaise),
       c: formatPaiseToInput(p.priceCPaise),
+      pctA: calculatePercentFromPrice(p.mrpPaise, p.priceAPaise),
+      pctB: calculatePercentFromPrice(p.mrpPaise, p.priceBPaise),
+      pctC: calculatePercentFromPrice(p.mrpPaise, p.priceCPaise),
       packSize: String(p.packSize ?? 1),
       dirty: false,
     };
@@ -252,11 +363,49 @@ export function CatalogClient({
     value: string
   ) => {
     const current = getRowValues(p);
+    const updated: any = {
+      ...current,
+      [field]: value,
+      dirty: true,
+    };
+
+    const mrpPaise = parseInputToPaise(field === "mrp" ? value : current.mrp);
+    if (field === "a") {
+      updated.pctA = calculatePercentFromPrice(mrpPaise, parseInputToPaise(value));
+    } else if (field === "b") {
+      updated.pctB = calculatePercentFromPrice(mrpPaise, parseInputToPaise(value));
+    } else if (field === "c") {
+      updated.pctC = calculatePercentFromPrice(mrpPaise, parseInputToPaise(value));
+    } else if (field === "mrp") {
+      updated.pctA = calculatePercentFromPrice(mrpPaise, parseInputToPaise(current.a));
+      updated.pctB = calculatePercentFromPrice(mrpPaise, parseInputToPaise(current.b));
+      updated.pctC = calculatePercentFromPrice(mrpPaise, parseInputToPaise(current.c));
+    }
+
+    setInlineEdits((prev) => ({
+      ...prev,
+      [p.id]: updated,
+    }));
+  };
+
+  const handleInlinePercentChange = (
+    p: ProductWithDetails,
+    tier: "a" | "b" | "c",
+    pctValue: string
+  ) => {
+    const current = getRowValues(p);
+    const mrpPaise = parseInputToPaise(current.mrp);
+    const computedPricePaise = calculatePriceFromPercent(mrpPaise, pctValue);
+    const newPriceStr = computedPricePaise != null ? paiseToRupeesString(computedPricePaise) : "";
+
+    const pctKey = tier === "a" ? "pctA" : tier === "b" ? "pctB" : "pctC";
+
     setInlineEdits((prev) => ({
       ...prev,
       [p.id]: {
         ...current,
-        [field]: value,
+        [tier]: newPriceStr,
+        [pctKey]: pctValue,
         dirty: true,
       },
     }));
@@ -365,6 +514,17 @@ export function CatalogClient({
   const openEditProductModal = (product: ProductWithDetails) => {
     setEditingProduct(product);
     setEditProductImageUrl(product.imageUrl || "");
+    const mrp = formatPaiseToInput(product.mrpPaise);
+    const a = formatPaiseToInput(product.priceAPaise);
+    const b = formatPaiseToInput(product.priceBPaise);
+    const c = formatPaiseToInput(product.priceCPaise);
+    setEditMrp(mrp);
+    setEditPriceA(a);
+    setEditPriceB(b);
+    setEditPriceC(c);
+    setEditPctA(calculatePercentFromPrice(product.mrpPaise, product.priceAPaise));
+    setEditPctB(calculatePercentFromPrice(product.mrpPaise, product.priceBPaise));
+    setEditPctC(calculatePercentFromPrice(product.mrpPaise, product.priceCPaise));
   };
 
   const handleUpdateProductSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -1004,50 +1164,148 @@ export function CatalogClient({
                     name="mrpRupees"
                     placeholder="225.00"
                     min="0"
+                    value={addMrp}
+                    onChange={(e) => handleAddMrpChange(e.target.value)}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                    Price A — Wholesaler (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="priceARupees"
-                    placeholder="176.25"
-                    min="0"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                      Price A (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="priceARupees"
+                      placeholder="176.25"
+                      min="0"
+                      value={addPriceA}
+                      onChange={(e) => handleAddPriceChange("A", e.target.value)}
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                        addMrp && parseFloat(addPriceA) > parseFloat(addMrp)
+                          ? "border-rose-500 bg-rose-50 text-rose-800"
+                          : "border-gray-300"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                      Price A (% off)
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="99.99"
+                        placeholder="0.00"
+                        disabled={!addMrp || parseFloat(addMrp) <= 0}
+                        value={addPctA}
+                        onChange={(e) => handleAddPercentChange("A", e.target.value)}
+                        className="block w-full pl-3 pr-7 py-2 border border-emerald-300 rounded-lg text-sm font-mono text-emerald-800 disabled:opacity-50 disabled:bg-gray-100"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700">%</span>
+                    </div>
+                  </div>
+                  {addMrp && parseFloat(addPriceA) > parseFloat(addMrp) && (
+                    <p className="col-span-2 text-[10px] text-rose-600 font-bold">
+                      Price above MRP is not allowed by Legal Metrology
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-blue-700">
-                    Price B — Retailer (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="priceBRupees"
-                    placeholder="177.25"
-                    min="0"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-blue-700">
+                      Price B (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="priceBRupees"
+                      placeholder="177.25"
+                      min="0"
+                      value={addPriceB}
+                      onChange={(e) => handleAddPriceChange("B", e.target.value)}
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                        addMrp && parseFloat(addPriceB) > parseFloat(addMrp)
+                          ? "border-rose-500 bg-rose-50 text-rose-800"
+                          : "border-gray-300"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-blue-700">
+                      Price B (% off)
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="99.99"
+                        placeholder="0.00"
+                        disabled={!addMrp || parseFloat(addMrp) <= 0}
+                        value={addPctB}
+                        onChange={(e) => handleAddPercentChange("B", e.target.value)}
+                        className="block w-full pl-3 pr-7 py-2 border border-blue-300 rounded-lg text-sm font-mono text-blue-800 disabled:opacity-50 disabled:bg-gray-100"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-700">%</span>
+                    </div>
+                  </div>
+                  {addMrp && parseFloat(addPriceB) > parseFloat(addMrp) && (
+                    <p className="col-span-2 text-[10px] text-rose-600 font-bold">
+                      Price above MRP is not allowed by Legal Metrology
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-amber-700">
-                    Price C — Customer (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="priceCRupees"
-                    placeholder="178.00"
-                    min="0"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-amber-700">
+                      Price C (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="priceCRupees"
+                      placeholder="178.00"
+                      min="0"
+                      value={addPriceC}
+                      onChange={(e) => handleAddPriceChange("C", e.target.value)}
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                        addMrp && parseFloat(addPriceC) > parseFloat(addMrp)
+                          ? "border-rose-500 bg-rose-50 text-rose-800"
+                          : "border-gray-300"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-amber-700">
+                      Price C (% off)
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="99.99"
+                        placeholder="0.00"
+                        disabled={!addMrp || parseFloat(addMrp) <= 0}
+                        value={addPctC}
+                        onChange={(e) => handleAddPercentChange("C", e.target.value)}
+                        className="block w-full pl-3 pr-7 py-2 border border-amber-300 rounded-lg text-sm font-mono text-amber-800 disabled:opacity-50 disabled:bg-gray-100"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-700">%</span>
+                    </div>
+                  </div>
+                  {addMrp && parseFloat(addPriceC) > parseFloat(addMrp) && (
+                    <p className="col-span-2 text-[10px] text-rose-600 font-bold">
+                      Price above MRP is not allowed by Legal Metrology
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1439,9 +1697,16 @@ export function CatalogClient({
 
                       <td className="px-3 py-2.5 text-right">
                         {readOnly ? (
-                          <span className="font-mono text-emerald-700 font-semibold">
-                            {p.priceAPaise != null ? `₹${(p.priceAPaise / 100).toFixed(2)}` : "—"}
-                          </span>
+                          <div className="flex flex-col items-end">
+                            <span className="font-mono text-emerald-700 font-semibold">
+                              {p.priceAPaise != null ? `₹${(p.priceAPaise / 100).toFixed(2)}` : "—"}
+                            </span>
+                            {p.mrpPaise && p.priceAPaise && (
+                              <span className="text-[10px] font-mono text-emerald-600">
+                                {calculatePercentFromPrice(p.mrpPaise, p.priceAPaise)}% off
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <div>
                             <input
@@ -1450,20 +1715,48 @@ export function CatalogClient({
                               placeholder="—"
                               value={row.a}
                               onChange={(e) => handleInlineChange(p, "a", e.target.value)}
-                              className="w-24 px-2 py-1 text-right font-mono text-xs border border-emerald-300 bg-emerald-50/30 rounded focus:border-emerald-600"
+                              className={`w-24 px-2 py-1 text-right font-mono text-xs border rounded focus:ring-1 ${
+                                mrpPaiseVal && parseInputToPaise(row.a) && parseInputToPaise(row.a)! > mrpPaiseVal
+                                  ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
+                                  : "border-emerald-300 bg-emerald-50/30 text-slate-900 focus:border-emerald-600"
+                              }`}
                             />
-                            {hintA && (
-                              <div className="text-[10px] text-emerald-700 font-mono">{hintA}</div>
-                            )}
+                            <div className="flex items-center justify-end gap-1 mt-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="99.99"
+                                placeholder="0.00"
+                                disabled={!mrpPaiseVal || mrpPaiseVal <= 0}
+                                value={row.pctA ?? ""}
+                                onChange={(e) => handleInlinePercentChange(p, "a", e.target.value)}
+                                className="w-16 px-1.5 py-0.5 text-right font-mono text-[11px] border border-emerald-200 bg-white rounded focus:border-emerald-600 disabled:opacity-40 text-emerald-800"
+                                title="Discount % off MRP"
+                              />
+                              <span className="text-[10px] text-emerald-700 font-bold">%</span>
+                            </div>
+                            {mrpPaiseVal && parseInputToPaise(row.a) && parseInputToPaise(row.a)! > mrpPaiseVal ? (
+                              <div className="text-[9px] text-rose-600 font-bold leading-tight mt-0.5 max-w-[120px]">
+                                &gt; MRP (Legal Metrology)
+                              </div>
+                            ) : null}
                           </div>
                         )}
                       </td>
 
                       <td className="px-3 py-2.5 text-right">
                         {readOnly ? (
-                          <span className="font-mono text-blue-700 font-semibold">
-                            {p.priceBPaise != null ? `₹${(p.priceBPaise / 100).toFixed(2)}` : "—"}
-                          </span>
+                          <div className="flex flex-col items-end">
+                            <span className="font-mono text-blue-700 font-semibold">
+                              {p.priceBPaise != null ? `₹${(p.priceBPaise / 100).toFixed(2)}` : "—"}
+                            </span>
+                            {p.mrpPaise && p.priceBPaise && (
+                              <span className="text-[10px] font-mono text-blue-600">
+                                {calculatePercentFromPrice(p.mrpPaise, p.priceBPaise)}% off
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <div>
                             <input
@@ -1472,20 +1765,48 @@ export function CatalogClient({
                               placeholder="—"
                               value={row.b}
                               onChange={(e) => handleInlineChange(p, "b", e.target.value)}
-                              className="w-24 px-2 py-1 text-right font-mono text-xs border border-blue-300 bg-blue-50/30 rounded focus:border-blue-600"
+                              className={`w-24 px-2 py-1 text-right font-mono text-xs border rounded focus:ring-1 ${
+                                mrpPaiseVal && parseInputToPaise(row.b) && parseInputToPaise(row.b)! > mrpPaiseVal
+                                  ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
+                                  : "border-blue-300 bg-blue-50/30 text-slate-900 focus:border-blue-600"
+                              }`}
                             />
-                            {hintB && (
-                              <div className="text-[10px] text-blue-700 font-mono">{hintB}</div>
-                            )}
+                            <div className="flex items-center justify-end gap-1 mt-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="99.99"
+                                placeholder="0.00"
+                                disabled={!mrpPaiseVal || mrpPaiseVal <= 0}
+                                value={row.pctB ?? ""}
+                                onChange={(e) => handleInlinePercentChange(p, "b", e.target.value)}
+                                className="w-16 px-1.5 py-0.5 text-right font-mono text-[11px] border border-blue-200 bg-white rounded focus:border-blue-600 disabled:opacity-40 text-blue-800"
+                                title="Discount % off MRP"
+                              />
+                              <span className="text-[10px] text-blue-700 font-bold">%</span>
+                            </div>
+                            {mrpPaiseVal && parseInputToPaise(row.b) && parseInputToPaise(row.b)! > mrpPaiseVal ? (
+                              <div className="text-[9px] text-rose-600 font-bold leading-tight mt-0.5 max-w-[120px]">
+                                &gt; MRP (Legal Metrology)
+                              </div>
+                            ) : null}
                           </div>
                         )}
                       </td>
 
                       <td className="px-3 py-2.5 text-right">
                         {readOnly ? (
-                          <span className="font-mono text-amber-700 font-semibold">
-                            {p.priceCPaise != null ? `₹${(p.priceCPaise / 100).toFixed(2)}` : "—"}
-                          </span>
+                          <div className="flex flex-col items-end">
+                            <span className="font-mono text-amber-700 font-semibold">
+                              {p.priceCPaise != null ? `₹${(p.priceCPaise / 100).toFixed(2)}` : "—"}
+                            </span>
+                            {p.mrpPaise && p.priceCPaise && (
+                              <span className="text-[10px] font-mono text-amber-600">
+                                {calculatePercentFromPrice(p.mrpPaise, p.priceCPaise)}% off
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <div>
                             <input
@@ -1494,11 +1815,32 @@ export function CatalogClient({
                               placeholder="—"
                               value={row.c}
                               onChange={(e) => handleInlineChange(p, "c", e.target.value)}
-                              className="w-24 px-2 py-1 text-right font-mono text-xs border border-amber-300 bg-amber-50/30 rounded focus:border-amber-600"
+                              className={`w-24 px-2 py-1 text-right font-mono text-xs border rounded focus:ring-1 ${
+                                mrpPaiseVal && parseInputToPaise(row.c) && parseInputToPaise(row.c)! > mrpPaiseVal
+                                  ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
+                                  : "border-amber-300 bg-amber-50/30 text-slate-900 focus:border-amber-600"
+                              }`}
                             />
-                            {hintC && (
-                              <div className="text-[10px] text-amber-700 font-mono">{hintC}</div>
-                            )}
+                            <div className="flex items-center justify-end gap-1 mt-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="99.99"
+                                placeholder="0.00"
+                                disabled={!mrpPaiseVal || mrpPaiseVal <= 0}
+                                value={row.pctC ?? ""}
+                                onChange={(e) => handleInlinePercentChange(p, "c", e.target.value)}
+                                className="w-16 px-1.5 py-0.5 text-right font-mono text-[11px] border border-amber-200 bg-white rounded focus:border-amber-600 disabled:opacity-40 text-amber-800"
+                                title="Discount % off MRP"
+                              />
+                              <span className="text-[10px] text-amber-700 font-bold">%</span>
+                            </div>
+                            {mrpPaiseVal && parseInputToPaise(row.c) && parseInputToPaise(row.c)! > mrpPaiseVal ? (
+                              <div className="text-[9px] text-rose-600 font-bold leading-tight mt-0.5 max-w-[120px]">
+                                &gt; MRP (Legal Metrology)
+                              </div>
+                            ) : null}
                           </div>
                         )}
                       </td>
@@ -1888,52 +2230,146 @@ export function CatalogClient({
                     type="number"
                     step="0.01"
                     name="mrpRupees"
-                    defaultValue={formatPaiseToInput(editingProduct.mrpPaise)}
+                    value={editMrp}
+                    onChange={(e) => handleEditMrpChange(e.target.value)}
                     min="0"
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                    Price A — Wholesaler (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="priceARupees"
-                    defaultValue={formatPaiseToInput(editingProduct.priceAPaise)}
-                    min="0"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                      Price A (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="priceARupees"
+                      value={editPriceA}
+                      onChange={(e) => handleEditPriceChange("A", e.target.value)}
+                      min="0"
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                        editMrp && parseFloat(editPriceA) > parseFloat(editMrp)
+                          ? "border-rose-500 bg-rose-50 text-rose-800"
+                          : "border-gray-300"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                      Price A (% off)
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="99.99"
+                        placeholder="0.00"
+                        disabled={!editMrp || parseFloat(editMrp) <= 0}
+                        value={editPctA}
+                        onChange={(e) => handleEditPercentChange("A", e.target.value)}
+                        className="block w-full pl-3 pr-7 py-2 border border-emerald-300 rounded-lg text-sm font-mono text-emerald-800 disabled:opacity-50 disabled:bg-gray-100"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700">%</span>
+                    </div>
+                  </div>
+                  {editMrp && parseFloat(editPriceA) > parseFloat(editMrp) && (
+                    <p className="col-span-2 text-[10px] text-rose-600 font-bold">
+                      Price above MRP is not allowed by Legal Metrology
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-blue-700">
-                    Price B — Retailer (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="priceBRupees"
-                    defaultValue={formatPaiseToInput(editingProduct.priceBPaise)}
-                    min="0"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-blue-700">
+                      Price B (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="priceBRupees"
+                      value={editPriceB}
+                      onChange={(e) => handleEditPriceChange("B", e.target.value)}
+                      min="0"
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                        editMrp && parseFloat(editPriceB) > parseFloat(editMrp)
+                          ? "border-rose-500 bg-rose-50 text-rose-800"
+                          : "border-gray-300"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-blue-700">
+                      Price B (% off)
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="99.99"
+                        placeholder="0.00"
+                        disabled={!editMrp || parseFloat(editMrp) <= 0}
+                        value={editPctB}
+                        onChange={(e) => handleEditPercentChange("B", e.target.value)}
+                        className="block w-full pl-3 pr-7 py-2 border border-blue-300 rounded-lg text-sm font-mono text-blue-800 disabled:opacity-50 disabled:bg-gray-100"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-700">%</span>
+                    </div>
+                  </div>
+                  {editMrp && parseFloat(editPriceB) > parseFloat(editMrp) && (
+                    <p className="col-span-2 text-[10px] text-rose-600 font-bold">
+                      Price above MRP is not allowed by Legal Metrology
+                    </p>
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-amber-700">
-                    Price C — Customer (₹)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="priceCRupees"
-                    defaultValue={formatPaiseToInput(editingProduct.priceCPaise)}
-                    min="0"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                  />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-amber-700">
+                      Price C (₹)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="priceCRupees"
+                      value={editPriceC}
+                      onChange={(e) => handleEditPriceChange("C", e.target.value)}
+                      min="0"
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                        editMrp && parseFloat(editPriceC) > parseFloat(editMrp)
+                          ? "border-rose-500 bg-rose-50 text-rose-800"
+                          : "border-gray-300"
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-amber-700">
+                      Price C (% off)
+                    </label>
+                    <div className="relative mt-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="99.99"
+                        placeholder="0.00"
+                        disabled={!editMrp || parseFloat(editMrp) <= 0}
+                        value={editPctC}
+                        onChange={(e) => handleEditPercentChange("C", e.target.value)}
+                        className="block w-full pl-3 pr-7 py-2 border border-amber-300 rounded-lg text-sm font-mono text-amber-800 disabled:opacity-50 disabled:bg-gray-100"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-700">%</span>
+                    </div>
+                  </div>
+                  {editMrp && parseFloat(editPriceC) > parseFloat(editMrp) && (
+                    <p className="col-span-2 text-[10px] text-rose-600 font-bold">
+                      Price above MRP is not allowed by Legal Metrology
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -2615,8 +3051,20 @@ export function CatalogClient({
                           value={row.priceARupees}
                           onChange={(e) => handleUpdateBulkRow(row.id, "priceARupees", e.target.value)}
                           placeholder="0.00"
-                          className="w-full px-2 py-1.5 border border-emerald-300 rounded text-xs text-right font-semibold text-emerald-800 bg-emerald-50/30"
+                          className={`w-full px-2 py-1.5 border rounded text-xs text-right font-semibold ${
+                            row.mrpRupees && parseFloat(row.priceARupees) > parseFloat(row.mrpRupees)
+                              ? "border-rose-500 bg-rose-50 text-rose-800"
+                              : "border-emerald-300 text-emerald-800 bg-emerald-50/30"
+                          }`}
                         />
+                        {row.mrpRupees && row.priceARupees && parseFloat(row.mrpRupees) > 0 && (
+                          <div className="text-[10px] text-emerald-700 text-right font-mono">
+                            {calculatePercentFromPrice(
+                              rupeesStringToPaise(row.mrpRupees),
+                              rupeesStringToPaise(row.priceARupees)
+                            )}% off
+                          </div>
+                        )}
                       </td>
                       <td className="px-2 py-1.5">
                         <input
@@ -2626,8 +3074,20 @@ export function CatalogClient({
                           value={row.priceBRupees}
                           onChange={(e) => handleUpdateBulkRow(row.id, "priceBRupees", e.target.value)}
                           placeholder="0.00"
-                          className="w-full px-2 py-1.5 border border-blue-300 rounded text-xs text-right font-semibold text-blue-800 bg-blue-50/30"
+                          className={`w-full px-2 py-1.5 border rounded text-xs text-right font-semibold ${
+                            row.mrpRupees && parseFloat(row.priceBRupees) > parseFloat(row.mrpRupees)
+                              ? "border-rose-500 bg-rose-50 text-rose-800"
+                              : "border-blue-300 text-blue-800 bg-blue-50/30"
+                          }`}
                         />
+                        {row.mrpRupees && row.priceBRupees && parseFloat(row.mrpRupees) > 0 && (
+                          <div className="text-[10px] text-blue-700 text-right font-mono">
+                            {calculatePercentFromPrice(
+                              rupeesStringToPaise(row.mrpRupees),
+                              rupeesStringToPaise(row.priceBRupees)
+                            )}% off
+                          </div>
+                        )}
                       </td>
                       <td className="px-2 py-1.5">
                         <input
@@ -2637,8 +3097,20 @@ export function CatalogClient({
                           value={row.priceCRupees}
                           onChange={(e) => handleUpdateBulkRow(row.id, "priceCRupees", e.target.value)}
                           placeholder="0.00"
-                          className="w-full px-2 py-1.5 border border-purple-300 rounded text-xs text-right font-semibold text-purple-800 bg-purple-50/30"
+                          className={`w-full px-2 py-1.5 border rounded text-xs text-right font-semibold ${
+                            row.mrpRupees && parseFloat(row.priceCRupees) > parseFloat(row.mrpRupees)
+                              ? "border-rose-500 bg-rose-50 text-rose-800"
+                              : "border-purple-300 text-purple-800 bg-purple-50/30"
+                          }`}
                         />
+                        {row.mrpRupees && row.priceCRupees && parseFloat(row.mrpRupees) > 0 && (
+                          <div className="text-[10px] text-purple-700 text-right font-mono">
+                            {calculatePercentFromPrice(
+                              rupeesStringToPaise(row.mrpRupees),
+                              rupeesStringToPaise(row.priceCRupees)
+                            )}% off
+                          </div>
+                        )}
                       </td>
                       <td className="px-2 py-1.5">
                         <select

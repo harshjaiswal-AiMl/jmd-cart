@@ -8,6 +8,7 @@ import { addToCartAction } from "@/app/store/cart/actions";
 import { toggleWishlistAction } from "@/app/store/wishlist/actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
+import { ProductImage } from "@/components/common/ProductImage";
 import { formatPaise, paiseToRupees } from "@/lib/format-price";
 
 interface ProductDetailClientProps {
@@ -302,10 +303,12 @@ export function ProductDetailClient({
                   </button>
 
                   {product.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <ProductImage
                       src={product.imageUrl}
                       alt={product.name}
+                      width={640}
+                      height={640}
+                      priority={true}
                       className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
@@ -956,10 +959,11 @@ export function ProductDetailClient({
                             </span>
                           )}
                           {rel.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
+                            <ProductImage
                               src={rel.imageUrl}
                               alt={rel.name}
+                              width={180}
+                              height={180}
                               className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                             />
                           ) : (

@@ -1531,6 +1531,11 @@ export function PosClient({
               number: editRes.invoice.number,
               totalPaise: editRes.invoice.totalPaise,
               paymentMode: activeTab.paymentMode,
+              targetPhone: editRes.invoice.customerPhone || selectedParty?.phone || activeTab.walkInMobile || null,
+              billUrl: (editRes.invoice as any).billUrl || null,
+              waMeUrl: (editRes.invoice as any).waMeUrl || null,
+              messagingSkipped: (editRes.invoice as any).messagingSkipped,
+              messagingReason: (editRes.invoice as any).messagingReason,
             });
           } else {
             setErrorMessage(editRes.error || "Failed to save invoice revision");
@@ -1671,6 +1676,62 @@ export function PosClient({
     });
   };
 
+  // Helper to start the next bill cleanly (resetting tabs and exiting edit mode if active)
+  const handleStartNextBill = useCallback(() => {
+    setFinalizedInvoice(null);
+    setFinalizedModalFocusIndex(0);
+    if (initialEditInvoice || activeTab.id === "tab-edit") {
+      router.push("/shop/pos");
+      const freshTab: PosBillTab = {
+        id: "tab-1",
+        tabTitle: "Bill 1",
+        partyId: "",
+        selectedTierMode: "AUTO",
+        cart: [],
+        orderDiscountPercent: "0",
+        paymentMode: PaymentMode.CASH,
+        splitCashPaise: "",
+        splitUpiPaise: "",
+        remarks: "",
+        documentType: "RETAIL",
+        isHeld: false,
+        walkInName: "",
+        walkInMobile: "",
+        walkInAddress: "",
+        billDate: undefined,
+      };
+      setTabs([freshTab]);
+      setActiveTabId("tab-1");
+    } else {
+      if (tabs.length === 0) {
+        const freshTab: PosBillTab = {
+          id: `tab-${Date.now()}`,
+          tabTitle: "Bill 1",
+          partyId: "",
+          selectedTierMode: "AUTO",
+          cart: [],
+          orderDiscountPercent: "0",
+          paymentMode: PaymentMode.CASH,
+          splitCashPaise: "",
+          splitUpiPaise: "",
+          remarks: "",
+          documentType: "RETAIL",
+          isHeld: false,
+          walkInName: "",
+          walkInMobile: "",
+          walkInAddress: "",
+          billDate: undefined,
+        };
+        setTabs([freshTab]);
+        setActiveTabId(freshTab.id);
+      }
+    }
+    setTimeout(() => {
+      itemSearchInputRef.current?.focus();
+      itemSearchInputRef.current?.select();
+    }, 60);
+  }, [initialEditInvoice, activeTab.id, tabs.length, router]);
+
   // Focus synchronization for Finalized Modal buttons
   useEffect(() => {
     if (!finalizedInvoice) return;
@@ -1682,37 +1743,68 @@ export function PosClient({
   useEffect(() => {
     if (!finalizedInvoice) return;
 
+    // Immediately focus button 0 (Thermal Slip) on mount
+    const timer = setTimeout(() => {
+      thermalBtnRef.current?.focus();
+    }, 20);
+
     const handleModalKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
       const isInput = activeEl?.tagName === "INPUT" || activeEl?.tagName === "TEXTAREA";
 
+      // ESC or F3: Start Next Bill
       if (e.key === "Escape" || e.key === "F3") {
         e.preventDefault();
         e.stopPropagation();
-        setFinalizedInvoice(null);
-        setTimeout(() => {
-          itemSearchInputRef.current?.focus();
-          itemSearchInputRef.current?.select();
-        }, 50);
+        handleStartNextBill();
         return;
       }
 
-      // If user is editing phone number inside input, let them use left/right arrow keys
-      if (isInput && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      // Quick number triggers:
+      // Pressing '1' -> Thermal Slip
+      // Pressing '2' -> Print A4
+      // Pressing '3' -> Start Next Bill
+      if (!isInput && (e.key === "1" || e.key === "t" || e.key === "T")) {
+        e.preventDefault();
+        e.stopPropagation();
+        router.push(`/shop/invoices/${finalizedInvoice.id}/print`);
         return;
       }
+      if (!isInput && (e.key === "2" || e.key === "a" || e.key === "A")) {
+        e.preventDefault();
+        e.stopPropagation();
+        router.push(`/shop/invoices/${finalizedInvoice.id}/print?format=a4`);
+        return;
+      }
+      if (!isInput && e.key === "3") {
+        e.preventDefault();
+        e.stopPropagation();
+        handleStartNextBill();
+        return;
+      }
+
+      // Arrow navigation & Tab cycling strictly between the 3 buttons
+      const buttons = [thermalBtnRef.current, a4BtnRef.current, nextBillBtnRef.current];
 
       if (e.key === "ArrowRight" || e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey)) {
         e.preventDefault();
         e.stopPropagation();
-        setFinalizedModalFocusIndex((prev) => (prev + 1) % 3);
+        setFinalizedModalFocusIndex((prev) => {
+          const nextIdx = (prev + 1) % 3;
+          buttons[nextIdx]?.focus();
+          return nextIdx;
+        });
         return;
       }
 
       if (e.key === "ArrowLeft" || e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey)) {
         e.preventDefault();
         e.stopPropagation();
-        setFinalizedModalFocusIndex((prev) => (prev - 1 + 3) % 3);
+        setFinalizedModalFocusIndex((prev) => {
+          const prevIdx = (prev - 1 + 3) % 3;
+          buttons[prevIdx]?.focus();
+          return prevIdx;
+        });
         return;
       }
 
@@ -1725,19 +1817,18 @@ export function PosClient({
         } else if (finalizedModalFocusIndex === 1) {
           router.push(`/shop/invoices/${finalizedInvoice.id}/print?format=a4`);
         } else {
-          setFinalizedInvoice(null);
-          setTimeout(() => {
-            itemSearchInputRef.current?.focus();
-            itemSearchInputRef.current?.select();
-          }, 50);
+          handleStartNextBill();
         }
         return;
       }
     };
 
     window.addEventListener("keydown", handleModalKeyDown, true);
-    return () => window.removeEventListener("keydown", handleModalKeyDown, true);
-  }, [finalizedInvoice, finalizedModalFocusIndex, router]);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("keydown", handleModalKeyDown, true);
+    };
+  }, [finalizedInvoice, finalizedModalFocusIndex, handleStartNextBill, router]);
 
   // Keyboard Shortcuts Listener
   useEffect(() => {
@@ -2104,7 +2195,13 @@ export function PosClient({
           <div className="flex items-center gap-1.5">
             <span className="text-slate-500 uppercase font-sans text-[11px] font-extrabold">Vch. No:</span>
             <span className="text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-300 font-black">
-              {nextInvoicePreview ? `${nextInvoicePreview} (auto)` : (activeTab.tabTitle || "INV/26-27/000001 (auto)")}
+              {initialEditInvoice?.number
+                ? `${initialEditInvoice.number} (Editing)`
+                : activeTab.id === "tab-edit" && activeTab.tabTitle?.startsWith("Edit: ")
+                ? `${activeTab.tabTitle.replace("Edit: ", "")} (Editing)`
+                : nextInvoicePreview
+                ? `${nextInvoicePreview} (auto)`
+                : (activeTab.tabTitle || "INV/26-27/000001 (auto)")}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -2718,25 +2815,25 @@ export function PosClient({
                             : "hover:bg-slate-50/80"
                         }`}
                       >
-                        <td className="py-3 px-3 text-center text-slate-400 font-mono text-xs font-bold">
+                        <td className="py-1 px-2.5 text-center text-slate-400 font-mono text-xs font-bold">
                           {index + 1}
                         </td>
 
-                        <td className="py-2.5 px-3">
+                        <td className="py-1 px-3">
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-slate-900 text-sm">
+                            <span className="font-bold text-slate-900 text-xs sm:text-sm truncate">
                               {line.product.name} {line.product.weight || (line.product.weightValue ? `${line.product.weightValue}${line.product.weightUnit || "g"}` : "")}
                             </span>
                             {!isStockSufficient && (
-                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded shrink-0">
-                                Low Stock ({isCarton ? `${availableCartons} ctn` : `${line.product.shopStockQty ?? 0} pcs`})
+                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1 py-0.2 rounded shrink-0">
+                                Low ({isCarton ? `${availableCartons} ctn` : `${line.product.shopStockQty ?? 0} pcs`})
                               </span>
                             )}
                           </div>
                         </td>
 
-                        {/* Qty Input (Large & Clear) */}
-                        <td className="py-3 px-2 text-center">
+                        {/* Qty Input (Busy Style Active Highlight) */}
+                        <td className="py-1 px-1.5 text-center">
                           <input
                             data-pos-field="qty"
                             type="number"
@@ -2767,12 +2864,12 @@ export function PosClient({
                                 itemSearchInputRef.current?.select();
                               }
                             }}
-                            className="w-20 px-2 py-1.5 text-center font-black text-base sm:text-lg bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] focus:border-[#12355B] shadow-xs"
+                            className="w-18 px-1.5 py-1 text-center font-black text-sm bg-white border border-slate-300 rounded focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
                           />
                         </td>
 
                         {/* Unit Selector */}
-                        <td className="py-3 px-2 text-center">
+                        <td className="py-1 px-1.5 text-center">
                           <select
                             data-pos-field="unit"
                             value={line.unit}
@@ -2795,7 +2892,7 @@ export function PosClient({
                                 itemSearchInputRef.current?.select();
                               }
                             }}
-                            className="w-32 px-2 py-1.5 text-sm sm:text-base font-bold bg-white border-2 border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] cursor-pointer"
+                            className="w-26 px-1.5 py-1 text-xs font-bold bg-white border border-slate-300 rounded focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none cursor-pointer transition-colors"
                           >
                             <option value="Pcs">Pcs</option>
                             <option value="Carton">Carton (Crt)</option>
@@ -2805,10 +2902,10 @@ export function PosClient({
                         </td>
 
                         {/* MRP (Editable Input from Owner's Handwritten Note) */}
-                        <td className="py-3 px-2 text-right">
+                        <td className="py-1 px-1.5 text-right">
                           <div className="flex flex-col items-end">
-                            <div className="relative inline-flex items-center justify-end w-28">
-                              <span className="absolute left-2 text-slate-400 font-mono text-xs pointer-events-none font-bold">₹</span>
+                            <div className="relative inline-flex items-center justify-end w-24">
+                              <span className="absolute left-1.5 text-slate-400 font-mono text-[10px] pointer-events-none font-bold">₹</span>
                               <input
                                 type="number"
                                 step="0.01"
@@ -2840,27 +2937,16 @@ export function PosClient({
                                   }
                                 }}
                                 title="Editable Line MRP"
-                                className="w-full pl-5 pr-2 py-1.5 text-right font-mono font-bold text-sm sm:text-base rounded-lg border-2 border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-blue-600"
+                                className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-bold text-xs rounded border border-slate-300 bg-white text-slate-900 focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
                               />
                             </div>
-                            {isAdmin && (
-                              <label className="flex items-center gap-1 text-[10px] font-bold text-slate-500 mt-1 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={Boolean(line.updateMasterMrp)}
-                                  onChange={() => toggleUpdateMasterMrp(line.id)}
-                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
-                                />
-                                <span>Master</span>
-                              </label>
-                            )}
                           </div>
                         </td>
 
                         {/* Rate (Editable Busy-Style Input) */}
-                        <td className="py-3 px-2 text-right">
-                          <div className="relative inline-flex items-center justify-end w-32">
-                            <span className="absolute left-2.5 text-slate-400 font-mono text-sm pointer-events-none font-bold">₹</span>
+                        <td className="py-1 px-1.5 text-right">
+                          <div className="relative inline-flex items-center justify-end w-26">
+                            <span className="absolute left-1.5 text-slate-400 font-mono text-xs pointer-events-none font-bold">₹</span>
                             <input
                               type="number"
                               step="0.01"
@@ -2889,20 +2975,14 @@ export function PosClient({
                                 }
                               }}
                               title="Type here to change selling rate manually"
-                              className={`w-full pl-6 pr-2.5 py-1.5 text-right font-mono font-black text-sm sm:text-base rounded-lg border-2 transition-all ${
-                                ratePerUnitPaise <= 0
-                                  ? "border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-300 focus:ring-amber-500"
-                                  : line.isCustomRate
-                                  ? "border-emerald-500 bg-emerald-50/70 text-emerald-950 focus:ring-emerald-500"
-                                  : "border-slate-300 bg-white text-slate-900 focus:ring-[#12355B]"
-                              }`}
+                              className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-black text-xs rounded border border-slate-300 bg-white text-slate-900 focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
                             />
                           </div>
                         </td>
 
                         {/* Disc % (Synchronized with Rate & MRP) */}
-                        <td className="py-3 px-2 text-center">
-                          <div className="relative inline-flex items-center justify-center w-22">
+                        <td className="py-1 px-1.5 text-center">
+                          <div className="relative inline-flex items-center justify-center w-18">
                             <input
                               type="number"
                               step="0.1"
@@ -2932,21 +3012,21 @@ export function PosClient({
                                 }
                               }}
                               title="Discount % off MRP. Changing this automatically calculates selling rate."
-                              className="w-full px-2 py-1.5 text-center font-mono font-black text-sm sm:text-base rounded-lg border-2 border-slate-300 bg-white text-slate-900 focus:ring-2 focus:ring-[#12355B]"
+                              className="w-full pl-1 pr-4 py-1 text-center font-mono font-black text-xs rounded border border-slate-300 bg-white text-slate-900 focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
                             />
-                            <span className="absolute right-2 text-slate-400 font-bold text-xs pointer-events-none">%</span>
+                            <span className="absolute right-1 text-slate-400 font-bold text-[10px] pointer-events-none">%</span>
                           </div>
                         </td>
 
                         {/* Amount */}
-                        <td className="py-3 px-3 text-right">
-                          <span className="font-mono font-black text-base sm:text-lg text-[#12355B]">
+                        <td className="py-1 px-2.5 text-right">
+                          <span className="font-mono font-black text-xs sm:text-sm text-[#12355B]">
                             ₹{(lineAmountPaise / 100).toFixed(2)}
                           </span>
                         </td>
 
                         {/* Delete Line */}
-                        <td className="py-3 px-2 text-center">
+                        <td className="py-1 px-1.5 text-center">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -2954,9 +3034,9 @@ export function PosClient({
                               removeLine(line.id);
                             }}
                             title="Remove line (F9)"
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
                           >
-                            <Trash2 className="w-5 h-5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </td>
                       </tr>
@@ -2964,17 +3044,17 @@ export function PosClient({
                   })}
                   {/* Empty Spreadsheet Rows for Classic Busy ERP Look (Image 2) */}
                   {activeTab.cart.length === 0 && (
-                    <tr className="h-10 bg-blue-50/20 border-b border-slate-200">
+                    <tr className="h-8 bg-blue-50/20 border-b border-slate-200">
                       <td className="text-center font-mono text-xs text-slate-400 border-r border-slate-200 font-bold">1</td>
                       <td colSpan={8} className="px-4 text-xs font-semibold text-slate-500">
                         👉 Press <strong className="font-mono text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-300 shadow-2xs">[Ctrl+K / F1]</strong> or type above to add items to bill...
                       </td>
                     </tr>
                   )}
-                  {Array.from({ length: Math.max(0, 10 - Math.max(1, activeTab.cart.length)) }).map((_, emptyIdx) => {
+                  {Array.from({ length: Math.max(0, 13 - Math.max(1, activeTab.cart.length)) }).map((_, emptyIdx) => {
                     const rowNum = Math.max(1, activeTab.cart.length) + emptyIdx + 1;
                     return (
-                      <tr key={`empty-row-${rowNum}`} className="h-9 hover:bg-slate-50/40 border-b border-slate-200/80">
+                      <tr key={`empty-row-${rowNum}`} className="h-8 hover:bg-slate-50/40 border-b border-slate-200/80">
                         <td className="text-center font-mono text-xs text-slate-400 border-r border-slate-200 font-bold">{rowNum}</td>
                         <td className="border-r border-slate-200 px-3"></td>
                         <td className="border-r border-slate-200"></td>
@@ -3823,14 +3903,19 @@ export function PosClient({
                 type="button"
                 onFocus={() => setFinalizedModalFocusIndex(0)}
                 onClick={() => router.push(`/shop/invoices/${finalizedInvoice.id}/print`)}
-                className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition outline-none ${
+                className={`py-3 px-3 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-1 transition-all outline-none cursor-pointer ${
                   finalizedModalFocusIndex === 0
-                    ? "bg-slate-900 text-white ring-4 ring-[#FC830D] ring-offset-2 scale-[1.02] shadow-lg"
-                    : "bg-slate-100 hover:bg-slate-200 text-slate-800"
+                    ? "bg-slate-900 text-white ring-4 ring-[#FC830D] ring-offset-2 scale-[1.03] shadow-xl"
+                    : "bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300"
                 }`}
               >
-                <Printer className="w-4 h-4" />
-                <span>Thermal Slip {finalizedModalFocusIndex === 0 ? "↵" : ""}</span>
+                <div className="flex items-center gap-1.5">
+                  <Printer className="w-4 h-4 text-[#FC830D]" />
+                  <span>Thermal Slip (3&quot;)</span>
+                </div>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {finalizedModalFocusIndex === 0 ? "↵ Enter / [1]" : "[1]"}
+                </span>
               </button>
 
               <button
@@ -3838,14 +3923,19 @@ export function PosClient({
                 type="button"
                 onFocus={() => setFinalizedModalFocusIndex(1)}
                 onClick={() => router.push(`/shop/invoices/${finalizedInvoice.id}/print?format=a4`)}
-                className={`py-2.5 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs outline-none ${
+                className={`py-3 px-3 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-1 transition-all outline-none cursor-pointer ${
                   finalizedModalFocusIndex === 1
-                    ? "bg-[#0E2843] text-white ring-4 ring-[#FC830D] ring-offset-2 scale-[1.02] shadow-lg"
-                    : "bg-[#12355B] hover:bg-[#0E2843] text-white"
+                    ? "bg-[#0E2843] text-white ring-4 ring-[#FC830D] ring-offset-2 scale-[1.03] shadow-xl"
+                    : "bg-[#12355B] hover:bg-[#0E2843] text-white border border-[#0E2843]"
                 }`}
               >
-                <Printer className="w-4 h-4" />
-                <span>Print A4 {finalizedModalFocusIndex === 1 ? "↵" : ""}</span>
+                <div className="flex items-center gap-1.5">
+                  <Printer className="w-4 h-4 text-[#FC830D]" />
+                  <span>Print A4 Bill</span>
+                </div>
+                <span className="text-[10px] font-mono text-blue-200">
+                  {finalizedModalFocusIndex === 1 ? "↵ Enter / [2]" : "[2]"}
+                </span>
               </button>
             </div>
 
@@ -3853,20 +3943,17 @@ export function PosClient({
               ref={nextBillBtnRef}
               type="button"
               onFocus={() => setFinalizedModalFocusIndex(2)}
-              onClick={() => {
-                setFinalizedInvoice(null);
-                setTimeout(() => {
-                  itemSearchInputRef.current?.focus();
-                  itemSearchInputRef.current?.select();
-                }, 50);
-              }}
-              className={`w-full py-2.5 rounded-xl font-bold text-xs text-white transition shadow-xs outline-none ${
+              onClick={handleStartNextBill}
+              className={`w-full py-3 rounded-xl font-black text-xs text-white transition-all outline-none cursor-pointer flex items-center justify-center gap-2 ${
                 finalizedModalFocusIndex === 2
-                  ? "bg-[#e57406] ring-4 ring-blue-600 ring-offset-2 scale-[1.02] shadow-lg"
+                  ? "bg-[#e57406] ring-4 ring-blue-600 ring-offset-2 scale-[1.03] shadow-xl"
                   : "bg-[#FC830D] hover:bg-[#e57406]"
               }`}
             >
-              Start Next Bill (F3 / Esc) {finalizedModalFocusIndex === 2 ? "↵" : ""}
+              <span>Start Next Bill (F3 / Esc)</span>
+              <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-black/20 text-white">
+                {finalizedModalFocusIndex === 2 ? "↵ Enter" : "F3"}
+              </kbd>
             </button>
           </div>
         </div>
