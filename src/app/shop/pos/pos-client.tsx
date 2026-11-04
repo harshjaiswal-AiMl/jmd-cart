@@ -2472,6 +2472,14 @@ export function PosClient({
           >
             Stock
           </Link>
+          <Link
+            href="/app/pro?tab=products"
+            className="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-bold bg-purple-700 hover:bg-purple-600 text-white items-center gap-1 transition shadow-xs"
+            title="Mobile Catalog & Price Tier Manager"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>PRO Catalog</span>
+          </Link>
 
           <button
             type="button"

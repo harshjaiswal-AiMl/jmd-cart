@@ -86,6 +86,14 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...ADMIN_ROLES, UserRole.SHOP, UserRole.ACCOUNTS],
   },
   {
+    id: "sales-pro-portal",
+    group: "Sales",
+    label: "📱 PRO Field App",
+    icon: "Smartphone",
+    href: "/app/pro",
+    roles: [...ADMIN_ROLES, UserRole.SHOP, UserRole.PRO],
+  },
+  {
     id: "sales-invoices",
     group: "Sales",
     label: "Invoices",
@@ -276,6 +284,14 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "Package",
     href: "/admin/catalog",
     roles: [...ADMIN_ROLES, UserRole.ACCOUNTS],
+  },
+  {
+    id: "cat-mobile-pro",
+    group: "Catalog",
+    label: "📱 Mobile Catalog & Rates (PRO)",
+    icon: "Smartphone",
+    href: "/app/pro?tab=products",
+    roles: [...ADMIN_ROLES, UserRole.SHOP, UserRole.ACCOUNTS, UserRole.WAREHOUSE_MANAGER, UserRole.PRO],
   },
   {
     id: "cat-companies",

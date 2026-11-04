@@ -203,20 +203,21 @@ export class PushNotificationService {
     hasCartonItems?: boolean;
     items?: any[];
   }) {
-    // 0. Check carton-only rule: Only alert godown if order contains carton items!
-    let hasCartons = false;
-    if (typeof order.hasCartonItems === "boolean") {
-      hasCartons = order.hasCartonItems;
-    } else if (order.items && order.items.length > 0) {
-      hasCartons = order.items.some((it: any) => {
-        const unit = (it.unitLabel || it.unit || "").toLowerCase();
-        const isCtn = unit === "carton" || unit === "bag";
-        const packSize = Math.max(1, it.product?.packSize || it.packSize || 1);
-        const qty = it.qty || 0;
-        return isCtn || (packSize > 1 && qty >= packSize);
-      });
-    } else {
-      if (order.isInvoice) {
+    // 0. Check carton-only rule: Only filter shop retail invoices!
+    // Online, B2B, and PRO orders ALWAYS alert godown continuously!
+    let hasCartons = !order.isInvoice;
+    if (order.isInvoice) {
+      if (typeof order.hasCartonItems === "boolean") {
+        hasCartons = order.hasCartonItems;
+      } else if (order.items && order.items.length > 0) {
+        hasCartons = order.items.some((it: any) => {
+          const unit = (it.unitLabel || it.unit || "").toLowerCase();
+          const isCtn = unit === "carton" || unit === "bag";
+          const packSize = Math.max(1, it.product?.packSize || it.packSize || 1);
+          const qty = it.qty || 0;
+          return isCtn || (packSize > 1 && qty >= packSize);
+        });
+      } else {
         const inv = await prisma.invoice.findUnique({
           where: { id: order.id },
           include: { items: { include: { product: true } } },
@@ -226,20 +227,11 @@ export class PushNotificationService {
           const ps = Math.max(1, it.product?.packSize || 1);
           return unit === "carton" || unit === "bag" || (ps > 1 && it.qty >= ps);
         });
-      } else {
-        const ord = await prisma.order.findUnique({
-          where: { id: order.id },
-          include: { items: { include: { product: true } } },
-        });
-        hasCartons = (ord?.items || []).some((it) => {
-          const ps = Math.max(1, it.product?.packSize || 1);
-          return ps > 1 && it.qty >= ps;
-        });
       }
     }
 
     if (!hasCartons) {
-      return { success: false, reason: "Carton-only policy: No carton items in order; godown notification skipped." };
+      return { success: false, reason: "Carton-only policy: Retail shop bill without godown carton items; godown notification skipped." };
     }
 
     // 1. Find warehouse managers and godown users

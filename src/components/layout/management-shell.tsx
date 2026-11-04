@@ -75,6 +75,7 @@ import {
   LogOut,
   ExternalLink,
   Sparkles,
+  Smartphone,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -131,6 +132,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   HardDriveDownload,
   Settings,
   Sparkles,
+  Smartphone,
 };
 
 export interface ShellBadges {

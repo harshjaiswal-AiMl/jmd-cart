@@ -17,7 +17,14 @@ export default async function ProAppPage({
   }
 
   const role = session.user.role as any;
-  if (role !== "PRO" && role !== "ADMIN" && role !== "SUPER_ADMIN") {
+  if (
+    role !== "PRO" &&
+    role !== "ADMIN" &&
+    role !== "SUPER_ADMIN" &&
+    role !== "SHOP" &&
+    role !== "ACCOUNTS" &&
+    role !== "WAREHOUSE_MANAGER"
+  ) {
     redirect("/app/shop");
   }
 

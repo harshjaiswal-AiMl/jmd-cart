@@ -179,46 +179,13 @@ export class BillingService {
 
       if (!creditStatus.canProceedWithoutOverride) {
         creditBreachReasons = creditStatus.breachReasons;
-
-        const callerCanOverride = hasPermission(
-          role,
-          Permission.OVERRIDE_CREDIT_LIMIT
-        );
-
-        if (callerCanOverride) {
-          creditOverrideApplied = true;
-          creditOverrideBy = actorId ?? null;
-          creditOverrideReason =
-            validated.creditOverride?.reason ||
-            validated.notes ||
-            "Authorized by Super Admin";
-        } else if (validated.creditOverride) {
-          const approver = await prisma.user.findUnique({
-            where: { id: validated.creditOverride.approvedByUserId },
-          });
-
-          if (!approver || !approver.active) {
-            throw new ForbiddenError(
-              "Credit override approver account is invalid or inactive"
-            );
-          }
-
-          if (!hasPermission(approver.role, Permission.OVERRIDE_CREDIT_LIMIT)) {
-            throw new ForbiddenError(
-              `User '${approver.name}' (${approver.role}) does not have permission to override credit limits`
-            );
-          }
-
-          creditOverrideApplied = true;
-          creditOverrideBy = approver.id;
-          creditOverrideReason = validated.creditOverride.reason;
-        } else {
-          throw new Error(
-            `Credit sale blocked for '${party.name}': ${creditStatus.breachReasons.join(
-              "; "
-            )}. Owner override required.`
-          );
-        }
+        // User instruction: Allow credit sales directly for all parties without blocking; update ledger seamlessly.
+        creditOverrideApplied = true;
+        creditOverrideBy = actorId ?? null;
+        creditOverrideReason =
+          validated.creditOverride?.reason ||
+          validated.notes ||
+          "Direct Party Credit Allowed";
       }
     }
 
