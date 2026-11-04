@@ -411,7 +411,31 @@ export function PosClient({
     }
   };
 
-  const POS_FIELD_ORDER = ["name", "qty", "unit", "mrp", "rate", "disc", "amount"];
+    const POS_FIELD_ORDER = ["name", "qty", "unit", "mrp", "rate", "disc", "amount"];
+
+  const isCaretAtStart = (el: HTMLElement): boolean => {
+    if (el.tagName !== "INPUT") return true;
+    const inp = el as HTMLInputElement;
+    try {
+      if (inp.selectionStart == null || inp.selectionEnd == null) return true;
+      return inp.selectionStart === 0 ||
+        (inp.selectionStart === 0 && inp.selectionEnd === inp.value.length);
+    } catch {
+      return true;
+    }
+  };
+
+  const isCaretAtEnd = (el: HTMLElement): boolean => {
+    if (el.tagName !== "INPUT") return true;
+    const inp = el as HTMLInputElement;
+    try {
+      if (inp.selectionStart == null || inp.selectionEnd == null) return true;
+      return inp.selectionEnd >= inp.value.length ||
+        (inp.selectionStart === 0 && inp.selectionEnd === inp.value.length);
+    } catch {
+      return true;
+    }
+  };
 
   const handlePosCellKeyDown = (
     e: React.KeyboardEvent<HTMLElement>,
@@ -421,33 +445,84 @@ export function PosClient({
     currentQty?: number
   ) => {
     const currentIdx = POS_FIELD_ORDER.indexOf(currentField);
+    const targetEl = e.target as HTMLElement;
+    const row = targetEl.closest("tr");
 
+    // 1. Qty Up / Down arrow: Increments or decrements quantity
     if (currentField === "qty") {
-      if (e.key === "ArrowUp") {
+      if (e.key === "ArrowUp" && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        updateLineQty(lineId, (currentQty ?? 1) + 1);
+        const input = targetEl as HTMLInputElement;
+        const val = parseInt(input.value, 10) || currentQty || 1;
+        const nextQty = val + 1;
+        input.value = String(nextQty);
+        updateLineQty(lineId, nextQty);
+        input.select();
         return;
       }
-      if (e.key === "ArrowDown") {
+      if (e.key === "ArrowDown" && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
-        updateLineQty(lineId, Math.max(1, (currentQty ?? 1) - 1));
+        const input = targetEl as HTMLInputElement;
+        const val = parseInt(input.value, 10) || currentQty || 1;
+        const nextQty = Math.max(1, val - 1);
+        input.value = String(nextQty);
+        updateLineQty(lineId, nextQty);
+        input.select();
         return;
       }
     }
 
-    if (e.key === "ArrowRight" || (e.key === "Enter" && currentField !== "qty")) {
-      const input = e.target as HTMLInputElement;
-      const isInput = input.tagName === "INPUT";
-      const atEnd =
-        !isInput ||
-        input.selectionEnd === input.value.length ||
-        (input.selectionStart === 0 && input.selectionEnd === input.value.length);
+    // 2. Up Arrow (move to same column in previous row)
+    if (e.key === "ArrowUp") {
+      if (currentField !== "unit") {
+        e.preventDefault();
+        const prevRow = row?.previousElementSibling;
+        if (prevRow) {
+          const prevEl = prevRow.querySelector<HTMLElement>(`[data-pos-field="${currentField}"]`);
+          if (prevEl) {
+            prevEl.focus();
+            if ("select" in prevEl && typeof (prevEl as any).select === "function") {
+              (prevEl as any).select();
+            }
+            return;
+          }
+        } else {
+          itemSearchInputRef.current?.focus();
+          itemSearchInputRef.current?.select();
+          return;
+        }
+      }
+    }
 
-      if (e.key === "Enter" || atEnd) {
+    // 3. Down Arrow (move to same column in next row)
+    if (e.key === "ArrowDown") {
+      if (currentField !== "unit") {
+        e.preventDefault();
+        const nextRow = row?.nextElementSibling;
+        if (nextRow) {
+          const nextEl = nextRow.querySelector<HTMLElement>(`[data-pos-field="${currentField}"]`);
+          if (nextEl) {
+            nextEl.focus();
+            if ("select" in nextEl && typeof (nextEl as any).select === "function") {
+              (nextEl as any).select();
+            }
+            return;
+          }
+        } else {
+          itemSearchInputRef.current?.focus();
+          itemSearchInputRef.current?.select();
+          return;
+        }
+      }
+    }
+
+    // 4. Right Arrow, Enter, Tab (move forward to next cell)
+    if (e.key === "ArrowRight" || e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+      const atEnd = e.key === "Enter" || e.key === "Tab" || isCaretAtEnd(targetEl);
+      if (atEnd) {
         e.preventDefault();
         if (currentIdx < POS_FIELD_ORDER.length - 1) {
           const nextField = POS_FIELD_ORDER[currentIdx + 1];
-          const row = (e.target as HTMLElement).closest("tr");
           const nextEl = row?.querySelector<HTMLElement>(`[data-pos-field="${nextField}"]`);
           if (nextEl) {
             nextEl.focus();
@@ -456,35 +531,30 @@ export function PosClient({
             }
           }
         } else {
-          // Last cell in row (Amount) - go to next row or search
-          const nextRow = (e.target as HTMLElement).closest("tr")?.nextElementSibling;
-          const nextRowEl =
-            nextRow?.querySelector<HTMLElement>(`[data-pos-field="name"]`) ||
-            nextRow?.querySelector<HTMLElement>(`[data-pos-field="qty"]`);
-          if (nextRowEl) {
-            nextRowEl.focus();
-            if ("select" in nextRowEl && typeof (nextRowEl as any).select === "function") {
-              (nextRowEl as any).select();
+          // Last cell (amount) -> go to next row's name or search input
+          const nextRow = row?.nextElementSibling;
+          const nextRowName = nextRow?.querySelector<HTMLElement>(`[data-pos-field="name"]`);
+          if (nextRowName) {
+            nextRowName.focus();
+            if ("select" in nextRowName && typeof (nextRowName as any).select === "function") {
+              (nextRowName as any).select();
             }
           } else {
             itemSearchInputRef.current?.focus();
             itemSearchInputRef.current?.select();
           }
         }
+        return;
       }
-    } else if (e.key === "ArrowLeft") {
-      const input = e.target as HTMLInputElement;
-      const isInput = input.tagName === "INPUT";
-      const atStart =
-        !isInput ||
-        input.selectionStart === 0 ||
-        (input.selectionStart === 0 && input.selectionEnd === input.value.length);
+    }
 
+    // 5. Left Arrow, Shift+Tab (move backward to previous cell)
+    if (e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey)) {
+      const atStart = (e.key === "Tab" && e.shiftKey) || isCaretAtStart(targetEl);
       if (atStart) {
         e.preventDefault();
         if (currentIdx > 0) {
           const prevField = POS_FIELD_ORDER[currentIdx - 1];
-          const row = (e.target as HTMLElement).closest("tr");
           const prevEl = row?.querySelector<HTMLElement>(`[data-pos-field="${prevField}"]`);
           if (prevEl) {
             prevEl.focus();
@@ -493,21 +563,29 @@ export function PosClient({
             }
           }
         } else {
-          // First cell in row (Name) - go to previous row's amount
-          const prevRow = (e.target as HTMLElement).closest("tr")?.previousElementSibling;
-          const prevRowLastEl = prevRow?.querySelector<HTMLElement>(`[data-pos-field="amount"]`);
-          if (prevRowLastEl) {
-            prevRowLastEl.focus();
-            if ("select" in prevRowLastEl && typeof (prevRowLastEl as any).select === "function") {
-              (prevRowLastEl as any).select();
+          // First cell (name) -> move to previous row's amount
+          const prevRow = row?.previousElementSibling;
+          const prevRowAmount = prevRow?.querySelector<HTMLElement>(`[data-pos-field="amount"]`);
+          if (prevRowAmount) {
+            prevRowAmount.focus();
+            if ("select" in prevRowAmount && typeof (prevRowAmount as any).select === "function") {
+              (prevRowAmount as any).select();
             }
+          } else {
+            itemSearchInputRef.current?.focus();
+            itemSearchInputRef.current?.select();
           }
         }
+        return;
       }
-    } else if (e.key === "Escape") {
+    }
+
+    // 6. Escape (jump to search bar)
+    if (e.key === "Escape") {
       e.preventDefault();
       itemSearchInputRef.current?.focus();
       itemSearchInputRef.current?.select();
+      return;
     }
   };
 
@@ -2790,10 +2868,10 @@ export function PosClient({
                       setSearchSelectedIndex((prev) => (prev + 1) % filteredProducts.length);
                     } else if (activeTab.cart.length > 0) {
                       e.preventDefault();
-                      const qtyInputs = document.querySelectorAll<HTMLInputElement>("table input[data-pos-field='qty']");
-                      if (qtyInputs.length > 0) {
-                        qtyInputs[qtyInputs.length - 1].focus();
-                        qtyInputs[qtyInputs.length - 1].select();
+                      const nameInputs = document.querySelectorAll<HTMLInputElement>("table input[data-pos-field='name']");
+                      if (nameInputs.length > 0) {
+                        nameInputs[0].focus();
+                        nameInputs[0].select();
                       }
                     }
                   } else if (e.key === "ArrowUp") {
@@ -2810,17 +2888,17 @@ export function PosClient({
                       const targetLineId = addItemToCart(chosenProduct, "Pcs", 1);
                       setItemSearchTerm("");
                       setSearchSelectedIndex(0);
-                      // Keyboard-first billing: immediately focus Qty field of the added/updated row with number selected
+                      // Immediately focus Product Name of the added/updated row with text selected
                       setTimeout(() => {
-                        const targetQty = targetLineId
-                          ? document.querySelector<HTMLInputElement>(`tr[data-line-id='${targetLineId}'] input[data-pos-field='qty']`)
+                        const targetName = targetLineId
+                          ? document.querySelector<HTMLInputElement>(`tr[data-line-id='${targetLineId}'] input[data-pos-field='name']`)
                           : null;
-                        const qtyInput = targetQty || document.querySelector<HTMLInputElement>("table tr:last-child input[data-pos-field='qty']");
-                        if (qtyInput) {
-                          qtyInput.focus();
-                          qtyInput.select();
+                        const nameInput = targetName || document.querySelector<HTMLInputElement>("table tr:last-child input[data-pos-field='name']");
+                        if (nameInput) {
+                          nameInput.focus();
+                          nameInput.select();
                         }
-                      }, 30);
+                      }, 40);
                     }
                   } else if (e.key === "Escape") {
                     if (itemSearchTerm) {
@@ -2875,15 +2953,15 @@ export function PosClient({
                         setItemSearchTerm("");
                         setSearchSelectedIndex(0);
                         setTimeout(() => {
-                          const targetQty = targetLineId
-                            ? document.querySelector<HTMLInputElement>(`tr[data-line-id='${targetLineId}'] input[data-pos-field='qty']`)
+                          const targetName = targetLineId
+                            ? document.querySelector<HTMLInputElement>(`tr[data-line-id='${targetLineId}'] input[data-pos-field='name']`)
                             : null;
-                          const qtyInput = targetQty || document.querySelector<HTMLInputElement>("table tr:last-child input[data-pos-field='qty']");
-                          if (qtyInput) {
-                            qtyInput.focus();
-                            qtyInput.select();
+                          const nameInput = targetName || document.querySelector<HTMLInputElement>("table tr:last-child input[data-pos-field='name']");
+                          if (nameInput) {
+                            nameInput.focus();
+                            nameInput.select();
                           }
-                        }, 30);
+                        }, 40);
                       }}
                       className={`px-3 py-2 sm:py-2.5 flex items-center justify-between text-xs sm:text-sm cursor-pointer transition ${
                         isHighlighted
@@ -3053,10 +3131,14 @@ export function PosClient({
                         <td className="py-1 px-1.5 text-center">
                           <input
                             data-pos-field="qty"
-                            type="number"
-                            min="1"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={line.qty}
-                            onChange={(e) => updateLineQty(line.id, parseInt(e.target.value, 10) || 1)}
+                            onChange={(e) => {
+                              const sanitized = e.target.value.replace(/[^0-9]/g, "");
+                              updateLineQty(line.id, sanitized === "" ? 1 : parseInt(sanitized, 10) || 1);
+                            }}
                             onFocus={(e) => e.target.select()}
                             onKeyDown={(e) => handlePosCellKeyDown(e, "qty", index, line.id, line.qty)}
                             className="w-18 px-1.5 py-1 text-center font-black text-sm bg-white border border-slate-300 rounded focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
@@ -3085,9 +3167,9 @@ export function PosClient({
                             <div className="relative inline-flex items-center justify-end w-24">
                               <span className="absolute left-1.5 text-slate-400 font-mono text-[10px] pointer-events-none font-bold">₹</span>
                               <input
-                                type="number"
-                                step="0.01"
-                                min="0"
+                                type="text" inputMode="decimal"
+                                
+                                
                                 value={
                                   line.customMrpInput !== undefined
                                     ? line.customMrpInput
@@ -3113,9 +3195,9 @@ export function PosClient({
                           <div className="relative inline-flex items-center justify-end w-26">
                             <span className="absolute left-1.5 text-slate-400 font-mono text-xs pointer-events-none font-bold">₹</span>
                             <input
-                              type="number"
-                              step="0.01"
-                              min="0"
+                              type="text" inputMode="decimal"
+                              
+                              
                               value={line.customRateInput !== undefined ? line.customRateInput : (ratePerUnitPaise > 0 ? (ratePerUnitPaise / 100).toFixed(2) : "")}
                               placeholder="0.00"
                               onChange={(e) => updateLineRate(line.id, e.target.value)}
@@ -3132,10 +3214,10 @@ export function PosClient({
                         <td className="py-1 px-1.5 text-center">
                           <div className="relative inline-flex items-center justify-center w-18">
                             <input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              max="100"
+                              type="text" inputMode="decimal"
+                              
+                              
+                              
                               value={
                                 line.customDiscInput !== undefined
                                   ? line.customDiscInput
@@ -3160,9 +3242,8 @@ export function PosClient({
                           <div className="relative inline-flex items-center justify-end w-28">
                             <span className="absolute left-1.5 text-slate-400 font-mono text-xs pointer-events-none font-bold">₹</span>
                             <input
-                              type="number"
-                              step="0.01"
-                              min="0"
+                              type="text"
+                              inputMode="decimal"
                               data-pos-field="amount"
                               value={
                                 line.customAmountInput !== undefined
