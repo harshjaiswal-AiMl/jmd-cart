@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     const role = session.user.role;
-    if (role !== "SUPER_ADMIN" && role !== "ADMIN" && role !== "GODOWN") {
+    if (role !== "SUPER_ADMIN" && role !== "ADMIN" && role !== "GODOWN" && role !== "PRO" && role !== "SHOP") {
       return NextResponse.json(
         { error: "Forbidden: insufficient permissions to upload media" },
         { status: 403 }

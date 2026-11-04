@@ -15,8 +15,10 @@ export default async function AdminOrdersPage() {
   // Allowed for Super Admin, Godown, and Shop roles
   if (
     session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.ADMIN &&
     session.user.role !== UserRole.GODOWN &&
-    session.user.role !== UserRole.SHOP
+    session.user.role !== UserRole.SHOP &&
+    session.user.role !== UserRole.PRO
   ) {
     redirect("/store");
   }

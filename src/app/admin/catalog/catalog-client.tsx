@@ -1166,7 +1166,7 @@ export function CatalogClient({
                     min="0"
                     value={addMrp}
                     onChange={(e) => handleAddMrpChange(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono font-bold text-slate-900"
                   />
                 </div>
 
@@ -1183,7 +1183,7 @@ export function CatalogClient({
                       min="0"
                       value={addPriceA}
                       onChange={(e) => handleAddPriceChange("A", e.target.value)}
-                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono font-bold ${
                         addMrp && parseFloat(addPriceA) > parseFloat(addMrp)
                           ? "border-rose-500 bg-rose-50 text-rose-800"
                           : "border-gray-300"
@@ -1204,7 +1204,7 @@ export function CatalogClient({
                         disabled={!addMrp || parseFloat(addMrp) <= 0}
                         value={addPctA}
                         onChange={(e) => handleAddPercentChange("A", e.target.value)}
-                        className="block w-full pl-3 pr-7 py-2 border border-emerald-300 rounded-lg text-sm font-mono text-emerald-800 disabled:opacity-50 disabled:bg-gray-100"
+                        className="block w-full pl-3 pr-7 py-2 border border-emerald-300 rounded-lg text-sm font-mono font-bold text-emerald-900 disabled:opacity-50 disabled:bg-gray-100"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700">%</span>
                     </div>
@@ -1229,7 +1229,7 @@ export function CatalogClient({
                       min="0"
                       value={addPriceB}
                       onChange={(e) => handleAddPriceChange("B", e.target.value)}
-                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono font-bold ${
                         addMrp && parseFloat(addPriceB) > parseFloat(addMrp)
                           ? "border-rose-500 bg-rose-50 text-rose-800"
                           : "border-gray-300"
@@ -1250,7 +1250,7 @@ export function CatalogClient({
                         disabled={!addMrp || parseFloat(addMrp) <= 0}
                         value={addPctB}
                         onChange={(e) => handleAddPercentChange("B", e.target.value)}
-                        className="block w-full pl-3 pr-7 py-2 border border-blue-300 rounded-lg text-sm font-mono text-blue-800 disabled:opacity-50 disabled:bg-gray-100"
+                        className="block w-full pl-3 pr-7 py-2 border border-blue-300 rounded-lg text-sm font-mono font-bold text-blue-900 disabled:opacity-50 disabled:bg-gray-100"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-700">%</span>
                     </div>
@@ -1275,7 +1275,7 @@ export function CatalogClient({
                       min="0"
                       value={addPriceC}
                       onChange={(e) => handleAddPriceChange("C", e.target.value)}
-                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono font-bold ${
                         addMrp && parseFloat(addPriceC) > parseFloat(addMrp)
                           ? "border-rose-500 bg-rose-50 text-rose-800"
                           : "border-gray-300"
@@ -1296,7 +1296,7 @@ export function CatalogClient({
                         disabled={!addMrp || parseFloat(addMrp) <= 0}
                         value={addPctC}
                         onChange={(e) => handleAddPercentChange("C", e.target.value)}
-                        className="block w-full pl-3 pr-7 py-2 border border-amber-300 rounded-lg text-sm font-mono text-amber-800 disabled:opacity-50 disabled:bg-gray-100"
+                        className="block w-full pl-3 pr-7 py-2 border border-amber-300 rounded-lg text-sm font-mono font-bold text-amber-900 disabled:opacity-50 disabled:bg-gray-100"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-700">%</span>
                     </div>
@@ -1318,7 +1318,7 @@ export function CatalogClient({
                     defaultValue={12}
                     min={1}
                     required
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono font-bold text-slate-900"
                   />
                 </div>
 
@@ -1332,7 +1332,7 @@ export function CatalogClient({
                     defaultValue="0000"
                     required
                     maxLength={8}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono font-bold text-slate-900"
                   />
                 </div>
 
@@ -1684,7 +1684,7 @@ export function CatalogClient({
                               placeholder="—"
                               value={row.mrp}
                               onChange={(e) => handleInlineChange(p, "mrp", e.target.value)}
-                              className="w-24 px-2 py-1 text-right font-mono text-xs border border-gray-300 rounded focus:border-[#790E11]"
+                              className="w-24 px-2 py-1 text-right font-mono text-xs font-bold text-slate-900 border border-gray-300 rounded focus:border-[#790E11]"
                             />
                             {mrpPaiseVal == null && (
                               <div className="text-[10px] text-amber-600 font-medium">
@@ -1715,7 +1715,7 @@ export function CatalogClient({
                               placeholder="—"
                               value={row.a}
                               onChange={(e) => handleInlineChange(p, "a", e.target.value)}
-                              className={`w-24 px-2 py-1 text-right font-mono text-xs border rounded focus:ring-1 ${
+                              className={`w-24 px-2 py-1 text-right font-mono text-xs font-bold border rounded focus:ring-1 ${
                                 mrpPaiseVal && parseInputToPaise(row.a) && parseInputToPaise(row.a)! > mrpPaiseVal
                                   ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
                                   : "border-emerald-300 bg-emerald-50/30 text-slate-900 focus:border-emerald-600"
@@ -1731,10 +1731,10 @@ export function CatalogClient({
                                 disabled={!mrpPaiseVal || mrpPaiseVal <= 0}
                                 value={row.pctA ?? ""}
                                 onChange={(e) => handleInlinePercentChange(p, "a", e.target.value)}
-                                className="w-16 px-1.5 py-0.5 text-right font-mono text-[11px] border border-emerald-200 bg-white rounded focus:border-emerald-600 disabled:opacity-40 text-emerald-800"
+                                className="w-20 px-2 py-1 text-right font-mono text-xs font-bold border border-emerald-300 bg-white rounded focus:border-emerald-600 disabled:opacity-40 text-emerald-900 shadow-2xs"
                                 title="Discount % off MRP"
                               />
-                              <span className="text-[10px] text-emerald-700 font-bold">%</span>
+                              <span className="text-xs text-emerald-700 font-extrabold">%</span>
                             </div>
                             {mrpPaiseVal && parseInputToPaise(row.a) && parseInputToPaise(row.a)! > mrpPaiseVal ? (
                               <div className="text-[9px] text-rose-600 font-bold leading-tight mt-0.5 max-w-[120px]">
@@ -1765,7 +1765,7 @@ export function CatalogClient({
                               placeholder="—"
                               value={row.b}
                               onChange={(e) => handleInlineChange(p, "b", e.target.value)}
-                              className={`w-24 px-2 py-1 text-right font-mono text-xs border rounded focus:ring-1 ${
+                              className={`w-24 px-2 py-1 text-right font-mono text-xs font-bold border rounded focus:ring-1 ${
                                 mrpPaiseVal && parseInputToPaise(row.b) && parseInputToPaise(row.b)! > mrpPaiseVal
                                   ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
                                   : "border-blue-300 bg-blue-50/30 text-slate-900 focus:border-blue-600"
@@ -1781,10 +1781,10 @@ export function CatalogClient({
                                 disabled={!mrpPaiseVal || mrpPaiseVal <= 0}
                                 value={row.pctB ?? ""}
                                 onChange={(e) => handleInlinePercentChange(p, "b", e.target.value)}
-                                className="w-16 px-1.5 py-0.5 text-right font-mono text-[11px] border border-blue-200 bg-white rounded focus:border-blue-600 disabled:opacity-40 text-blue-800"
+                                className="w-20 px-2 py-1 text-right font-mono text-xs font-bold border border-blue-300 bg-white rounded focus:border-blue-600 disabled:opacity-40 text-blue-900 shadow-2xs"
                                 title="Discount % off MRP"
                               />
-                              <span className="text-[10px] text-blue-700 font-bold">%</span>
+                              <span className="text-xs text-blue-700 font-extrabold">%</span>
                             </div>
                             {mrpPaiseVal && parseInputToPaise(row.b) && parseInputToPaise(row.b)! > mrpPaiseVal ? (
                               <div className="text-[9px] text-rose-600 font-bold leading-tight mt-0.5 max-w-[120px]">
@@ -1815,7 +1815,7 @@ export function CatalogClient({
                               placeholder="—"
                               value={row.c}
                               onChange={(e) => handleInlineChange(p, "c", e.target.value)}
-                              className={`w-24 px-2 py-1 text-right font-mono text-xs border rounded focus:ring-1 ${
+                              className={`w-24 px-2 py-1 text-right font-mono text-xs font-bold border rounded focus:ring-1 ${
                                 mrpPaiseVal && parseInputToPaise(row.c) && parseInputToPaise(row.c)! > mrpPaiseVal
                                   ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
                                   : "border-amber-300 bg-amber-50/30 text-slate-900 focus:border-amber-600"
@@ -1831,10 +1831,10 @@ export function CatalogClient({
                                 disabled={!mrpPaiseVal || mrpPaiseVal <= 0}
                                 value={row.pctC ?? ""}
                                 onChange={(e) => handleInlinePercentChange(p, "c", e.target.value)}
-                                className="w-16 px-1.5 py-0.5 text-right font-mono text-[11px] border border-amber-200 bg-white rounded focus:border-amber-600 disabled:opacity-40 text-amber-800"
+                                className="w-20 px-2 py-1 text-right font-mono text-xs font-bold border border-amber-300 bg-white rounded focus:border-amber-600 disabled:opacity-40 text-amber-900 shadow-2xs"
                                 title="Discount % off MRP"
                               />
-                              <span className="text-[10px] text-amber-700 font-bold">%</span>
+                              <span className="text-xs text-amber-700 font-extrabold">%</span>
                             </div>
                             {mrpPaiseVal && parseInputToPaise(row.c) && parseInputToPaise(row.c)! > mrpPaiseVal ? (
                               <div className="text-[9px] text-rose-600 font-bold leading-tight mt-0.5 max-w-[120px]">
@@ -2233,7 +2233,7 @@ export function CatalogClient({
                     value={editMrp}
                     onChange={(e) => handleEditMrpChange(e.target.value)}
                     min="0"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono font-bold text-slate-900"
                   />
                 </div>
 
@@ -2249,7 +2249,7 @@ export function CatalogClient({
                       value={editPriceA}
                       onChange={(e) => handleEditPriceChange("A", e.target.value)}
                       min="0"
-                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono font-bold ${
                         editMrp && parseFloat(editPriceA) > parseFloat(editMrp)
                           ? "border-rose-500 bg-rose-50 text-rose-800"
                           : "border-gray-300"
@@ -2270,7 +2270,7 @@ export function CatalogClient({
                         disabled={!editMrp || parseFloat(editMrp) <= 0}
                         value={editPctA}
                         onChange={(e) => handleEditPercentChange("A", e.target.value)}
-                        className="block w-full pl-3 pr-7 py-2 border border-emerald-300 rounded-lg text-sm font-mono text-emerald-800 disabled:opacity-50 disabled:bg-gray-100"
+                        className="block w-full pl-3 pr-7 py-2 border border-emerald-300 rounded-lg text-sm font-mono font-bold text-emerald-900 disabled:opacity-50 disabled:bg-gray-100"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700">%</span>
                     </div>
@@ -2294,7 +2294,7 @@ export function CatalogClient({
                       value={editPriceB}
                       onChange={(e) => handleEditPriceChange("B", e.target.value)}
                       min="0"
-                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono font-bold ${
                         editMrp && parseFloat(editPriceB) > parseFloat(editMrp)
                           ? "border-rose-500 bg-rose-50 text-rose-800"
                           : "border-gray-300"
@@ -2315,7 +2315,7 @@ export function CatalogClient({
                         disabled={!editMrp || parseFloat(editMrp) <= 0}
                         value={editPctB}
                         onChange={(e) => handleEditPercentChange("B", e.target.value)}
-                        className="block w-full pl-3 pr-7 py-2 border border-blue-300 rounded-lg text-sm font-mono text-blue-800 disabled:opacity-50 disabled:bg-gray-100"
+                        className="block w-full pl-3 pr-7 py-2 border border-blue-300 rounded-lg text-sm font-mono font-bold text-blue-900 disabled:opacity-50 disabled:bg-gray-100"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-700">%</span>
                     </div>
@@ -2339,7 +2339,7 @@ export function CatalogClient({
                       value={editPriceC}
                       onChange={(e) => handleEditPriceChange("C", e.target.value)}
                       min="0"
-                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono ${
+                      className={`mt-1 block w-full px-3 py-2 border rounded-lg text-sm font-mono font-bold ${
                         editMrp && parseFloat(editPriceC) > parseFloat(editMrp)
                           ? "border-rose-500 bg-rose-50 text-rose-800"
                           : "border-gray-300"
@@ -2360,7 +2360,7 @@ export function CatalogClient({
                         disabled={!editMrp || parseFloat(editMrp) <= 0}
                         value={editPctC}
                         onChange={(e) => handleEditPercentChange("C", e.target.value)}
-                        className="block w-full pl-3 pr-7 py-2 border border-amber-300 rounded-lg text-sm font-mono text-amber-800 disabled:opacity-50 disabled:bg-gray-100"
+                        className="block w-full pl-3 pr-7 py-2 border border-amber-300 rounded-lg text-sm font-mono font-bold text-amber-900 disabled:opacity-50 disabled:bg-gray-100"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-700">%</span>
                     </div>
@@ -2382,7 +2382,7 @@ export function CatalogClient({
                     defaultValue={editingProduct.packSize}
                     min={1}
                     required
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono font-bold text-slate-900"
                   />
                 </div>
 
@@ -2396,7 +2396,7 @@ export function CatalogClient({
                     defaultValue={editingProduct.hsn}
                     required
                     maxLength={8}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono font-bold text-slate-900"
                   />
                 </div>
 

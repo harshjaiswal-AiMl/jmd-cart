@@ -43,6 +43,7 @@ import {
   checkPartyCreditStatusAction,
   setAdminManualRateAction,
   saveProductPriceAction,
+  updateProductMasterFromPosAction,
   quickAddShopStockAction,
   createQuickPartyAction,
   getPartyBillHistoryAction,
@@ -154,6 +155,8 @@ export interface PosCartLine {
   customDiscInput?: string;
   customMrpPaise?: number | null;
   customMrpInput?: string;
+  customAmountInput?: string;
+  customNameInput?: string;
   updateMasterMrp?: boolean;
   isCustomRate?: boolean;
 }
@@ -300,6 +303,212 @@ export function PosClient({
         };
       }),
     });
+  };
+
+
+  const updateLineAmount = (lineId: string, value: string) => {
+    const valNum = parseFloat(value);
+    const totalPaise = !isNaN(valNum) && valNum >= 0 ? Math.round(valNum * 100) : 0;
+
+    updateActiveTab({
+      cart: activeTab.cart.map((item) => {
+        if (item.id !== lineId) return item;
+        const packSize = Math.max(1, item.product.packSize);
+        const bagSize = (item.product as any).bagSize || packSize;
+        const mult = item.unit === "Carton" ? packSize : item.unit === "Bag" ? bagSize : item.unit === "Dozen" ? 12 : 1;
+
+        const effectiveBaseMrp = (item.customMrpPaise != null && item.customMrpPaise > 0)
+          ? item.customMrpPaise
+          : (item.product.mrpPaise && item.product.mrpPaise > 0 ? item.product.mrpPaise : 0);
+        let mrpPerUnit = effectiveBaseMrp * mult;
+
+        const newRatePaise = item.qty > 0 ? Math.round(totalPaise / item.qty) : totalPaise;
+
+        let updatedPieceMrp = item.customMrpPaise;
+        let updatedMrpInput = item.customMrpInput;
+        if (newRatePaise > mrpPerUnit && mrpPerUnit > 0) {
+          mrpPerUnit = newRatePaise;
+          updatedPieceMrp = Math.round(newRatePaise / mult);
+          updatedMrpInput = (newRatePaise / 100).toFixed(2);
+        }
+
+        const newDisc = mrpPerUnit > 0 && newRatePaise < mrpPerUnit
+          ? Math.round(((mrpPerUnit - newRatePaise) / mrpPerUnit) * 10000) / 100
+          : 0;
+
+        return {
+          ...item,
+          customAmountInput: value,
+          customRateInput: (newRatePaise / 100).toFixed(2),
+          customRatePaise: newRatePaise,
+          customDiscInput: newDisc > 0 ? newDisc.toFixed(1) : "0",
+          lineDiscountPercent: newDisc,
+          customMrpPaise: updatedPieceMrp,
+          customMrpInput: updatedMrpInput,
+          isCustomRate: true,
+        };
+      }),
+    });
+  };
+
+  const updateLineProductName = (lineId: string, value: string) => {
+    updateActiveTab({
+      cart: activeTab.cart.map((item) =>
+        item.id === lineId
+          ? {
+              ...item,
+              customNameInput: value,
+            }
+          : item
+      ),
+    });
+  };
+
+  const persistProductNameChange = async (lineId: string) => {
+    const line = activeTab.cart.find((c) => c.id === lineId);
+    if (!line || !line.customNameInput || line.customNameInput.trim() === line.product.name) return;
+    const newName = line.customNameInput.trim();
+    try {
+      await updateProductMasterFromPosAction({
+        productId: line.productId,
+        name: newName,
+      });
+      setProductsList((prev) =>
+        prev.map((p) => (p.id === line.productId ? { ...p, name: newName } : p))
+      );
+      updateActiveTab({
+        cart: activeTab.cart.map((item) =>
+          item.id === lineId
+            ? { ...item, product: { ...item.product, name: newName } }
+            : item
+        ),
+      });
+    } catch (err) {
+      console.error("Failed to update product name in master:", err);
+    }
+  };
+
+  const persistMrpChange = async (lineId: string) => {
+    const line = activeTab.cart.find((c) => c.id === lineId);
+    if (!line || line.customMrpPaise == null || line.customMrpPaise <= 0) return;
+    try {
+      await updateProductMasterFromPosAction({
+        productId: line.productId,
+        mrpPaise: line.customMrpPaise,
+      });
+      setProductsList((prev) =>
+        prev.map((p) => (p.id === line.productId ? { ...p, mrpPaise: line.customMrpPaise! } : p))
+      );
+      updateActiveTab({
+        cart: activeTab.cart.map((item) =>
+          item.id === lineId
+            ? { ...item, product: { ...item.product, mrpPaise: line.customMrpPaise! } }
+            : item
+        ),
+      });
+    } catch (err) {
+      console.error("Failed to update product MRP in master:", err);
+    }
+  };
+
+  const POS_FIELD_ORDER = ["name", "qty", "unit", "mrp", "rate", "disc", "amount"];
+
+  const handlePosCellKeyDown = (
+    e: React.KeyboardEvent<HTMLElement>,
+    currentField: string,
+    rowIndex: number,
+    lineId: string,
+    currentQty?: number
+  ) => {
+    const currentIdx = POS_FIELD_ORDER.indexOf(currentField);
+
+    if (currentField === "qty") {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        updateLineQty(lineId, (currentQty ?? 1) + 1);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        updateLineQty(lineId, Math.max(1, (currentQty ?? 1) - 1));
+        return;
+      }
+    }
+
+    if (e.key === "ArrowRight" || (e.key === "Enter" && currentField !== "qty")) {
+      const input = e.target as HTMLInputElement;
+      const isInput = input.tagName === "INPUT";
+      const atEnd =
+        !isInput ||
+        input.selectionEnd === input.value.length ||
+        (input.selectionStart === 0 && input.selectionEnd === input.value.length);
+
+      if (e.key === "Enter" || atEnd) {
+        e.preventDefault();
+        if (currentIdx < POS_FIELD_ORDER.length - 1) {
+          const nextField = POS_FIELD_ORDER[currentIdx + 1];
+          const row = (e.target as HTMLElement).closest("tr");
+          const nextEl = row?.querySelector<HTMLElement>(`[data-pos-field="${nextField}"]`);
+          if (nextEl) {
+            nextEl.focus();
+            if ("select" in nextEl && typeof (nextEl as any).select === "function") {
+              (nextEl as any).select();
+            }
+          }
+        } else {
+          // Last cell in row (Amount) - go to next row or search
+          const nextRow = (e.target as HTMLElement).closest("tr")?.nextElementSibling;
+          const nextRowEl =
+            nextRow?.querySelector<HTMLElement>(`[data-pos-field="name"]`) ||
+            nextRow?.querySelector<HTMLElement>(`[data-pos-field="qty"]`);
+          if (nextRowEl) {
+            nextRowEl.focus();
+            if ("select" in nextRowEl && typeof (nextRowEl as any).select === "function") {
+              (nextRowEl as any).select();
+            }
+          } else {
+            itemSearchInputRef.current?.focus();
+            itemSearchInputRef.current?.select();
+          }
+        }
+      }
+    } else if (e.key === "ArrowLeft") {
+      const input = e.target as HTMLInputElement;
+      const isInput = input.tagName === "INPUT";
+      const atStart =
+        !isInput ||
+        input.selectionStart === 0 ||
+        (input.selectionStart === 0 && input.selectionEnd === input.value.length);
+
+      if (atStart) {
+        e.preventDefault();
+        if (currentIdx > 0) {
+          const prevField = POS_FIELD_ORDER[currentIdx - 1];
+          const row = (e.target as HTMLElement).closest("tr");
+          const prevEl = row?.querySelector<HTMLElement>(`[data-pos-field="${prevField}"]`);
+          if (prevEl) {
+            prevEl.focus();
+            if ("select" in prevEl && typeof (prevEl as any).select === "function") {
+              (prevEl as any).select();
+            }
+          }
+        } else {
+          // First cell in row (Name) - go to previous row's amount
+          const prevRow = (e.target as HTMLElement).closest("tr")?.previousElementSibling;
+          const prevRowLastEl = prevRow?.querySelector<HTMLElement>(`[data-pos-field="amount"]`);
+          if (prevRowLastEl) {
+            prevRowLastEl.focus();
+            if ("select" in prevRowLastEl && typeof (prevRowLastEl as any).select === "function") {
+              (prevRowLastEl as any).select();
+            }
+          }
+        }
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      itemSearchInputRef.current?.focus();
+      itemSearchInputRef.current?.select();
+    }
   };
 
   const toggleUpdateMasterMrp = (lineId: string) => {
@@ -860,7 +1069,7 @@ export function PosClient({
     }
     updateActiveTab({
       cart: activeTab.cart.map((item) =>
-        item.id === lineId ? { ...item, qty: newQty } : item
+        item.id === lineId ? { ...item, qty: newQty, customAmountInput: undefined } : item
       ),
     });
   };
@@ -2819,13 +3028,21 @@ export function PosClient({
                           {index + 1}
                         </td>
 
-                        <td className="py-1 px-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-slate-900 text-xs sm:text-sm truncate">
-                              {line.product.name} {line.product.weight || (line.product.weightValue ? `${line.product.weightValue}${line.product.weightUnit || "g"}` : "")}
-                            </span>
+                        <td className="py-1 px-2">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              data-pos-field="name"
+                              value={line.customNameInput !== undefined ? line.customNameInput : line.product.name}
+                              onChange={(e) => updateLineProductName(line.id, e.target.value)}
+                              onBlur={() => persistProductNameChange(line.id)}
+                              onFocus={(e) => e.target.select()}
+                              onKeyDown={(e) => handlePosCellKeyDown(e, "name", index, line.id)}
+                              title="Product Name (Editable - permanently updates product in catalog)"
+                              className="flex-1 px-1.5 py-1 text-xs sm:text-sm font-bold text-slate-900 bg-white border border-slate-300 rounded focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
+                            />
                             {!isStockSufficient && (
-                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1 py-0.2 rounded shrink-0">
+                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1 py-0.5 rounded shrink-0">
                                 Low ({isCarton ? `${availableCartons} ctn` : `${line.product.shopStockQty ?? 0} pcs`})
                               </span>
                             )}
@@ -2841,29 +3058,7 @@ export function PosClient({
                             value={line.qty}
                             onChange={(e) => updateLineQty(line.id, parseInt(e.target.value, 10) || 1)}
                             onFocus={(e) => e.target.select()}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                const row = (e.target as HTMLElement).closest("tr");
-                                const unitSelect = row?.querySelector<HTMLSelectElement>("select[data-pos-field='unit']");
-                                if (unitSelect) {
-                                  unitSelect.focus();
-                                } else {
-                                  const rateInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='rate']");
-                                  if (rateInput) {
-                                    rateInput.focus();
-                                    rateInput.select();
-                                  } else {
-                                    itemSearchInputRef.current?.focus();
-                                    itemSearchInputRef.current?.select();
-                                  }
-                                }
-                              } else if (e.key === "Escape") {
-                                e.preventDefault();
-                                itemSearchInputRef.current?.focus();
-                                itemSearchInputRef.current?.select();
-                              }
-                            }}
+                            onKeyDown={(e) => handlePosCellKeyDown(e, "qty", index, line.id, line.qty)}
                             className="w-18 px-1.5 py-1 text-center font-black text-sm bg-white border border-slate-300 rounded focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
                           />
                         </td>
@@ -2874,24 +3069,7 @@ export function PosClient({
                             data-pos-field="unit"
                             value={line.unit}
                             onChange={(e) => updateLineUnit(line.id, e.target.value as "Pcs" | "Carton" | "Dozen" | "Bag")}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                const row = (e.target as HTMLElement).closest("tr");
-                                const rateInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='rate']");
-                                if (rateInput) {
-                                  rateInput.focus();
-                                  rateInput.select();
-                                } else {
-                                  itemSearchInputRef.current?.focus();
-                                  itemSearchInputRef.current?.select();
-                                }
-                              } else if (e.key === "Escape") {
-                                e.preventDefault();
-                                itemSearchInputRef.current?.focus();
-                                itemSearchInputRef.current?.select();
-                              }
-                            }}
+                            onKeyDown={(e) => handlePosCellKeyDown(e, "unit", index, line.id)}
                             className="w-26 px-1.5 py-1 text-xs font-bold bg-white border border-slate-300 rounded focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none cursor-pointer transition-colors"
                           >
                             <option value="Pcs">Pcs</option>
@@ -2919,24 +3097,11 @@ export function PosClient({
                                 }
                                 placeholder="0.00"
                                 onChange={(e) => updateLineMrp(line.id, e.target.value)}
+                                onBlur={() => persistMrpChange(line.id)}
                                 onFocus={(e) => e.target.select()}
                                 data-pos-field="mrp"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    const row = (e.target as HTMLElement).closest("tr");
-                                    const rateInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='rate']");
-                                    if (rateInput) {
-                                      rateInput.focus();
-                                      rateInput.select();
-                                    }
-                                  } else if (e.key === "Escape") {
-                                    e.preventDefault();
-                                    itemSearchInputRef.current?.focus();
-                                    itemSearchInputRef.current?.select();
-                                  }
-                                }}
-                                title="Editable Line MRP"
+                                onKeyDown={(e) => handlePosCellKeyDown(e, "mrp", index, line.id)}
+                                title="Editable Line MRP (Permanently syncs to Master)"
                                 className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-bold text-xs rounded border border-slate-300 bg-white text-slate-900 focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
                               />
                             </div>
@@ -2956,25 +3121,8 @@ export function PosClient({
                               onChange={(e) => updateLineRate(line.id, e.target.value)}
                               onFocus={(e) => e.target.select()}
                               data-pos-field="rate"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault();
-                                  const row = (e.target as HTMLElement).closest("tr");
-                                  const discInput = row?.querySelector<HTMLInputElement>("input[data-pos-field='disc']");
-                                  if (discInput) {
-                                    discInput.focus();
-                                    discInput.select();
-                                  } else {
-                                    itemSearchInputRef.current?.focus();
-                                    itemSearchInputRef.current?.select();
-                                  }
-                                } else if (e.key === "Escape") {
-                                  e.preventDefault();
-                                  itemSearchInputRef.current?.focus();
-                                  itemSearchInputRef.current?.select();
-                                }
-                              }}
-                              title="Type here to change selling rate manually"
+                              onKeyDown={(e) => handlePosCellKeyDown(e, "rate", index, line.id)}
+                              title="Selling rate manually"
                               className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-black text-xs rounded border border-slate-300 bg-white text-slate-900 focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
                             />
                           </div>
@@ -2999,18 +3147,7 @@ export function PosClient({
                               onChange={(e) => updateLineDiscountPercent(line.id, e.target.value)}
                               onFocus={(e) => e.target.select()}
                               data-pos-field="disc"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === "ArrowDown") {
-                                  e.preventDefault();
-                                  // Row complete! Jump back to Item Search for next product
-                                  itemSearchInputRef.current?.focus();
-                                  itemSearchInputRef.current?.select();
-                                } else if (e.key === "Escape") {
-                                  e.preventDefault();
-                                  itemSearchInputRef.current?.focus();
-                                  itemSearchInputRef.current?.select();
-                                }
-                              }}
+                              onKeyDown={(e) => handlePosCellKeyDown(e, "disc", index, line.id)}
                               title="Discount % off MRP. Changing this automatically calculates selling rate."
                               className="w-full pl-1 pr-4 py-1 text-center font-mono font-black text-xs rounded border border-slate-300 bg-white text-slate-900 focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
                             />
@@ -3018,11 +3155,30 @@ export function PosClient({
                           </div>
                         </td>
 
-                        {/* Amount */}
-                        <td className="py-1 px-2.5 text-right">
-                          <span className="font-mono font-black text-xs sm:text-sm text-[#12355B]">
-                            ₹{(lineAmountPaise / 100).toFixed(2)}
-                          </span>
+                        {/* Amount (₹) - Fully Editable Input */}
+                        <td className="py-1 px-1.5 text-right">
+                          <div className="relative inline-flex items-center justify-end w-28">
+                            <span className="absolute left-1.5 text-slate-400 font-mono text-xs pointer-events-none font-bold">₹</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              data-pos-field="amount"
+                              value={
+                                line.customAmountInput !== undefined
+                                  ? line.customAmountInput
+                                  : lineAmountPaise > 0
+                                  ? (lineAmountPaise / 100).toFixed(2)
+                                  : ""
+                              }
+                              placeholder="0.00"
+                              onChange={(e) => updateLineAmount(line.id, e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                              onKeyDown={(e) => handlePosCellKeyDown(e, "amount", index, line.id)}
+                              title="Line Amount (₹). Changing this derives rate and discount %."
+                              className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-black text-xs sm:text-sm rounded border border-slate-300 bg-white text-[#12355B] focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
+                            />
+                          </div>
                         </td>
 
                         {/* Delete Line */}

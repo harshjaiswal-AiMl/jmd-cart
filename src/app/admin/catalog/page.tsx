@@ -22,7 +22,10 @@ export default async function AdminCatalogPage({
     session.user.role !== UserRole.SUPER_ADMIN &&
     session.user.role !== UserRole.ADMIN &&
     session.user.role !== UserRole.GODOWN &&
-    session.user.role !== UserRole.WAREHOUSE_MANAGER
+    session.user.role !== UserRole.WAREHOUSE_MANAGER &&
+    session.user.role !== UserRole.SHOP &&
+    session.user.role !== UserRole.PRO &&
+    session.user.role !== UserRole.ACCOUNTS
   ) {
     redirect("/login");
   }

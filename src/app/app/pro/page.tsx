@@ -22,7 +22,7 @@ export default async function ProAppPage({
   }
 
   // 1. Fetch products with prices and current stock
-  const [products, locations] = await Promise.all([
+  const [products, locations, companies, categories] = await Promise.all([
     prisma.product.findMany({
       where: { active: true },
       orderBy: { name: "asc" },
@@ -37,6 +37,7 @@ export default async function ProAppPage({
         priceAPaise: true,
         priceBPaise: true,
         priceCPaise: true,
+        imageUrl: true,
         stockBalances: {
           select: {
             locationId: true,
@@ -48,6 +49,16 @@ export default async function ProAppPage({
     prisma.location.findMany({
       where: { active: true },
       select: { id: true, type: true },
+    }),
+    prisma.company.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    prisma.category.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
     }),
   ]);
 
@@ -73,6 +84,7 @@ export default async function ProAppPage({
       priceAPaise: p.priceAPaise,
       priceBPaise: p.priceBPaise,
       priceCPaise: p.priceCPaise,
+      imageUrl: p.imageUrl,
       shopQty,
       godownQty,
     };
@@ -164,6 +176,8 @@ export default async function ProAppPage({
         agentCode: (session.user as any).agentCode || null,
       }}
       initialTab={searchParams?.tab || "parties"}
+      companies={companies}
+      categories={categories}
     />
   );
 }

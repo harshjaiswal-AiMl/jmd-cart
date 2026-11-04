@@ -18,7 +18,13 @@ export default async function AdminPartiesPage({
     redirect("/login");
   }
 
-  if (session.user.role !== UserRole.SUPER_ADMIN && session.user.role !== UserRole.ACCOUNTS) {
+  if (
+    session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.ADMIN &&
+    session.user.role !== UserRole.ACCOUNTS &&
+    session.user.role !== UserRole.SHOP &&
+    session.user.role !== UserRole.PRO
+  ) {
     redirect("/login");
   }
 

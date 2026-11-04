@@ -1076,3 +1076,46 @@ export async function getPosTodaySalesSummaryAction(locationId: string) {
     return { success: false, error: err.message || "Failed to get today sales" };
   }
 }
+
+export async function updateProductMasterFromPosAction(input: {
+  productId: string;
+  name?: string;
+  mrpPaise?: number;
+  ratePaise?: number;
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error("Unauthorized");
+  }
+
+  if (
+    session.user.role !== UserRole.SUPER_ADMIN &&
+    session.user.role !== UserRole.ADMIN &&
+    session.user.role !== UserRole.SHOP &&
+    session.user.role !== UserRole.PRO
+  ) {
+    throw new Error("Only Admin, Cashier, or Pro can update product master.");
+  }
+
+  const updateData: any = {};
+  if (input.name && input.name.trim()) {
+    updateData.name = input.name.trim();
+  }
+  if (input.mrpPaise !== undefined && input.mrpPaise > 0) {
+    updateData.mrpPaise = input.mrpPaise;
+  }
+  if (input.ratePaise !== undefined && input.ratePaise > 0) {
+    updateData.priceCPaise = input.ratePaise;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return { success: true };
+  }
+
+  const updated = await prisma.product.update({
+    where: { id: input.productId },
+    data: updateData,
+  });
+
+  return { success: true, product: updated };
+}

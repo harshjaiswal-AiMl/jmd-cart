@@ -22,9 +22,13 @@ import {
   ChevronRight,
   ShieldCheck,
   Package,
+  Edit3,
+  Camera,
+  UploadCloud,
 } from "lucide-react";
 import { searchItems } from "@/lib/search/smart-search";
-import { searchPartiesAction, createProPartyAction, punchProOrderAction, cancelProOrderAction } from "./actions";
+import { searchPartiesAction, createProPartyAction, punchProOrderAction, cancelProOrderAction, createProProductAction, saveProProductPriceAction } from "./actions";
+import { ProductImage } from "@/components/common/ProductImage";
 
 interface ProProduct {
   id: string;
@@ -37,6 +41,7 @@ interface ProProduct {
   priceAPaise: number | null;
   priceBPaise: number | null;
   priceCPaise: number | null;
+  imageUrl?: string | null;
   shopQty: number;
   godownQty: number;
 }
@@ -101,6 +106,8 @@ interface Props {
     agentCode?: string | null;
   };
   initialTab?: string;
+  companies?: Array<{ id: string; name: string }>;
+  categories?: Array<{ id: string; name: string }>;
 }
 
 export function ProMobileClient({
@@ -110,8 +117,174 @@ export function ProMobileClient({
   todaySummary,
   user,
   initialTab = "parties",
+  companies = [],
+  categories = [],
 }: Props) {
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  const [products, setProducts] = useState<ProProduct[]>(initialProducts);
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<ProProduct | null>(null);
+
+  // Add Product form state
+  const [addName, setAddName] = useState("");
+  const [addWeight, setAddWeight] = useState("");
+  const [addPackSize, setAddPackSize] = useState("1");
+  const [addCompanyId, setAddCompanyId] = useState("");
+  const [addCategoryId, setAddCategoryId] = useState("");
+  const [addMrp, setAddMrp] = useState("");
+  const [addPriceA, setAddPriceA] = useState("");
+  const [addPriceB, setAddPriceB] = useState("");
+  const [addPriceC, setAddPriceC] = useState("");
+  const [addImageUrl, setAddImageUrl] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Edit Product form state
+  const [editMrp, setEditMrp] = useState("");
+  const [editPriceA, setEditPriceA] = useState("");
+  const [editPriceB, setEditPriceB] = useState("");
+  const [editPriceC, setEditPriceC] = useState("");
+  const [editImageUrl, setEditImageUrl] = useState("");
+
+  const handleImageUpload = async (file: File, isEdit: boolean) => {
+    try {
+      setIsUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Image upload failed");
+      }
+
+      if (isEdit) {
+        setEditImageUrl(data.key || data.url);
+      } else {
+        setAddImageUrl(data.key || data.url);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || "Failed to upload image");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSaveNewProduct = () => {
+    if (!addName.trim()) {
+      setErrorMessage("Product name is required");
+      return;
+    }
+    const mrpPaise = Math.round((parseFloat(addMrp) || 0) * 100);
+    const priceAPaise = Math.round((parseFloat(addPriceA) || 0) * 100);
+    const priceBPaise = Math.round((parseFloat(addPriceB) || 0) * 100);
+    const priceCPaise = Math.round((parseFloat(addPriceC) || 0) * 100);
+
+    if (mrpPaise <= 0 || priceAPaise <= 0) {
+      setErrorMessage("MRP and Price A are required");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const res = await createProProductAction({
+          name: addName.trim(),
+          weight: addWeight.trim() || undefined,
+          packSize: parseInt(addPackSize, 10) || 1,
+          mrpPaise,
+          priceAPaise,
+          priceBPaise: priceBPaise || priceAPaise,
+          priceCPaise: priceCPaise || priceAPaise,
+          companyId: addCompanyId || undefined,
+          categoryId: addCategoryId || undefined,
+          imageUrl: addImageUrl || undefined,
+        });
+
+        if (res.success && res.product) {
+          const newP: ProProduct = {
+            id: res.product.id,
+            name: res.product.name,
+            shortCode: res.product.shortCode,
+            weight: res.product.weight,
+            packSize: res.product.packSize,
+            packLabel: res.product.packLabel,
+            mrpPaise: res.product.mrpPaise,
+            priceAPaise: res.product.priceAPaise,
+            priceBPaise: res.product.priceBPaise,
+            priceCPaise: res.product.priceCPaise,
+            imageUrl: res.product.imageUrl,
+            shopQty: 0,
+            godownQty: 0,
+          };
+          setProducts((prev) => [newP, ...prev]);
+          setShowAddProductModal(false);
+          setAddName("");
+          setAddWeight("");
+          setAddPackSize("1");
+          setAddMrp("");
+          setAddPriceA("");
+          setAddPriceB("");
+          setAddPriceC("");
+          setAddImageUrl("");
+        }
+      } catch (err: any) {
+        setErrorMessage(err.message || "Failed to add product");
+      }
+    });
+  };
+
+  const handleSaveProductPrices = () => {
+    if (!editingProduct) return;
+    const mrpPaise = Math.round((parseFloat(editMrp) || 0) * 100);
+    const priceAPaise = Math.round((parseFloat(editPriceA) || 0) * 100);
+    const priceBPaise = Math.round((parseFloat(editPriceB) || 0) * 100);
+    const priceCPaise = Math.round((parseFloat(editPriceC) || 0) * 100);
+
+    startTransition(async () => {
+      try {
+        await saveProProductPriceAction({
+          productId: editingProduct.id,
+          mrpPaise: mrpPaise > 0 ? mrpPaise : undefined,
+          priceAPaise: priceAPaise > 0 ? priceAPaise : undefined,
+          priceBPaise: priceBPaise > 0 ? priceBPaise : undefined,
+          priceCPaise: priceCPaise > 0 ? priceCPaise : undefined,
+          imageUrl: editImageUrl || undefined,
+        });
+
+        setProducts((prev) =>
+          prev.map((p) =>
+            p.id === editingProduct.id
+              ? {
+                  ...p,
+                  mrpPaise: mrpPaise > 0 ? mrpPaise : p.mrpPaise,
+                  priceAPaise: priceAPaise > 0 ? priceAPaise : p.priceAPaise,
+                  priceBPaise: priceBPaise > 0 ? priceBPaise : p.priceBPaise,
+                  priceCPaise: priceCPaise > 0 ? priceCPaise : p.priceCPaise,
+                  imageUrl: editImageUrl || p.imageUrl,
+                }
+              : p
+          )
+        );
+        setEditingProduct(null);
+      } catch (err: any) {
+        setErrorMessage(err.message || "Failed to update price");
+      }
+    });
+  };
+
+  const catalogFilteredProducts = useMemo(() => {
+    const q = catalogSearch.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(q) || (p.shortCode && p.shortCode.toLowerCase().includes(q))
+    );
+  }, [products, catalogSearch]);
+
   const [parties, setParties] = useState<ProParty[]>(initialParties);
   const [orders, setOrders] = useState<ProOrder[]>(initialOrders);
   const [summary, setSummary] = useState(todaySummary);
@@ -158,7 +331,7 @@ export function ProMobileClient({
   // Filter products by smart multi-token search
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return [];
-    return searchItems(productSearch, initialProducts as any, { limit: 10 }) as unknown as ProProduct[];
+    return searchItems(productSearch, products as any, { limit: 10 }) as unknown as ProProduct[];
   }, [initialProducts, productSearch]);
 
   // Helper: resolve price for party tier
@@ -369,7 +542,7 @@ export function ProMobileClient({
     if (partyMatch) setSelectedParty(partyMatch);
 
     const reloadedCart: CartLine[] = order.items.map((it) => {
-      const prod = initialProducts.find((p) => p.id === it.productId);
+      const prod = products.find((p) => p.id === it.productId);
       const packSize = it.packSize || prod?.packSize || 1;
       const cartons = Math.floor(it.quantity / packSize);
       const loose = it.quantity % packSize;
@@ -507,6 +680,123 @@ export function ProMobileClient({
                 Punch Another
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* TAB: CATALOG (Products & All-Tier Price Editor & Image Upload) */}
+      {activeTab === "catalog" && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search products or barcode..."
+                value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-medium focus:ring-2 focus:ring-[#12355B]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setAddName("");
+                setAddWeight("");
+                setAddPackSize("1");
+                setAddMrp("");
+                setAddPriceA("");
+                setAddPriceB("");
+                setAddPriceC("");
+                setAddImageUrl("");
+                setShowAddProductModal(true);
+              }}
+              className="px-3 py-2 bg-[#FC830D] text-white rounded-2xl text-xs font-bold flex items-center gap-1 shadow-md hover:bg-[#e07205] transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add</span>
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {catalogFilteredProducts.map((p) => (
+              <div
+                key={p.id}
+                className="bg-white border border-slate-200 rounded-2xl p-3 shadow-2xs hover:shadow-xs transition space-y-2"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
+                    <ProductImage
+                      src={p.imageUrl}
+                      alt={p.name}
+                      width={56}
+                      height={56}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <h4 className="font-bold text-slate-900 text-xs truncate">{p.name}</h4>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProduct(p);
+                          setEditMrp(p.mrpPaise ? (p.mrpPaise / 100).toFixed(2) : "");
+                          setEditPriceA(p.priceAPaise ? (p.priceAPaise / 100).toFixed(2) : "");
+                          setEditPriceB(p.priceBPaise ? (p.priceBPaise / 100).toFixed(2) : "");
+                          setEditPriceC(p.priceCPaise ? (p.priceCPaise / 100).toFixed(2) : "");
+                          setEditImageUrl(p.imageUrl || "");
+                        }}
+                        className="p-1 text-slate-400 hover:text-[#12355B] rounded-lg transition"
+                        title="Edit Price & Image"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500">
+                      Pack: {p.packSize} pcs {p.weight ? `· ${p.weight}` : ""}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded">
+                        Shop: {p.shopQty} pcs
+                      </span>
+                      <span className="text-[9px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded">
+                        Godown: {p.godownQty} pcs
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Price Tiers Grid (All 3 Tiers + MRP) */}
+                <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-slate-100 text-center font-mono">
+                  <div className="bg-slate-50 p-1 rounded-lg">
+                    <span className="block text-[8px] font-bold uppercase text-slate-400">MRP</span>
+                    <span className="text-[11px] font-black text-slate-800">
+                      {p.mrpPaise ? `₹${(p.mrpPaise / 100).toFixed(0)}` : "—"}
+                    </span>
+                  </div>
+                  <div className="bg-emerald-50/60 p-1 rounded-lg border border-emerald-100">
+                    <span className="block text-[8px] font-bold uppercase text-emerald-700">Tier A</span>
+                    <span className="text-[11px] font-black text-emerald-800">
+                      {p.priceAPaise ? `₹${(p.priceAPaise / 100).toFixed(0)}` : "—"}
+                    </span>
+                  </div>
+                  <div className="bg-blue-50/60 p-1 rounded-lg border border-blue-100">
+                    <span className="block text-[8px] font-bold uppercase text-blue-700">Tier B</span>
+                    <span className="text-[11px] font-black text-blue-800">
+                      {p.priceBPaise ? `₹${(p.priceBPaise / 100).toFixed(0)}` : "—"}
+                    </span>
+                  </div>
+                  <div className="bg-amber-50/60 p-1 rounded-lg border border-amber-100">
+                    <span className="block text-[8px] font-bold uppercase text-amber-700">Tier C</span>
+                    <span className="text-[11px] font-black text-amber-800">
+                      {p.priceCPaise ? `₹${(p.priceCPaise / 100).toFixed(0)}` : "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -1071,6 +1361,309 @@ export function ProMobileClient({
                 className="py-2.5 rounded-xl bg-[#12355B] text-white text-xs font-black shadow-md hover:bg-[#0E2843] disabled:opacity-50"
               >
                 {isPending ? "Saving..." : "Save Party"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* ADD PRODUCT MODAL (Mobile Friendly) */}
+      {showAddProductModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl p-5 max-w-md w-full space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                <Package className="w-4 h-4 text-[#FC830D]" />
+                Add New Product
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowAddProductModal(false)}
+                className="p-1 rounded-full text-slate-400 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Product Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Kurkure Masala Munch 45g"
+                  value={addName}
+                  onChange={(e) => setAddName(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-[#12355B]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Weight / Unit</label>
+                  <input
+                    type="text"
+                    placeholder="45g / 100ml"
+                    value={addWeight}
+                    onChange={(e) => setAddWeight(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Pack Size (Pcs)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={addPackSize}
+                    onChange={(e) => setAddPackSize(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Company & Category Select */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Company / Brand</label>
+                  <select
+                    value={addCompanyId}
+                    onChange={(e) => setAddCompanyId(e.target.value)}
+                    className="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
+                  >
+                    <option value="">Select Company</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Category</label>
+                  <select
+                    value={addCategoryId}
+                    onChange={(e) => setAddCategoryId(e.target.value)}
+                    className="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold"
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Image Upload Box */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Product Photo</label>
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                    {addImageUrl ? (
+                      <ProductImage src={addImageUrl} alt="Preview" width={64} height={64} className="w-full h-full object-contain" />
+                    ) : (
+                      <Camera className="w-6 h-6 text-slate-400" />
+                    )}
+                  </div>
+                  <label className="flex-1 cursor-pointer">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition">
+                      <UploadCloud className="w-4 h-4 text-[#12355B]" />
+                      {isUploading ? "Uploading..." : "Take Photo / Gallery"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      disabled={isUploading}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageUpload(file, false);
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* Price Tiers (A, B, C and MRP) */}
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 font-mono">
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">MRP (₹) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="20.00"
+                    value={addMrp}
+                    onChange={(e) => setAddMrp(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-emerald-700 mb-1">Price A (Retail ₹) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="18.00"
+                    value={addPriceA}
+                    onChange={(e) => setAddPriceA(e.target.value)}
+                    className="w-full px-3 py-2 bg-emerald-50/50 border border-emerald-200 rounded-xl text-xs font-black text-emerald-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-blue-700 mb-1">Price B (Semi ₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="17.50"
+                    value={addPriceB}
+                    onChange={(e) => setAddPriceB(e.target.value)}
+                    className="w-full px-3 py-2 bg-blue-50/50 border border-blue-200 rounded-xl text-xs font-black text-blue-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-amber-700 mb-1">Price C (Bulk ₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="17.00"
+                    value={addPriceC}
+                    onChange={(e) => setAddPriceC(e.target.value)}
+                    className="w-full px-3 py-2 bg-amber-50/50 border border-amber-200 rounded-xl text-xs font-black text-amber-900"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddProductModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveNewProduct}
+                disabled={isPending || isUploading}
+                className="flex-1 py-2.5 rounded-xl bg-[#FC830D] text-white text-xs font-black shadow-md hover:bg-[#e07205] disabled:opacity-50"
+              >
+                {isPending ? "Saving..." : "Save Product"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PRODUCT PRICES & IMAGE MODAL (Mobile Friendly) */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl p-5 max-w-md w-full space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5 truncate">
+                <Edit3 className="w-4 h-4 text-[#12355B]" />
+                Edit: {editingProduct.name}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                className="p-1 rounded-full text-slate-400 hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Photo update */}
+            <div>
+              <label className="block text-[11px] font-bold uppercase text-slate-600 mb-1">Update Product Photo</label>
+              <div className="flex items-center gap-3">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                  <ProductImage
+                    src={editImageUrl || editingProduct.imageUrl}
+                    alt={editingProduct.name}
+                    width={64}
+                    height={64}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <label className="flex-1 cursor-pointer">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl transition">
+                    <Camera className="w-4 h-4 text-[#12355B]" />
+                    {isUploading ? "Uploading..." : "Take New Photo / Pick"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    disabled={isUploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file, true);
+                    }}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* All Tier Prices */}
+            <div className="space-y-2 pt-2 border-t border-slate-100 font-mono">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-700 mb-1">MRP (₹)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editMrp}
+                  onChange={(e) => setEditMrp(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-900"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[9px] font-black uppercase text-emerald-700 mb-1">Tier A (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editPriceA}
+                    onChange={(e) => setEditPriceA(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-emerald-50/50 border border-emerald-200 rounded-xl text-xs font-black text-emerald-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-black uppercase text-blue-700 mb-1">Tier B (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editPriceB}
+                    onChange={(e) => setEditPriceB(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-blue-50/50 border border-blue-200 rounded-xl text-xs font-black text-blue-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-black uppercase text-amber-700 mb-1">Tier C (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editPriceC}
+                    onChange={(e) => setEditPriceC(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-amber-50/50 border border-amber-200 rounded-xl text-xs font-black text-amber-900"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setEditingProduct(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveProductPrices}
+                disabled={isPending || isUploading}
+                className="flex-1 py-2.5 rounded-xl bg-[#12355B] text-white text-xs font-black shadow-md hover:bg-[#0E2843] disabled:opacity-50"
+              >
+                {isPending ? "Updating..." : "Update Prices"}
               </button>
             </div>
           </div>

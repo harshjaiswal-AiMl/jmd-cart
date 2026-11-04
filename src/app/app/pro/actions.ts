@@ -212,3 +212,83 @@ export async function getProTodaySummaryAction() {
     delivered,
   };
 }
+
+export async function saveProProductPriceAction(input: {
+  productId: string;
+  mrpPaise?: number;
+  priceAPaise?: number;
+  priceBPaise?: number;
+  priceCPaise?: number;
+  imageUrl?: string;
+}) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  const role = session.user.role as any;
+  if (role !== "PRO" && role !== "ADMIN" && role !== "SUPER_ADMIN") {
+    throw new Error("Forbidden");
+  }
+
+  const updateData: any = {};
+  if (input.mrpPaise !== undefined) updateData.mrpPaise = input.mrpPaise;
+  if (input.priceAPaise !== undefined) updateData.priceAPaise = input.priceAPaise;
+  if (input.priceBPaise !== undefined) updateData.priceBPaise = input.priceBPaise;
+  if (input.priceCPaise !== undefined) updateData.priceCPaise = input.priceCPaise;
+  if (input.imageUrl !== undefined) updateData.imageUrl = input.imageUrl;
+
+  const product = await prisma.product.update({
+    where: { id: input.productId },
+    data: updateData,
+  });
+
+  revalidatePath("/app/pro");
+  revalidatePath("/admin/catalog");
+  return { success: true, product };
+}
+
+export async function createProProductAction(input: {
+  name: string;
+  shortCode?: string;
+  weight?: string;
+  packSize?: number;
+  packLabel?: string;
+  mrpPaise: number;
+  priceAPaise: number;
+  priceBPaise: number;
+  priceCPaise: number;
+  companyId?: string;
+  categoryId?: string;
+  imageUrl?: string;
+}) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  const role = session.user.role as any;
+  if (role !== "PRO" && role !== "ADMIN" && role !== "SUPER_ADMIN") {
+    throw new Error("Forbidden");
+  }
+
+  if (!input.name || input.name.trim().length < 2) {
+    throw new Error("Product name must be at least 2 characters");
+  }
+
+  const product = await prisma.product.create({
+    data: {
+      name: input.name.trim(),
+      shortCode: input.shortCode?.trim() || input.name.trim().slice(0, 8).toUpperCase(),
+      weight: input.weight?.trim() || null,
+      packSize: input.packSize && input.packSize > 0 ? input.packSize : 1,
+      packLabel: input.packLabel?.trim() || "Carton",
+      mrpPaise: input.mrpPaise,
+      priceAPaise: input.priceAPaise,
+      priceBPaise: input.priceBPaise,
+      priceCPaise: input.priceCPaise,
+      companyId: input.companyId || null,
+      categoryId: input.categoryId || null,
+      imageUrl: input.imageUrl || null,
+      active: true,
+    },
+  });
+
+  revalidatePath("/app/pro");
+  revalidatePath("/admin/catalog");
+  return { success: true, product };
+}

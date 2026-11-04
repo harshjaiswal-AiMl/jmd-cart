@@ -17,21 +17,36 @@ export function mediaUrl(key: string | null | undefined, size?: MediaVariantSize
 
   // If already absolute URL (http/https), return as-is
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    // If it points to our R2 storage and has a variant request
     if (size && trimmed.includes("/products/")) {
       return trimmed.replace(/\/products\/([^/]+)\/[^/]+$/, `/products/$1/${size}.webp`);
     }
     return trimmed;
   }
 
-  // Handle legacy paths like "/uploads/products/abc.jpg"
+  // Static brand, icon or images pass through directly
+  if (
+    trimmed.startsWith("/brand/") ||
+    trimmed.startsWith("/icons/") ||
+    trimmed.startsWith("/images/") ||
+    trimmed.startsWith("brand/") ||
+    trimmed.startsWith("icons/") ||
+    trimmed.startsWith("images/")
+  ) {
+    return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  }
+
+  // Handle paths like "/media/products/...", "/uploads/products/..." or "products/..."
   let cleanKey = trimmed.replace(/^\/+/, "");
+  if (cleanKey.startsWith("media/")) {
+    cleanKey = cleanKey.slice(6);
+  } else if (cleanKey.startsWith("uploads/")) {
+    cleanKey = cleanKey.slice(8);
+  }
 
   // If size variant requested and key is in products/<hash>/<file> format
   if (size && cleanKey.startsWith("products/")) {
     const parts = cleanKey.split("/");
-    if (parts.length === 3) {
-      // parts: ["products", hash, "original.webp" or "320.webp" etc.]
+    if (parts.length >= 2) {
       cleanKey = `products/${parts[1]}/${size}.webp`;
     }
   }

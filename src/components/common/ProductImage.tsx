@@ -25,17 +25,27 @@ export function ProductImage({
   height = 180,
   priority = false,
 }: ProductImageProps) {
+  const [triedFallback, setTriedFallback] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const resolvedUrl = mediaUrl(src, size);
-  const srcSet = mediaSrcSet(src, [160, 320, 640]);
 
-  if (!resolvedUrl || hasError) {
+  const resolvedUrl = triedFallback ? mediaUrl(src) : mediaUrl(src, size);
+  const srcSet = triedFallback ? undefined : mediaSrcSet(src, [160, 320, 640]);
+
+  if (!src || hasError) {
     return (
       <div className={placeholderClassName}>
         <ImageIcon className="w-6 h-6 stroke-1 text-gray-300" />
       </div>
     );
   }
+
+  const handleError = () => {
+    if (!triedFallback && src) {
+      setTriedFallback(true);
+    } else {
+      setHasError(true);
+    }
+  };
 
   return (
     <img
@@ -46,7 +56,7 @@ export function ProductImage({
       width={width}
       height={height}
       className={className}
-      onError={() => setHasError(true)}
+      onError={handleError}
       loading={priority ? "eager" : "lazy"}
       decoding="async"
       fetchPriority={priority ? "high" : "auto"}

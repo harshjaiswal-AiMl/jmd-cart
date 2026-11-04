@@ -113,6 +113,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   SHOP: [
     Permission.VIEW_PRODUCTS,
+    Permission.MANAGE_PRODUCTS,
     Permission.STOCK_VIEW,
     Permission.STOCK_RECEIVE,
     Permission.STOCK_ADJUST,
@@ -123,6 +124,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.POS_HOLD_RESUME,
     Permission.POS_CASH_CLOSE,
     Permission.VIEW_ORDERS,
+    Permission.MANAGE_ORDERS,
     Permission.VIEW_INVOICES,
     Permission.REPORTS_VIEW,
   ],
@@ -170,10 +172,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 
   PRO: [
     Permission.VIEW_PRODUCTS,
+    Permission.MANAGE_PRODUCTS,
+    Permission.STOCK_VIEW,
     Permission.VIEW_PARTIES,
     Permission.MANAGE_PARTIES,
     Permission.VIEW_ORDERS,
     Permission.MANAGE_ORDERS,
+    Permission.VIEW_INVOICES,
   ],
 
   CUSTOMER: [
@@ -210,11 +215,27 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
     "/reports",
     "/app/godown",
   ],
-  SHOP: ["/shop", "/admin/parties", "/godown/purchases", "/godown/stock", "/app/shop"],
+  SHOP: [
+    "/shop",
+    "/admin/parties",
+    "/admin/orders",
+    "/admin/catalog",
+    "/admin/reports",
+    "/reports",
+    "/godown/purchases",
+    "/godown/stock",
+    "/app/shop",
+  ],
   SALESPERSON: ["/van", "/app/van"],
   DELIVERY: ["/delivery", "/app/delivery"],
   ACCOUNTS: ["/accounts", "/admin", "/reports", "/godown", "/shop", "/app/accounts"],
-  PRO: ["/app/pro"],
+  PRO: [
+    "/app/pro",
+    "/admin/catalog",
+    "/admin/parties",
+    "/admin/orders",
+    "/store",
+  ],
   CUSTOMER: ["/store"],
 };
 
@@ -259,13 +280,18 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
     return false;
   }
 
-  const allowedPrefixes = ROLE_ALLOWED_ROUTES[role] ?? [];
-  return allowedPrefixes.some((prefix) => pathname.startsWith(prefix));
+  const allowed = ROLE_ALLOWED_ROUTES[role] || [];
+  return allowed.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
 }
 
 /**
+ * Get the default landing dashboard route for a role after login.
+ */
+
+/**
  * Compile-time exhaustiveness map of home dashboard routes for every role.
- * Adding a role to UserRole without an entry here will fail `tsc --noEmit`.
  */
 export const ROLE_HOME_ROUTES: Record<UserRole, string> = {
   SUPER_ADMIN: "/admin",
@@ -311,6 +337,3 @@ export function getDefaultAppForRole(role?: UserRole): string {
   if (!role) return "/login";
   return ROLE_MOBILE_APPS[role] ?? "/login";
 }
-
-
-
