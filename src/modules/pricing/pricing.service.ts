@@ -330,6 +330,7 @@ export class PricingService {
       }
 
       const rawMrp =
+        item.mrpOverridePaise ??
         product.mrpPaise ??
         product.priceCPaise ??
         product.priceBPaise ??

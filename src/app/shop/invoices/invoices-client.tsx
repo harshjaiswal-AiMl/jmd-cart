@@ -25,7 +25,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [channelFilter, setChannelFilter] = useState<string>("ALL");
-  const [datePreset, setDatePreset] = useState<"ALL" | "TODAY" | "YESTERDAY" | "THIS_WEEK" | "THIS_MONTH" | "THIS_FY">("ALL");
+  const [datePreset, setDatePreset] = useState<"ALL" | "TODAY" | "YESTERDAY" | "THIS_WEEK" | "THIS_MONTH" | "THIS_FY">("TODAY");
 
   const todayStr = useMemo(() => toIstDateString(new Date()), []);
 
@@ -43,7 +43,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
       if (channelFilter !== "ALL" && inv.channel !== channelFilter) return false;
 
       // Date filtering based on business invoiceDate or createdAt
-      const invTime = new Date(inv.invoiceDate || inv.createdAt).getTime();
+      const invTime = new Date(inv.createdAt || inv.invoiceDate).getTime();
       if (datePreset === "TODAY" && (invTime < todayStart || invTime > todayEnd)) return false;
       if (datePreset === "YESTERDAY" && (invTime < yesterdayStart || invTime > yesterdayEnd)) return false;
       if (datePreset === "THIS_WEEK" && invTime < weekStart) return false;
@@ -299,7 +299,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
             <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
               <tr>
                 <th className="p-3.5">Invoice #</th>
-                <th className="p-3.5">Business Date</th>
+                <th className="p-3.5">Date & Time</th>
                 <th className="p-3.5">Customer / Party</th>
                 <th className="p-3.5">Channel</th>
                 <th className="p-3.5 text-center">Buyer Tag</th>
@@ -339,7 +339,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
                       </div>
                     </td>
                     <td className="p-3.5 text-slate-600 font-mono">
-                      {formatDmy(inv.invoiceDate || inv.createdAt)}
+                      {formatDmyHm(inv.createdAt || inv.invoiceDate)}
                     </td>
                     <td className="p-3.5">
                       {inv.party ? (

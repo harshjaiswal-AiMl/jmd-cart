@@ -11,7 +11,7 @@ import { InvoiceChannel, UserRole, MovementType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export async function calculateOrderPricingAction(
-  items: Array<{ productId: string; qty: number; unitPriceOverridePaise?: number }>,
+  items: Array<{ productId: string; qty: number; unitPriceOverridePaise?: number; mrpOverridePaise?: number }>,
   orderDiscountBp: number = 0,
   isInterState: boolean = false,
   partyId?: string | null,

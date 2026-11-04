@@ -1679,7 +1679,7 @@ export function PosClient({
     if (!pricingResult || activeTab.cart.length === 0) return;
     setErrorMessage(null);
 
-    const totalPaise = pricingResult.totalPaise;
+    const totalPaise = totalAmountPaise;
     const discountNum = parseFloat(activeTab.orderDiscountPercent);
     const orderDiscountBp = !isNaN(discountNum) && discountNum > 0 ? Math.round(discountNum * 100) : 0;
 
@@ -2295,14 +2295,77 @@ export function PosClient({
     });
   }, [activeTab.cart, effectiveTier]);
 
-  // Totals calculations
-  const totalAmountPaise = pricingResult ? pricingResult.totalPaise : 0;
+    // 1. Calculate Subtotal (MRP) directly by summing each line's (MRP * Qty)
+  const subtotalMrpPaise = useMemo(() => {
+    return activeTab.cart.reduce((sum, line) => {
+      const packSize = Math.max(1, line.product.packSize);
+      const bagSize = (line.product as any).bagSize || packSize;
+      const mult = line.unit === "Carton" ? packSize : line.unit === "Bag" ? bagSize : line.unit === "Dozen" ? 12 : 1;
+
+      const baseMrp = (line.customMrpPaise != null && line.customMrpPaise > 0)
+        ? line.customMrpPaise
+        : ((line.product.mrpPaise && line.product.mrpPaise > 0)
+          ? line.product.mrpPaise
+          : (line.customRatePaise && line.customRatePaise > 0 ? Math.round(line.customRatePaise / mult) : 0));
+
+      const lineMrpPerUnitPaise = mult > 0 ? baseMrp * mult : baseMrp;
+      return sum + Math.round(line.qty * lineMrpPerUnitPaise);
+    }, 0);
+  }, [activeTab.cart]);
+
+  // 2. Calculate Final Grand Total directly by summing each line's Amount from the grid
+  const rawGridAmountPaise = useMemo(() => {
+    return activeTab.cart.reduce((sum, line) => {
+      if (line.customAmountInput !== undefined && !isNaN(parseFloat(line.customAmountInput))) {
+        return sum + Math.round(parseFloat(line.customAmountInput) * 100);
+      }
+      const packSize = Math.max(1, line.product.packSize);
+      const bagSize = (line.product as any).bagSize || packSize;
+      const mult = line.unit === "Carton" ? packSize : line.unit === "Bag" ? bagSize : line.unit === "Dozen" ? 12 : 1;
+      const resolved = resolvePrice(
+        {
+          mrpPaise: line.product.mrpPaise,
+          priceAPaise: line.product.priceAPaise,
+          priceBPaise: line.product.priceBPaise,
+          priceCPaise: line.product.priceCPaise,
+        },
+        effectiveTier
+      );
+      const defaultRatePaise = line.unit === "Carton" || line.unit === "Bag"
+        ? resolved.unitPricePaise * mult
+        : line.unit === "Dozen"
+        ? resolved.unitPricePaise * 12
+        : resolved.unitPricePaise;
+
+      const ratePerUnitPaise = line.isCustomRate && line.customRatePaise != null
+        ? line.customRatePaise
+        : defaultRatePaise;
+
+      return sum + Math.round(line.qty * ratePerUnitPaise);
+    }, 0);
+  }, [activeTab.cart, effectiveTier]);
+
+  const orderDiscountPercent = useMemo(() => {
+    const d = parseFloat(activeTab.orderDiscountPercent);
+    return !isNaN(d) && d > 0 ? d : 0;
+  }, [activeTab.orderDiscountPercent]);
+
+  const orderDiscountPaise = useMemo(() => {
+    return orderDiscountPercent > 0
+      ? Math.round(rawGridAmountPaise * (orderDiscountPercent / 100))
+      : 0;
+  }, [rawGridAmountPaise, orderDiscountPercent]);
+
+  const netAmountPaise = Math.max(0, rawGridAmountPaise - orderDiscountPaise);
+  // Round off (round to nearest whole rupee)
+  const totalAmountPaise = Math.round(netAmountPaise / 100) * 100;
+  const roundoffPaise = totalAmountPaise - netAmountPaise;
+
+  const totalDiscountPaise = Math.max(0, subtotalMrpPaise - totalAmountPaise);
+
   const taxablePaise = pricingResult ? pricingResult.taxablePaise : 0;
   const cgstPaise = pricingResult ? pricingResult.cgstPaise : 0;
   const sgstPaise = pricingResult ? pricingResult.sgstPaise : 0;
-  const roundoffPaise = pricingResult ? pricingResult.roundOffPaise : 0;
-  const subtotalMrpPaise = pricingResult ? pricingResult.subtotalPaise : 0;
-  const totalDiscountPaise = pricingResult ? (pricingResult.lineDiscountPaise + pricingResult.orderDiscountPaise) : 0;
   const amountInWords = totalAmountPaise > 0 ? paiseToIndianWords(totalAmountPaise) : "";
 
   // Highlighted product details

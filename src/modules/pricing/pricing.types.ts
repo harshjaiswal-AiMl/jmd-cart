@@ -101,7 +101,7 @@ export interface PriceOrderingWarning {
 }
 
 export interface CalculateOrderPriceInput {
-  items: Array<{ productId: string; qty: number; unitPriceOverridePaise?: number }>;
+  items: Array<{ productId: string; qty: number; unitPriceOverridePaise?: number; mrpOverridePaise?: number }>;
   partyId?: string | null;
   buyerType?: BuyerTier | "SUPPLIER" | null;
   buyerApproved?: boolean;
