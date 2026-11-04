@@ -3389,7 +3389,9 @@ export function PosClient({
                 <span>Total Savings / Discount:</span>
                 <span className="font-mono text-emerald-700">-₹{(totalDiscountPaise / 100).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-slate-600 font-medium">
+              {activeTab.documentType === "GST" && (
+                <>
+                  <div className="flex justify-between text-slate-600 font-medium">
                 <span>Taxable Value:</span>
                 <span className="font-mono font-bold text-slate-800">₹{(taxablePaise / 100).toFixed(2)}</span>
               </div>
@@ -3397,6 +3399,8 @@ export function PosClient({
                 <span>CGST / SGST:</span>
                 <span className="font-mono font-bold text-slate-800">₹{((cgstPaise + sgstPaise) / 100).toFixed(2)}</span>
               </div>
+                </>
+              )}
               <div className="flex justify-between text-slate-600 font-medium">
                 <span>Round-off:</span>
                 <span className="font-mono font-bold">
