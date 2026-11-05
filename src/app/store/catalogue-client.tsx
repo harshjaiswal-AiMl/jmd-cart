@@ -14,6 +14,7 @@ import { StoreFooter } from "@/components/store/StoreFooter";
 import { FloatingCartBar } from "@/components/store/FloatingCartBar";
 import { StoreBannerCarousel } from "@/components/store/StoreBannerCarousel";
 import { ProductImage } from "@/components/common/ProductImage";
+import { mediaUrl } from "@/lib/media";
 import { formatPaise, formatRupees, paiseToRupees } from "@/lib/format-price";
 
 export interface CatalogueCategory {
@@ -632,7 +633,7 @@ export function CatalogueClient({
                     >
                       {cat.imageUrl ? (
                         <img
-                          src={cat.imageUrl}
+                          src={mediaUrl(cat.imageUrl, 160) || cat.imageUrl}
                           alt=""
                           aria-hidden="true"
                           width={80}
@@ -641,7 +642,11 @@ export function CatalogueClient({
                           className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-sm"
                           loading="lazy"
                           onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = "/brand/jmd-cart-logo.png";
+                            if (cat.imageUrl && e.currentTarget.src !== cat.imageUrl) {
+                              e.currentTarget.src = cat.imageUrl;
+                            } else {
+                              (e.currentTarget as HTMLImageElement).src = "/brand/jmd-cart-logo.png";
+                            }
                           }}
                         />
                       ) : (
@@ -860,12 +865,17 @@ export function CatalogueClient({
                         {cat.imageUrl && (
                           <div className="w-8 h-8 rounded-lg bg-surface-container-low p-1 overflow-hidden border border-outline-variant/30 flex items-center justify-center shrink-0">
                             <img
-                              src={cat.imageUrl}
+                              src={mediaUrl(cat.imageUrl, 160) || cat.imageUrl}
                               alt={cat.name}
                               width={32}
                               height={32}
                               decoding="async"
                               className="w-full h-full object-contain"
+                              onError={(e) => {
+                                if (cat.imageUrl && e.currentTarget.src !== cat.imageUrl) {
+                                  e.currentTarget.src = cat.imageUrl;
+                                }
+                              }}
                             />
                           </div>
                         )}
@@ -920,12 +930,17 @@ export function CatalogueClient({
                   <div className="w-20 h-20 mx-auto rounded-3xl bg-surface-container-low p-3 border border-outline-variant/40 shadow-xs flex items-center justify-center">
                     {selectedCategoryData.imageUrl ? (
                       <img
-                        src={selectedCategoryData.imageUrl}
+                        src={mediaUrl(selectedCategoryData.imageUrl, 160) || selectedCategoryData.imageUrl}
                         alt={selectedCategoryData.name}
                         width={80}
                         height={80}
                         decoding="async"
                         className="w-full h-full object-contain"
+                        onError={(e) => {
+                          if (selectedCategoryData.imageUrl && e.currentTarget.src !== selectedCategoryData.imageUrl) {
+                            e.currentTarget.src = selectedCategoryData.imageUrl;
+                          }
+                        }}
                       />
                     ) : (
                       <span className="material-symbols-outlined text-4xl text-primary">inventory_2</span>
@@ -992,12 +1007,17 @@ export function CatalogueClient({
                     {selectedCategoryData?.imageUrl && (
                       <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-surface-container-lowest p-2 border border-primary/20 shadow-xs flex items-center justify-center shrink-0">
                         <img
-                          src={selectedCategoryData.imageUrl}
+                          src={mediaUrl(selectedCategoryData.imageUrl, 160) || selectedCategoryData.imageUrl}
                           alt={selectedCategoryData.name}
                           width={64}
                           height={64}
                           decoding="async"
                           className="w-full h-full object-contain"
+                          onError={(e) => {
+                            if (selectedCategoryData.imageUrl && e.currentTarget.src !== selectedCategoryData.imageUrl) {
+                              e.currentTarget.src = selectedCategoryData.imageUrl;
+                            }
+                          }}
                         />
                       </div>
                     )}

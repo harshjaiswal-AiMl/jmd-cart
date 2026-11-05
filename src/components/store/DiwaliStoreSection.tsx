@@ -5,6 +5,7 @@ import Link from "next/link";
 import { DiwaliShowcaseData, DiwaliShowcaseShelf } from "@/modules/diwali/diwali.types";
 import { StoreProductItem } from "@/modules/store/store.service";
 import { formatPaise } from "@/lib/format-price";
+import { ProductImage } from "@/components/common/ProductImage";
 
 interface DiwaliStoreSectionProps {
   showcase: DiwaliShowcaseData;
@@ -608,12 +609,12 @@ function DiwaliShelfRow({
                   className="block aspect-square bg-surface-container-low rounded-xl border border-outline-variant/30 relative p-2 sm:p-3 overflow-hidden group-hover:border-primary/40 transition-colors"
                 >
                   {product.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <ProductImage
                       src={product.imageUrl}
                       alt={product.name}
+                      width={200}
+                      height={200}
                       className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-center text-outline">

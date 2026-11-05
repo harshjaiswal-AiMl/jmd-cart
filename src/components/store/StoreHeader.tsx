@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { formatRupees } from "@/lib/format-price";
+import { mediaUrl } from "@/lib/media";
 
 interface SearchProductItem {
   id: string;
@@ -505,9 +506,18 @@ export function StoreHeader({
                           <div className="w-12 h-12 rounded-lg border border-outline-variant/40 bg-white p-1 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-2xs group-hover:border-primary/40">
                             {item.imageUrl ? (
                               <img
-                                src={item.imageUrl}
+                                src={mediaUrl(item.imageUrl, 160) || item.imageUrl}
                                 alt={item.name}
+                                width={48}
+                                height={48}
+                                loading="lazy"
+                                decoding="async"
                                 className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  if (item.imageUrl && e.currentTarget.src !== item.imageUrl) {
+                                    e.currentTarget.src = item.imageUrl;
+                                  }
+                                }}
                               />
                             ) : (
                               <span className="material-symbols-outlined text-outline text-[22px]">inventory_2</span>
@@ -823,9 +833,18 @@ export function StoreHeader({
                         <div className="w-10 h-10 rounded-lg border border-outline-variant/40 bg-white p-0.5 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-2xs">
                           {item.imageUrl ? (
                             <img
-                              src={item.imageUrl}
+                              src={mediaUrl(item.imageUrl, 160) || item.imageUrl}
                               alt={item.name}
+                              width={40}
+                              height={40}
+                              loading="lazy"
+                              decoding="async"
                               className="w-full h-full object-contain"
+                              onError={(e) => {
+                                if (item.imageUrl && e.currentTarget.src !== item.imageUrl) {
+                                  e.currentTarget.src = item.imageUrl;
+                                }
+                              }}
                             />
                           ) : (
                             <span className="material-symbols-outlined text-outline text-[18px]">inventory_2</span>

@@ -4,6 +4,7 @@ import { pricingService, resolvePrice } from "@/modules/pricing/pricing.service"
 import { BuyerTier, PriceListCode } from "@/modules/pricing/pricing.types";
 import { PartyType } from "@prisma/client";
 import { queryRankedProductIds, stockRankSql } from "@/modules/stock/availability";
+import { mediaUrl } from "@/lib/media";
 
 export interface StoreProductItem {
   id: string;
@@ -73,31 +74,31 @@ export function getCategoryFallbackPhoto(name: string): string {
     return "/media/products/aae5994d38fcac16/original.png";
   }
   if (n.includes("biscuit") || n.includes("snack") || n.includes("namkeen") || n.includes("cookie") || n.includes("papad")) {
-    return "/media/products/5a5e3933958103a7/original.png";
+    return "/media/products/5a5e3933958103a7/320.webp";
   }
   if (n.includes("spice") || n.includes("masala")) {
     return "/brand/mdh-logo.png";
   }
   if (n.includes("pulse") || n.includes("dal")) {
-    return "/media/products/71a8ec294bf844a9/original.png";
+    return "/media/products/71a8ec294bf844a9/320.webp";
   }
   if (n.includes("dry fruit") || n.includes("kaju") || n.includes("badam") || n.includes("nut") || n.includes("almond") || n.includes("cashew") || n.includes("pista") || n.includes("anjeer") || n.includes("chhuwara") || n.includes("moong fali") || n.includes("kesar") || n.includes("cranberry") || n.includes("seed")) {
-    return "/media/products/dbac71f75f51870f/original.jpg";
+    return "/media/products/dbac71f75f51870f/320.webp";
   }
   if (n.includes("sauce") || n.includes("ketchup") || n.includes("pickle") || n.includes("jam")) {
-    return "/media/products/3edf3a95842a992a/original.png";
+    return "/media/products/3edf3a95842a992a/320.webp";
   }
   if (n.includes("sweet") || n.includes("mithai") || n.includes("soan") || n.includes("papdi") || n.includes("gulab") || n.includes("rasgulla") || n.includes("ladoo") || n.includes("katli") || n.includes("halwa")) {
-    return "/media/products/5280b3616ee09cd5/original.png";
+    return "/media/products/5280b3616ee09cd5/320.webp";
   }
   if (n.includes("beauty") || n.includes("grooming") || n.includes("skin")) {
-    return "/media/products/8e4b5b81ca3bf9ad/original.png";
+    return "/media/products/8e4b5b81ca3bf9ad/320.webp";
   }
   if (n.includes("baby")) {
-    return "/media/products/8763e34c64e05363/original.png";
+    return "/media/products/8763e34c64e05363/320.webp";
   }
   if (n.includes("gift") || n.includes("hamper") || n.includes("box") || n.includes("duo moments") || n.includes("party mix")) {
-    return "/media/products/ae1e5992544b29ab/original.png";
+    return "/media/products/ae1e5992544b29ab/320.webp";
   }
   if (n.includes("electronic") || n.includes("battery") || n.includes("appliance")) {
     return "/brand/jmd-cart-logo.png";
@@ -502,12 +503,13 @@ export class StoreService {
 
     const formattedCategories = categories
       .map((cat) => {
-        const dbImage = cat.imageUrl || cat.products[0]?.imageUrl || null;
+        const rawImage = cat.imageUrl || cat.products[0]?.imageUrl || null;
+        const optimizedImage = rawImage ? (mediaUrl(rawImage, 160) || rawImage) : null;
         return {
           id: cat.id,
           name: cat.name,
           productCount: cat._count.products,
-          imageUrl: dbImage || getCategoryFallbackPhoto(cat.name),
+          imageUrl: optimizedImage || getCategoryFallbackPhoto(cat.name),
         };
       })
       .sort((a, b) => {

@@ -86,7 +86,11 @@ export default auth((req) => {
     if (isLoggedIn && user?.role && (pathname === "/register" || pathname === "/login")) {
       return NextResponse.redirect(new URL(getDefaultDashboard(user.role), req.url));
     }
-    return NextResponse.next();
+    const res = NextResponse.next();
+    if (pathname === "/" && !isLoggedIn) {
+      res.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+    }
+    return res;
   }
 
   // Not logged in -> redirect to login with callbackUrl

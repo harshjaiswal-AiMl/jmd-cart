@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { StoreBanner } from "@/modules/banners/banner.types";
+import { mediaUrl, mediaSrcSet } from "@/lib/media";
 
 interface StoreBannerCarouselProps {
   banners: StoreBanner[];
@@ -91,7 +92,9 @@ export function StoreBannerCarousel({ banners }: StoreBannerCarouselProps) {
                 */}
                 <div className="w-full aspect-[16/8.5] sm:aspect-[2.4/1] md:aspect-[2.7/1] max-h-[260px] sm:max-h-[280px] md:max-h-[300px] overflow-hidden bg-surface-container-low">
                   <img
-                    src={banner.imageUrl || ""}
+                    src={mediaUrl(banner.imageUrl, 800) || banner.imageUrl || ""}
+                    srcSet={banner.imageUrl ? mediaSrcSet(banner.imageUrl, [400, 800, 1200]) : undefined}
+                    sizes="(max-width: 640px) 400px, (max-width: 1024px) 800px, 1200px"
                     alt={banner.title || "Promotional Banner"}
                     width={1280}
                     height={474}
@@ -99,6 +102,12 @@ export function StoreBannerCarousel({ banners }: StoreBannerCarouselProps) {
                     loading={idx === 0 ? "eager" : "lazy"}
                     decoding={idx === 0 ? "sync" : "async"}
                     className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.015]"
+                    onError={(e) => {
+                      if (banner.imageUrl && e.currentTarget.src !== banner.imageUrl) {
+                        e.currentTarget.src = banner.imageUrl;
+                        e.currentTarget.removeAttribute("srcset");
+                      }
+                    }}
                   />
                 </div>
               </Link>

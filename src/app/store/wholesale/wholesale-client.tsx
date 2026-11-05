@@ -8,6 +8,7 @@ import { addToCartAction } from "@/app/store/cart/actions";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { StoreFooter } from "@/components/store/StoreFooter";
 import { formatPaise, paiseToRupees } from "@/lib/format-price";
+import { mediaUrl } from "@/lib/media";
 
 interface WholesaleClientProps {
   products: StoreProductItem[];
@@ -402,11 +403,19 @@ export function WholesaleClient({
                             <td className="py-3.5 px-3">
                               <div className="flex items-center gap-3">
                                 {p.imageUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
                                   <img
-                                    src={p.imageUrl}
+                                    src={mediaUrl(p.imageUrl, 160) || p.imageUrl}
                                     alt={p.name}
+                                    width={40}
+                                    height={40}
+                                    loading="lazy"
+                                    decoding="async"
                                     className="w-10 h-10 object-contain rounded bg-surface-container flex-shrink-0"
+                                    onError={(e) => {
+                                      if (p.imageUrl && e.currentTarget.src !== p.imageUrl) {
+                                        e.currentTarget.src = p.imageUrl;
+                                      }
+                                    }}
                                   />
                                 ) : (
                                   <div className="w-10 h-10 rounded bg-surface-container flex items-center justify-center text-primary font-mono text-[10px] font-bold shrink-0">
