@@ -39,3 +39,5 @@ ocr-samples/
 
 *.apk
 
+
+.tools/
