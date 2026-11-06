@@ -1080,7 +1080,8 @@ export async function getPosTodaySalesSummaryAction(locationId: string) {
 export async function updateProductMasterFromPosAction(input: {
   productId: string;
   name?: string;
-  barcode?: string | null;
+  shortCode?: string | null;
+  weight?: string | null;
   packSize?: number;
   packLabel?: string;
   mrpPaise?: number;
@@ -1126,24 +1127,25 @@ export async function updateProductMasterFromPosAction(input: {
     if (input.name !== undefined && input.name.trim()) {
       updateData.name = input.name.trim();
     }
-    if (input.barcode !== undefined) {
-      const cleanBarcode = input.barcode ? input.barcode.trim() : null;
-      updateData.barcode = cleanBarcode;
-      if (cleanBarcode) {
-        const duplicate = await prisma.product.findFirst({
-          where: {
-            barcode: cleanBarcode,
-            id: { not: input.productId },
-          },
-          select: { id: true, name: true, shortCode: true },
-        });
-        if (duplicate) {
-          return {
-            success: false,
-            error: `Barcode "${cleanBarcode}" is already in use by ${duplicate.name} (${duplicate.shortCode}).`,
-          };
-        }
+    if (input.shortCode !== undefined && input.shortCode.trim()) {
+      const cleanCode = input.shortCode.trim().toUpperCase();
+      const duplicate = await prisma.product.findFirst({
+        where: {
+          shortCode: cleanCode,
+          id: { not: input.productId },
+        },
+        select: { id: true, name: true },
+      });
+      if (duplicate) {
+        return {
+          success: false,
+          error: `Item code "${cleanCode}" is already in use by ${duplicate.name}.`,
+        };
       }
+      updateData.shortCode = cleanCode;
+    }
+    if (input.weight !== undefined) {
+      updateData.weight = input.weight ? input.weight.trim() : null;
     }
     if (input.packSize !== undefined && input.packSize > 0) {
       updateData.packSize = Math.max(1, Math.floor(input.packSize));

@@ -31,7 +31,7 @@ export function EditProductMasterModal({
 
   // Form Fields
   const [name, setName] = useState("");
-  const [barcode, setBarcode] = useState("");
+  const [shortCode, setShortCode] = useState("");
   const [packSize, setPackSize] = useState("1");
   const [packLabel, setPackLabel] = useState("Pcs");
   const [weight, setWeight] = useState("");
@@ -75,7 +75,7 @@ export function EditProductMasterModal({
   const populateForm = (prod: any | null) => {
     if (!prod) return;
     setName(prod.name || "");
-    setBarcode(prod.barcode || "");
+    setShortCode(prod.shortCode || "");
     setPackSize(String(prod.packSize || 1));
     setPackLabel(prod.packLabel || "Pcs");
     setWeight(prod.weight || "");
@@ -278,7 +278,8 @@ export function EditProductMasterModal({
       const res = await updateProductMasterFromPosAction({
         productId: selectedProduct.id,
         name: name.trim(),
-        barcode: barcode.trim() || null,
+        shortCode: shortCode.trim() || undefined,
+        weight: weight.trim() || null,
         packSize: packSizeNum,
         packLabel: packLabel.trim() || "Pcs",
         mrpPaise,
@@ -312,7 +313,7 @@ export function EditProductMasterModal({
     ? allProducts.filter((p) =>
         p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
         (p.shortCode && p.shortCode.toLowerCase().includes(productSearch.toLowerCase())) ||
-        (p.barcode && p.barcode.includes(productSearch))
+        (p.weight && p.weight.toLowerCase().includes(productSearch.toLowerCase()))
       ).slice(0, 8)
     : [];
 
@@ -483,13 +484,13 @@ export function EditProductMasterModal({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">Barcode / EAN</label>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">Item Code (Short Code)</label>
                   <input
                     type="text"
-                    value={barcode}
-                    onChange={(e) => setBarcode(e.target.value)}
-                    placeholder="Scan / type barcode"
-                    className="w-full px-2.5 py-1 text-xs font-mono bg-white border border-slate-300 rounded-lg focus:border-[#12355B] outline-none"
+                    value={shortCode}
+                    onChange={(e) => setShortCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. P001"
+                    className="w-full px-2.5 py-1 text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg focus:border-[#12355B] outline-none"
                   />
                 </div>
                 <div>
