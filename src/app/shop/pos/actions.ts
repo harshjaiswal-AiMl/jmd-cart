@@ -1124,10 +1124,10 @@ export async function updateProductMasterFromPosAction(input: {
     }
 
     const updateData: any = {};
-    if (input.name !== undefined && input.name.trim()) {
+    if (typeof input.name === "string" && input.name.trim()) {
       updateData.name = input.name.trim();
     }
-    if (input.shortCode !== undefined && input.shortCode.trim()) {
+    if (typeof input.shortCode === "string" && input.shortCode.trim()) {
       const cleanCode = input.shortCode.trim().toUpperCase();
       const duplicate = await prisma.product.findFirst({
         where: {
@@ -1145,41 +1145,41 @@ export async function updateProductMasterFromPosAction(input: {
       updateData.shortCode = cleanCode;
     }
     if (input.weight !== undefined) {
-      updateData.weight = input.weight ? input.weight.trim() : null;
+      updateData.weight = typeof input.weight === "string" && input.weight.trim() ? input.weight.trim() : null;
     }
-    if (input.packSize !== undefined && input.packSize > 0) {
+    if (typeof input.packSize === "number" && input.packSize > 0) {
       updateData.packSize = Math.max(1, Math.floor(input.packSize));
     }
-    if (input.packLabel !== undefined) {
-      updateData.packLabel = input.packLabel.trim() || "Pcs";
+    if (typeof input.packLabel === "string" && input.packLabel.trim()) {
+      updateData.packLabel = input.packLabel.trim();
     }
-    if (input.mrpPaise !== undefined && input.mrpPaise >= 0) {
+    if (typeof input.mrpPaise === "number" && input.mrpPaise >= 0) {
       updateData.mrpPaise = input.mrpPaise;
     }
-    if (input.priceAPaise !== undefined && input.priceAPaise >= 0) {
+    if (typeof input.priceAPaise === "number" && input.priceAPaise >= 0) {
       updateData.priceAPaise = input.priceAPaise;
     }
-    if (input.priceBPaise !== undefined && input.priceBPaise >= 0) {
+    if (typeof input.priceBPaise === "number" && input.priceBPaise >= 0) {
       updateData.priceBPaise = input.priceBPaise;
     }
-    const resolvedPriceC = input.priceCPaise !== undefined ? input.priceCPaise : input.ratePaise;
-    if (resolvedPriceC !== undefined && resolvedPriceC >= 0) {
+    const resolvedPriceC = typeof input.priceCPaise === "number" ? input.priceCPaise : input.ratePaise;
+    if (typeof resolvedPriceC === "number" && resolvedPriceC >= 0) {
       updateData.priceCPaise = resolvedPriceC;
     }
-    if (input.hsn !== undefined) {
+    if (typeof input.hsn === "string" && input.hsn.trim()) {
       updateData.hsn = input.hsn.trim();
     }
-    if (input.gstRateBp !== undefined && input.gstRateBp >= 0) {
+    if (typeof input.gstRateBp === "number" && input.gstRateBp >= 0) {
       updateData.gstRateBp = input.gstRateBp;
     }
     if (input.companyId !== undefined) {
-      updateData.companyId = input.companyId ? input.companyId.trim() : null;
+      updateData.companyId = typeof input.companyId === "string" && input.companyId.trim() ? input.companyId.trim() : null;
     }
     if (input.categoryId !== undefined) {
-      updateData.categoryId = input.categoryId ? input.categoryId.trim() : null;
+      updateData.categoryId = typeof input.categoryId === "string" && input.categoryId.trim() ? input.categoryId.trim() : null;
     }
     if (input.imageUrl !== undefined) {
-      updateData.imageUrl = input.imageUrl ? input.imageUrl.trim() : null;
+      updateData.imageUrl = typeof input.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : null;
     }
 
     if (Object.keys(updateData).length === 0) {
