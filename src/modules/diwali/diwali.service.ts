@@ -164,6 +164,11 @@ export class DiwaliService {
       });
 
       // 2. Prioritize explicitly configured productIds if any, then append all other category products
+      const targetIds =
+        shelfCfg.productIds && shelfCfg.productIds.length > 0
+          ? shelfCfg.productIds
+          : meta.defaultProductIds;
+
       const productMap = new Map(catRes.products.map((p) => [p.id, p]));
       const orderedProducts: StoreProductItem[] = [];
       const seenIds = new Set<string>();

@@ -70,7 +70,7 @@ export function EditProductMasterModal({
         nameInputRef.current?.select();
       }, 100);
     }
-  }, [isOpen, initialProduct]);
+  }, [isOpen, initialProduct, allProducts]);
 
   const populateForm = (prod: any | null) => {
     if (!prod) return;
@@ -429,6 +429,7 @@ export function EditProductMasterModal({
             <div className="relative group shrink-0">
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-slate-100 border-2 border-slate-200 flex items-center justify-center overflow-hidden shadow-2xs">
                 {imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={mediaUrl(imageUrl, 160) || imageUrl}
                     alt={name}
