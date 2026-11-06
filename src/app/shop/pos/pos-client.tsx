@@ -810,6 +810,7 @@ export function PosClient({
   const [isPartyDirty, setIsPartyDirty] = useState(false);
   const [isSavingInlineParty, setIsSavingInlineParty] = useState(false);
   const [partySaveSuccess, setPartySaveSuccess] = useState(false);
+  const [isPartyCardExpanded, setIsPartyCardExpanded] = useState(false);
 
   // Sync inline party fields when selectedParty changes
   useEffect(() => {
@@ -2272,10 +2273,12 @@ export function PosClient({
         handleDeleteHighlightedOrLastLine();
       } else if (e.altKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
-        // Focus Party Search
-        const partyInput = document.querySelector<HTMLInputElement>("input[placeholder*='Search buyer']");
-        partyInput?.focus();
-        partyInput?.select();
+        setIsPartyCardExpanded(true);
+        setTimeout(() => {
+          const partyInput = document.querySelector<HTMLInputElement>("input[placeholder*='Search buyer']");
+          partyInput?.focus();
+          partyInput?.select();
+        }, 50);
       } else if (e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
         // Focus Order Discount
@@ -2332,6 +2335,10 @@ export function PosClient({
           setShowRecentBillsPopover(false);
           setShowTodaySalesModal(false);
           setShowRevisionHistory(false);
+          return;
+        }
+        if (isPartyCardExpanded) {
+          setIsPartyCardExpanded(false);
           return;
         }
         if (itemSearchTerm) {
@@ -2494,56 +2501,57 @@ export function PosClient({
   const heldTabsCount = tabs.filter((t) => t.isHeld).length;
 
   return (
-    <div className="flex flex-col h-screen bg-[#FEFDF7] text-slate-900 select-none overflow-hidden font-sans">
-      {/* 1. Top Bar: Focus Mode Header & Open Bill Tabs */}
-      <header className="bg-[#12355B] text-white px-3 sm:px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-md shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-white p-0.5 flex items-center justify-center shrink-0 border border-slate-700 shadow-xs">
+    <div className="flex flex-col h-screen bg-[#F8FAFC] text-slate-900 select-none overflow-hidden font-sans">
+      {/* 1. Slim Top Command Bar: Brand, Location, Cashier, Open Bill Tabs & Unified Button Group */}
+      <header className="bg-slate-900 text-white px-3 sm:px-4 py-1 flex items-center justify-between gap-3 shadow-sm shrink-0 border-b border-slate-800 h-10 z-30">
+        {/* Left: Brand & Station Context */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="w-6 h-6 rounded bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
             <img src="/brand/jmd-cart-logo.png" alt="JMD POS Logo" className="w-full h-full object-contain" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm font-black tracking-tight text-white">SHOP POS</h1>
-              <span className="bg-[#1B998B]/30 text-emerald-200 border border-emerald-400/30 text-[10px] font-bold px-2 py-0.2 rounded-full uppercase">
-                {locationName}
-              </span>
-            </div>
-            <div className="text-[11px] text-white/70">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xs font-black tracking-tight text-white uppercase">Shop POS</h1>
+            <span className="bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-bold px-2 py-0.2 rounded-full uppercase tracking-wider">
+              {locationName}
+            </span>
+            <span className="text-slate-500 text-xs hidden md:inline">·</span>
+            <span className="text-slate-300 text-xs hidden md:inline font-medium">
               Cashier: <strong className="text-white">{cashierName}</strong>
-              {isAdmin && activeTab.billDate && activeTab.billDate !== todayStr && (
-                <span className="ml-2 inline-flex items-center gap-1 bg-amber-400 text-amber-950 px-2 py-0.5 rounded font-black text-[10px] uppercase tracking-wider shadow-xs border border-amber-500 animate-pulse">
-                  <Calendar className="w-3 h-3" />
-                  Backdated: {activeTab.billDate}
-                </span>
-              )}
-            </div>
+            </span>
+            {isAdmin && activeTab.billDate && activeTab.billDate !== todayStr && (
+              <span className="inline-flex items-center gap-1 bg-amber-400 text-amber-950 px-2 py-0.5 rounded font-black text-[10px] uppercase tracking-wider shadow-xs border border-amber-500 animate-pulse">
+                <Calendar className="w-3 h-3" />
+                Backdated: {activeTab.billDate}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Bill Tabs & Actions */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+        {/* Center: Bill Tabs with compact [+ New (F3)] and [Hold (F4)] */}
+        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5 max-w-xl">
           {tabs.map((tab, idx) => {
             const isActive = tab.id === activeTabId;
             return (
               <div
                 key={tab.id}
                 onClick={() => setActiveTabId(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all border ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold cursor-pointer transition-all border ${
                   isActive
-                    ? "bg-white text-[#12355B] border-white shadow-xs"
+                    ? "bg-white text-slate-900 border-white shadow-xs"
                     : tab.isHeld
                     ? "bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30"
-                    : "bg-[#0E2843] text-white/80 border-transparent hover:bg-white/10"
+                    : "bg-slate-800 text-slate-300 border-transparent hover:bg-slate-700 hover:text-white"
                 }`}
               >
-                {tab.isHeld && <PauseCircle className="w-3.5 h-3.5 text-amber-400" />}
-                <span className="truncate max-w-[120px]">
+                {tab.isHeld && <PauseCircle className="w-3 h-3 text-amber-400 shrink-0" />}
+                <span className="truncate max-w-[100px] text-[11px]">
                   {tab.tabTitle || `Bill ${idx + 1}`}
                 </span>
                 {tabs.length > 1 && (
                   <button
                     onClick={(e) => handleCloseTab(tab.id, e)}
                     className="p-0.5 hover:bg-black/10 rounded text-slate-400 hover:text-slate-800"
+                    title="Close tab"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -2555,9 +2563,9 @@ export function PosClient({
           <button
             onClick={handleCreateNewTab}
             title="Open new bill (F3)"
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#FC830D] hover:bg-[#e57406] text-white shadow-xs transition"
+            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-400/50 shadow-xs transition shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-3 h-3 text-amber-400" />
             <span>New (F3)</span>
           </button>
 
@@ -2565,9 +2573,9 @@ export function PosClient({
             onClick={handleHoldCurrentBill}
             title="Hold current bill (F4)"
             disabled={activeTab.cart.length === 0}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white/10 hover:bg-white/20 text-white disabled:opacity-30 transition"
+            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-40 transition shrink-0"
           >
-            <PauseCircle className="w-3.5 h-3.5 text-amber-300" />
+            <PauseCircle className="w-3 h-3 text-amber-300" />
             <span>Hold (F4)</span>
           </button>
 
@@ -2575,59 +2583,65 @@ export function PosClient({
             <button
               onClick={() => setShowHeldModal(true)}
               title="View held bills (F5)"
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 shadow-xs animate-pulse"
+              className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold bg-amber-400 text-slate-950 shadow-xs animate-pulse shrink-0"
             >
               <span>Held ({heldTabsCount})</span>
             </button>
           )}
+        </div>
 
-          <div className="h-5 w-px bg-white/20 mx-1 hidden sm:block" />
-
-          <Link
-            href="/godown/stock"
-            className="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition"
-          >
-            Stock
-          </Link>
-          <Link
-            href="/app/pro?tab=products"
-            className="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-bold bg-purple-700 hover:bg-purple-600 text-white items-center gap-1 transition shadow-xs"
-            title="Mobile Catalog & Price Tier Manager"
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>PRO Catalog</span>
-          </Link>
-
+        {/* Right: Unified Action Button Family */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => setShowQuickAddModal(true)}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 shadow-xs transition"
-            title="Quick add new product to bill"
+            className="h-7 px-2 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 flex items-center gap-1 shadow-xs transition"
+            title="Quick add new product to bill (F6)"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Item [F6]</span>
+            <Plus className="w-3 h-3 text-emerald-400" />
+            <span>+ Item</span>
+            <kbd className="text-[9px] bg-slate-900 text-emerald-400 px-1 py-0.2 rounded font-mono">F6</kbd>
           </button>
           <button
             type="button"
             onClick={() => handleOpenEditProductMaster()}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#FC830D] hover:bg-[#e07205] text-white flex items-center gap-1 shadow-xs transition cursor-pointer"
+            className="h-7 px-2 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1 shadow-xs transition cursor-pointer"
             title="Edit product master details (Alt+M)"
           >
-            <Edit3 className="w-3.5 h-3.5" />
-            <span>Edit Master [Alt+M]</span>
+            <Edit3 className="w-3 h-3 text-sky-400" />
+            <span>Master</span>
+            <kbd className="text-[9px] bg-slate-900 text-sky-400 px-1 py-0.2 rounded font-mono">Alt+M</kbd>
           </button>
           <button
             type="button"
             onClick={() => setShowTodaySalesModal(true)}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1 shadow-xs transition"
-            title="Today's total sales summary"
+            className="h-7 px-2 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1 shadow-xs transition"
+            title="Today's total sales summary (F9)"
           >
-            <Banknote className="w-3.5 h-3.5" />
-            <span>Today [F9]</span>
+            <Banknote className="w-3 h-3 text-amber-400" />
+            <span>Today</span>
+            <kbd className="text-[9px] bg-slate-900 text-amber-400 px-1 py-0.2 rounded font-mono">F9</kbd>
           </button>
+
+          <div className="h-4 w-px bg-slate-700 mx-0.5 hidden xl:block" />
+
+          <Link
+            href="/app/pro?tab=products"
+            className="hidden xl:inline-flex h-7 px-2 rounded text-[11px] font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 items-center gap-1 transition"
+            title="Mobile Catalog & Price Tier Manager"
+          >
+            <Smartphone className="w-3 h-3 text-purple-400" />
+            <span>PRO Catalog</span>
+          </Link>
+          <Link
+            href="/godown/stock"
+            className="hidden xl:inline-flex h-7 px-2 rounded text-[11px] font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 items-center transition"
+          >
+            Stock
+          </Link>
           <Link
             href="/admin"
-            className="hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition"
+            className="hidden xl:inline-flex h-7 px-2 rounded text-[11px] font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 items-center transition"
           >
             Dashboard
           </Link>
@@ -2636,7 +2650,7 @@ export function PosClient({
 
       {/* Edit Mode Alert Banner */}
       {isEditMode && initialEditInvoice && (
-        <div className="w-full bg-amber-500 text-slate-950 px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 font-sans shadow-xs border-b border-amber-600">
+        <div className="w-full bg-amber-500 text-slate-950 px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 font-sans shadow-xs border-b border-amber-600">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="bg-slate-950 text-amber-300 px-2 py-0.5 rounded font-black text-xs uppercase tracking-wide">
               Editing Invoice
@@ -2652,14 +2666,14 @@ export function PosClient({
             <button
               type="button"
               onClick={() => setShowRevisionHistory(true)}
-              className="text-xs font-bold bg-white text-slate-900 px-2.5 py-1 rounded-lg shadow-xs flex items-center gap-1 hover:bg-slate-50 transition"
+              className="text-xs font-bold bg-white text-slate-900 px-2.5 py-1 rounded shadow-xs flex items-center gap-1 hover:bg-slate-50 transition"
             >
               <History className="w-3.5 h-3.5 text-purple-700" />
               <span>Revision History ({initialEditInvoice.revisions?.length || 0})</span>
             </button>
             <Link
               href={`/shop/invoices/${initialEditInvoice.id}`}
-              className="text-xs font-bold bg-slate-900 text-white px-2.5 py-1 rounded-lg shadow-xs hover:bg-slate-800 transition"
+              className="text-xs font-bold bg-slate-900 text-white px-2.5 py-1 rounded shadow-xs hover:bg-slate-800 transition"
             >
               Cancel Edit
             </Link>
@@ -2667,90 +2681,251 @@ export function PosClient({
         </div>
       )}
 
-      {/* 1b. FMCG Voucher Details Strip (Image 2 Busy ERP Style) */}
-      <div className="bg-white border-b-2 border-slate-300 px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs shrink-0">
-        <div className="flex items-center gap-3 sm:gap-5 flex-wrap text-xs font-mono font-bold">
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 uppercase font-sans text-[11px] font-extrabold">Date:</span>
-            <span className="text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-              {todayFormattedWithDay}
-            </span>
+      {/* 2. Unified POS Voucher & Party Strip (Slim, Scannable ~42px) */}
+      <div className="bg-white border-b border-slate-200 px-3 sm:px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 shadow-2xs shrink-0 z-20">
+        {/* Left: Date & Voucher Preview Chips */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[11px] font-mono">
+            <span className="text-slate-500 font-sans font-bold text-[10px] uppercase">Date:</span>
+            <span className="font-bold text-slate-800">{todayFormattedWithDay}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 uppercase font-sans text-[11px] font-extrabold">Vch. No:</span>
-            <span className="text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-300 font-black">
+          <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[11px] font-mono">
+            <span className="text-slate-500 font-sans font-bold text-[10px] uppercase">Vch:</span>
+            <span className="font-bold text-slate-900">
               {initialEditInvoice?.number
                 ? `${initialEditInvoice.number} (Editing)`
                 : activeTab.id === "tab-edit" && activeTab.tabTitle?.startsWith("Edit: ")
                 ? `${activeTab.tabTitle.replace("Edit: ", "")} (Editing)`
                 : nextInvoicePreview
-                ? `${nextInvoicePreview} (auto)`
-                : (activeTab.tabTitle || "INV/26-27/000001 (auto)")}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-slate-500 uppercase font-sans text-[11px] font-extrabold">Party:</span>
-            <span className="text-slate-900 font-black font-sans text-xs sm:text-sm">
-              {selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale")}
-            </span>
-            <span className="text-slate-600 text-[11px]">
-              {selectedParty
-                ? `(Cur. Bal: Rs. ${(selectedParty.currentOutstandingPaise / 100).toFixed(2)} ${selectedParty.currentOutstandingPaise >= 0 ? "Dr" : "Cr"})`
-                : "(Cur. Bal: Rs. 0.00 Dr)"}
+                ? `${nextInvoicePreview}`
+                : (activeTab.tabTitle || "INV/26-27/000001")}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-1 min-w-[220px] max-w-md">
-          <span className="text-slate-500 uppercase font-sans text-[11px] font-extrabold shrink-0">Narration:</span>
+        {/* Center: Compact Party Card with Expand/Edit toggle */}
+        <div className="flex items-center gap-2 flex-1 min-w-[300px] max-w-3xl">
+          <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 px-2.5 py-1 rounded flex-1 transition-all">
+            <div className="w-5 h-5 rounded bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
+              <span className="text-[11px]">👤</span>
+            </div>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="font-bold text-xs text-slate-900 truncate">
+                {selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale / Walk-in")}
+              </span>
+              {selectedParty?.phone && (
+                <span className="text-[11px] font-mono text-slate-500 shrink-0 hidden sm:inline">
+                  {selectedParty.phone}
+                </span>
+              )}
+              {/* Balance Badge */}
+              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${
+                selectedParty
+                  ? selectedParty.currentOutstandingPaise > 0
+                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                    : selectedParty.currentOutstandingPaise < 0
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-slate-100 text-slate-600 border-slate-200"
+                  : "bg-slate-100 text-slate-500 border-slate-200"
+              }`}>
+                {selectedParty
+                  ? selectedParty.currentOutstandingPaise > 0
+                    ? `Due: ₹${(selectedParty.currentOutstandingPaise / 100).toFixed(2)}`
+                    : selectedParty.currentOutstandingPaise < 0
+                    ? `Adv: ₹${(Math.abs(selectedParty.currentOutstandingPaise) / 100).toFixed(2)}`
+                    : "Clear Bal: ₹0"
+                  : "Bal: ₹0"}
+              </span>
+            </div>
+
+            {/* Tier Selector Chips */}
+            <div className="flex items-center gap-0.5 bg-slate-200/70 p-0.5 rounded text-[11px] shrink-0 font-bold">
+              <span className="text-[9px] text-slate-500 uppercase px-1">Tier:</span>
+              <button
+                type="button"
+                onClick={() => handleTierChange("AUTO")}
+                className={`px-1.5 py-0.2 rounded text-[10px] transition ${
+                  activeTab.selectedTierMode === "AUTO"
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Auto Tier based on Party"
+              >
+                Auto({effectiveTier[0]})
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTierChange("WHOLESALER")}
+                className={`px-1.5 py-0.2 rounded text-[10px] transition ${
+                  activeTab.selectedTierMode === "WHOLESALER"
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Wholesaler (Tier A)"
+              >
+                A
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTierChange("RETAILER")}
+                className={`px-1.5 py-0.2 rounded text-[10px] transition ${
+                  activeTab.selectedTierMode === "RETAILER"
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Retailer (Tier B)"
+              >
+                B
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTierChange("CUSTOMER")}
+                className={`px-1.5 py-0.2 rounded text-[10px] transition ${
+                  activeTab.selectedTierMode === "CUSTOMER"
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+                title="Customer (Tier C)"
+              >
+                C
+              </button>
+            </div>
+
+            {/* Expand / Edit Buyer Button */}
+            <button
+              type="button"
+              onClick={() => setIsPartyCardExpanded((prev) => !prev)}
+              className="h-6 px-2 rounded bg-white hover:bg-slate-50 border border-slate-300 text-[10px] font-bold text-slate-700 flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
+              title="Search or edit customer details (Alt+P)"
+            >
+              <Edit3 className="w-2.5 h-2.5 text-blue-600" />
+              <span>{isPartyCardExpanded ? "Close" : "Party / Edit"}</span>
+              <kbd className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">Alt+P</kbd>
+            </button>
+
+            {/* Recent Bills & Full History if party is selected */}
+            {selectedParty && (
+              <div className="flex items-center gap-1 shrink-0">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowRecentBillsPopover((prev) => !prev)}
+                    className="h-6 px-1.5 rounded bg-white hover:bg-slate-50 border border-slate-300 text-[10px] font-bold text-slate-700 flex items-center gap-1 shadow-2xs cursor-pointer"
+                    title="Recent bills"
+                  >
+                    <Clock className="w-2.5 h-2.5 text-slate-500" />
+                    <span>Bills ({recentBills.length})</span>
+                  </button>
+                  {showRecentBillsPopover && (
+                    <div className="absolute right-0 top-full mt-1 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-30 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-800 border-b border-slate-100 pb-1.5">
+                        <span>Last 5 Bills</span>
+                        <button onClick={handleOpenFullHistory} className="text-[11px] text-blue-600 hover:underline">
+                          Full History &rarr;
+                        </button>
+                      </div>
+                      {recentBills.length === 0 ? (
+                        <p className="text-xs text-slate-400 py-2 text-center">No past bills found.</p>
+                      ) : (
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                          {recentBills.map((inv) => (
+                            <div key={inv.id} className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-xs">
+                              <div>
+                                <p className="font-bold text-slate-800 font-mono text-[11px]">{inv.number}</p>
+                                <p className="text-[10px] text-slate-500">{inv.finalizedAt ? new Date(inv.finalizedAt).toLocaleDateString("en-IN") : "Draft"}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-slate-900">₹{(inv.totalPaise / 100).toFixed(2)}</p>
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 bg-slate-200 rounded text-slate-700">{inv.channel}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <button onClick={handleOpenFullHistory} className="w-full py-1.5 text-xs font-bold text-center bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition">
+                        View Complete History
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenFullHistory}
+                  className="h-6 px-1.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-white flex items-center gap-1 shadow-2xs cursor-pointer"
+                  title="Complete ledger & invoice history"
+                >
+                  <History className="w-2.5 h-2.5" />
+                  <span>History</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Narration Input */}
+        <div className="flex items-center gap-1.5 w-52 shrink-0">
+          <span className="text-slate-400 uppercase font-sans text-[10px] font-bold shrink-0">Notes:</span>
           <input
             type="text"
             placeholder="Narration / bill notes..."
             value={activeTab.remarks}
             onChange={(e) => updateActiveTab({ remarks: e.target.value })}
-            className="w-full px-2.5 py-1 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B] font-sans"
+            className="w-full px-2 py-0.5 text-xs bg-slate-50 border border-slate-300 rounded focus:ring-1 focus:ring-blue-500 font-sans"
           />
         </div>
       </div>
 
-      {/* 2. Party Bar: Customer, Balance, Tier, History */}
-      <div className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-2 flex-1 min-w-[280px]">
-          <div className="flex-1">
-            <PartySearchBox
-              parties={localParties as any}
-              selectedPartyId={activeTab.partyId}
-              onSelect={(party) => {
-                updateActiveTab({
-                  partyId: party.id,
-                  tabTitle: party.name,
-                });
-              }}
-              onAddNewParty={() => {
+      {/* Expanded Party Details Drawer / Dropdown */}
+      {isPartyCardExpanded && (
+        <div className="bg-slate-50 border-b border-slate-300 px-3 sm:px-4 py-2 shadow-md flex flex-col gap-2 shrink-0 animate-in slide-in-from-top-2 duration-150 z-20">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <Search className="w-3.5 h-3.5 text-blue-600" />
+              <span>Select or Edit Customer Details</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsPartyCardExpanded(false)}
+              className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
+            >
+              <span>Done / Collapse ▲</span>
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex-1 min-w-[280px]">
+              <PartySearchBox
+                parties={localParties as any}
+                selectedPartyId={activeTab.partyId}
+                onSelect={(party) => {
+                  updateActiveTab({
+                    partyId: party.id,
+                    tabTitle: party.name,
+                  });
+                  setIsPartyCardExpanded(false);
+                }}
+                onAddNewParty={() => {
+                  setQuickCustomerError(null);
+                  setQuickCustomerModalOpen(true);
+                }}
+              />
+            </div>
+            <button
+              onClick={() => {
                 setQuickCustomerError(null);
                 setQuickCustomerModalOpen(true);
               }}
-            />
+              title="Add new customer"
+              className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ New Party</span>
+            </button>
           </div>
 
-          <button
-            onClick={() => {
-              setQuickCustomerError(null);
-              setQuickCustomerModalOpen(true);
-            }}
-            title="Add new customer"
-            className="flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-bold bg-[#12355B]/10 hover:bg-[#12355B]/20 text-[#12355B] transition"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Party</span>
-          </button>
-        </div>
-
-        {/* Walk-in Customer Snapshot Fields (Auto-lookup on 10 digits) */}
-        {!activeTab.partyId && (
-          <div className="w-full flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
-            <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Walk-in Customer:</span>
-            <div className="flex-1 min-w-[140px] max-w-[180px]">
+          {/* Walk-in Customer Fields (if no party selected) */}
+          {!activeTab.partyId && (
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200 text-xs">
+              <span className="font-bold text-slate-500 text-[10px] uppercase">Walk-in:</span>
               <input
                 type="tel"
                 placeholder="Mobile (10-digit)..."
@@ -2768,37 +2943,29 @@ export function PosClient({
                   }
                   updateActiveTab(updates);
                 }}
-                className="w-full px-2.5 py-1 rounded-lg border border-slate-300 text-xs focus:ring-1 focus:ring-blue-500 font-mono"
+                className="w-36 px-2.5 py-1 rounded border border-slate-300 text-xs focus:ring-1 focus:ring-blue-500 font-mono bg-white"
               />
-            </div>
-            <div className="flex-1 min-w-[140px] max-w-[200px]">
               <input
                 type="text"
                 placeholder="Customer Name..."
                 value={activeTab.walkInName || ""}
                 onChange={(e) => updateActiveTab({ walkInName: e.target.value })}
-                className="w-full px-2.5 py-1 rounded-lg border border-slate-300 text-xs focus:ring-1 focus:ring-blue-500"
+                className="w-48 px-2.5 py-1 rounded border border-slate-300 text-xs focus:ring-1 focus:ring-blue-500 bg-white"
               />
-            </div>
-            <div className="flex-1 min-w-[180px]">
               <input
                 type="text"
-                placeholder="Address / Delivery Location (optional)..."
+                placeholder="Delivery Address (optional)..."
                 value={activeTab.walkInAddress || ""}
                 onChange={(e) => updateActiveTab({ walkInAddress: e.target.value })}
-                className="w-full px-2.5 py-1 rounded-lg border border-slate-300 text-xs focus:ring-1 focus:ring-blue-500"
+                className="flex-1 min-w-[180px] px-2.5 py-1 rounded border border-slate-300 text-xs focus:ring-1 focus:ring-blue-500 bg-white"
               />
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Selected Customer Inline Details Strip (Click/press to change, Save button to update DB) */}
-        {selectedParty && (
-          <div className="w-full flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/80 text-xs bg-blue-50/50 p-2.5 rounded-xl border border-blue-200">
-            <span className="font-black text-blue-900 uppercase tracking-wider text-[11px] flex items-center gap-1">
-              <span>👤 Customer:</span>
-            </span>
-            <div className="flex-1 min-w-[160px] max-w-[240px]">
+          {/* Selected Party Inline Fields (if party selected) */}
+          {selectedParty && (
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-200 text-xs">
+              <span className="font-bold text-blue-900 text-[10px] uppercase">Edit Buyer:</span>
               <input
                 type="text"
                 placeholder="Customer Name..."
@@ -2813,11 +2980,9 @@ export function PosClient({
                     itemSearchInputRef.current?.focus();
                   }
                 }}
-                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
-                title="Customer Name (Click to edit, Enter to Save)"
+                className="w-48 px-2.5 py-1 rounded border border-slate-300 text-xs font-bold text-slate-900 bg-white focus:ring-2 focus:ring-blue-500"
+                title="Customer Name (Enter to Save)"
               />
-            </div>
-            <div className="flex-1 min-w-[130px] max-w-[180px]">
               <input
                 type="tel"
                 placeholder="Mobile (10-digit)..."
@@ -2832,14 +2997,12 @@ export function PosClient({
                     itemSearchInputRef.current?.focus();
                   }
                 }}
-                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
-                title="Customer Phone (Click to edit, Enter to Save)"
+                className="w-36 px-2.5 py-1 rounded border border-slate-300 text-xs font-mono text-slate-800 bg-white focus:ring-2 focus:ring-blue-500"
+                title="Customer Phone (Enter to Save)"
               />
-            </div>
-            <div className="flex-1 min-w-[180px]">
               <input
                 type="text"
-                placeholder="Address / Delivery Location..."
+                placeholder="Customer Address..."
                 value={inlinePartyAddress}
                 onChange={(e) => {
                   setInlinePartyAddress(e.target.value);
@@ -2851,193 +3014,27 @@ export function PosClient({
                     itemSearchInputRef.current?.focus();
                   }
                 }}
-                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-2xs"
-                title="Customer Address (Click to edit, Enter to Save)"
+                className="flex-1 min-w-[180px] px-2.5 py-1 rounded border border-slate-300 text-xs text-slate-800 bg-white focus:ring-2 focus:ring-blue-500"
+                title="Customer Address (Enter to Save)"
               />
-            </div>
-            <button
-              type="button"
-              onClick={handleSaveInlineParty}
-              disabled={isSavingInlineParty || (!isPartyDirty && !partySaveSuccess)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shadow-xs ${
-                partySaveSuccess
-                  ? "bg-emerald-600 text-white"
-                  : isPartyDirty
-                  ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                  : "bg-slate-200 text-slate-500 cursor-default"
-              }`}
-            >
-              {isSavingInlineParty ? (
-                <span>Saving...</span>
-              ) : partySaveSuccess ? (
-                <span>✓ Saved!</span>
-              ) : (
-                <span>💾 Save</span>
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* Customer Balance, Tier & History Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Tier Chip */}
-          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
-            <span className="text-[10px] font-bold text-slate-500 uppercase px-1.5">Tier:</span>
-            <button
-              onClick={() => handleTierChange("AUTO")}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
-                activeTab.selectedTierMode === "AUTO"
-                  ? "bg-[#12355B] text-white"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              Auto ({effectiveTier[0]})
-            </button>
-            <button
-              onClick={() => handleTierChange("WHOLESALER")}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
-                activeTab.selectedTierMode === "WHOLESALER"
-                  ? "bg-[#12355B] text-white"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              A
-            </button>
-            <button
-              onClick={() => handleTierChange("RETAILER")}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
-                activeTab.selectedTierMode === "RETAILER"
-                  ? "bg-[#12355B] text-white"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              B
-            </button>
-            <button
-              onClick={() => handleTierChange("CUSTOMER")}
-              className={`px-2 py-0.5 rounded text-[11px] font-bold transition ${
-                activeTab.selectedTierMode === "CUSTOMER"
-                  ? "bg-[#12355B] text-white"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              C
-            </button>
-          </div>
-
-          {/* Selected Party Name Badge */}
-          {selectedParty && (
-            <div className="flex items-center gap-1.5 bg-blue-50/90 border border-blue-200 px-3 py-1 rounded-xl shadow-2xs">
-              <span className="font-black text-xs text-blue-950">{selectedParty.name}</span>
-            </div>
-          )}
-
-          {/* Party Balance Chip */}
-          {selectedParty && (
-            <>
-              <div
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
-                  selectedParty.currentOutstandingPaise > 0
-                    ? "bg-amber-50 text-amber-800 border-amber-200"
-                    : selectedParty.currentOutstandingPaise < 0
-                    ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                    : "bg-slate-50 text-slate-700 border-slate-200"
+              <button
+                type="button"
+                onClick={handleSaveInlineParty}
+                disabled={isSavingInlineParty || (!isPartyDirty && !partySaveSuccess)}
+                className={`px-3 py-1 rounded text-xs font-bold transition shadow-xs ${
+                  partySaveSuccess
+                    ? "bg-emerald-600 text-white"
+                    : isPartyDirty
+                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                    : "bg-slate-200 text-slate-500 cursor-default"
                 }`}
               >
-                {selectedParty.currentOutstandingPaise > 0
-                  ? `Amount Payable: ₹${(selectedParty.currentOutstandingPaise / 100).toFixed(2)}`
-                  : selectedParty.currentOutstandingPaise < 0
-                  ? `Advance: ₹${(Math.abs(selectedParty.currentOutstandingPaise) / 100).toFixed(2)}`
-                  : "Clear Balance ₹0"}
-              </div>
-
-              {selectedParty.creditEnabled && (
-                <div className="text-[11px] font-semibold text-slate-600 hidden md:block">
-                  Limit: ₹{(selectedParty.creditLimitPaise / 100).toFixed(0)} · Avail: ₹
-                  {(
-                    (selectedParty.creditLimitPaise - selectedParty.currentOutstandingPaise) /
-                    100
-                  ).toFixed(0)}
-                </div>
-              )}
-
-              {/* Recent Bills Flyout Toggle */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowRecentBillsPopover((prev) => !prev)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition"
-                >
-                  <Clock className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Recent Bills ({recentBills.length})</span>
-                  <ChevronDown className="w-3 h-3 text-slate-400" />
-                </button>
-
-                {showRecentBillsPopover && (
-                  <div className="absolute right-0 top-full mt-1 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-30 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-slate-800 border-b border-slate-100 pb-1.5">
-                      <span>Last 5 Bills</span>
-                      <button
-                        onClick={handleOpenFullHistory}
-                        className="text-[11px] text-[#12355B] hover:underline"
-                      >
-                        Full History &rarr;
-                      </button>
-                    </div>
-
-                    {recentBills.length === 0 ? (
-                      <p className="text-xs text-slate-400 py-2 text-center">No past bills found.</p>
-                    ) : (
-                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                        {recentBills.map((inv) => (
-                          <div
-                            key={inv.id}
-                            className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 flex items-center justify-between text-xs"
-                          >
-                            <div>
-                              <p className="font-bold text-slate-800 font-mono text-[11px]">{inv.number}</p>
-                              <p className="text-[10px] text-slate-500">
-                                {inv.finalizedAt
-                                  ? new Date(inv.finalizedAt).toLocaleDateString("en-IN")
-                                  : "Draft"}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-bold text-[#12355B]">
-                                ₹{(inv.totalPaise / 100).toFixed(2)}
-                              </p>
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 bg-slate-200 rounded text-slate-700">
-                                {inv.channel}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <button
-                      onClick={handleOpenFullHistory}
-                      className="w-full py-1.5 text-xs font-bold text-center bg-[#12355B] text-white rounded-lg hover:bg-[#0E2843] transition"
-                    >
-                      View Complete History
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Full History Drawer Button */}
-              <button
-                onClick={handleOpenFullHistory}
-                title="View complete invoice and payment history"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#12355B] text-white hover:bg-[#0E2843] transition shadow-xs"
-              >
-                <History className="w-3.5 h-3.5" />
-                <span>Full History</span>
+                {isSavingInlineParty ? "Saving..." : partySaveSuccess ? "✓ Saved!" : "💾 Save"}
               </button>
-            </>
+            </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* 3. Main Body: Busy-Style Item Grid (Left/Center) + Summary/Tender (Right) */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
@@ -3045,14 +3042,14 @@ export function PosClient({
         <section className="flex-1 flex flex-col bg-white overflow-hidden border-r border-slate-200">
           
 
-          {/* Quick Item Search Bar (Ctrl+K) */}
-          <div className="p-3 border-b border-slate-200 bg-slate-50/70 relative shrink-0">
+          {/* Fast Item Search Bar (Ctrl+K) */}
+          <div className="px-3 py-1.5 border-b border-slate-200 bg-slate-50/50 relative shrink-0">
             <div className="relative">
-              <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 ref={itemSearchInputRef}
                 type="text"
-                placeholder="Search items by name, weight, code... (e.g. 'bhuj 400')"
+                placeholder="Scan barcode / enter item name, weight, code... (e.g. 'bhuj 400') [Ctrl+K]"
                 value={itemSearchTerm}
                 onChange={(e) => {
                   setItemSearchTerm(e.target.value);
@@ -3105,9 +3102,9 @@ export function PosClient({
                     }
                   }
                 }}
-                className="w-full pl-11 pr-24 py-3 bg-white border-2 border-slate-300 rounded-2xl text-sm md:text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#12355B] focus:border-[#12355B] shadow-sm transition"
+                className="w-full pl-9 pr-24 py-1.5 bg-white border border-slate-300 rounded-lg text-xs md:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 shadow-2xs transition"
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                 {itemSearchTerm && (
                   <button
                     onClick={() => setItemSearchTerm("")}
@@ -3116,15 +3113,15 @@ export function PosClient({
                     ✕
                   </button>
                 )}
-                <span className="hidden sm:inline-block font-mono text-[11px] font-extrabold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                <span className="hidden sm:inline-block font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                   Ctrl+K
                 </span>
               </div>
             </div>
 
-            {/* Busy-Style Minimal Autocomplete Dropdown (Part C) */}
+            {/* Autocomplete Dropdown */}
             {filteredProducts.length > 0 && (
-              <div className="absolute left-3 right-3 top-full mt-1.5 bg-white border border-slate-300 rounded-xl shadow-2xl z-40 max-h-72 overflow-y-auto divide-y divide-slate-100 font-sans">
+              <div className="absolute left-3 right-3 top-full mt-1 bg-white border border-slate-300 rounded-lg shadow-xl z-40 max-h-72 overflow-y-auto divide-y divide-slate-100 font-sans">
                 {filteredProducts.map((p, pIdx) => {
                   const isHighlighted = pIdx === searchSelectedIndex;
                   const inStock = (p.shopStockQty ?? 0) + (p.godownStockQty ?? 0) > 0;
@@ -3160,9 +3157,9 @@ export function PosClient({
                           }
                         }, 40);
                       }}
-                      className={`px-3 py-2 sm:py-2.5 flex items-center justify-between text-xs sm:text-sm cursor-pointer transition ${
+                      className={`px-3 py-2 flex items-center justify-between text-xs sm:text-sm cursor-pointer transition ${
                         isHighlighted
-                          ? "bg-[#0f172a] text-white font-semibold"
+                          ? "bg-slate-900 text-white font-semibold"
                           : "bg-white text-slate-900 hover:bg-slate-50"
                       }`}
                     >
@@ -3182,7 +3179,7 @@ export function PosClient({
                           return price > 0 ? (
                             <span
                               className={`font-mono text-xs font-bold shrink-0 ${
-                                isHighlighted ? "text-emerald-300 font-black" : "text-emerald-700 font-black"
+                                isHighlighted ? "text-emerald-300" : "text-emerald-700"
                               }`}
                             >
                               ₹${(price / 100).toFixed(2)}
@@ -3219,20 +3216,20 @@ export function PosClient({
             )}
           </div>
 
-          {/* Busy FMCG Sales Voucher Ledger Grid (Image 2 Style) */}
-          <div className="flex-1 overflow-y-auto bg-white border border-slate-300 m-2 rounded-xl shadow-2xs">
+          {/* FMCG Sales Voucher Ledger Grid (Text-Until-Focused Hero Grid) */}
+          <div className="flex-1 overflow-y-auto bg-white">
             <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-[#e9edf5] border-b-2 border-slate-300 text-[11px] font-black uppercase text-slate-800 tracking-wider sticky top-0 z-10 shadow-xs">
-                    <th className="py-2 px-2.5 w-12 text-center border-r border-slate-300">S.N.</th>
-                    <th className="py-2 px-3 min-w-[260px] border-r border-slate-300">Item Description</th>
-                    <th className="py-2 px-2 w-24 text-center border-r border-slate-300">Qty</th>
-                    <th className="py-2 px-2 w-28 text-center border-r border-slate-300">Unit</th>
-                    <th className="py-2 px-2 w-28 text-right border-r border-slate-300">List Price (MRP)</th>
-                    <th className="py-2 px-2 w-32 text-right border-r border-slate-300">Rate (₹)</th>
-                    <th className="py-2 px-2 w-24 text-center border-r border-slate-300">Disc %</th>
-                    <th className="py-2 px-3 w-36 text-right border-r border-slate-300">Amount (₹)</th>
-                    <th className="py-2 px-2 w-16 text-center">Act</th>
+                  <tr className="bg-slate-100/90 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-700 tracking-wider sticky top-0 z-10 shadow-2xs select-none">
+                    <th className="py-2 px-2.5 w-11 text-center border-r border-slate-200">#</th>
+                    <th className="py-2 px-3 min-w-[260px] border-r border-slate-200">Item Description</th>
+                    <th className="py-2 px-2 w-20 text-center border-r border-slate-200">Qty</th>
+                    <th className="py-2 px-2 w-24 text-center border-r border-slate-200">Unit</th>
+                    <th className="py-2 px-2 w-26 text-right border-r border-slate-200">List Price</th>
+                    <th className="py-2 px-2 w-28 text-right border-r border-slate-200">Rate (₹)</th>
+                    <th className="py-2 px-2 w-20 text-center border-r border-slate-200">Disc %</th>
+                    <th className="py-2 px-3 w-32 text-right border-r border-slate-200">Amount (₹)</th>
+                    <th className="py-2 px-2 w-14 text-center">Act</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -3291,19 +3288,21 @@ export function PosClient({
                         key={line.id}
                         data-line-id={line.id}
                         onClick={() => setHighlightedProductId(line.productId)}
-                        className={`transition-all cursor-pointer ${
+                        className={`transition-colors cursor-pointer ${
                           !isStockSufficient
                             ? "bg-rose-50/70 hover:bg-rose-100/60 border-l-4 border-l-rose-500"
                             : isSelected
-                            ? "bg-amber-50/70 hover:bg-amber-100/50 border-l-4 border-l-amber-500 font-medium"
-                            : "hover:bg-slate-50/80"
+                            ? "bg-blue-50/50 hover:bg-blue-100/40 border-l-4 border-l-blue-600 font-medium"
+                            : index % 2 === 0
+                            ? "bg-white hover:bg-slate-50"
+                            : "bg-slate-50/40 hover:bg-slate-100/60"
                         }`}
                       >
-                        <td className="py-1 px-2.5 text-center text-slate-400 font-mono text-xs font-bold">
+                        <td className="py-1 px-2.5 text-center text-slate-400 font-mono text-xs font-bold border-r border-slate-100">
                           {index + 1}
                         </td>
 
-                        <td className="py-1 px-2">
+                        <td className="py-1 px-2 border-r border-slate-100">
                           <div className="flex items-center gap-1.5">
                             <input
                               type="text"
@@ -3314,7 +3313,7 @@ export function PosClient({
                               onFocus={(e) => e.target.select()}
                               onKeyDown={(e) => handlePosCellKeyDown(e, "name", index, line.id)}
                               title="Product Name (Editable - permanently updates product in catalog)"
-                              className="flex-1 px-1.5 py-1 text-xs sm:text-sm font-bold text-slate-900 bg-white border border-slate-300 rounded focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
+                              className="flex-1 px-1.5 py-1 text-xs sm:text-sm font-bold text-slate-900 bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-white focus:text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
                             />
                             {!isStockSufficient && (
                               <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1 py-0.5 rounded shrink-0">
@@ -3324,8 +3323,8 @@ export function PosClient({
                           </div>
                         </td>
 
-                        {/* Qty Input (Busy Style Active Highlight) */}
-                        <td className="py-1 px-1.5 text-center">
+                        {/* Qty Input */}
+                        <td className="py-1 px-1.5 text-center border-r border-slate-100">
                           <input
                             data-pos-field="qty"
                             type="text"
@@ -3338,18 +3337,18 @@ export function PosClient({
                             }}
                             onFocus={(e) => e.target.select()}
                             onKeyDown={(e) => handlePosCellKeyDown(e, "qty", index, line.id, line.qty)}
-                            className="w-18 px-1.5 py-1 text-center font-black text-sm bg-white border border-slate-300 rounded focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
+                            className="w-16 px-1.5 py-1 text-center font-black text-xs sm:text-sm bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-white focus:text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
                           />
                         </td>
 
                         {/* Unit Selector */}
-                        <td className="py-1 px-1.5 text-center">
+                        <td className="py-1 px-1.5 text-center border-r border-slate-100">
                           <select
                             data-pos-field="unit"
                             value={line.unit}
                             onChange={(e) => updateLineUnit(line.id, e.target.value as "Pcs" | "Carton" | "Dozen" | "Bag")}
                             onKeyDown={(e) => handlePosCellKeyDown(e, "unit", index, line.id)}
-                            className="w-26 px-1.5 py-1 text-xs font-bold bg-white border border-slate-300 rounded focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none cursor-pointer transition-colors"
+                            className="w-24 px-1.5 py-1 text-xs font-semibold bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-white focus:text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none cursor-pointer transition-colors"
                           >
                             <option value="Pcs">Pcs</option>
                             <option value="Carton">Carton (Crt)</option>
@@ -3358,15 +3357,13 @@ export function PosClient({
                           </select>
                         </td>
 
-                        {/* MRP (Editable Input from Owner's Handwritten Note) */}
-                        <td className="py-1 px-1.5 text-right">
+                        {/* MRP */}
+                        <td className="py-1 px-1.5 text-right border-r border-slate-100">
                           <div className="flex flex-col items-end">
-                            <div className="relative inline-flex items-center justify-end w-24">
+                            <div className="relative inline-flex items-center justify-end w-22">
                               <span className="absolute left-1.5 text-slate-400 font-mono text-[10px] pointer-events-none font-bold">₹</span>
                               <input
                                 type="text" inputMode="decimal"
-                                
-                                
                                 value={
                                   line.customMrpInput !== undefined
                                     ? line.customMrpInput
@@ -3381,20 +3378,18 @@ export function PosClient({
                                 data-pos-field="mrp"
                                 onKeyDown={(e) => handlePosCellKeyDown(e, "mrp", index, line.id)}
                                 title="Editable Line MRP (Permanently syncs to Master)"
-                                className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-bold text-xs rounded border border-slate-300 bg-white text-slate-900 focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
+                                className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-bold text-xs rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 focus:bg-white focus:text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
                               />
                             </div>
                           </div>
                         </td>
 
-                        {/* Rate (Editable Busy-Style Input) */}
-                        <td className="py-1 px-1.5 text-right">
-                          <div className="relative inline-flex items-center justify-end w-26">
+                        {/* Rate */}
+                        <td className="py-1 px-1.5 text-right border-r border-slate-100">
+                          <div className="relative inline-flex items-center justify-end w-24">
                             <span className="absolute left-1.5 text-slate-400 font-mono text-xs pointer-events-none font-bold">₹</span>
                             <input
                               type="text" inputMode="decimal"
-                              
-                              
                               value={line.customRateInput !== undefined ? line.customRateInput : (ratePerUnitPaise > 0 ? (ratePerUnitPaise / 100).toFixed(2) : "")}
                               placeholder="0.00"
                               onChange={(e) => updateLineRate(line.id, e.target.value)}
@@ -3402,19 +3397,16 @@ export function PosClient({
                               data-pos-field="rate"
                               onKeyDown={(e) => handlePosCellKeyDown(e, "rate", index, line.id)}
                               title="Selling rate manually"
-                              className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-black text-xs rounded border border-slate-300 bg-white text-slate-900 focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
+                              className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-black text-xs rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
                             />
                           </div>
                         </td>
 
-                        {/* Disc % (Synchronized with Rate & MRP) */}
-                        <td className="py-1 px-1.5 text-center">
+                        {/* Disc % */}
+                        <td className="py-1 px-1.5 text-center border-r border-slate-100">
                           <div className="relative inline-flex items-center justify-center w-18">
                             <input
                               type="text" inputMode="decimal"
-                              
-                              
-                              
                               value={
                                 line.customDiscInput !== undefined
                                   ? line.customDiscInput
@@ -3428,15 +3420,15 @@ export function PosClient({
                               data-pos-field="disc"
                               onKeyDown={(e) => handlePosCellKeyDown(e, "disc", index, line.id)}
                               title="Discount % off MRP. Changing this automatically calculates selling rate."
-                              className="w-full pl-1 pr-4 py-1 text-center font-mono font-black text-xs rounded border border-slate-300 bg-white text-slate-900 focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
+                              className="w-full pl-1 pr-3 py-1 text-center font-mono font-bold text-xs rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
                             />
                             <span className="absolute right-1 text-slate-400 font-bold text-[10px] pointer-events-none">%</span>
                           </div>
                         </td>
 
-                        {/* Amount (₹) - Fully Editable Input */}
-                        <td className="py-1 px-1.5 text-right">
-                          <div className="relative inline-flex items-center justify-end w-28">
+                        {/* Amount (₹) */}
+                        <td className="py-1 px-1.5 text-right border-r border-slate-100">
+                          <div className="relative inline-flex items-center justify-end w-26">
                             <span className="absolute left-1.5 text-slate-400 font-mono text-xs pointer-events-none font-bold">₹</span>
                             <input
                               type="text"
@@ -3454,13 +3446,13 @@ export function PosClient({
                               onFocus={(e) => e.target.select()}
                               onKeyDown={(e) => handlePosCellKeyDown(e, "amount", index, line.id)}
                               title="Line Amount (₹). Changing this derives rate and discount %."
-                              className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-black text-xs sm:text-sm rounded border border-slate-300 bg-white text-[#12355B] focus:bg-[#12355B] focus:text-white focus:ring-2 focus:ring-[#FC830D] focus:border-transparent outline-none transition-colors"
+                              className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-black text-xs sm:text-sm rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
                             />
                           </div>
                         </td>
 
                         {/* Edit Master & Delete Line */}
-                        <td className="py-1 px-1.5 text-center">
+                        <td className="py-1 px-1 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
                               type="button"
@@ -3469,7 +3461,7 @@ export function PosClient({
                                 handleOpenEditProductMaster(line.product);
                               }}
                               title="Edit Product Master (Alt+M)"
-                              className="p-1 text-slate-400 hover:text-[#12355B] hover:bg-slate-100 rounded transition cursor-pointer"
+                              className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition cursor-pointer"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
@@ -3482,34 +3474,34 @@ export function PosClient({
                               title="Remove line (F9)"
                               className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>
                       </tr>
                     );
                   })}
-                  {/* Empty Spreadsheet Rows for Classic Busy ERP Look (Image 2) */}
+                  {/* Empty Guidance Row */}
                   {activeTab.cart.length === 0 && (
-                    <tr className="h-8 bg-blue-50/20 border-b border-slate-200">
-                      <td className="text-center font-mono text-xs text-slate-400 border-r border-slate-200 font-bold">1</td>
-                      <td colSpan={8} className="px-4 text-xs font-semibold text-slate-500">
-                        👉 Press <strong className="font-mono text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-300 shadow-2xs">[Ctrl+K / F1]</strong> or type above to add items to bill...
+                    <tr className="h-10 bg-slate-50/50 border-b border-slate-100">
+                      <td className="text-center font-mono text-xs text-slate-400 border-r border-slate-100 font-bold">1</td>
+                      <td colSpan={8} className="px-4 text-xs font-medium text-slate-500">
+                        Scan item barcode or press <kbd className="font-mono text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-300 shadow-2xs font-bold">[Ctrl+K / F1]</kbd> to search products...
                       </td>
                     </tr>
                   )}
-                  {Array.from({ length: Math.max(0, 13 - Math.max(1, activeTab.cart.length)) }).map((_, emptyIdx) => {
+                  {Array.from({ length: Math.max(0, 12 - Math.max(1, activeTab.cart.length)) }).map((_, emptyIdx) => {
                     const rowNum = Math.max(1, activeTab.cart.length) + emptyIdx + 1;
                     return (
-                      <tr key={`empty-row-${rowNum}`} className="h-8 hover:bg-slate-50/40 border-b border-slate-200/80">
-                        <td className="text-center font-mono text-xs text-slate-400 border-r border-slate-200 font-bold">{rowNum}</td>
-                        <td className="border-r border-slate-200 px-3"></td>
-                        <td className="border-r border-slate-200"></td>
-                        <td className="border-r border-slate-200"></td>
-                        <td className="border-r border-slate-200"></td>
-                        <td className="border-r border-slate-200"></td>
-                        <td className="border-r border-slate-200"></td>
-                        <td className="border-r border-slate-200"></td>
+                      <tr key={`empty-row-${rowNum}`} className="h-7 hover:bg-slate-50/30 border-b border-slate-100">
+                        <td className="text-center font-mono text-[11px] text-slate-300 border-r border-slate-100">{rowNum}</td>
+                        <td className="border-r border-slate-100 px-3"></td>
+                        <td className="border-r border-slate-100"></td>
+                        <td className="border-r border-slate-100"></td>
+                        <td className="border-r border-slate-100"></td>
+                        <td className="border-r border-slate-100"></td>
+                        <td className="border-r border-slate-100"></td>
+                        <td className="border-r border-slate-100"></td>
                         <td></td>
                       </tr>
                     );
@@ -3518,27 +3510,31 @@ export function PosClient({
               </table>
           </div>
 
-          {/* Status Line Under Grid (Part C Busy Style) */}
-          <div className="px-3.5 py-2 bg-slate-200 border-t border-slate-300 text-xs font-mono font-medium text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+          {/* Status Line Under Grid */}
+          <div className="px-3 py-1.5 bg-slate-100 border-t border-slate-200 text-xs font-mono font-medium text-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
             {highlightedProduct ? (
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-slate-900">
+                <span className="font-bold text-slate-900 font-sans">
                   {highlightedProduct.name} {highlightedProduct.weight || (highlightedProduct.weightValue ? `${highlightedProduct.weightValue}${highlightedProduct.weightUnit || "g"}` : "")}:
                 </span>
-                <span>Shop: <strong className="font-bold text-emerald-800">{highlightedProduct.shopStockQty} pcs</strong></span>
-                <span>|</span>
-                <span>Godown: <strong className="font-bold text-slate-900">{highlightedProduct.godownCartons} ctn</strong> ({highlightedProduct.godownStockQty} pcs)</span>
-                <span>|</span>
-                <span>Pack: <strong className="font-bold text-slate-800">{highlightedProduct.packSize}</strong></span>
-                <span>|</span>
-                <span>
+                <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.2 rounded text-[11px]">
+                  Shop: <strong>{highlightedProduct.shopStockQty} pcs</strong>
+                </span>
+                <span className="bg-slate-200/80 text-slate-800 border border-slate-300 px-1.5 py-0.2 rounded text-[11px]">
+                  Godown: <strong>{highlightedProduct.godownCartons} ctn</strong> ({highlightedProduct.godownStockQty} pcs)
+                </span>
+                <span className="text-slate-600 text-[11px]">
+                  Pack: <strong>{highlightedProduct.packSize}</strong>
+                </span>
+                <span className="text-slate-400">|</span>
+                <span className="text-slate-700 text-[11px]">
                   Last rate: <strong className="font-bold text-blue-900">
                     {lastItemPurchase ? `₹${(lastItemPurchase.ratePaise / 100).toFixed(2)}` : `₹${((highlightedProduct.priceAPaise || highlightedProduct.mrpPaise || 0) / 100).toFixed(2)}`}
                   </strong>
                 </span>
               </div>
             ) : (
-              <span className="text-slate-500 italic">Select or highlight an item to view live stock &amp; rate. Press [F8] for full diagnostics.</span>
+              <span className="text-slate-500 italic font-sans text-xs">Select an item row to inspect stock &amp; rate. Press [F8] for full diagnostics.</span>
             )}
             <div className="flex items-center gap-2 shrink-0">
               {highlightedProduct && (
@@ -3555,12 +3551,13 @@ export function PosClient({
           </div>
         </section>
 
-        {/* Right Pane: Totals, Order Discount, Tender & Finalize (Modern Enterprise Style) */}
-        <aside className="w-full lg:w-96 bg-white flex flex-col justify-between p-4 space-y-4 shrink-0 shadow-md border-l border-slate-200 overflow-y-auto">
-          <div className="space-y-4">
+        {/* Right Pane: Compact Bill Summary & Sticky Settlement Bar */}
+        <aside className="w-full lg:w-96 bg-slate-50/50 flex flex-col justify-between shrink-0 border-l border-slate-200 h-full overflow-hidden">
+          {/* Scrollable Upper Section */}
+          <div className="flex-1 overflow-y-auto p-3.5 space-y-3">
             {/* Error Message Banner */}
             {errorMessage && (
-              <div className="p-3.5 rounded-xl bg-rose-50 border-2 border-rose-300 text-rose-800 text-xs flex items-start justify-between gap-2 shadow-xs">
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start justify-between gap-2 shadow-2xs">
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <span className="font-semibold leading-relaxed">{errorMessage}</span>
@@ -3570,130 +3567,135 @@ export function PosClient({
             )}
 
             {/* Order Discount % */}
-            <div className="flex items-center justify-between gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <div className="flex items-center justify-between gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-2xs">
               <label className="font-bold text-xs text-slate-700 flex items-center gap-1.5">
                 <Percent className="w-3.5 h-3.5 text-blue-600" />
-                <span>Order Discount %:</span>
+                <span>Order Discount:</span>
               </label>
               <div className="flex items-center gap-1">
                 <input
+                  id="order-discount"
                   type="number"
                   min="0"
                   max="100"
                   step="0.1"
                   value={activeTab.orderDiscountPercent}
                   onChange={(e) => updateActiveTab({ orderDiscountPercent: e.target.value })}
-                  className="w-20 px-2 py-1 text-right font-black text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#12355B]"
+                  title="Order discount % (Alt+D)"
+                  className="w-16 px-2 py-0.5 text-right font-black text-xs bg-slate-50 border border-slate-300 rounded focus:ring-1 focus:ring-blue-600"
                 />
                 <span className="text-slate-500 font-bold text-xs">%</span>
               </div>
             </div>
 
-            {/* Totals Financial Breakdown */}
-            <div className="space-y-2 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200 text-xs">
-              <div className="flex justify-between text-slate-600 font-medium">
+            {/* Financial Breakdown Stack */}
+            <div className="space-y-1.5 p-3 rounded-xl bg-white border border-slate-200 text-xs shadow-2xs">
+              <div className="flex justify-between text-slate-600 font-medium text-[11px]">
                 <span>Subtotal (MRP):</span>
                 <span className="font-mono font-bold text-slate-800">₹{(subtotalMrpPaise / 100).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-emerald-700 font-bold">
-                <span>Total Savings / Discount:</span>
+              <div className="flex justify-between text-emerald-700 font-bold text-[11px]">
+                <span>Savings / Discount:</span>
                 <span className="font-mono text-emerald-700">-₹{(totalDiscountPaise / 100).toFixed(2)}</span>
               </div>
               {activeTab.documentType === "GST" && (
                 <>
-                  <div className="flex justify-between text-slate-600 font-medium">
-                <span>Taxable Value:</span>
-                <span className="font-mono font-bold text-slate-800">₹{(taxablePaise / 100).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-slate-600 font-medium">
-                <span>CGST / SGST:</span>
-                <span className="font-mono font-bold text-slate-800">₹{((cgstPaise + sgstPaise) / 100).toFixed(2)}</span>
-              </div>
+                  <div className="flex justify-between text-slate-600 font-medium text-[11px]">
+                    <span>Taxable Value:</span>
+                    <span className="font-mono font-bold text-slate-800">₹{(taxablePaise / 100).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600 font-medium text-[11px]">
+                    <span>CGST / SGST:</span>
+                    <span className="font-mono font-bold text-slate-800">₹{((cgstPaise + sgstPaise) / 100).toFixed(2)}</span>
+                  </div>
                 </>
               )}
-              <div className="flex justify-between text-slate-600 font-medium">
+              <div className="flex justify-between text-slate-500 font-medium text-[11px] pt-1 border-t border-slate-100">
                 <span>Round-off:</span>
-                <span className="font-mono font-bold">
+                <span className="font-mono font-bold text-slate-700">
                   {roundoffPaise >= 0 ? `+₹${(roundoffPaise / 100).toFixed(2)}` : `-₹${(Math.abs(roundoffPaise) / 100).toFixed(2)}`}
                 </span>
               </div>
             </div>
 
-            {/* Grand Total Hero Banner */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-[#0C2340] to-[#12355B] text-white shadow-lg space-y-1">
-              <div className="flex justify-between items-baseline">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Grand Total</span>
-                <span className="text-3xl sm:text-4xl font-black font-mono text-[#F4B41A] tracking-tight">
-                  ₹{(totalAmountPaise / 100).toFixed(2)}
+            {/* Grand Total Hero Card */}
+            <div className="p-3.5 rounded-xl bg-slate-900 text-white shadow-md space-y-1 border border-slate-800">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">NET PAYABLE AMOUNT</span>
+                <span className="text-[10px] font-bold bg-slate-800 text-amber-300 px-2 py-0.2 rounded border border-slate-700 uppercase">
+                  {activeTab.documentType === "GST" ? "GST Invoice" : "Retail Invoice"}
                 </span>
               </div>
+              <div className="text-2xl sm:text-3xl font-black font-mono text-amber-400 tracking-tight">
+                ₹{(totalAmountPaise / 100).toFixed(2)}
+              </div>
               {amountInWords && (
-                <p className="text-[11px] text-slate-300/90 italic pt-1 border-t border-white/10 leading-snug">
+                <p className="text-[10px] text-slate-300/90 italic pt-1 border-t border-slate-800 leading-snug">
                   {amountInWords}
                 </p>
               )}
             </div>
 
-            {/* Payment Mode Selector */}
-            <div className="space-y-2">
-              <label className="text-xs font-extrabold text-slate-700 block uppercase tracking-wide">
+            {/* Payment Mode Selector Segmented Control */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">
                 Payment Tender Mode
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1 bg-slate-200/60 p-0.5 rounded-lg border border-slate-200">
                 <button
                   type="button"
                   onClick={() => updateActiveTab({ paymentMode: PaymentMode.CASH })}
-                  className={`py-2.5 px-2 rounded-xl text-xs font-black flex flex-col items-center gap-1 border-2 transition-all ${
+                  className={`py-1.5 px-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                     activeTab.paymentMode === PaymentMode.CASH
-                      ? "bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.02]"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-slate-700 hover:text-slate-900"
                   }`}
                 >
-                  <Banknote className="w-5 h-5" />
+                  <Banknote className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Cash</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => updateActiveTab({ paymentMode: PaymentMode.UPI })}
-                  className={`py-2.5 px-2 rounded-xl text-xs font-black flex flex-col items-center gap-1 border-2 transition-all ${
+                  className={`py-1.5 px-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                     activeTab.paymentMode === PaymentMode.UPI
-                      ? "bg-sky-600 text-white border-sky-600 shadow-md scale-[1.02]"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-slate-700 hover:text-slate-900"
                   }`}
                 >
-                  <Smartphone className="w-5 h-5" />
+                  <Smartphone className="w-3.5 h-3.5 text-sky-400" />
                   <span>UPI</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => updateActiveTab({ paymentMode: PaymentMode.CREDIT })}
-                  className={`py-2.5 px-2 rounded-xl text-xs font-black flex flex-col items-center gap-1 border-2 transition-all ${
+                  className={`py-1.5 px-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                     activeTab.paymentMode === PaymentMode.CREDIT
-                      ? "bg-amber-600 text-white border-amber-600 shadow-md scale-[1.02]"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-slate-700 hover:text-slate-900"
                   }`}
                 >
-                  <CreditCard className="w-5 h-5" />
+                  <CreditCard className="w-3.5 h-3.5 text-amber-400" />
                   <span>Credit</span>
                 </button>
               </div>
             </div>
 
-            {/* Document Type: Retail Bill vs GST Bill */}
-            <div className="space-y-1.5 pt-1">
-              <label className="text-xs font-bold text-slate-700 block uppercase tracking-wide">
+            {/* Document Type: Retail Bill vs GST Bill (Alt+G) */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">
                 Invoice Format (Alt+G)
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1 bg-slate-200/60 p-0.5 rounded-lg border border-slate-200">
                 <button
                   type="button"
                   onClick={() => updateActiveTab({ documentType: "RETAIL" })}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                  className={`py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                     (activeTab.documentType ?? "RETAIL") === "RETAIL"
-                      ? "bg-[#12355B] text-white border-[#12355B] shadow-sm font-black"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-slate-700 hover:text-slate-900"
                   }`}
                 >
                   <span>Retail Bill</span>
@@ -3701,15 +3703,13 @@ export function PosClient({
                 <button
                   type="button"
                   onClick={() => updateActiveTab({ documentType: "GST" })}
-                  className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                  className={`py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                     activeTab.documentType === "GST"
-                      ? "bg-purple-700 text-white border-purple-800 shadow-sm font-black ring-2 ring-purple-300"
-                      : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                      ? "bg-purple-900 text-white shadow-xs ring-1 ring-purple-500"
+                      : "text-slate-700 hover:text-slate-900"
                   }`}
                 >
-                  <span className="font-mono text-[10px] bg-purple-900 text-purple-100 px-1 rounded">
-                    GST
-                  </span>
+                  <span className="font-mono text-[9px] bg-purple-800 text-purple-200 px-1 rounded">GST</span>
                   <span>GST Bill</span>
                 </button>
               </div>
@@ -3717,34 +3717,34 @@ export function PosClient({
 
             {/* Payment Status (Cash and UPI only) */}
             {(activeTab.paymentMode === PaymentMode.CASH || activeTab.paymentMode === PaymentMode.UPI) && (
-              <div className="space-y-1 pt-1">
-                <label className="text-xs font-bold text-slate-700">Payment Status</label>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Payment Status</label>
+                <div className="grid grid-cols-2 gap-1 bg-slate-200/60 p-0.5 rounded-lg border border-slate-200">
                   <button
                     type="button"
                     onClick={() => updateActiveTab({ paymentCollected: true })}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                    className={`py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                       activeTab.paymentCollected !== false
-                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        ? "bg-emerald-700 text-white shadow-xs"
+                        : "text-slate-700 hover:text-slate-900"
                     }`}
                   >
-                    <span>✓ Payment Done</span>
+                    <span>✓ Done</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => updateActiveTab({ paymentCollected: false })}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                    className={`py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${
                       activeTab.paymentCollected === false
-                        ? "bg-amber-600 text-white border-amber-600 shadow-xs"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        ? "bg-amber-600 text-white shadow-xs"
+                        : "text-slate-700 hover:text-slate-900"
                     }`}
                   >
-                    <span>⏳ Payment Pending</span>
+                    <span>⏳ Pending</span>
                   </button>
                 </div>
                 {activeTab.paymentCollected === false && (
-                  <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-1.5 font-medium">
+                  <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded p-1.5 font-medium">
                     Customer Name and Mobile are mandatory when Payment Pending is selected.
                   </p>
                 )}
@@ -3753,37 +3753,37 @@ export function PosClient({
 
             {/* Bill Date Selector (Admin Only) */}
             {isAdmin && (
-              <div className="p-2.5 rounded-xl border border-amber-300 bg-amber-50/70 space-y-1.5 shadow-xs">
+              <div className="p-2 rounded-lg border border-amber-300 bg-amber-50/60 space-y-1 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-amber-700" />
-                    <span>{isEditMode ? "Invoice Bill Date" : "Bill Date (Admin / Accounts)"}</span>
+                  <label className="text-[10px] font-bold text-amber-950 flex items-center gap-1">
+                    <Calendar className="w-3 h-3 text-amber-700" />
+                    <span>{isEditMode ? "Invoice Bill Date" : "Bill Date (Admin)"}</span>
                   </label>
                   {isEditMode ? (
                     (() => {
                       const origStr = initialEditInvoice ? toIstDateString(initialEditInvoice.invoiceDate || initialEditInvoice.createdAt) : todayStr;
                       const isChanged = activeTab.billDate && activeTab.billDate !== origStr;
                       return isChanged ? (
-                        <span className="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs animate-pulse">
-                          Date Changed
+                        <span className="text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.2 rounded uppercase animate-pulse">
+                          Changed
                         </span>
                       ) : (
-                        <span className="text-[10px] font-black bg-emerald-700 text-white px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                        <span className="text-[9px] font-bold bg-emerald-700 text-white px-1.5 py-0.2 rounded uppercase">
                           Original ({origStr})
                         </span>
                       );
                     })()
                   ) : activeTab.billDate && activeTab.billDate > todayStr ? (
-                    <span className="text-[10px] font-black bg-blue-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                    <span className="text-[9px] font-bold bg-blue-600 text-white px-1.5 py-0.2 rounded uppercase">
                       Post-dated
                     </span>
                   ) : activeTab.billDate && activeTab.billDate < todayStr ? (
-                    <span className="text-[10px] font-black bg-amber-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                    <span className="text-[9px] font-bold bg-amber-600 text-white px-1.5 py-0.2 rounded uppercase">
                       Backdated
                     </span>
                   ) : null}
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   <input
                     type="date"
                     max={maxFutureDateStr}
@@ -3800,7 +3800,7 @@ export function PosClient({
                         updateActiveTab({ billDate: val === todayStr ? undefined : val });
                       }
                     }}
-                    className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-amber-300 rounded-lg font-mono text-slate-900 focus:ring-2 focus:ring-amber-500 font-bold"
+                    className="flex-1 px-2 py-1 text-xs bg-white border border-amber-300 rounded font-mono text-slate-900 font-bold"
                   />
                   {isEditMode ? (
                     (() => {
@@ -3810,9 +3810,9 @@ export function PosClient({
                           type="button"
                           onClick={() => updateActiveTab({ billDate: origStr })}
                           title="Restore original bill date"
-                          className="px-2 py-1.5 text-[11px] font-bold bg-amber-600 text-white hover:bg-amber-700 rounded-lg shadow-xs"
+                          className="px-2 py-1 text-[10px] font-bold bg-amber-600 text-white hover:bg-amber-700 rounded shadow-2xs"
                         >
-                          Restore Orig
+                          Restore
                         </button>
                       ) : null;
                     })()
@@ -3821,35 +3821,12 @@ export function PosClient({
                       type="button"
                       onClick={() => updateActiveTab({ billDate: undefined })}
                       title="Reset to real-time today"
-                      className="px-2 py-1.5 text-[11px] font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 rounded-lg shadow-xs"
+                      className="px-2 py-1 text-[10px] font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 rounded shadow-2xs"
                     >
                       Today
                     </button>
                   ) : null}
                 </div>
-                {isEditMode ? (
-                  (() => {
-                    const origStr = initialEditInvoice ? toIstDateString(initialEditInvoice.invoiceDate || initialEditInvoice.createdAt) : todayStr;
-                    const isChanged = activeTab.billDate && activeTab.billDate !== origStr;
-                    return isChanged ? (
-                      <p className="text-[10px] text-rose-800 font-semibold">
-                        ⚠️ Changing bill date from <strong>{origStr}</strong> to <strong>{activeTab.billDate}</strong>
-                      </p>
-                    ) : (
-                      <p className="text-[10px] text-emerald-800 font-medium flex items-center gap-1">
-                        <span>🔒 Original bill date preserved: <strong>{origStr}</strong></span>
-                      </p>
-                    );
-                  })()
-                ) : activeTab.billDate && activeTab.billDate !== todayStr ? (
-                  <p className="text-[10px] text-amber-900 font-semibold">
-                    Invoice will be sealed on: <strong>{activeTab.billDate}</strong>
-                  </p>
-                ) : (
-                  <p className="text-[10px] text-emerald-700 font-medium flex items-center gap-1">
-                    <span>🟢 Real-time system date & time will be captured</span>
-                  </p>
-                )}
               </div>
             )}
 
@@ -3860,14 +3837,11 @@ export function PosClient({
                 placeholder="Remarks (vehicle / notes / po)..."
                 value={activeTab.remarks}
                 onChange={(e) => updateActiveTab({ remarks: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#12355B]"
+                className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-600"
               />
             </div>
-          </div>
 
-          {/* Finalize Action Section */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
-            {/* Real-time insufficient stock alert indicator right above button */}
+            {/* Real-time insufficient stock alert indicator */}
             {(() => {
               const insufficientCount = activeTab.cart.filter((c) => {
                 const ps = Math.max(1, c.product.packSize);
@@ -3883,41 +3857,62 @@ export function PosClient({
               return (
                 <div
                   onClick={() => handleFinalizeBill()}
-                  className="p-2.5 bg-rose-50 border-2 border-rose-300 hover:bg-rose-100 rounded-xl cursor-pointer text-xs space-y-1 transition animate-pulse"
+                  className="p-2 bg-rose-50 border border-rose-300 hover:bg-rose-100 rounded-lg cursor-pointer text-xs space-y-0.5 transition animate-pulse"
                 >
-                  <div className="flex items-center gap-1.5 font-black text-rose-800">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>{insufficientCount} Item(s) Have Insufficient Stock!</span>
+                  <div className="flex items-center gap-1.5 font-bold text-rose-800 text-[11px]">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span>{insufficientCount} Item(s) Short of Stock!</span>
                   </div>
-                  <p className="text-rose-700 text-[11px]">Click here to review shortage or adjust quantities.</p>
+                  <p className="text-rose-700 text-[10px]">Click to review shortage or adjust quantities.</p>
                 </div>
               );
             })()}
+          </div>
 
-            {(() => {
-              return (
-                <button
-                  onClick={() => {
-                    if (activeTab.cart.length > 0) {
-                      setIsSaveConfirmOpen(true);
-                    } else {
-                      handleFinalizeBill();
-                    }
-                  }}
-                  disabled={activeTab.cart.length === 0 || isFinalizing}
-                  className="w-full py-4 px-4 rounded-xl font-black text-base shadow-xl hover:shadow-2xl disabled:opacity-40 transition-all flex items-center justify-center gap-2 group cursor-pointer bg-[#12355B] hover:bg-[#0E2843] text-white"
-                >
-                  {isFinalizing ? (
-                    <span>Finalizing Invoice...</span>
-                  ) : (
-                    <>
-                      <span>Finalize &amp; Print (F2)</span>
-                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </>
-                  )}
-                </button>
-              );
-            })()}
+          {/* Sticky Bottom Action Bar: Always Above the Fold at 1366x768 */}
+          <div className="p-3 bg-white border-t border-slate-200 shadow-md shrink-0 flex flex-col gap-2">
+            <button
+              onClick={() => {
+                if (activeTab.cart.length > 0) {
+                  setIsSaveConfirmOpen(true);
+                } else {
+                  handleFinalizeBill();
+                }
+              }}
+              disabled={activeTab.cart.length === 0 || isFinalizing}
+              className="w-full h-11 rounded-xl font-black text-sm sm:text-base shadow-md hover:shadow-lg disabled:opacity-40 transition-all flex items-center justify-center gap-2 cursor-pointer bg-slate-900 hover:bg-slate-800 text-white active:scale-[0.99]"
+            >
+              {isFinalizing ? (
+                <span>Finalizing Invoice...</span>
+              ) : (
+                <>
+                  <Printer className="w-4 h-4 text-amber-400" />
+                  <span>Finalize &amp; Print (F2)</span>
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </>
+              )}
+            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleHoldCurrentBill}
+                disabled={activeTab.cart.length === 0}
+                className="h-8 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 flex items-center justify-center gap-1 disabled:opacity-40 transition"
+                title="Hold bill (F4)"
+              >
+                <PauseCircle className="w-3.5 h-3.5 text-amber-600" />
+                <span>Hold (F4)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateNewTab}
+                className="h-8 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 flex items-center justify-center gap-1 transition"
+                title="New bill (F3)"
+              >
+                <Plus className="w-3.5 h-3.5 text-blue-600" />
+                <span>New (F3)</span>
+              </button>
+            </div>
           </div>
         </aside>
       </div>

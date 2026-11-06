@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+
+<html class="h-full" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Busy 21 Express • FMCG Enterprise Sales Voucher</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-surface-variant": "#45464d",
+            "surface-container-highest": "#d3e4fe",
+            "on-secondary": "#ffffff",
+            "on-tertiary-fixed-variant": "#003ea8",
+            "inverse-surface": "#213145",
+            "inverse-on-surface": "#eaf1ff",
+            "tertiary": "#000000",
+            "on-primary-fixed-variant": "#3f465c",
+            "on-primary-fixed": "#131b2e",
+            "tertiary-fixed-dim": "#b4c5ff",
+            "on-tertiary-fixed": "#00174b",
+            "on-secondary-fixed": "#00164e",
+            "secondary": "#4059aa",
+            "on-background": "#0b1c30",
+            "on-error": "#ffffff",
+            "secondary-fixed-dim": "#b6c4ff",
+            "primary-fixed-dim": "#bec6e0",
+            "secondary-container": "#8fa7fe",
+            "on-surface": "#0b1c30",
+            "on-primary-container": "#7c839b",
+            "secondary-fixed": "#dce1ff",
+            "background": "#f8f9ff",
+            "surface-container-low": "#eff4ff",
+            "inverse-primary": "#bec6e0",
+            "surface-container": "#e5eeff",
+            "on-secondary-fixed-variant": "#264191",
+            "error-container": "#ffdad6",
+            "primary": "#000000",
+            "surface-dim": "#cbdbf5",
+            "surface-container-lowest": "#ffffff",
+            "surface": "#f8f9ff",
+            "on-tertiary": "#ffffff",
+            "outline-variant": "#c6c6cd",
+            "primary-fixed": "#dae2fd",
+            "surface-tint": "#565e74",
+            "surface-container-high": "#dce9ff",
+            "tertiary-container": "#00174b",
+            "on-tertiary-container": "#497cff",
+            "on-secondary-container": "#1d3989",
+            "surface-bright": "#f8f9ff",
+            "outline": "#76777d",
+            "on-primary": "#ffffff",
+            "on-error-container": "#93000a",
+            "error": "#ba1a1a",
+            "surface-variant": "#d3e4fe",
+            "primary-container": "#131b2e",
+            "tertiary-fixed": "#dbe1ff"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.125rem",
+            "lg": "0.25rem",
+            "xl": "0.5rem",
+            "full": "0.75rem"
+          },
+          "spacing": {
+            "space-xl": "1.75rem",
+            "gutter-mobile": "0.75rem",
+            "space-md": "0.75rem",
+            "margin": "1.5rem",
+            "margin-mobile": "1rem",
+            "space-xs": "0.25rem",
+            "space-lg": "1.25rem",
+            "space-sm": "0.5rem",
+            "gutter": "1rem"
+          },
+          "fontFamily": {
+            "headline-lg": ["Inter"],
+            "body-sm": ["Inter"],
+            "label-numeric-sm": ["JetBrains Mono"],
+            "label-caps": ["Inter"],
+            "display-lg": ["Inter"],
+            "body-md": ["Inter"],
+            "headline-sm": ["Inter"],
+            "body-lg": ["Inter"],
+            "label-numeric-md": ["JetBrains Mono"],
+            "headline-md": ["Inter"],
+            "display-lg-mobile": ["Inter"],
+            "label-numeric-lg": ["JetBrains Mono"]
+          },
+          "fontSize": {
+            "headline-lg": ["24px", { "lineHeight": "30px", "letterSpacing": "-0.015em", "fontWeight": "600" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.005em", "fontWeight": "400" }],
+            "label-numeric-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "500" }],
+            "label-caps": ["11px", { "lineHeight": "14px", "letterSpacing": "0.06em", "fontWeight": "700" }],
+            "display-lg": ["32px", { "lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "body-md": ["13px", { "lineHeight": "18px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "headline-sm": ["16px", { "lineHeight": "22px", "letterSpacing": "-0.005em", "fontWeight": "600" }],
+            "body-lg": ["15px", { "lineHeight": "22px", "letterSpacing": "0em", "fontWeight": "400" }],
+            "label-numeric-md": ["13px", { "lineHeight": "16px", "letterSpacing": "0em", "fontWeight": "500" }],
+            "headline-md": ["20px", { "lineHeight": "26px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "display-lg-mobile": ["26px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "700" }],
+            "label-numeric-lg": ["18px", { "lineHeight": "22px", "letterSpacing": "-0.01em", "fontWeight": "600" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+      font-size: 16px;
+      line-height: 1;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #eff4ff;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #c6c6cd;
+      border-radius: 2px;
+    }
+    @keyframes accounting-cursor {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+    .blink-caret {
+      animation: accounting-cursor 0.9s infinite;
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface h-full flex flex-col font-body-md text-body-md antialiased select-none overflow-hidden">
+<!-- TOP ENTERPRISE APPLICATION TITLE BAR (Busy 21 / Tally Style Navy Command Bar) -->
+<header class="bg-primary-container text-surface-container-lowest h-9 border-b border-outline-variant flex items-center justify-between px-space-md shrink-0 text-body-sm font-body-sm z-30">
+<div class="flex items-center gap-space-sm">
+<span class="inline-flex items-center justify-center bg-tertiary-container text-surface-container px-1.5 py-0.5 rounded font-label-caps text-label-caps border border-outline">BUSY 21</span>
+<span class="font-headline-sm text-headline-sm font-bold tracking-tight text-surface-container-lowest">Busy 21 Express • FMCG Enterprise Edition (GST Ready)</span>
+<span class="text-on-primary-container px-1">|</span>
+<span class="text-surface-container-high flex items-center gap-1 font-label-caps text-label-caps">
+<span class="material-symbols-outlined text-sm">warehouse</span>
+        Active Godown: <span class="text-surface-container-lowest font-semibold">Central Hub Unit-1 (Bhiwandi)</span>
+</span>
+</div>
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-1 text-on-primary-container font-label-numeric-sm text-label-numeric-sm">
+<span class="material-symbols-outlined text-sm">person</span>
+<span>User:</span>
+<span class="text-surface-container-lowest font-medium">Rajesh S. (Senior Billing Clerk)</span>
+</div>
+<div class="bg-surface-container-highest/20 text-surface-container px-2 py-0.5 rounded font-label-numeric-sm text-label-numeric-sm">
+        FY: 2024-25
+      </div>
+<div class="flex items-center gap-1 bg-surface-container-lowest text-primary font-bold px-2 py-0.5 rounded text-label-caps font-label-caps">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+        SALES GST VOUCHER [Series: DL-RET]
+      </div>
+</div>
+</header>
+<!-- VOUCHER MASTER FORM (Dense 2-Row Tabular Data Entry Header) -->
+<section class="bg-surface-container-lowest border-b border-outline-variant px-space-md py-space-sm shrink-0 shadow-sm z-20">
+<div class="grid grid-cols-12 gap-x-2 gap-y-1.5 items-center">
+<!-- Date Field -->
+<div class="col-span-2 flex items-center gap-1 border border-outline-variant rounded px-1.5 py-0.5 bg-surface-container-low focus-within:border-secondary">
+<label class="text-on-surface-variant font-label-caps text-label-caps shrink-0">Date [F2]:</label>
+<input class="w-full bg-transparent border-0 p-0 text-on-surface font-label-numeric-sm text-label-numeric-sm font-semibold focus:ring-0 focus:outline-none" readonly="" type="text" value="14-Nov-2024 (Thursday)"/>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer text-xs">calendar_today</span>
+</div>
+<!-- Voucher No Field -->
+<div class="col-span-2 flex items-center gap-1 border border-outline-variant rounded px-1.5 py-0.5 bg-surface-container-low">
+<label class="text-on-surface-variant font-label-caps text-label-caps shrink-0">Vch No:</label>
+<input class="w-full bg-transparent border-0 p-0 text-on-surface font-label-numeric-sm text-label-numeric-sm font-bold text-secondary focus:ring-0 focus:outline-none" readonly="" type="text" value="VCH-2024/09842"/>
+<span class="text-on-surface-variant font-label-caps text-label-caps bg-surface-container px-1 py-0.2 rounded">AUTO</span>
+</div>
+<!-- Voucher Series Field -->
+<div class="col-span-2 flex items-center gap-1 border border-outline-variant rounded px-1.5 py-0.5 bg-surface-container-lowest">
+<label class="text-on-surface-variant font-label-caps text-label-caps shrink-0">Series:</label>
+<span class="text-on-surface font-body-sm text-body-sm truncate font-medium">GST Item Wise Tax</span>
+</div>
+<!-- Party Ledger Search/Selector (Span 6) -->
+<div class="col-span-6 flex items-center justify-between border border-secondary rounded px-2 py-0.5 bg-surface-container-low/60 shadow-inner">
+<div class="flex items-center gap-1.5 overflow-hidden">
+<label class="text-secondary font-label-caps text-label-caps shrink-0 font-bold">Party Account:</label>
+<div class="flex items-center gap-1 text-on-surface font-body-sm text-body-sm font-bold truncate">
+<span>M/s Shree Ganesh Supermarket, Andheri (W)</span>
+<span class="text-on-surface-variant font-normal font-label-numeric-sm text-label-numeric-sm">[GSTIN: 27AABCU9603R1ZM]</span>
+</div>
+</div>
+<span class="bg-surface-container px-1.5 py-0.5 rounded font-label-caps text-label-caps text-on-surface-variant shrink-0">State: 27-MH</span>
+</div>
+<!-- Row 2: Outstanding Balance, Price Level & Narration -->
+<!-- Party Outstanding Credit Health -->
+<div class="col-span-4 flex items-center gap-2 border border-outline-variant bg-surface-container-low rounded px-2 py-0.5">
+<span class="text-on-surface-variant font-label-caps text-label-caps shrink-0">Ledger Balance:</span>
+<div class="flex items-center gap-1.5 font-label-numeric-sm text-label-numeric-sm truncate">
+<span class="text-error font-bold">₹48,200.00 Dr</span>
+<span class="text-on-surface-variant text-[10px]">(Within ₹75,000 Credit Limit, 22 Days Avg)</span>
+</div>
+</div>
+<!-- Price Level -->
+<div class="col-span-2 flex items-center gap-1 border border-outline-variant rounded px-1.5 py-0.5 bg-surface-container-lowest">
+<label class="text-on-surface-variant font-label-caps text-label-caps shrink-0">Price Tier:</label>
+<span class="text-on-surface font-body-sm text-body-sm truncate font-medium text-secondary">Wholesale Tier-1 (Distributor Net)</span>
+</div>
+<!-- Narration Row -->
+<div class="col-span-6 flex items-center gap-1.5 border border-outline-variant rounded px-2 py-0.5 bg-surface-container-lowest focus-within:border-secondary">
+<label class="text-on-surface-variant font-label-caps text-label-caps shrink-0">Narration:</label>
+<input class="w-full bg-transparent border-0 p-0 text-on-surface font-body-sm text-body-sm focus:ring-0 focus:outline-none placeholder-outline" placeholder="Enter transaction remarks..." type="text" value="Being goods sold on 30-day bill-to-bill credit terms against PO-8821"/>
+</div>
+</div>
+</section>
+<!-- MAIN SPREADSHEET LEDGER MATRIX ENTRY AREA -->
+<main class="flex-1 flex flex-col min-h-0 bg-surface-container-lowest relative">
+<div class="flex-1 overflow-x-auto overflow-y-auto custom-scroll relative">
+<table class="w-full border-collapse text-left border-b border-outline-variant">
+<thead class="sticky top-0 bg-surface-container border-b border-outline z-10 shadow-sm">
+<tr class="font-label-caps text-label-caps text-on-surface-variant">
+<th class="py-1 px-2 border-r border-outline-variant w-10 text-center">S.N.</th>
+<th class="py-1 px-2 border-r border-outline-variant min-w-[280px]">Item Description (Barcode / SKU Name)</th>
+<th class="py-1 px-2 border-r border-outline-variant w-16 text-right">Qty</th>
+<th class="py-1 px-2 border-r border-outline-variant w-16 text-center">Unit</th>
+<th class="py-1 px-2 border-r border-outline-variant w-28 text-right font-label-numeric-sm">List Price (₹)</th>
+<th class="py-1 px-2 border-r border-outline-variant w-20 text-right font-label-numeric-sm">Disc (%)</th>
+<th class="py-1 px-2 border-r border-outline-variant w-28 text-right font-label-numeric-sm">Rate (₹)</th>
+<th class="py-1 px-3 w-32 text-right font-label-numeric-sm">Amount (₹)</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/60 font-body-sm text-body-sm">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/80 cursor-pointer h-7 transition-colors">
+<td class="py-0.5 px-2 border-r border-outline-variant text-center font-label-numeric-sm text-label-numeric-sm text-on-surface-variant bg-surface-container-low/40">01</td>
+<td class="py-0.5 px-2 border-r border-outline-variant font-medium text-on-surface flex items-center justify-between">
+<span>Bikaji Bhujia 400g</span>
+<span class="text-on-surface-variant text-[10px] bg-surface-container px-1 rounded">HSN: 21069099</span>
+</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm font-semibold">4</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-center text-on-surface-variant">Ctn</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm">4,800.00</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">5.0%</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm font-medium">4,560.00</td>
+<td class="py-0.5 px-3 text-right font-label-numeric-sm text-label-numeric-sm font-bold text-on-surface">18,240.00</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/80 cursor-pointer h-7 transition-colors">
+<td class="py-0.5 px-2 border-r border-outline-variant text-center font-label-numeric-sm text-label-numeric-sm text-on-surface-variant bg-surface-container-low/40">02</td>
+<td class="py-0.5 px-2 border-r border-outline-variant font-medium text-on-surface flex items-center justify-between">
+<span>MDH Deggi Mirch 100g</span>
+<span class="text-on-surface-variant text-[10px] bg-surface-container px-1 rounded">HSN: 09109929</span>
+</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm font-semibold">2</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-center text-on-surface-variant">Ctn</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm">3,140.00</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">3.0%</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm font-medium">3,045.80</td>
+<td class="py-0.5 px-3 text-right font-label-numeric-sm text-label-numeric-sm font-bold text-on-surface">6,091.60</td>
+</tr>
+<!-- Row 3: ACTIVE LINE WITH TYPEAHEAD OVERLAY -->
+<tr class="bg-surface-container-highest/30 border-2 border-secondary h-7 relative z-20">
+<td class="py-0.5 px-2 border-r border-secondary text-center font-label-numeric-sm text-label-numeric-sm font-bold text-secondary bg-surface-container-highest/60">03</td>
+<td class="py-0.5 px-2 border-r border-secondary relative">
+<div class="flex items-center gap-1">
+<span class="font-bold text-on-surface">Parle-G Gold</span>
+<span class="w-1.5 h-3.5 bg-primary blink-caret inline-block"></span>
+</div>
+<!-- BUSY 21 TYPEAHEAD DROPDOWN POPOVER MENU (Anchored Beneath Item Field) -->
+<div class="absolute left-0 top-full mt-0.5 w-[420px] bg-surface-container-lowest border-2 border-primary-container shadow-2xl rounded-sm z-50 overflow-hidden text-body-sm">
+<div class="bg-primary-container text-surface-container-lowest px-2 py-0.5 font-label-caps text-label-caps flex items-center justify-between border-b border-outline">
+<span>SELECT ITEM [F3-Add New Master]</span>
+<span class="font-label-numeric-sm text-label-numeric-sm text-surface-container">Matches: 4</span>
+</div>
+<div class="divide-y divide-outline-variant max-h-48 overflow-y-auto custom-scroll">
+<!-- Highlighted Item (Row 1) -->
+<div class="px-2 py-1 bg-secondary text-on-secondary flex items-center justify-between cursor-pointer font-medium">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-xs">arrow_right</span>
+<span class="font-semibold">Parle-G Gold 250g Family Pack</span>
+</div>
+<span class="text-surface-container text-xs">Parle Products Ltd</span>
+</div>
+<!-- Item 2 -->
+<div class="px-2 py-1 hover:bg-surface-container-low flex items-center justify-between cursor-pointer text-on-surface">
+<span class="pl-4">Parle Monaco Salted 200g</span>
+<span class="text-on-surface-variant text-xs">Parle Products Ltd</span>
+</div>
+<!-- Item 3 -->
+<div class="px-2 py-1 hover:bg-surface-container-low flex items-center justify-between cursor-pointer text-on-surface">
+<span class="pl-4">Parle Krackjack 200g</span>
+<span class="text-on-surface-variant text-xs">Parle Products Ltd</span>
+</div>
+<!-- Item 4 -->
+<div class="px-2 py-1 hover:bg-surface-container-low flex items-center justify-between cursor-pointer text-on-surface">
+<span class="pl-4">Parle Hide &amp; Seek 120g</span>
+<span class="text-on-surface-variant text-xs">Parle Products Ltd</span>
+</div>
+</div>
+<div class="bg-surface-container px-2 py-0.5 text-[10px] text-on-surface-variant font-label-numeric-sm text-label-numeric-sm flex justify-between border-t border-outline-variant">
+<span>[Enter] Select • [Esc] Dismiss</span>
+<span>HSN: 19053100 | GST: 18%</span>
+</div>
+</div>
+</td>
+<td class="py-0.5 px-2 border-r border-secondary text-right font-label-numeric-sm text-label-numeric-sm font-bold bg-surface-container-lowest text-on-surface">5</td>
+<td class="py-0.5 px-2 border-r border-secondary text-center text-on-surface font-semibold bg-surface-container-lowest">Ctn</td>
+<td class="py-0.5 px-2 border-r border-secondary text-right font-label-numeric-sm text-label-numeric-sm bg-surface-container-lowest">1,257.60</td>
+<td class="py-0.5 px-2 border-r border-secondary text-right font-label-numeric-sm text-label-numeric-sm text-secondary font-bold bg-surface-container-lowest">4.5%</td>
+<td class="py-0.5 px-2 border-r border-secondary text-right font-label-numeric-sm text-label-numeric-sm font-medium bg-surface-container-lowest">1,201.00</td>
+<td class="py-0.5 px-3 text-right font-label-numeric-sm text-label-numeric-sm font-bold text-on-surface bg-surface-container-lowest">6,005.00</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/80 cursor-pointer h-7 transition-colors">
+<td class="py-0.5 px-2 border-r border-outline-variant text-center font-label-numeric-sm text-label-numeric-sm text-on-surface-variant bg-surface-container-low/40">04</td>
+<td class="py-0.5 px-2 border-r border-outline-variant font-medium text-on-surface flex items-center justify-between">
+<span>Tata Salt 1kg Evaporated</span>
+<span class="text-on-surface-variant text-[10px] bg-surface-container px-1 rounded">HSN: 25010010</span>
+</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm font-semibold">3</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-center text-on-surface-variant">Ctn</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm">720.00</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">2.0%</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm font-medium">705.60</td>
+<td class="py-0.5 px-3 text-right font-label-numeric-sm text-label-numeric-sm font-bold text-on-surface">2,116.80</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-low/80 cursor-pointer h-7 transition-colors">
+<td class="py-0.5 px-2 border-r border-outline-variant text-center font-label-numeric-sm text-label-numeric-sm text-on-surface-variant bg-surface-container-low/40">05</td>
+<td class="py-0.5 px-2 border-r border-outline-variant font-medium text-on-surface flex items-center justify-between">
+<span>Fortune Sunlite Sunflower Oil 1L</span>
+<span class="text-on-surface-variant text-[10px] bg-surface-container px-1 rounded">HSN: 15121910</span>
+</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm font-semibold">1</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-center text-on-surface-variant">Ctn</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm">1,650.00</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">0.0%</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-right font-label-numeric-sm text-label-numeric-sm font-medium">1,650.00</td>
+<td class="py-0.5 px-3 text-right font-label-numeric-sm text-label-numeric-sm font-bold text-on-surface">1,650.00</td>
+</tr>
+<!-- Empty Matrix Rows (6 to 10) to replicate Accounting Terminal environment -->
+<tr class="h-6 bg-surface-container-low/10">
+<td class="py-0.5 px-2 border-r border-outline-variant text-center font-label-numeric-sm text-label-numeric-sm text-outline-variant">06</td>
+<td class="py-0.5 px-2 border-r border-outline-variant text-outline-variant italic">-- End of lines --</td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-3"></td>
+</tr>
+<tr class="h-6 bg-surface-container-low/10">
+<td class="py-0.5 px-2 border-r border-outline-variant text-center font-label-numeric-sm text-label-numeric-sm text-outline-variant">07</td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-3"></td>
+</tr>
+<tr class="h-6 bg-surface-container-low/10">
+<td class="py-0.5 px-2 border-r border-outline-variant text-center font-label-numeric-sm text-label-numeric-sm text-outline-variant">08</td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-3"></td>
+</tr>
+<tr class="h-6 bg-surface-container-low/10">
+<td class="py-0.5 px-2 border-r border-outline-variant text-center font-label-numeric-sm text-label-numeric-sm text-outline-variant">09</td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-3"></td>
+</tr>
+<tr class="h-6 bg-surface-container-low/10">
+<td class="py-0.5 px-2 border-r border-outline-variant text-center font-label-numeric-sm text-label-numeric-sm text-outline-variant">10</td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-2 border-r border-outline-variant"></td>
+<td class="py-0.5 px-3"></td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- REAL-TIME DIAGNOSTIC TELEMETRY STATUS BAR (Directly beneath the table) -->
+<div class="bg-surface-container border-y border-outline-variant px-space-md py-1 flex items-center justify-between text-[11px] font-label-numeric-sm text-label-numeric-sm text-on-surface shrink-0">
+<div class="flex items-center gap-4 divide-x divide-outline-variant">
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="text-on-surface-variant font-medium">SHOP STOCK:</span>
+<span class="font-bold text-secondary">45 Pcs</span>
+</div>
+<div class="pl-4 flex items-center gap-1.5 text-on-surface">
+<span class="text-on-surface-variant font-medium">GODOWN RESERVE:</span>
+<span class="font-bold text-on-surface">520 Ctn <span class="text-on-surface-variant font-normal">(Rack B-14)</span></span>
+</div>
+<div class="pl-4 flex items-center gap-1.5 text-on-surface">
+<span class="text-on-surface-variant font-medium">PACK SPEC:</span>
+<span class="font-medium text-on-surface">24 Pcs / Carton</span>
+</div>
+<div class="pl-4 flex items-center gap-1.5 text-on-surface">
+<span class="text-on-surface-variant font-medium">MRP:</span>
+<span class="font-bold text-on-surface">₹30.00 / Pc</span>
+</div>
+</div>
+<div class="flex items-center gap-4 divide-x divide-outline-variant">
+<div class="pl-4 flex items-center gap-1.5 text-on-surface">
+<span class="text-on-surface-variant font-medium">LAST BILLED RATE:</span>
+<span class="font-bold text-secondary">₹1,195.00</span>
+<span class="text-on-surface-variant text-[10px]">(Inv #08892 on 02-Nov-2024)</span>
+</div>
+<div class="pl-4 flex items-center gap-1.5">
+<span class="text-on-surface-variant font-medium">HSN / TAX:</span>
+<span class="bg-surface-container-high px-1 rounded font-bold text-primary">19053100 (GST 18%)</span>
+</div>
+</div>
+</div>
+</main>
+<!-- BOTTOM SPLIT PANEL: BILL SUNDRY LEDGER & PAYMENT SETTLEMENT -->
+<section class="h-44 bg-surface-container-low border-b border-outline-variant flex divide-x divide-outline-variant shrink-0">
+<!-- LEFT: BILL SUNDRY COMPUTATION COLUMN -->
+<div class="w-7/12 p-space-sm flex flex-col justify-between text-body-sm font-body-sm">
+<div class="flex items-center justify-between pb-1 border-b border-outline-variant">
+<span class="font-label-caps text-label-caps text-on-surface-variant">BILL SUNDRY CALCULATIONS &amp; CHARGES</span>
+<span class="font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">Item Count: <span class="font-bold text-on-surface">5</span> | Total Cases: <span class="font-bold text-on-surface">15 Ctn</span></span>
+</div>
+<div class="grid grid-cols-2 gap-x-6 gap-y-1 py-1 font-label-numeric-sm text-label-numeric-sm">
+<!-- Item Sub Total -->
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant">Sub-Total (5 Items, 15 Cartons):</span>
+<span class="font-bold text-on-surface">₹34,103.40</span>
+</div>
+<!-- CGST -->
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant">(+) CGST @ 9%:</span>
+<span class="font-semibold text-secondary">+₹1,503.96</span>
+</div>
+<!-- Trade Rebate -->
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant">(-) Volume Trade Rebate @ 2%:</span>
+<span class="font-semibold text-error">-₹682.07</span>
+</div>
+<!-- SGST -->
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant">(+) SGST @ 9%:</span>
+<span class="font-semibold text-secondary">+₹1,503.96</span>
+</div>
+<!-- Freight -->
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant">(+) Freight &amp; Handling (Loading CW-1):</span>
+<span class="font-semibold text-on-surface">+₹250.00</span>
+</div>
+<!-- Round Off -->
+<div class="flex items-center justify-between">
+<span class="text-on-surface-variant">(+/-) Round Off:</span>
+<span class="font-semibold text-on-surface-variant">-₹0.25</span>
+</div>
+</div>
+<!-- Quick remarks bar -->
+<div class="bg-surface-container px-2 py-0.5 rounded text-[11px] text-on-surface-variant flex items-center justify-between border border-outline-variant">
+<span>GST Assessment: Taxable ₹33,421.33 | Total Tax ₹3,007.92</span>
+<span class="font-medium text-secondary">E-Invoice IRN Eligible: Yes</span>
+</div>
+</div>
+<!-- RIGHT: SETTLEMENT MODE & GRAND TOTAL HIGH-CONTRAST BLOCK -->
+<div class="w-5/12 p-space-sm flex flex-col justify-between bg-surface-container-lowest">
+<!-- Settlement Mode Selection Buttons -->
+<div>
+<div class="flex items-center justify-between pb-1 mb-1 border-b border-outline-variant">
+<span class="font-label-caps text-label-caps text-on-surface-variant">PAYMENT SETTLEMENT MODE</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant text-[10px]">E-Way Bill: Not Required (&lt; ₹50,000 Threshold)</span>
+</div>
+<div class="grid grid-cols-3 gap-1.5">
+<!-- F10 Cash -->
+<button class="border border-outline-variant bg-surface-container-low hover:bg-surface-container px-2 py-1 rounded text-left flex flex-col transition-colors" type="button">
+<span class="font-label-caps text-label-caps text-on-surface-variant">[F10]</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Cash Ledger</span>
+</button>
+<!-- F11 Bank -->
+<button class="border border-outline-variant bg-surface-container-low hover:bg-surface-container px-2 py-1 rounded text-left flex flex-col transition-colors" type="button">
+<span class="font-label-caps text-label-caps text-on-surface-variant">[F11]</span>
+<span class="font-body-sm text-body-sm font-semibold text-on-surface">Bank / Cheque</span>
+</button>
+<!-- F12 Credit (Selected) -->
+<button class="border-2 border-secondary bg-surface-container-highest/40 px-2 py-1 rounded text-left flex flex-col shadow-sm" type="button">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps text-secondary font-bold">[F12] SELECTED</span>
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+</div>
+<span class="font-body-sm text-body-sm font-bold text-on-surface">Credit 30 Days</span>
+</button>
+</div>
+</div>
+<!-- High-Visibility Grand Total Block (Deep authoritative navy contrast) -->
+<div class="bg-primary-container text-surface-container-lowest rounded p-2 border border-outline flex flex-col justify-between">
+<div class="flex items-baseline justify-between">
+<span class="font-label-caps text-label-caps tracking-wider text-surface-container-high">GRAND TOTAL:</span>
+<span class="font-label-numeric-lg text-label-numeric-lg font-bold text-surface-container-lowest tracking-tight">₹36,679.00</span>
+</div>
+<div class="text-[10px] text-surface-container italic truncate pt-0.5 border-t border-outline/50 mt-1">
+          (In Words: Thirty-Six Thousand Six Hundred Seventy-Nine Rupees Only)
+        </div>
+</div>
+</div>
+</section>
+<!-- PERSISTENT FUNCTION KEYS HOTKEY RIBBON (Busy 21 Command Bar) -->
+<footer class="bg-inverse-surface text-surface-container-lowest h-9 border-t border-outline flex items-center px-1 shrink-0 overflow-x-auto select-none z-30">
+<div class="flex items-center gap-1 w-full justify-between font-label-caps text-label-caps whitespace-nowrap">
+<!-- Esc: Quit -->
+<button class="flex items-center gap-1 px-2 py-1 rounded bg-surface-container-highest/10 hover:bg-surface-container-highest/20 text-surface-container-lowest transition-colors border border-outline/40">
+<span class="bg-error text-on-error px-1 py-0.2 rounded text-[10px] font-bold">Esc</span>
+<span>Quit</span>
+</button>
+<!-- F2: Save / Done -->
+<button class="flex items-center gap-1 px-2.5 py-1 rounded bg-secondary hover:bg-secondary/90 text-on-secondary transition-colors font-bold shadow-sm">
+<span class="bg-surface-container-lowest text-secondary px-1 py-0.2 rounded text-[10px] font-bold">F2</span>
+<span>Save / Done</span>
+</button>
+<!-- F3: New Voucher -->
+<button class="flex items-center gap-1 px-2 py-1 rounded bg-surface-container-highest/10 hover:bg-surface-container-highest/20 text-surface-container-lowest transition-colors border border-outline/40">
+<span class="bg-surface-container-highest text-primary px-1 py-0.2 rounded text-[10px] font-bold">F3</span>
+<span>New Voucher</span>
+</button>
+<!-- F4: Hold Draft -->
+<button class="flex items-center gap-1 px-2 py-1 rounded bg-surface-container-highest/10 hover:bg-surface-container-highest/20 text-surface-container-lowest transition-colors border border-outline/40">
+<span class="bg-surface-container-highest text-primary px-1 py-0.2 rounded text-[10px] font-bold">F4</span>
+<span>Hold Draft</span>
+</button>
+<!-- F7: Repeat Line -->
+<button class="flex items-center gap-1 px-2 py-1 rounded bg-surface-container-highest/10 hover:bg-surface-container-highest/20 text-surface-container-lowest transition-colors border border-outline/40">
+<span class="bg-surface-container-highest text-primary px-1 py-0.2 rounded text-[10px] font-bold">F7</span>
+<span>Repeat Line</span>
+</button>
+<!-- F8: Item Info -->
+<button class="flex items-center gap-1 px-2 py-1 rounded bg-surface-container-highest/10 hover:bg-surface-container-highest/20 text-surface-container-lowest transition-colors border border-outline/40">
+<span class="bg-surface-container-highest text-primary px-1 py-0.2 rounded text-[10px] font-bold">F8</span>
+<span>Item Master Info</span>
+</button>
+<!-- F9: Delete Line -->
+<button class="flex items-center gap-1 px-2 py-1 rounded bg-surface-container-highest/10 hover:bg-surface-container-highest/20 text-surface-container-lowest transition-colors border border-outline/40">
+<span class="bg-error/80 text-on-error px-1 py-0.2 rounded text-[10px] font-bold">F9</span>
+<span>Delete Line</span>
+</button>
+<!-- Alt+P: Print Thermal/A4 -->
+<button class="flex items-center gap-1 px-2 py-1 rounded bg-surface-container-highest/10 hover:bg-surface-container-highest/20 text-surface-container-lowest transition-colors border border-outline/40">
+<span class="bg-surface-container-highest text-primary px-1 py-0.2 rounded text-[10px] font-bold">Alt+P</span>
+<span>Print Thermal/A4</span>
+</button>
+<!-- Alt+M: Switch Godown -->
+<button class="flex items-center gap-1 px-2 py-1 rounded bg-surface-container-highest/10 hover:bg-surface-container-highest/20 text-surface-container-lowest transition-colors border border-outline/40">
+<span class="bg-surface-container-highest text-primary px-1 py-0.2 rounded text-[10px] font-bold">Alt+M</span>
+<span>Switch Godown</span>
+</button>
+</div>
+</footer>
+<!-- Light weight Accounting keyboard navigation shortcuts helper -->
+<script>
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'F2') {
+        e.preventDefault();
+        alert('Action: Saving Sales Voucher [Series: DL-RET] - Amount: ₹36,679.00');
+      } else if (e.key === 'Escape') {
+        const confirmExit = confirm('Discard unsaved line entries and return to Main Accounting Gateway?');
+        if (confirmExit) {
+          console.log('User exited voucher entry screen');
+        }
+      }
+    });
+  </script>
+</body></html>

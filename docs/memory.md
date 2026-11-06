@@ -774,3 +774,20 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
 - `pnpm lint`: PASSED (0 errors).
 - `pnpm build`: PASSED (118 routes compiled, shared first load JS 87.3 kB).
 - Unit Tests: 14/14 tests green across `pos-modal-keyboard.test.ts` and `price-percent-link.test.ts`.
+
+---
+
+### Prompt #22 — Shop POS UI Visual Redesign with Stitch (Presentation-Only) - 2026-11-07
+- **Objective**: Redesign the full UI of Shop POS (/shop/pos, Busy-style voucher screen) visually with Stitch, while maintaining 100% parity of every single feature, shortcut, rule, calculation, and data flow.
+- **Changed Files & Justifications**:
+  - src/app/shop/pos/pos-client.tsx: Redesigned layout and visual styling:
+    - Command Header: Reduced chrome height from ~380px down to ~128px. Slim top bar (40px) + merged voucher/party strip (42px) with compact party card and expandable drawer for walk-in edits and search.
+    - Hero Grid: Modern borderless "text until focused" input style for all cells, clear focus rings, alternating row zebra, soft active row highlight, preserving all data-pos-field attributes and keyboard event handlers (Enter chain, Up/Down, F7 Repeat, F9 Delete, etc.).
+    - Right Summary Panel: Converted to flex layout with sticky bottom action bar containing Finalize & Print (F2), Hold (F4), and New (F3) pinned above the fold, guaranteed 100% visible on 1366×768 screens without scrolling.
+    - Function-Key Footer: High-contrast slate footer with clickable hotkey chips ([Esc], [F1], [F2], [F3], [F4], [F6], [F7], [F8], [F9], [Alt+M], [Alt+G]).
+  - .npmrc: Added confirm-modules-purge = false and confirmModulesPurge = false for non-interactive CI/build environments.
+  - design/stitch-export/management/pos-redesign/: Exported Stitch screen references and screenshots (pos-high-speed-counter-1920, pos-busy-voucher-entry-1366, pos-voucher-billing-van).
+- **Verification**:
+  - pnpm typecheck: PASSED (0 errors).
+  - Unit tests: 23/23 tests passed (pos-backdated-billing.test.ts, pos-modal-keyboard.test.ts, prompt14-pos-van-upgrades.test.ts, pos-carton-godown-stock.test.ts).
+  - pnpm build: PASSED (116 static/dynamic routes compiled cleanly, ƒ /shop/pos at 39.4 kB).
