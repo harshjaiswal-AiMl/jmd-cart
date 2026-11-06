@@ -1094,105 +1094,136 @@ export async function updateProductMasterFromPosAction(input: {
   categoryId?: string | null;
   imageUrl?: string | null;
 }) {
-  const session = await auth();
-  if (!session?.user) {
-    throw new Error("Unauthorized");
-  }
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized. Please log in." };
+    }
 
-  if (
-    session.user.role !== UserRole.SUPER_ADMIN &&
-    session.user.role !== UserRole.ADMIN &&
-    session.user.role !== UserRole.SHOP &&
-    session.user.role !== UserRole.PRO
-  ) {
-    throw new Error("Only Admin, Cashier, or Pro can update product master.");
-  }
+    const allowedRoles: UserRole[] = [
+      UserRole.SUPER_ADMIN,
+      UserRole.ADMIN,
+      UserRole.SHOP,
+      UserRole.PRO,
+      UserRole.ACCOUNTS,
+    ];
+    if (!allowedRoles.includes(session.user.role as UserRole)) {
+      return { success: false, error: "Only Admin, Cashier, Accounts, or Pro can update product master." };
+    }
 
-  const existing = await prisma.product.findUnique({
-    where: { id: input.productId },
-  });
-  if (!existing) {
-    return { success: false, error: "Product not found" };
-  }
+    if (!input.productId) {
+      return { success: false, error: "Product ID is required." };
+    }
 
-  const updateData: any = {};
-  if (input.name !== undefined && input.name.trim()) {
-    updateData.name = input.name.trim();
-  }
-  if (input.barcode !== undefined) {
-    updateData.barcode = input.barcode ? input.barcode.trim() : null;
-  }
-  if (input.packSize !== undefined && input.packSize > 0) {
-    updateData.packSize = input.packSize;
-  }
-  if (input.packLabel !== undefined) {
-    updateData.packLabel = input.packLabel.trim();
-  }
-  if (input.mrpPaise !== undefined && input.mrpPaise >= 0) {
-    updateData.mrpPaise = input.mrpPaise;
-  }
-  if (input.priceAPaise !== undefined && input.priceAPaise >= 0) {
-    updateData.priceAPaise = input.priceAPaise;
-  }
-  if (input.priceBPaise !== undefined && input.priceBPaise >= 0) {
-    updateData.priceBPaise = input.priceBPaise;
-  }
-  const resolvedPriceC = input.priceCPaise !== undefined ? input.priceCPaise : input.ratePaise;
-  if (resolvedPriceC !== undefined && resolvedPriceC >= 0) {
-    updateData.priceCPaise = resolvedPriceC;
-  }
-  if (input.hsn !== undefined) {
-    updateData.hsn = input.hsn.trim();
-  }
-  if (input.gstRateBp !== undefined && input.gstRateBp >= 0) {
-    updateData.gstRateBp = input.gstRateBp;
-  }
-  if (input.companyId !== undefined) {
-    updateData.companyId = input.companyId || null;
-  }
-  if (input.categoryId !== undefined) {
-    updateData.categoryId = input.categoryId || null;
-  }
-  if (input.imageUrl !== undefined) {
-    updateData.imageUrl = input.imageUrl ? input.imageUrl.trim() : null;
-  }
+    const existing = await prisma.product.findUnique({
+      where: { id: input.productId },
+    });
+    if (!existing) {
+      return { success: false, error: "Product not found." };
+    }
 
-  if (Object.keys(updateData).length === 0) {
-    return { success: true, product: existing };
+    const updateData: any = {};
+    if (input.name !== undefined && input.name.trim()) {
+      updateData.name = input.name.trim();
+    }
+    if (input.barcode !== undefined) {
+      const cleanBarcode = input.barcode ? input.barcode.trim() : null;
+      updateData.barcode = cleanBarcode;
+      if (cleanBarcode) {
+        const duplicate = await prisma.product.findFirst({
+          where: {
+            barcode: cleanBarcode,
+            id: { not: input.productId },
+          },
+          select: { id: true, name: true, shortCode: true },
+        });
+        if (duplicate) {
+          return {
+            success: false,
+            error: `Barcode "${cleanBarcode}" is already in use by ${duplicate.name} (${duplicate.shortCode}).`,
+          };
+        }
+      }
+    }
+    if (input.packSize !== undefined && input.packSize > 0) {
+      updateData.packSize = Math.max(1, Math.floor(input.packSize));
+    }
+    if (input.packLabel !== undefined) {
+      updateData.packLabel = input.packLabel.trim() || "Pcs";
+    }
+    if (input.mrpPaise !== undefined && input.mrpPaise >= 0) {
+      updateData.mrpPaise = input.mrpPaise;
+    }
+    if (input.priceAPaise !== undefined && input.priceAPaise >= 0) {
+      updateData.priceAPaise = input.priceAPaise;
+    }
+    if (input.priceBPaise !== undefined && input.priceBPaise >= 0) {
+      updateData.priceBPaise = input.priceBPaise;
+    }
+    const resolvedPriceC = input.priceCPaise !== undefined ? input.priceCPaise : input.ratePaise;
+    if (resolvedPriceC !== undefined && resolvedPriceC >= 0) {
+      updateData.priceCPaise = resolvedPriceC;
+    }
+    if (input.hsn !== undefined) {
+      updateData.hsn = input.hsn.trim();
+    }
+    if (input.gstRateBp !== undefined && input.gstRateBp >= 0) {
+      updateData.gstRateBp = input.gstRateBp;
+    }
+    if (input.companyId !== undefined) {
+      updateData.companyId = input.companyId ? input.companyId.trim() : null;
+    }
+    if (input.categoryId !== undefined) {
+      updateData.categoryId = input.categoryId ? input.categoryId.trim() : null;
+    }
+    if (input.imageUrl !== undefined) {
+      updateData.imageUrl = input.imageUrl ? input.imageUrl.trim() : null;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return { success: true, product: existing };
+    }
+
+    const updated = await prisma.product.update({
+      where: { id: input.productId },
+      data: updateData,
+      include: {
+        company: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+      },
+    });
+
+    try {
+      const { auditService } = await import("@/modules/audit/audit.service");
+      await auditService.log({
+        actorId: session.user.id,
+        action: "PRODUCT_MASTER_UPDATED_FROM_POS",
+        entity: "Product",
+        entityId: input.productId,
+        before: {
+          name: existing.name,
+          mrpPaise: existing.mrpPaise,
+          priceAPaise: existing.priceAPaise,
+          priceBPaise: existing.priceBPaise,
+          priceCPaise: existing.priceCPaise,
+          packSize: existing.packSize,
+        },
+        after: updateData,
+      });
+    } catch (auditErr: any) {
+      console.warn("[auditService.log non-fatal error in updateProductMasterFromPosAction]:", auditErr?.message);
+    }
+
+    return {
+      success: true,
+      product: {
+        ...updated,
+        companyName: updated.company?.name ?? null,
+        categoryName: updated.category?.name ?? null,
+      },
+    };
+  } catch (err: any) {
+    console.error("[updateProductMasterFromPosAction error]:", err);
+    return { success: false, error: err?.message || "Failed to update product details." };
   }
-
-  const updated = await prisma.product.update({
-    where: { id: input.productId },
-    data: updateData,
-    include: {
-      company: { select: { id: true, name: true } },
-      category: { select: { id: true, name: true } },
-    },
-  });
-
-  const { auditService } = await import("@/modules/audit/audit.service");
-  await auditService.log({
-    actorId: session.user.id,
-    action: "PRODUCT_MASTER_UPDATED_FROM_POS",
-    entity: "Product",
-    entityId: input.productId,
-    before: {
-      name: existing.name,
-      mrpPaise: existing.mrpPaise,
-      priceAPaise: existing.priceAPaise,
-      priceBPaise: existing.priceBPaise,
-      priceCPaise: existing.priceCPaise,
-      packSize: existing.packSize,
-    },
-    after: updateData,
-  });
-
-  return {
-    success: true,
-    product: {
-      ...updated,
-      companyName: updated.company?.name ?? null,
-      categoryName: updated.category?.name ?? null,
-    },
-  };
 }

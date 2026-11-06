@@ -717,7 +717,7 @@ export function PosClient({
         walkInName: initialEditInvoice.customerName || "",
         walkInMobile: initialEditInvoice.customerPhone || "",
         walkInAddress: initialEditInvoice.customerAddress || "",
-        billDate: initialEditInvoice.invoiceDate ? toIstDateString(initialEditInvoice.invoiceDate) : undefined,
+        billDate: toIstDateString(initialEditInvoice.invoiceDate || initialEditInvoice.createdAt),
       };
 
       setTabs([editTab]);
@@ -1904,6 +1904,9 @@ export function PosClient({
             };
           });
 
+          const origBillDateStr = toIstDateString(initialEditInvoice.invoiceDate || initialEditInvoice.createdAt);
+          const hasDateChanged = Boolean(activeTab.billDate && activeTab.billDate !== origBillDateStr);
+
           const editRes = await saveInvoiceRevisionAction({
             invoiceId: initialEditInvoice.id,
             expectedVersion: initialEditInvoice.version,
@@ -1912,8 +1915,8 @@ export function PosClient({
             customerName: activeTab.partyId ? undefined : activeTab.walkInName?.trim() || undefined,
             customerPhone: activeTab.partyId ? undefined : activeTab.walkInMobile?.trim() || undefined,
             customerAddress: activeTab.partyId ? undefined : activeTab.walkInAddress?.trim() || undefined,
-            invoiceDate: activeTab.billDate || undefined,
-            dateChangeReason: activeTab.billDate !== todayStr ? editReason.trim() : undefined,
+            invoiceDate: hasDateChanged ? activeTab.billDate : origBillDateStr,
+            dateChangeReason: hasDateChanged ? editReason.trim() : undefined,
             items: editItems,
             notes: activeTab.remarks,
           });
@@ -3754,9 +3757,23 @@ export function PosClient({
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-bold text-amber-950 flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Bill Date (Admin / Accounts)</span>
+                    <span>{isEditMode ? "Invoice Bill Date" : "Bill Date (Admin / Accounts)"}</span>
                   </label>
-                  {activeTab.billDate && activeTab.billDate > todayStr ? (
+                  {isEditMode ? (
+                    (() => {
+                      const origStr = initialEditInvoice ? toIstDateString(initialEditInvoice.invoiceDate || initialEditInvoice.createdAt) : todayStr;
+                      const isChanged = activeTab.billDate && activeTab.billDate !== origStr;
+                      return isChanged ? (
+                        <span className="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs animate-pulse">
+                          Date Changed
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black bg-emerald-700 text-white px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
+                          Original ({origStr})
+                        </span>
+                      );
+                    })()
+                  ) : activeTab.billDate && activeTab.billDate > todayStr ? (
                     <span className="text-[10px] font-black bg-blue-600 text-white px-2 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
                       Post-dated
                     </span>
@@ -3770,11 +3787,36 @@ export function PosClient({
                   <input
                     type="date"
                     max={maxFutureDateStr}
-                    value={activeTab.billDate || todayStr}
-                    onChange={(e) => updateActiveTab({ billDate: e.target.value === todayStr ? undefined : e.target.value })}
+                    value={
+                      isEditMode
+                        ? activeTab.billDate || (initialEditInvoice ? toIstDateString(initialEditInvoice.invoiceDate || initialEditInvoice.createdAt) : todayStr)
+                        : activeTab.billDate || todayStr
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (isEditMode) {
+                        updateActiveTab({ billDate: val });
+                      } else {
+                        updateActiveTab({ billDate: val === todayStr ? undefined : val });
+                      }
+                    }}
                     className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-amber-300 rounded-lg font-mono text-slate-900 focus:ring-2 focus:ring-amber-500 font-bold"
                   />
-                  {activeTab.billDate && activeTab.billDate !== todayStr && (
+                  {isEditMode ? (
+                    (() => {
+                      const origStr = initialEditInvoice ? toIstDateString(initialEditInvoice.invoiceDate || initialEditInvoice.createdAt) : todayStr;
+                      return activeTab.billDate && activeTab.billDate !== origStr ? (
+                        <button
+                          type="button"
+                          onClick={() => updateActiveTab({ billDate: origStr })}
+                          title="Restore original bill date"
+                          className="px-2 py-1.5 text-[11px] font-bold bg-amber-600 text-white hover:bg-amber-700 rounded-lg shadow-xs"
+                        >
+                          Restore Orig
+                        </button>
+                      ) : null;
+                    })()
+                  ) : activeTab.billDate && activeTab.billDate !== todayStr ? (
                     <button
                       type="button"
                       onClick={() => updateActiveTab({ billDate: undefined })}
@@ -3783,9 +3825,23 @@ export function PosClient({
                     >
                       Today
                     </button>
-                  )}
+                  ) : null}
                 </div>
-                {activeTab.billDate && activeTab.billDate !== todayStr ? (
+                {isEditMode ? (
+                  (() => {
+                    const origStr = initialEditInvoice ? toIstDateString(initialEditInvoice.invoiceDate || initialEditInvoice.createdAt) : todayStr;
+                    const isChanged = activeTab.billDate && activeTab.billDate !== origStr;
+                    return isChanged ? (
+                      <p className="text-[10px] text-rose-800 font-semibold">
+                        ⚠️ Changing bill date from <strong>{origStr}</strong> to <strong>{activeTab.billDate}</strong>
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-emerald-800 font-medium flex items-center gap-1">
+                        <span>🔒 Original bill date preserved: <strong>{origStr}</strong></span>
+                      </p>
+                    );
+                  })()
+                ) : activeTab.billDate && activeTab.billDate !== todayStr ? (
                   <p className="text-[10px] text-amber-900 font-semibold">
                     Invoice will be sealed on: <strong>{activeTab.billDate}</strong>
                   </p>

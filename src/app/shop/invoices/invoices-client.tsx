@@ -25,7 +25,8 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [channelFilter, setChannelFilter] = useState<string>("ALL");
-  const [datePreset, setDatePreset] = useState<"ALL" | "TODAY" | "YESTERDAY" | "THIS_WEEK" | "THIS_MONTH" | "THIS_FY">("TODAY");
+  const [datePreset, setDatePreset] = useState<"ALL" | "TODAY" | "YESTERDAY" | "THIS_WEEK" | "THIS_MONTH" | "THIS_FY" | "CUSTOM">("TODAY");
+  const [customDate, setCustomDate] = useState<string>("");
 
   const todayStr = useMemo(() => toIstDateString(new Date()), []);
 
@@ -38,16 +39,26 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
     const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
     const monthStart = todayStart - 30 * 24 * 60 * 60 * 1000;
 
-    return initialInvoices.filter((inv) => {
+    const list = initialInvoices.filter((inv) => {
       if (statusFilter !== "ALL" && inv.status !== statusFilter) return false;
       if (channelFilter !== "ALL" && inv.channel !== channelFilter) return false;
 
-      // Date filtering based on business invoiceDate or createdAt
-      const invTime = new Date(inv.createdAt || inv.invoiceDate).getTime();
-      if (datePreset === "TODAY" && (invTime < todayStart || invTime > todayEnd)) return false;
-      if (datePreset === "YESTERDAY" && (invTime < yesterdayStart || invTime > yesterdayEnd)) return false;
-      if (datePreset === "THIS_WEEK" && invTime < weekStart) return false;
-      if (datePreset === "THIS_MONTH" && invTime < monthStart) return false;
+      // Authoritative invoice business date
+      const invDate = inv.invoiceDate || inv.createdAt;
+      const invTime = new Date(invDate).getTime();
+      const invDateStr = toIstDateString(invDate);
+
+      if (datePreset === "CUSTOM" && customDate) {
+        if (invDateStr !== customDate) return false;
+      } else if (datePreset === "TODAY") {
+        if (invTime < todayStart || invTime > todayEnd) return false;
+      } else if (datePreset === "YESTERDAY") {
+        if (invTime < yesterdayStart || invTime > yesterdayEnd) return false;
+      } else if (datePreset === "THIS_WEEK") {
+        if (invTime < weekStart) return false;
+      } else if (datePreset === "THIS_MONTH") {
+        if (invTime < monthStart) return false;
+      }
 
       if (search.trim()) {
         const query = search.trim().toLowerCase();
@@ -62,7 +73,13 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
 
       return true;
     });
-  }, [initialInvoices, search, statusFilter, channelFilter, datePreset]);
+
+    return list.sort((a, b) => {
+      const timeA = new Date(a.invoiceDate || a.createdAt).getTime();
+      const timeB = new Date(b.invoiceDate || b.createdAt).getTime();
+      return timeB - timeA;
+    });
+  }, [initialInvoices, search, statusFilter, channelFilter, datePreset, customDate]);
 
   // Aggregate Totals across all filtered invoices (excluding cancelled from money totals)
   const totals = useMemo(() => {
@@ -262,33 +279,79 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
           </div>
         </div>
 
-        {/* Date Presets Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 text-xs">
-          <span className="text-slate-400 font-bold mr-1 flex items-center gap-1">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
-            <span>Range:</span>
-          </span>
-          {(
-            [
-              { key: "ALL", label: "All Time" },
-              { key: "TODAY", label: "Today" },
-              { key: "YESTERDAY", label: "Yesterday" },
-              { key: "THIS_WEEK", label: "This Week" },
-              { key: "THIS_MONTH", label: "This Month" },
-            ] as const
-          ).map((p) => (
-            <button
-              key={p.key}
-              onClick={() => setDatePreset(p.key)}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-                datePreset === p.key
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+        {/* Date Presets Pills + Calendar Date Picker */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-slate-400 font-bold mr-1 flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-slate-500" />
+              <span>Range:</span>
+            </span>
+            {(
+              [
+                { key: "ALL", label: "All Time" },
+                { key: "TODAY", label: "Today" },
+                { key: "YESTERDAY", label: "Yesterday" },
+                { key: "THIS_WEEK", label: "This Week" },
+                { key: "THIS_MONTH", label: "This Month" },
+              ] as const
+            ).map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => {
+                  setDatePreset(p.key);
+                  setCustomDate("");
+                }}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                  datePreset === p.key && !customDate
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Calendar Picker for Any Date */}
+          <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 px-3 py-1 rounded-xl transition">
+            <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <label htmlFor="inv-custom-date" className="text-[11px] font-bold text-slate-700 whitespace-nowrap">
+              Pick Date:
+            </label>
+            <input
+              id="inv-custom-date"
+              type="date"
+              value={customDate}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCustomDate(val);
+                if (val) {
+                  setDatePreset("CUSTOM");
+                } else {
+                  setDatePreset("ALL");
+                }
+              }}
+              className={`text-xs font-mono font-bold px-2 py-0.5 rounded-lg border focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white ${
+                datePreset === "CUSTOM" && customDate
+                  ? "border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20"
+                  : "border-slate-300 text-slate-700"
               }`}
-            >
-              {p.label}
-            </button>
-          ))}
+            />
+            {customDate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomDate("");
+                  setDatePreset("TODAY");
+                }}
+                className="text-slate-400 hover:text-rose-600 text-xs font-bold px-1.5 py-0.5 rounded hover:bg-slate-200 transition"
+                title="Reset date to Today"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -339,7 +402,12 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
                       </div>
                     </td>
                     <td className="p-3.5 text-slate-600 font-mono">
-                      {formatDmyHm(inv.createdAt || inv.invoiceDate)}
+                      <div>{formatDmyHm(inv.invoiceDate || inv.createdAt)}</div>
+                      {inv.isRevised && (
+                        <div className="text-[10px] text-purple-600 font-sans">
+                          Rev: {formatDmyHm(inv.updatedAt)}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3.5">
                       {inv.party ? (

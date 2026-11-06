@@ -101,7 +101,12 @@ export function InvoiceDetailClient({
               )}
             </div>
             <p className="text-xs text-slate-500">
-              Created on {formatISTDateTime(invoice.createdAt)}
+              Bill Date: <strong className="text-slate-800">{formatISTDateTime(invoice.invoiceDate || invoice.createdAt)}</strong>
+              {invoice.isRevised && (
+                <span className="ml-2 text-purple-600 font-medium">
+                  · Revised on {formatISTDateTime(invoice.updatedAt)}
+                </span>
+              )}
             </p>
           </div>
         </div>
