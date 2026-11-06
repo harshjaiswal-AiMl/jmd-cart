@@ -33,6 +33,7 @@ import {
   ArrowRight,
   PauseCircle,
   Calendar,
+  Edit3,
 } from "lucide-react";
 
 import { OrderPriceResult } from "@/modules/pricing/pricing.types";
@@ -57,6 +58,7 @@ import { ItemInfoModal } from "@/components/pos/ItemInfoModal";
 import { PartySearchBox } from "@/components/pos/PartySearchBox";
 import { SaveVoucherDialog } from "@/components/pos/SaveVoucherDialog";
 import { QuickAddProductModal } from "@/components/pos/QuickAddProductModal";
+import { EditProductMasterModal } from "@/components/pos/EditProductMasterModal";
 import { StockCorrectionModal } from "@/components/pos/StockCorrectionModal";
 import { PosTodaySalesModal } from "@/components/pos/PosTodaySalesModal";
 import { RevisionHistoryModal } from "@/components/pos/RevisionHistoryModal";
@@ -192,6 +194,7 @@ interface PosClientProps {
   roleDiscountLimitBp: number;
   products: ProductCatalogItem[];
   companies: CompanyItem[];
+  categories?: Array<{ id: string; name: string }>;
   parties: PartyItem[];
   nextInvoicePreview?: string;
   initialEditInvoice?: any;
@@ -207,6 +210,7 @@ export function PosClient({
   roleDiscountLimitBp,
   products,
   companies,
+  categories = [],
   parties,
   nextInvoicePreview,
   initialEditInvoice,
@@ -219,6 +223,14 @@ export function PosClient({
   const [editReason, setEditReason] = useState("");
   const [showRevisionHistory, setShowRevisionHistory] = useState(false);
   const [showQuickAddModal, setShowQuickAddModal] = useState(false);
+  const [editProductModal, setEditProductModal] = useState<{
+    isOpen: boolean;
+    product: ProductCatalogItem | null;
+  }>({
+    isOpen: false,
+    product: null,
+  });
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [showTodaySalesModal, setShowTodaySalesModal] = useState(false);
   const [shortStockCorrection, setShortStockCorrection] = useState<{
     productId: string;
@@ -1037,6 +1049,100 @@ export function PosClient({
     unit: "Pcs",
     isLoading: false,
   });
+
+  const handleOpenEditProductMaster = (prodToEdit?: ProductCatalogItem | null) => {
+    let targetProduct = prodToEdit || null;
+    if (!targetProduct) {
+      if (typeof document !== "undefined") {
+        const activeTr = document.activeElement?.closest("tr[data-line-id]");
+        const lineId = activeTr?.getAttribute("data-line-id");
+        if (lineId) {
+          const cartLine = activeTab.cart.find((c) => c.id === lineId);
+          if (cartLine) targetProduct = cartLine.product;
+        }
+      }
+      if (!targetProduct && highlightedProductId) {
+        targetProduct = productsList.find((p) => p.id === highlightedProductId) || null;
+      }
+      if (!targetProduct && filteredProducts.length > 0 && filteredProducts[searchSelectedIndex]) {
+        targetProduct = productsList.find((p) => p.id === filteredProducts[searchSelectedIndex].id) || null;
+      }
+      if (!targetProduct && activeTab.cart.length > 0) {
+        targetProduct = activeTab.cart[activeTab.cart.length - 1].product;
+      }
+    }
+    setEditProductModal({
+      isOpen: true,
+      product: targetProduct || (productsList.length > 0 ? productsList[0] : null),
+    });
+  };
+
+  const handleProductMasterUpdated = (updatedProduct: any) => {
+    // 1. Update in productsList & liveProducts state
+    setProductsList((prev) =>
+      prev.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p))
+    );
+    setLiveProducts((prev) =>
+      prev.map((p) => (p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p))
+    );
+
+    // 2. If this product is in the active bill cart, update the cart line
+    const isInCart = activeTab.cart.some((c) => c.productId === updatedProduct.id);
+    if (isInCart) {
+      const updatedCart = activeTab.cart.map((line) => {
+        if (line.productId !== updatedProduct.id) return line;
+
+        const newProduct = { ...line.product, ...updatedProduct };
+        const resolved = resolvePrice(
+          {
+            mrpPaise: newProduct.mrpPaise,
+            priceAPaise: newProduct.priceAPaise,
+            priceBPaise: newProduct.priceBPaise,
+            priceCPaise: newProduct.priceCPaise,
+          },
+          effectiveTier
+        );
+
+        const packSize = Math.max(1, newProduct.packSize);
+        const defaultRatePaise =
+          line.unit === "Carton" || line.unit === "Bag"
+            ? resolved.unitPricePaise * packSize
+            : line.unit === "Dozen"
+            ? resolved.unitPricePaise * 12
+            : resolved.unitPricePaise;
+
+        const baseMrp =
+          newProduct.mrpPaise && newProduct.mrpPaise > 0
+            ? newProduct.mrpPaise
+            : defaultRatePaise;
+
+        const mrpPerUnitPaise =
+          line.unit === "Carton" || line.unit === "Bag"
+            ? baseMrp * packSize
+            : line.unit === "Dozen"
+            ? baseMrp * 12
+            : baseMrp;
+
+        return {
+          ...line,
+          product: newProduct,
+          mrpPaise: mrpPerUnitPaise,
+          customMrpInput: undefined,
+          customMrpPaise: undefined,
+          ratePaise: defaultRatePaise,
+          customRateInput: undefined,
+          customRatePaise: undefined,
+          isCustomRate: false,
+          amountPaise: Math.round(line.qty * defaultRatePaise),
+        };
+      });
+
+      updateActiveTab({ cart: updatedCart });
+    }
+
+    setToastMsg(`Product Master updated: ${updatedProduct.name}`);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
 
   // Recalculate pricing on cart or discount or party changes
   useEffect(() => {
@@ -2184,12 +2290,20 @@ export function PosClient({
         e.preventDefault();
         updateActiveTab({ documentType: activeTab.documentType === "GST" ? "RETAIL" : "GST" });
         return;
+      } else if (e.altKey && e.key.toLowerCase() === "m") {
+        e.preventDefault();
+        handleOpenEditProductMaster();
+        return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         itemSearchInputRef.current?.focus();
         itemSearchInputRef.current?.select();
       } else if (e.key === "Escape") {
+        if (editProductModal.isOpen) {
+          setEditProductModal({ isOpen: false, product: null });
+          return;
+        }
         if (showQuickAddModal) {
           setShowQuickAddModal(false);
           return;
@@ -2489,6 +2603,15 @@ export function PosClient({
           >
             <Plus className="w-3.5 h-3.5" />
             <span>+ Item [F6]</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleOpenEditProductMaster()}
+            className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#FC830D] hover:bg-[#e07205] text-white flex items-center gap-1 shadow-xs transition cursor-pointer"
+            title="Edit product master details (Alt+M)"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>Edit Master [Alt+M]</span>
           </button>
           <button
             type="button"
@@ -3106,7 +3229,7 @@ export function PosClient({
                     <th className="py-2 px-2 w-32 text-right border-r border-slate-300">Rate (₹)</th>
                     <th className="py-2 px-2 w-24 text-center border-r border-slate-300">Disc %</th>
                     <th className="py-2 px-3 w-36 text-right border-r border-slate-300">Amount (₹)</th>
-                    <th className="py-2 px-2 w-10 text-center">✕</th>
+                    <th className="py-2 px-2 w-16 text-center">Act</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -3333,19 +3456,32 @@ export function PosClient({
                           </div>
                         </td>
 
-                        {/* Delete Line */}
+                        {/* Edit Master & Delete Line */}
                         <td className="py-1 px-1.5 text-center">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeLine(line.id);
-                            }}
-                            title="Remove line (F9)"
-                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditProductMaster(line.product);
+                              }}
+                              title="Edit Product Master (Alt+M)"
+                              className="p-1 text-slate-400 hover:text-[#12355B] hover:bg-slate-100 rounded transition cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeLine(line.id);
+                              }}
+                              title="Remove line (F9)"
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -3831,6 +3967,25 @@ export function PosClient({
           addItemToCart(newProd, "Pcs", 1);
         }}
       />
+
+      {/* Edit Product Master Modal [Alt+M] */}
+      <EditProductMasterModal
+        isOpen={editProductModal.isOpen}
+        onClose={() => setEditProductModal({ isOpen: false, product: null })}
+        product={editProductModal.product}
+        allProducts={productsList}
+        companies={companies}
+        categories={categories}
+        onProductUpdated={handleProductMasterUpdated}
+      />
+
+      {/* Floating Success Toast */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 bg-[#12355B] text-white px-4 py-3 rounded-2xl shadow-2xl border border-white/20 flex items-center gap-2.5 animate-in slide-in-from-bottom-5 duration-300">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          <span className="text-xs font-bold">{toastMsg}</span>
+        </div>
+      )}
 
       {shortStockCorrection && (
         <StockCorrectionModal

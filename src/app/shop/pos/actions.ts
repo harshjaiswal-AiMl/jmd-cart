@@ -1080,8 +1080,19 @@ export async function getPosTodaySalesSummaryAction(locationId: string) {
 export async function updateProductMasterFromPosAction(input: {
   productId: string;
   name?: string;
+  barcode?: string | null;
+  packSize?: number;
+  packLabel?: string;
   mrpPaise?: number;
+  priceAPaise?: number;
+  priceBPaise?: number;
+  priceCPaise?: number;
   ratePaise?: number;
+  hsn?: string;
+  gstRateBp?: number;
+  companyId?: string | null;
+  categoryId?: string | null;
+  imageUrl?: string | null;
 }) {
   const session = await auth();
   if (!session?.user) {
@@ -1097,25 +1108,91 @@ export async function updateProductMasterFromPosAction(input: {
     throw new Error("Only Admin, Cashier, or Pro can update product master.");
   }
 
+  const existing = await prisma.product.findUnique({
+    where: { id: input.productId },
+  });
+  if (!existing) {
+    return { success: false, error: "Product not found" };
+  }
+
   const updateData: any = {};
-  if (input.name && input.name.trim()) {
+  if (input.name !== undefined && input.name.trim()) {
     updateData.name = input.name.trim();
   }
-  if (input.mrpPaise !== undefined && input.mrpPaise > 0) {
+  if (input.barcode !== undefined) {
+    updateData.barcode = input.barcode ? input.barcode.trim() : null;
+  }
+  if (input.packSize !== undefined && input.packSize > 0) {
+    updateData.packSize = input.packSize;
+  }
+  if (input.packLabel !== undefined) {
+    updateData.packLabel = input.packLabel.trim();
+  }
+  if (input.mrpPaise !== undefined && input.mrpPaise >= 0) {
     updateData.mrpPaise = input.mrpPaise;
   }
-  if (input.ratePaise !== undefined && input.ratePaise > 0) {
-    updateData.priceCPaise = input.ratePaise;
+  if (input.priceAPaise !== undefined && input.priceAPaise >= 0) {
+    updateData.priceAPaise = input.priceAPaise;
+  }
+  if (input.priceBPaise !== undefined && input.priceBPaise >= 0) {
+    updateData.priceBPaise = input.priceBPaise;
+  }
+  const resolvedPriceC = input.priceCPaise !== undefined ? input.priceCPaise : input.ratePaise;
+  if (resolvedPriceC !== undefined && resolvedPriceC >= 0) {
+    updateData.priceCPaise = resolvedPriceC;
+  }
+  if (input.hsn !== undefined) {
+    updateData.hsn = input.hsn.trim();
+  }
+  if (input.gstRateBp !== undefined && input.gstRateBp >= 0) {
+    updateData.gstRateBp = input.gstRateBp;
+  }
+  if (input.companyId !== undefined) {
+    updateData.companyId = input.companyId || null;
+  }
+  if (input.categoryId !== undefined) {
+    updateData.categoryId = input.categoryId || null;
+  }
+  if (input.imageUrl !== undefined) {
+    updateData.imageUrl = input.imageUrl ? input.imageUrl.trim() : null;
   }
 
   if (Object.keys(updateData).length === 0) {
-    return { success: true };
+    return { success: true, product: existing };
   }
 
   const updated = await prisma.product.update({
     where: { id: input.productId },
     data: updateData,
+    include: {
+      company: { select: { id: true, name: true } },
+      category: { select: { id: true, name: true } },
+    },
   });
 
-  return { success: true, product: updated };
+  const { auditService } = await import("@/modules/audit/audit.service");
+  await auditService.log({
+    actorId: session.user.id,
+    action: "PRODUCT_MASTER_UPDATED_FROM_POS",
+    entity: "Product",
+    entityId: input.productId,
+    before: {
+      name: existing.name,
+      mrpPaise: existing.mrpPaise,
+      priceAPaise: existing.priceAPaise,
+      priceBPaise: existing.priceBPaise,
+      priceCPaise: existing.priceCPaise,
+      packSize: existing.packSize,
+    },
+    after: updateData,
+  });
+
+  return {
+    success: true,
+    product: {
+      ...updated,
+      companyName: updated.company?.name ?? null,
+      categoryName: updated.category?.name ?? null,
+    },
+  };
 }

@@ -44,7 +44,7 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
     ...(godownLocation ? [godownLocation.id] : []),
   ];
 
-  const [productsRaw, companies, partiesRaw, roleLimits, nextInvoicePreview] = await Promise.all([
+  const [productsRaw, companies, categories, partiesRaw, roleLimits, nextInvoicePreview] = await Promise.all([
     prisma.product.findMany({
       where: { active: true },
       include: {
@@ -57,6 +57,11 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
       orderBy: { name: "asc" },
     }),
     prisma.company.findMany({
+      where: { active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.category.findMany({
       where: { active: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
@@ -196,6 +201,7 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
       roleDiscountLimitBp={roleDiscountLimitBp}
       products={products}
       companies={companies}
+      categories={categories}
       parties={parties}
       nextInvoicePreview={nextInvoicePreview}
       initialEditInvoice={initialEditInvoice}

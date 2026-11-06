@@ -154,50 +154,39 @@ export class DiwaliService {
       const meta = SHELF_META[key];
       let products: StoreProductItem[] = [];
 
-      // 1. If admin explicitly assigned product IDs (or default fallback IDs), load them
-      const targetIds =
-        shelfCfg.productIds && shelfCfg.productIds.length > 0
-          ? shelfCfg.productIds
-          : meta.defaultProductIds;
+      // 1. Load all active products for this category (Gift Hampers, Sweets, Dry Fruits)
+      const catRes = await storeService.getCatalogue({
+        categoryId: meta.categoryId,
+        limit: 150,
+        inStockOnly: false,
+        buyerType: buyerContext?.buyerType,
+        buyerApproved: buyerContext?.buyerApproved,
+      });
+
+      // 2. Prioritize explicitly configured productIds if any, then append all other category products
+      const productMap = new Map(catRes.products.map((p) => [p.id, p]));
+      const orderedProducts: StoreProductItem[] = [];
+      const seenIds = new Set<string>();
 
       if (targetIds && targetIds.length > 0) {
-        const assignedRes = await storeService.getCatalogue({
-          productIds: targetIds,
-          limit: targetIds.length,
-          buyerType: buyerContext?.buyerType,
-          buyerApproved: buyerContext?.buyerApproved,
-        });
-
-        // Maintain the exact ordering configured
-        const map = new Map(assignedRes.products.map((p) => [p.id, p]));
         for (const id of targetIds) {
-          const item = map.get(id);
-          if (item) products.push(item);
-        }
-      }
-
-      // 2. If fewer than 5 products, intelligently auto-fill from exact category ID
-      if (products.length < 5) {
-        const existingIds = new Set(products.map((p) => p.id));
-
-        const catRes = await storeService.getCatalogue({
-          categoryId: meta.categoryId,
-          limit: 10,
-          inStockOnly: false,
-          buyerType: buyerContext?.buyerType,
-          buyerApproved: buyerContext?.buyerApproved,
-        });
-
-        for (const p of catRes.products) {
-          if (!existingIds.has(p.id) && products.length < 5) {
-            existingIds.add(p.id);
-            products.push(p);
+          const item = productMap.get(id);
+          if (item && !seenIds.has(item.id)) {
+            seenIds.add(item.id);
+            orderedProducts.push(item);
           }
         }
       }
 
+      for (const p of catRes.products) {
+        if (!seenIds.has(p.id)) {
+          seenIds.add(p.id);
+          orderedProducts.push(p);
+        }
+      }
+
       // 3. Guarantee genuine fallback image for each product
-      products = products.slice(0, 5).map((p) => ({
+      products = orderedProducts.map((p) => ({
         ...p,
         imageUrl:
           p.imageUrl ||

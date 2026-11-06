@@ -31,6 +31,19 @@ async function main() {
     }
   }
 
+  // Calculate total payload of all unique images
+  const uniqueUrls = [...new Set(imgs.map(u => u.startsWith("http") ? u : `https://jmdcart.com${u}`))];
+  console.log(`\nCalculating total bytes for ${uniqueUrls.length} unique images...`);
+  let totalBytes = 0;
+  for (const u of uniqueUrls) {
+    try {
+      const hRes = await fetch(u, { method: "HEAD" });
+      const len = parseInt(hRes.headers.get("content-length") || "0", 10);
+      totalBytes += len;
+    } catch {}
+  }
+  console.log(`TOTAL PAYLOAD OF ALL UNIQUE HOMEPAGE IMAGES: ${(totalBytes / (1024 * 1024)).toFixed(2)} MB (${(totalBytes / 1024).toFixed(1)} KB)`);
+
   // Also check product API
   const apiRes = await fetch("https://jmdcart.com/api/store/v1/products?limit=20");
   const apiData = await apiRes.json();
