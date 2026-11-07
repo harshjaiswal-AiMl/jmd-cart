@@ -815,3 +815,19 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - **G8 (Carry-over defects)**: PASS (Stock split, pack units, timezone verified).
   - **G9 (Redesign tokens)**: PASS (Brand light theme: cream #FEFDF7, maroon #790E11, Inter+Poppins).
 - **Consecutive Verification**: Two full consecutive green PASS runs verified on production build.
+
+---
+
+### Defect Fix: [F2] Save Voucher Confirmation Payment Mode Hotkeys (1/C, 2/U, 3/R) - 2026-11-07
+- **Defect**: In `[F2] Save Voucher Confirmation` modal, pressing `1`/`C` (Cash), `2`/`U` (UPI), `3`/`R` (Credit) was unresponsive and typed characters into the background `#pos-item-search` input.
+- **Root Cause**:
+  1. The background `#pos-item-search` input retained browser focus when the modal dialog opened.
+  2. The dialog keydown handler's generic `isTypingText = e.target instanceof HTMLInputElement` treated the focused background input as active typing, skipping all payment mode shortcut handlers.
+  3. Window event listener was in the bubbling phase instead of capture phase, and the parent `pos-client.tsx` shortcut listener did not yield when `isSaveConfirmOpen` was true.
+- **Fix**:
+  - In `src/components/pos/SaveVoucherDialog.tsx`: automatically blurred background active element upon dialog opening, restricted active typing exemption strictly to `#pos-edit-reason-input`, added capture-phase keydown interception (`capture: true`) with `stopPropagation()` and `preventDefault()`.
+  - In `src/app/shop/pos/pos-client.tsx`: shortcut listener yields immediately if `isSaveConfirmOpen` is true.
+  - Added unit test coverage for payment mode shortcuts and arrow key cycling in `tests/unit/pos-modal-keyboard.test.ts` (10/10 PASS).
+- **Deployment**:
+  - Image built via Cloud Build `39ac4c0b-9c45-4716-9ef3-d0875e474483` and deployed to Cloud Run revision `jmd-cart-00094-pq7`.
+  - Production smoke tests: 34/34 PASS.
