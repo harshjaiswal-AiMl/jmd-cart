@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import { authConfig } from "./auth.config";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { canAccessRoute, getDefaultDashboard } from "@/modules/auth/permissions";
 import {
   evaluateHostRouting,
@@ -21,16 +21,11 @@ export {
   isStaticOrPublicAsset,
 };
 
-export default auth((req) => {
+const authMiddleware = auth((req) => {
   const { pathname, search } = req.nextUrl;
   const host = req.headers.get("host") || "";
   const isLoggedIn = !!req.auth;
   const user = req.auth?.user;
-
-  // Static files, PWA assets and internal health/auth endpoints bypass restrictions
-  if (isStaticOrPublicAsset(pathname)) {
-    return NextResponse.next();
-  }
 
   // Host-based routing evaluation
   const decision = evaluateHostRouting(host, pathname, search);
@@ -160,6 +155,23 @@ export default auth((req) => {
 
   return NextResponse.next();
 });
+
+export default function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  if (isStaticOrPublicAsset(pathname)) {
+    const res = NextResponse.next();
+    if (
+      pathname.startsWith("/fonts/") ||
+      pathname.startsWith("/icons/") ||
+      pathname.startsWith("/brand/") ||
+      pathname === "/favicon.ico"
+    ) {
+      res.headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    }
+    return res;
+  }
+  return (authMiddleware as any)(req);
+}
 
 export const config = {
   matcher: ["/((?!api/health|_next/static|_next/image|favicon.ico).*)"],

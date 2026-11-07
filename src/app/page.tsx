@@ -6,6 +6,21 @@ import { bannerService } from "@/modules/banners/banner.service";
 import { diwaliService } from "@/modules/diwali/diwali.service";
 import { wishlistService } from "@/modules/wishlist/wishlist.service";
 import { CatalogueClient } from "@/app/store/catalogue-client";
+import { unstable_cache } from "next/cache";
+
+const getCachedAnonymousHomeData = unstable_cache(
+  async () => {
+    const [catalogueData, filterOptions, banners, diwaliShowcase] = await Promise.all([
+      storeService.getCatalogue({ limit: 32 }),
+      storeService.getFilterOptions(),
+      bannerService.getActiveBanners(),
+      diwaliService.getDiwaliShowcase({}),
+    ]);
+    return { catalogueData, filterOptions, banners, diwaliShowcase };
+  },
+  ["anonymous-store-home-v2"],
+  { revalidate: 60, tags: ["catalogue", "banners", "diwali"] }
+);
 
 export const dynamic = "force-dynamic";
 
@@ -50,37 +65,67 @@ export default async function HomePage({
     limit: categoryId || searchParams?.q ? 100 : 32,
   };
 
-  const [catalogueData, filterOptions, banners, diwaliShowcase, cartData, wishlistProductIds, wishlistCount] = await Promise.all([
-    storeService.getCatalogue(queryParams),
-    storeService.getFilterOptions(),
-    bannerService.getActiveBanners(),
-    diwaliService.getDiwaliShowcase({
-      buyerType: user?.buyerType,
-      buyerApproved: user?.buyerApproved,
-    }),
-    session?.user?.id
-      ? cartService.getCartSummary(session.user.id)
-      : Promise.resolve({
-          id: "",
-          userId: "",
-          totalPieces: 0,
-          itemsCount: 0,
-          buyerTag: "CUSTOMER" as const,
-          subtotalPaise: 0,
-          lineDiscountPaise: 0,
-          taxablePaise: 0,
-          totalTaxPaise: 0,
-          roundOffPaise: 0,
-          totalPaise: 0,
-          lines: [],
-        }),
-    session?.user?.id
-      ? wishlistService.getWishlistProductIds(session.user.id)
-      : Promise.resolve([]),
-    session?.user?.id
-      ? wishlistService.getWishlistCount(session.user.id)
-      : Promise.resolve(0),
-  ]);
+  const isAnonymousDefault =
+    !session?.user?.id &&
+    !searchParams?.q &&
+    !companyId &&
+    !categoryId &&
+    !inStockOnly;
+
+  let catalogueData;
+  let filterOptions;
+  let banners;
+  let diwaliShowcase;
+  let cartData = {
+    id: "",
+    userId: "",
+    totalPieces: 0,
+    itemsCount: 0,
+    buyerTag: "CUSTOMER" as const,
+    subtotalPaise: 0,
+    lineDiscountPaise: 0,
+    taxablePaise: 0,
+    totalTaxPaise: 0,
+    roundOffPaise: 0,
+    totalPaise: 0,
+    lines: [] as Array<{ productId: string; qty: number }>,
+  };
+  let wishlistProductIds: string[] = [];
+  let wishlistCount = 0;
+
+  if (isAnonymousDefault) {
+    const cached = await getCachedAnonymousHomeData();
+    catalogueData = cached.catalogueData;
+    filterOptions = cached.filterOptions;
+    banners = cached.banners;
+    diwaliShowcase = cached.diwaliShowcase;
+  } else {
+    const [cData, fOptions, bData, dShowcase, cSummary, wIds, wCount] = await Promise.all([
+      storeService.getCatalogue(queryParams),
+      storeService.getFilterOptions(),
+      bannerService.getActiveBanners(),
+      diwaliService.getDiwaliShowcase({
+        buyerType: user?.buyerType,
+        buyerApproved: user?.buyerApproved,
+      }),
+      session?.user?.id
+        ? cartService.getCartSummary(session.user.id)
+        : Promise.resolve(cartData),
+      session?.user?.id
+        ? wishlistService.getWishlistProductIds(session.user.id)
+        : Promise.resolve([]),
+      session?.user?.id
+        ? wishlistService.getWishlistCount(session.user.id)
+        : Promise.resolve(0),
+    ]);
+    catalogueData = cData;
+    filterOptions = fOptions;
+    banners = bData;
+    diwaliShowcase = dShowcase;
+    cartData = cSummary as any;
+    wishlistProductIds = wIds;
+    wishlistCount = wCount;
+  }
 
   const cartQuantities: Record<string, number> = {};
   for (const line of cartData.lines) {
