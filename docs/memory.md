@@ -791,3 +791,27 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - pnpm typecheck: PASSED (0 errors).
   - Unit tests: 23/23 tests passed (pos-backdated-billing.test.ts, pos-modal-keyboard.test.ts, prompt14-pos-van-upgrades.test.ts, pos-carton-godown-stock.test.ts).
   - pnpm build: PASSED (116 static/dynamic routes compiled cleanly, ƒ /shop/pos at 39.4 kB).
+
+
+---
+
+### Prompt #08 — Looping Fix: Speed, Busy-Style Keyboard POS, Payment Flow, Price + Percent Link - 2026-11-07
+- **Objective**: Execute self-contained looping protocol across all 9 priority gates (G1-G9) until all gates PASS consecutively twice.
+- **Protocol & Gates Verified**:
+  - `pnpm gates` implemented in `scripts/gates.ts` and registered in `package.json`.
+  - **G1 (Finalized modal keyboard control)**: PASS (5/5 tests pass, Arrow/Tab cycle, Enter runs, Esc/F3 returns).
+  - **G2 (Single Alt+P party search)**: PASS (Single press unhides AND focuses search box with text selected).
+  - **G3 (Payment in confirm + direct print + Esc return)**: PASS (Keyboard 1/C, 2/U, 3/R mode select, immediate same-tab print viewer redirect without blocking intermediate modal, Esc capture returns to POS).
+  - **G4 (Catalog price + percent link)**: PASS (9/9 tests pass, bi-directional formula, 2 decimals, last-edited precedence).
+  - **G5 (Busy-style keyboard-only POS)**: PASS (No mouse required, cell navigation, line actions, active cell focus).
+  - **G6 (Storefront speed & payload)**: PASS:
+    - Font optimization: Replaced 4.0 MB un-subsetted woff2 font with complete subsetted static-instantiated woff2 (255 KB, saving 3.75 MB).
+    - Removed redundant Google Fonts download (saving 3.9 MB).
+    - Compressed logo (285 KB -> 35 KB), icons (285 KB -> 17 KB/94 KB), and favicon (285 KB -> 2.5 KB).
+    - Middleware optimization: Bypassed Auth.js cookie issuing on static assets with 1-year immutable caching.
+    - Cached anonymous default home data in `src/app/page.tsx` with 60s TTL (`unstable_cache`).
+    - Live TTFB: 307 ms (Target <= 400 ms). Total page payload reduced from ~10 MB to ~1.3 MB (Target <= 1.5 MB).
+  - **G7 (Management speed & JS budget)**: PASS (POS route JS gzip budget: 39.4 kB vs target <= 250 KB).
+  - **G8 (Carry-over defects)**: PASS (Stock split, pack units, timezone verified).
+  - **G9 (Redesign tokens)**: PASS (Brand light theme: cream #FEFDF7, maroon #790E11, Inter+Poppins).
+- **Consecutive Verification**: Two full consecutive green PASS runs verified on production build.
