@@ -81,8 +81,18 @@ export async function setup() {
 }
 
 export async function teardown() {
+  if (process.env.SKIP_DB_SETUP === "true") return;
+
   const { adminUrl, testDbName } = getTestDbConfig();
-  const client = new Client({ connectionString: adminUrl });
+  let ClientClass: any;
+  try {
+    const pg = await import("pg");
+    ClientClass = pg.Client || pg.default?.Client;
+  } catch (err) {
+    return;
+  }
+
+  const client = new ClientClass({ connectionString: adminUrl });
   await client.connect();
   try {
     await client.query(

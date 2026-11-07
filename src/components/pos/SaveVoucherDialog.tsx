@@ -67,51 +67,87 @@ export function SaveVoucherDialog({
   useEffect(() => {
     if (!isOpen) return;
 
-    function handleKeyDown(e: KeyboardEvent) {
-      const isTypingText = e.target instanceof HTMLInputElement && e.target.type === "text";
+    // Immediately release focus from background search/grid inputs so key shortcuts work reliably
+    if (document.activeElement instanceof HTMLElement && document.activeElement.id !== "pos-edit-reason-input") {
+      document.activeElement.blur();
+    }
 
-      if (e.key === "Escape" || (!isTypingText && (e.key === "n" || e.key === "N"))) {
+    function handleKeyDown(e: KeyboardEvent) {
+      const isTypingReason =
+        e.target instanceof HTMLInputElement && e.target.id === "pos-edit-reason-input";
+
+      if (e.key === "Escape" || (!isTypingReason && (e.key === "n" || e.key === "N"))) {
         e.preventDefault();
+        e.stopPropagation();
         onCancel();
-      } else if (e.key === "Enter" && !isSaving) {
+        return;
+      }
+
+      if (e.key === "Enter" && !isSaving) {
         e.preventDefault();
+        e.stopPropagation();
         onConfirm();
-      } else if (!isTypingText && (e.key === "1" || e.key.toLowerCase() === "c")) {
+        return;
+      }
+
+      // Mode of Payment keyboard hotkeys: 1/C for Cash, 2/U for UPI, 3/R for Credit
+      if (!isTypingReason) {
+        const k = e.key.toLowerCase();
+        if (e.key === "1" || k === "c") {
+          e.preventDefault();
+          e.stopPropagation();
+          onPaymentModeChange?.("CASH");
+          return;
+        }
+        if (e.key === "2" || k === "u") {
+          e.preventDefault();
+          e.stopPropagation();
+          onPaymentModeChange?.("UPI");
+          return;
+        }
+        if (e.key === "3" || k === "r") {
+          e.preventDefault();
+          e.stopPropagation();
+          onPaymentModeChange?.("CREDIT");
+          return;
+        }
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          e.stopPropagation();
+          const modes: Array<"CASH" | "UPI" | "CREDIT"> = ["CASH", "UPI", "CREDIT"];
+          const curr = modes.indexOf(paymentMode as any);
+          const prev = (curr - 1 + modes.length) % modes.length;
+          onPaymentModeChange?.(modes[prev]);
+          return;
+        }
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          e.stopPropagation();
+          const modes: Array<"CASH" | "UPI" | "CREDIT"> = ["CASH", "UPI", "CREDIT"];
+          const curr = modes.indexOf(paymentMode as any);
+          const next = (curr + 1) % modes.length;
+          onPaymentModeChange?.(modes[next]);
+          return;
+        }
+      }
+
+      if (e.key === "ArrowDown") {
         e.preventDefault();
-        onPaymentModeChange?.("CASH");
-      } else if (!isTypingText && (e.key === "2" || e.key.toLowerCase() === "u")) {
-        e.preventDefault();
-        onPaymentModeChange?.("UPI");
-      } else if (!isTypingText && (e.key === "3" || e.key.toLowerCase() === "r")) {
-        e.preventDefault();
-        onPaymentModeChange?.("CREDIT");
-      } else if (!isTypingText && e.key === "ArrowLeft") {
-        e.preventDefault();
-        const modes: Array<"CASH" | "UPI" | "CREDIT"> = ["CASH", "UPI", "CREDIT"];
-        const curr = modes.indexOf(paymentMode as any);
-        const prev = (curr - 1 + modes.length) % modes.length;
-        onPaymentModeChange?.(modes[prev]);
-      } else if (!isTypingText && e.key === "ArrowRight") {
-        e.preventDefault();
-        const modes: Array<"CASH" | "UPI" | "CREDIT"> = ["CASH", "UPI", "CREDIT"];
-        const curr = modes.indexOf(paymentMode as any);
-        const next = (curr + 1) % modes.length;
-        onPaymentModeChange?.(modes[next]);
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
+        e.stopPropagation();
         if (tableContainerRef.current) {
           tableContainerRef.current.scrollTop += 40;
         }
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        e.stopPropagation();
         if (tableContainerRef.current) {
           tableContainerRef.current.scrollTop -= 40;
         }
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [isOpen, onConfirm, onCancel, isSaving, isEditMode, editReason, paymentMode, onPaymentModeChange]);
 
   if (!isOpen) return null;
@@ -155,6 +191,7 @@ export function SaveVoucherDialog({
             <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl space-y-1 text-xs">
               <label className="font-bold text-amber-950 block">Reason for Edit / Revision:</label>
               <input
+                id="pos-edit-reason-input"
                 type="text"
                 value={editReason}
                 onChange={(e) => onEditReasonChange?.(e.target.value)}

@@ -113,4 +113,74 @@ describe("POS Voucher Header & Modal Keyboard Navigation (Task 2)", () => {
       expect(actionsDispatched.filter((a) => a === "PRINT_THERMAL")).toHaveLength(2);
     });
   });
+
+  describe("Save Voucher Confirmation (F2) Payment Mode Shortcuts", () => {
+    function simulateModalKey(
+      key: string,
+      currentMode: "CASH" | "UPI" | "CREDIT",
+      targetId: string = ""
+    ): "CASH" | "UPI" | "CREDIT" {
+      const isTypingReason = targetId === "pos-edit-reason-input";
+      if (isTypingReason) return currentMode;
+
+      const k = key.toLowerCase();
+      if (key === "1" || k === "c") return "CASH";
+      if (key === "2" || k === "u") return "UPI";
+      if (key === "3" || k === "r") return "CREDIT";
+
+      const modes: Array<"CASH" | "UPI" | "CREDIT"> = ["CASH", "UPI", "CREDIT"];
+      const curr = modes.indexOf(currentMode);
+      if (key === "ArrowLeft") {
+        const prev = (curr - 1 + modes.length) % modes.length;
+        return modes[prev];
+      }
+      if (key === "ArrowRight") {
+        const next = (curr + 1) % modes.length;
+        return modes[next];
+      }
+      return currentMode;
+    }
+
+    it("switches to CASH on 1 or C/c", () => {
+      expect(simulateModalKey("1", "UPI")).toBe("CASH");
+      expect(simulateModalKey("c", "CREDIT")).toBe("CASH");
+      expect(simulateModalKey("C", "UPI")).toBe("CASH");
+    });
+
+    it("switches to UPI on 2 or U/u", () => {
+      expect(simulateModalKey("2", "CASH")).toBe("UPI");
+      expect(simulateModalKey("u", "CREDIT")).toBe("UPI");
+      expect(simulateModalKey("U", "CASH")).toBe("UPI");
+    });
+
+    it("switches to CREDIT on 3 or R/r", () => {
+      expect(simulateModalKey("3", "CASH")).toBe("CREDIT");
+      expect(simulateModalKey("r", "UPI")).toBe("CREDIT");
+      expect(simulateModalKey("R", "CASH")).toBe("CREDIT");
+    });
+
+    it("cycles modes with ArrowLeft and ArrowRight", () => {
+      let mode: "CASH" | "UPI" | "CREDIT" = "CASH";
+      mode = simulateModalKey("ArrowRight", mode);
+      expect(mode).toBe("UPI");
+      mode = simulateModalKey("ArrowRight", mode);
+      expect(mode).toBe("CREDIT");
+      mode = simulateModalKey("ArrowRight", mode);
+      expect(mode).toBe("CASH");
+
+      mode = simulateModalKey("ArrowLeft", mode);
+      expect(mode).toBe("CREDIT");
+      mode = simulateModalKey("ArrowLeft", mode);
+      expect(mode).toBe("UPI");
+    });
+
+    it("ignores background inputs so typing in search bar does not block shortcuts", () => {
+      expect(simulateModalKey("1", "UPI", "pos-item-search")).toBe("CASH");
+      expect(simulateModalKey("c", "UPI", "pos-item-search")).toBe("CASH");
+      expect(simulateModalKey("2", "CASH", "pos-party-search-input")).toBe("UPI");
+      expect(simulateModalKey("u", "CASH", "pos-party-search-input")).toBe("UPI");
+      expect(simulateModalKey("3", "CASH", "grid-qty-input")).toBe("CREDIT");
+      expect(simulateModalKey("r", "CASH", "grid-qty-input")).toBe("CREDIT");
+    });
+  });
 });

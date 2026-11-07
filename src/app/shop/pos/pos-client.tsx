@@ -2224,8 +2224,8 @@ export function PosClient({
   // Keyboard Shortcuts Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // If Finalized Invoice modal is open, handled by dedicated capture listener above
-      if (finalizedInvoice) {
+      // If Finalized Invoice modal or Save Voucher Confirmation is open, yield to modal capture listener
+      if (finalizedInvoice || isSaveConfirmOpen) {
         return;
       }
 
