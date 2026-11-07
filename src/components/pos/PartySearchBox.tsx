@@ -15,6 +15,8 @@ export interface PartySearchBoxProps<T extends SearchableParty> {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  autoFocus?: boolean;
+  id?: string;
 }
 
 export function PartySearchBox<T extends SearchableParty>({
@@ -28,6 +30,8 @@ export function PartySearchBox<T extends SearchableParty>({
   placeholder = "Search party by name, phone, city, GSTIN... [Alt+P]",
   className = "",
   disabled = false,
+  autoFocus = false,
+  id = "pos-party-search-input",
 }: PartySearchBoxProps<T>) {
   const addPartyHandler = onAddNewParty || onQuickAdd;
   const canAddParty = Boolean(addPartyHandler && allowQuickAdd);
@@ -65,12 +69,25 @@ export function PartySearchBox<T extends SearchableParty>({
       if (e.altKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         inputRef.current?.focus();
+        inputRef.current?.select();
         setIsOpen(true);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // Auto-focus when requested (e.g. on drawer open)
+  useEffect(() => {
+    if (autoFocus) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+        setIsOpen(true);
+      }, 30);
+      return () => clearTimeout(timer);
+    }
+  }, [autoFocus]);
 
   // Reset selectedIndex when results change
   useEffect(() => {
@@ -127,6 +144,7 @@ export function PartySearchBox<T extends SearchableParty>({
         <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
         <input
           ref={inputRef}
+          id={id}
           type="text"
           value={isOpen ? query : (selectedParty ? selectedParty.name : "")}
           onChange={(e) => {

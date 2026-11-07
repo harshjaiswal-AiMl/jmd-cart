@@ -621,6 +621,15 @@ export function PosClient({
     setLocalParties(parties);
   }, [parties]);
 
+  // Autofocus item search input on POS mount / page return
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      itemSearchInputRef.current?.focus();
+      itemSearchInputRef.current?.select();
+    }, 120);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Tabs state with localStorage persistence
   const [tabs, setTabs] = useState<PosBillTab[]>([
     {
@@ -1923,17 +1932,8 @@ export function PosClient({
           });
 
           if (editRes.success && editRes.invoice) {
-            setFinalizedInvoice({
-              id: editRes.invoice.id,
-              number: editRes.invoice.number,
-              totalPaise: editRes.invoice.totalPaise,
-              paymentMode: activeTab.paymentMode,
-              targetPhone: editRes.invoice.customerPhone || selectedParty?.phone || activeTab.walkInMobile || null,
-              billUrl: (editRes.invoice as any).billUrl || null,
-              waMeUrl: (editRes.invoice as any).waMeUrl || null,
-              messagingSkipped: (editRes.invoice as any).messagingSkipped,
-              messagingReason: (editRes.invoice as any).messagingReason,
-            });
+            const printUrl = `/shop/invoices/${editRes.invoice.id}/print${activeTab.documentType === "GST" ? "?format=a4" : ""}`;
+            router.push(printUrl);
           } else {
             setErrorMessage(editRes.error || "Failed to save invoice revision");
           }
@@ -2046,15 +2046,9 @@ export function PosClient({
 
         const invoice = res.invoice;
         setApprovedCreditOverride(null);
-        setFinalizedInvoice({
-          id: invoice.id,
-          number: invoice.number,
-          totalPaise: invoice.totalPaise,
-          paymentMode: activeTab.paymentMode,
-        });
-
-        // Close/reset finalized tab
+        const printUrl = `/shop/invoices/${invoice.id}/print${activeTab.documentType === "GST" ? "?format=a4" : ""}`;
         handleCloseTab(activeTab.id);
+        router.push(printUrl);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to finalize invoice";
         if (
@@ -2275,10 +2269,11 @@ export function PosClient({
         e.preventDefault();
         setIsPartyCardExpanded(true);
         setTimeout(() => {
-          const partyInput = document.querySelector<HTMLInputElement>("input[placeholder*='Search buyer']");
+          const partyInput = (document.getElementById("pos-party-search-input")
+            || document.querySelector<HTMLInputElement>("input[placeholder*='Search party'], input[placeholder*='Search buyer']")) as HTMLInputElement | null;
           partyInput?.focus();
           partyInput?.select();
-        }, 50);
+        }, 20);
       } else if (e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
         // Focus Order Discount
@@ -2794,7 +2789,20 @@ export function PosClient({
             {/* Expand / Edit Buyer Button */}
             <button
               type="button"
-              onClick={() => setIsPartyCardExpanded((prev) => !prev)}
+              onClick={() => {
+                setIsPartyCardExpanded((prev) => {
+                  const next = !prev;
+                  if (next) {
+                    setTimeout(() => {
+                      const input = (document.getElementById("pos-party-search-input")
+                        || document.querySelector<HTMLInputElement>("input[placeholder*='Search party']")) as HTMLInputElement | null;
+                      input?.focus();
+                      input?.select();
+                    }, 20);
+                  }
+                  return next;
+                });
+              }}
               className="h-6 px-2 rounded bg-white hover:bg-slate-50 border border-slate-300 text-[10px] font-bold text-slate-700 flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
               title="Search or edit customer details (Alt+P)"
             >
@@ -2896,12 +2904,18 @@ export function PosClient({
               <PartySearchBox
                 parties={localParties as any}
                 selectedPartyId={activeTab.partyId}
+                autoFocus={true}
+                id="pos-party-search-input"
                 onSelect={(party) => {
                   updateActiveTab({
                     partyId: party.id,
                     tabTitle: party.name,
                   });
                   setIsPartyCardExpanded(false);
+                  setTimeout(() => {
+                    itemSearchInputRef.current?.focus();
+                    itemSearchInputRef.current?.select();
+                  }, 40);
                 }}
                 onAddNewParty={() => {
                   setQuickCustomerError(null);
@@ -4097,6 +4111,12 @@ export function PosClient({
         editInvoiceNumber={initialEditInvoice?.number}
         editReason={editReason}
         onEditReasonChange={(val) => setEditReason(val)}
+        onPaymentModeChange={(mode) => {
+          updateActiveTab({
+            paymentMode: mode,
+            paymentCollected: mode === "CREDIT" ? false : true,
+          });
+        }}
       />
 
       {/* Full History Slide-Over Drawer */}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { Printer, X, AlertCircle, AlertTriangle } from "lucide-react";
+import { Printer, X, AlertCircle, AlertTriangle, CreditCard } from "lucide-react";
 import { paiseToIndianWords } from "@/lib/number-to-words";
 
 export interface VoucherPreviewLine {
@@ -37,6 +37,7 @@ export interface SaveVoucherDialogProps {
   editInvoiceNumber?: string;
   editReason?: string;
   onEditReasonChange?: (reason: string) => void;
+  onPaymentModeChange?: (mode: "CASH" | "UPI" | "CREDIT") => void;
 }
 
 export function SaveVoucherDialog({
@@ -58,6 +59,7 @@ export function SaveVoucherDialog({
   editInvoiceNumber,
   editReason = "",
   onEditReasonChange,
+  onPaymentModeChange,
 }: SaveVoucherDialogProps) {
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const hasShortage = lines.some((l) => l.isShortage);
@@ -66,13 +68,35 @@ export function SaveVoucherDialog({
     if (!isOpen) return;
 
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" || e.key === "n" || e.key === "N") {
+      const isTypingText = e.target instanceof HTMLInputElement && e.target.type === "text";
+
+      if (e.key === "Escape" || (!isTypingText && (e.key === "n" || e.key === "N"))) {
         e.preventDefault();
         onCancel();
       } else if (e.key === "Enter" && !isSaving) {
-        // Allow Enter without blocking; fallback to default reason if empty
         e.preventDefault();
         onConfirm();
+      } else if (!isTypingText && (e.key === "1" || e.key.toLowerCase() === "c")) {
+        e.preventDefault();
+        onPaymentModeChange?.("CASH");
+      } else if (!isTypingText && (e.key === "2" || e.key.toLowerCase() === "u")) {
+        e.preventDefault();
+        onPaymentModeChange?.("UPI");
+      } else if (!isTypingText && (e.key === "3" || e.key.toLowerCase() === "r")) {
+        e.preventDefault();
+        onPaymentModeChange?.("CREDIT");
+      } else if (!isTypingText && e.key === "ArrowLeft") {
+        e.preventDefault();
+        const modes: Array<"CASH" | "UPI" | "CREDIT"> = ["CASH", "UPI", "CREDIT"];
+        const curr = modes.indexOf(paymentMode as any);
+        const prev = (curr - 1 + modes.length) % modes.length;
+        onPaymentModeChange?.(modes[prev]);
+      } else if (!isTypingText && e.key === "ArrowRight") {
+        e.preventDefault();
+        const modes: Array<"CASH" | "UPI" | "CREDIT"> = ["CASH", "UPI", "CREDIT"];
+        const curr = modes.indexOf(paymentMode as any);
+        const next = (curr + 1) % modes.length;
+        onPaymentModeChange?.(modes[next]);
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
         if (tableContainerRef.current) {
@@ -88,7 +112,7 @@ export function SaveVoucherDialog({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onConfirm, onCancel, isSaving, isEditMode, editReason]);
+  }, [isOpen, onConfirm, onCancel, isSaving, isEditMode, editReason, paymentMode, onPaymentModeChange]);
 
   if (!isOpen) return null;
 
@@ -218,6 +242,57 @@ export function SaveVoucherDialog({
               </div>
             </div>
           )}
+
+          {/* Mode of Payment Selector [1=Cash, 2=UPI, 3=Credit] */}
+          <div className="bg-white border-2 border-slate-300 rounded-xl p-3 space-y-2 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <CreditCard className="w-4 h-4 text-blue-600" />
+                <span>Select Mode of Payment:</span>
+              </span>
+              <span className="text-[10px] text-slate-500 font-medium">
+                Shortcuts: <kbd className="px-1 py-0.2 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-[10px]">1 / C</kbd> Cash, <kbd className="px-1 py-0.2 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-[10px]">2 / U</kbd> UPI, <kbd className="px-1 py-0.2 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-[10px]">3 / R</kbd> Credit
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => onPaymentModeChange?.("CASH")}
+                className={`py-2 px-3 rounded-lg text-xs font-black flex items-center justify-center gap-1.5 border-2 transition ${
+                  paymentMode === "CASH"
+                    ? "bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-300"
+                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+                }`}
+              >
+                <span className={`font-mono text-[10px] px-1 py-0.2 rounded ${paymentMode === "CASH" ? "bg-black/20 text-white" : "bg-slate-200 text-slate-700"}`}>1</span>
+                <span>💵 CASH</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onPaymentModeChange?.("UPI")}
+                className={`py-2 px-3 rounded-lg text-xs font-black flex items-center justify-center gap-1.5 border-2 transition ${
+                  paymentMode === "UPI"
+                    ? "bg-sky-600 text-white border-sky-700 shadow-md ring-2 ring-sky-300"
+                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+                }`}
+              >
+                <span className={`font-mono text-[10px] px-1 py-0.2 rounded ${paymentMode === "UPI" ? "bg-black/20 text-white" : "bg-slate-200 text-slate-700"}`}>2</span>
+                <span>📱 UPI</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onPaymentModeChange?.("CREDIT")}
+                className={`py-2 px-3 rounded-lg text-xs font-black flex items-center justify-center gap-1.5 border-2 transition ${
+                  paymentMode === "CREDIT"
+                    ? "bg-amber-500 text-slate-950 border-amber-600 shadow-md ring-2 ring-amber-300"
+                    : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+                }`}
+              >
+                <span className={`font-mono text-[10px] px-1 py-0.2 rounded ${paymentMode === "CREDIT" ? "bg-black/20 text-slate-950" : "bg-slate-200 text-slate-700"}`}>3</span>
+                <span>📋 CREDIT (UDHAAR)</span>
+              </button>
+            </div>
+          </div>
 
           {/* Voucher Summary Card */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2 text-xs">
