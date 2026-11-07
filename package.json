@@ -32,7 +32,8 @@
     "gcp:deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy-gcp.ps1",
     "gcp:deploy:build-only": "powershell -ExecutionPolicy Bypass -File scripts/deploy-gcp.ps1 -BuildOnly",
     "gcp:deploy:migrate": "powershell -ExecutionPolicy Bypass -File scripts/deploy-gcp.ps1 -MigrateOnly",
-    "smoke": "tsx scripts/smoke-prod.ts"
+    "smoke": "tsx scripts/smoke-prod.ts",
+    "gates": "tsx scripts/gates.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -79,7 +80,7 @@
     "dotenv": "^16.4.5",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.15",
-    "pg": "^8.13.0",
+    "pg": "^8.23.1",
     "postcss": "^8.4.47",
     "prisma": "^5.21.1",
     "tailwindcss": "^3.4.14",

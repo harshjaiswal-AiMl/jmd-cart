@@ -1,4 +1,3 @@
-import { Client } from "pg";
 import { execSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
 import dotenv from "dotenv";
@@ -31,12 +30,23 @@ function getTestDbConfig() {
 }
 
 export async function setup() {
+  if (process.env.SKIP_DB_SETUP === "true") return;
+
   const { adminUrl, testUrl, testDbName } = getTestDbConfig();
 
   process.env.DATABASE_URL = testUrl;
   process.env.TEST_DATABASE_URL = testUrl;
 
-  const client = new Client({ connectionString: adminUrl });
+  let ClientClass: any;
+  try {
+    const pg = await import("pg");
+    ClientClass = pg.Client || pg.default?.Client;
+  } catch (err) {
+    console.warn("Skipping test DB reset: pg module not available in environment");
+    return;
+  }
+
+  const client = new ClientClass({ connectionString: adminUrl });
   await client.connect();
   try {
     // Terminate any lingering connections to the test DB and recreate it fresh

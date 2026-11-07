@@ -41,3 +41,7 @@ ocr-samples/
 
 
 .tools/
+
+# Artifacts
+artifacts/
+
