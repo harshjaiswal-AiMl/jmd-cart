@@ -190,7 +190,25 @@ export function GodownMobileClient({
           // ignore
         }
       }
+
+      // Check URL query param ?tab=orders
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = params.get("tab");
+      if (urlTab) {
+        setActiveTab(urlTab);
+      }
+
+      // Direct JavaScript bridge function for instant tab switching from native wrapper
+      (window as any).switchGodownTab = (tab: string, orderId?: string) => {
+        if (tab) setActiveTab(tab);
+      };
     }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        delete (window as any).switchGodownTab;
+      }
+    };
   }, []);
 
   const toggleNativeCallAlerts = () => {

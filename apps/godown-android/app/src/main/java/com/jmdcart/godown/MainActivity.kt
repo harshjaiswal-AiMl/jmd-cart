@@ -192,9 +192,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadGodownUrl(intent: Intent) {
         val targetUrl = "https://management.jmdcart.com/app/godown"
-        val orderId = intent.getStringExtra("orderId")
-        if (!orderId.isNullOrEmpty()) {
-            webView.loadUrl("$targetUrl?tab=orders&orderId=$orderId")
+        val orderId = intent.getStringExtra("orderId") ?: ""
+        val tab = intent.getStringExtra("tab") ?: if (orderId.isNotEmpty()) "orders" else null
+
+        if (tab != null) {
+            // Instantly switch tab in existing loaded WebView in 0 ms
+            webView.evaluateJavascript("if (window.switchGodownTab) { window.switchGodownTab('$tab', '$orderId'); }", null)
+            if (webView.url == null) {
+                webView.loadUrl("$targetUrl?tab=$tab&orderId=$orderId")
+            }
         } else if (webView.url == null) {
             webView.loadUrl(targetUrl)
         }
