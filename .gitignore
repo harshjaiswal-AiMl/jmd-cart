@@ -38,6 +38,7 @@ ocr-samples/
 !src/modules/ocr/vendor/tessdata/*.traineddata
 
 *.apk
+!public/downloads/*.apk
 
 
 .tools/
