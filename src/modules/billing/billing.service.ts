@@ -14,6 +14,7 @@ import { getNextSequenceNumber } from "@/lib/invoice-number";
 import { stockService } from "@/modules/stock/stock.service";
 import { pricingService } from "@/modules/pricing/pricing.service";
 import { auditService } from "@/modules/audit/audit.service";
+import { assertPermissionAsync } from "@/modules/auth/role-matrix.service";
 import {
   assertPermission,
   hasPermission,
@@ -678,7 +679,7 @@ export class BillingService {
     actorId?: string,
     ip?: string
   ): Promise<{ invoice: InvoiceWithDetails; creditNoteId: string }> {
-    assertPermission(role, Permission.BILL_CANCEL);
+    await assertPermissionAsync(role, Permission.INVOICE_VOID);
     const validated = cancelInvoiceInputSchema.parse(input);
 
     const existing = await this.repo.findById(validated.invoiceId);

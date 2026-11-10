@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { billingService } from "@/modules/billing/billing.service";
-import { settingsService } from "@/modules/settings/settings.service";
+import { hasPermission, Permission } from "@/modules/auth/permissions";
 import { UserRole } from "@prisma/client";
 import { InvoiceDetailClient } from "./invoice-detail-client";
 
@@ -15,19 +15,17 @@ export default async function InvoiceDetailPage({
   params,
 }: InvoiceDetailPageProps) {
   const { id } = await params;
-  const [session, invoice, posSettings] = await Promise.all([
+  const [session, invoice] = await Promise.all([
     auth(),
     billingService.getInvoiceById(id),
-    settingsService.getPosOperationalSettings(),
   ]);
 
   if (!invoice) {
     notFound();
   }
 
-  const canCancel =
-    session?.user?.role === UserRole.SUPER_ADMIN ||
-    (posSettings.managerCanDelete && session?.user?.role === UserRole.ADMIN);
+  const role = session?.user?.role as UserRole | undefined;
+  const canCancel = role ? hasPermission(role, Permission.INVOICE_VOID) : false;
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6">

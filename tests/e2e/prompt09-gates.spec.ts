@@ -84,28 +84,117 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
 
   test("R2: Cashier POS delete bill (F8) and invoice void follow matrix permissions", async ({
     page,
+    browser,
   }) => {
+    // 1. Cashier without pos.deleteBill or invoice.void cannot delete bill (F8) or void invoice (UI + 403)
     await loginAs(page, "9876543212", "shop123", "**/shop**");
     await page.goto("/shop/pos", { waitUntil: "load" });
-
     const popup = page.locator('[data-testid="pos-party-popup"]');
     if (await popup.isVisible().catch(() => false)) {
       await page.keyboard.press("Escape");
     }
 
-    // Without pos.deleteBill granted, F8 must NOT show discard dialog
+    await expect(page.locator('button:has-text("F8 Del Bill")')).toHaveCount(0);
     const search = page.locator("#pos-item-search");
     await expect(search).toBeVisible({ timeout: 15000 });
-    await search.focus();
-    await page.keyboard.type("bikaji");
+    await search.fill("bikaji");
     await page.waitForTimeout(300);
     await page.keyboard.press("Enter");
-    const rowsBefore = await page.locator("tbody tr[data-line-id]").count();
-    expect(rowsBefore).toBeGreaterThanOrEqual(1);
+    expect(await page.locator("tbody tr[data-line-id]").count()).toBeGreaterThanOrEqual(1);
 
     await page.keyboard.press("F8");
-    const discardModal = page.locator('[data-testid="pos-discard-confirm"]');
-    await expect(discardModal).toHaveCount(0);
+    await expect(page.locator('[data-testid="pos-delete-bill-confirm"]')).toHaveCount(0);
+
+    // Void API returns 403 for Cashier when invoice.void is OFF
+    const voidDenied = await page.request.post("/api/invoices/non-existent/void", {
+      data: { reason: "test denied without permission" },
+    });
+    expect(voidDenied.status()).toBe(403);
+
+    await page.goto("/shop/invoices", { waitUntil: "load" });
+    await expect(page.locator('[data-testid="invoice-delete-btn"]')).toHaveCount(0);
+
+    // 2. Super Admin grants pos.deleteBill and invoice.void to SHOP
+    const saCtx = await browser.newContext();
+    const saPage = await saCtx.newPage();
+    await loginAs(saPage, "9876543210", "admin123", "**/admin**");
+    for (const perm of ["pos.deleteBill", "invoice.void"]) {
+      const grantRes = await saPage.request.post("/api/admin/roles", {
+        data: { targetRole: "SHOP", permission: perm, enabled: true },
+      });
+      expect(grantRes.status()).toBe(200);
+    }
+
+    try {
+      // 3. Cashier reloads POS -> F8 now opens confirmation showing item count, Y discards while keeping held bills
+      await page.goto("/shop/pos", { waitUntil: "load" });
+      if (await popup.isVisible().catch(() => false)) {
+        await page.keyboard.press("Escape");
+      }
+      await expect(page.locator('button:has-text("F8 Del Bill")')).toBeVisible({ timeout: 5000 });
+      await page.locator("#pos-item-search").fill("bikaji");
+      await page.waitForTimeout(300);
+      await page.keyboard.press("Enter");
+      // Hold bill 1
+      await page.keyboard.press("F4");
+      await page.waitForTimeout(200);
+      if (await popup.isVisible().catch(() => false)) {
+        await page.keyboard.press("Escape");
+      }
+      // Create bill 2 with 1 item and delete via F8 -> Y
+      await page.locator("#pos-item-search").fill("bikaji");
+      await page.waitForTimeout(300);
+      await page.keyboard.press("Enter");
+      await page.keyboard.press("F8");
+      const discardModal = page.locator('[data-testid="pos-delete-bill-confirm"]');
+      await expect(discardModal).toBeVisible({ timeout: 5000 });
+      expect(await discardModal.innerText()).toMatch(/Delete this bill\?[\s\S]*1\b/i);
+      await page.keyboard.press("y");
+      await expect(discardModal).toHaveCount(0);
+      expect(await page.locator("tbody tr[data-line-id]").count()).toBe(0);
+
+      // Held bill must still exist after F8 discard
+      await expect(page.getByRole("button", { name: /Held \(\d+\)/ })).toContainText(/1/);
+
+      // Finalize a Cash bill as Cashier, then verify Delete (Void) button visible & voids cleanly
+      await page.locator("#pos-item-search").fill("bikaji");
+      await page.waitForTimeout(300);
+      await page.keyboard.press("Enter");
+      await page.keyboard.press("F2");
+      const finishDialog = page.locator('[role="dialog"]:has-text("Finish & Print Bill")');
+      await expect(finishDialog).toBeVisible({ timeout: 5000 });
+      await finishDialog.locator('button:has-text("Save & Print")').click();
+      await expect(finishDialog).toHaveCount(0, { timeout: 10000 });
+      await page.waitForTimeout(500);
+
+      await page.goto("/shop/invoices", { waitUntil: "load" });
+      const invIdAttr = await page.locator('a[href^="/shop/invoices/"]').first().getAttribute("href");
+      const targetInvoiceId = invIdAttr?.split("/").pop();
+      const delBtn = page.locator('[data-testid="invoice-delete-btn"]').first();
+      await expect(delBtn).toBeVisible({ timeout: 10000 });
+      await delBtn.click();
+      const voidDialog = page.locator('[role="dialog"]');
+      await expect(voidDialog).toBeVisible({ timeout: 5000 });
+      await voidDialog.locator('textarea, input[placeholder*="reason" i]').first().fill("Wrong entry test R2");
+      await voidDialog.locator('button:has-text("Confirm Void")').click();
+      await expect(voidDialog).toHaveCount(0, { timeout: 10000 });
+      await page.getByLabel("Show cancelled").check();
+      await expect(page.locator('table tbody')).toContainText(/CANCELLED/i, { timeout: 10000 });
+      if (targetInvoiceId) {
+        const doubleVoidRes = await page.request.post(`/api/invoices/${targetInvoiceId}/void`, {
+          data: { reason: "Double void test" },
+        });
+        expect(doubleVoidRes.status()).toBe(400);
+      }
+    } finally {
+      // Restore defaults for X1 cleanliness
+      for (const perm of ["pos.deleteBill", "invoice.void"]) {
+        await saPage.request.post("/api/admin/roles", {
+          data: { targetRole: "SHOP", permission: perm, enabled: false },
+        });
+      }
+      await saCtx.close();
+    }
   });
 
   test("R5: Shop POS enables Credit by default for every named party while blocking Walk-in", async ({
@@ -126,9 +215,9 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
     await page.keyboard.press("Enter");
     await page.keyboard.press("F2");
 
-    const dialog = page.locator('[data-testid="save-voucher-dialog"], [role="dialog"]:has-text("Save Voucher")');
+    const dialog = page.locator('[role="dialog"]:has-text("Finish & Print Bill")');
     await expect(dialog).toBeVisible({ timeout: 5000 });
-    expect(await dialog.innerText()).toMatch(/Select a party for credit/i);
+    expect(await dialog.innerText()).toMatch(/Select party for Credit|Select a party for credit/i);
   });
 
   test("R6: Shared product search returns consistent results across POS and Catalog", async ({

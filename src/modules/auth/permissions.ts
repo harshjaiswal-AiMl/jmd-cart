@@ -289,6 +289,11 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
     return true;
   }
 
+  // Invoice API endpoints mirror /shop/invoices route access; fine-grained actions enforce matrix permissions server-side
+  if (pathname.startsWith("/api/invoices/")) {
+    return canAccessRoute(role, "/shop/invoices");
+  }
+
   // GODOWN cannot access /admin/catalog/import or /admin/catalog/price-lists
   if (
     role === UserRole.GODOWN &&

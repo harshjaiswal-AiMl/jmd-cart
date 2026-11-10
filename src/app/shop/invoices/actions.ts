@@ -6,6 +6,8 @@ import { invoiceTotalsService, InvoiceTotalsFilter, InvoiceTotalsSummary } from 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { billingService } from "@/modules/billing/billing.service";
+import { Permission } from "@/modules/auth/permissions";
+import { assertPermissionAsync } from "@/modules/auth/role-matrix.service";
 import { UserRole } from "@prisma/client";
 
 export interface ActionResult<T = unknown> {
@@ -24,18 +26,8 @@ export async function cancelInvoiceAction(
       return { success: false, error: "Authentication required" };
     }
 
-    const { settingsService } = await import("@/modules/settings/settings.service");
-    const posSettings = await settingsService.getPosOperationalSettings();
-    const isSuperAdmin = session.user.role === UserRole.SUPER_ADMIN;
-    const isManagerAllowed =
-      posSettings.managerCanDelete && session.user.role === UserRole.ADMIN;
-
-    if (!isSuperAdmin && !isManagerAllowed) {
-      return {
-        success: false,
-        error: "Only Super Admin (or Manager when enabled in Settings) can cancel/void finalized invoices",
-      };
-    }
+    const role = session.user.role as UserRole;
+    await assertPermissionAsync(role, Permission.INVOICE_VOID);
 
     if (!reason || reason.trim().length < 5) {
       return {
@@ -45,7 +37,7 @@ export async function cancelInvoiceAction(
     }
 
     const result = await billingService.cancelInvoice(
-      UserRole.SUPER_ADMIN, // server action verified role/permission above
+      role,
       { invoiceId, reason: reason.trim() },
       session.user.id
     );

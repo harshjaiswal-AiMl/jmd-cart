@@ -1071,6 +1071,13 @@ export async function getPosTodaySalesSummaryAction(locationId: string) {
         upiPaise,
         creditPaise,
         pendingCount,
+        recentBills: invoices.slice(0, 15).map((inv) => ({
+          id: inv.id,
+          number: inv.number,
+          customerName: inv.customerName || "Counter Sale",
+          totalPaise: inv.totalPaise,
+          mode: inv.payments?.[0]?.mode || "CASH",
+        })),
       },
     };
   } catch (err: any) {

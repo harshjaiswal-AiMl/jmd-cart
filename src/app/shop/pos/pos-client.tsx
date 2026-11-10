@@ -207,6 +207,8 @@ interface PosClientProps {
   posSettings?: PosOperationalSettings;
   businessDetails?: BusinessDetails;
   initialStartNewBill?: boolean;
+  canDeleteBill?: boolean;
+  canVoidInvoice?: boolean;
 }
 
 export function PosClient({
@@ -226,6 +228,8 @@ export function PosClient({
   posSettings,
   businessDetails,
   initialStartNewBill = false,
+  canDeleteBill = false,
+  canVoidInvoice = false,
 }: PosClientProps) {
   const effectivePosSettings: PosOperationalSettings = {
     showFinalizedModal: posSettings?.showFinalizedModal ?? false,
@@ -2479,11 +2483,13 @@ export function PosClient({
         e.preventDefault();
         e.stopPropagation();
         if (isEditMode && initialEditInvoice) {
+          if (!canVoidInvoice) return;
           setVoidEditReason("");
           setVoidEditError(null);
           setVoidEditModalOpen(true);
           return;
         }
+        if (!canDeleteBill) return;
         if (activeTab.cart.length === 0) {
           updateActiveTab({ partyId: "", remarks: "", orderDiscountPercent: "0", walkInName: "", walkInMobile: "", walkInAddress: "" });
           setToastMsg("Empty bill cleared");
@@ -2636,6 +2642,8 @@ export function PosClient({
     lastPrintedInvoice,
     triggerDirectIframePrint,
     isEditMode,
+    canDeleteBill,
+    canVoidInvoice,
   ]);
 
   // Voucher lines preview memo for SaveVoucherDialog
@@ -4290,23 +4298,25 @@ export function PosClient({
           >
             F7 Repeat
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (isEditMode && initialEditInvoice) {
-                setVoidEditReason("");
-                setVoidEditError(null);
-                setVoidEditModalOpen(true);
-              } else if (activeTab.cart.length === 0) {
-                updateActiveTab({ partyId: "", remarks: "", orderDiscountPercent: "0", walkInName: "", walkInMobile: "", walkInAddress: "" });
-              } else {
-                setDiscardConfirmOpen(true);
-              }
-            }}
-            className="bg-rose-900/70 hover:bg-rose-800 px-2 py-0.5 rounded border border-rose-300/40 text-white transition cursor-pointer"
-          >
-            F8 Del Bill
-          </button>
+          {((isEditMode && canVoidInvoice) || (!isEditMode && canDeleteBill)) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (isEditMode && initialEditInvoice) {
+                  setVoidEditReason("");
+                  setVoidEditError(null);
+                  setVoidEditModalOpen(true);
+                } else if (activeTab.cart.length === 0) {
+                  updateActiveTab({ partyId: "", remarks: "", orderDiscountPercent: "0", walkInName: "", walkInMobile: "", walkInAddress: "" });
+                } else {
+                  setDiscardConfirmOpen(true);
+                }
+              }}
+              className="bg-rose-900/70 hover:bg-rose-800 px-2 py-0.5 rounded border border-rose-300/40 text-white transition cursor-pointer"
+            >
+              F8 Del Bill
+            </button>
+          )}
           <button
             type="button"
             onClick={handleDeleteHighlightedOrLastLine}
@@ -4631,6 +4641,7 @@ export function PosClient({
         onClose={() => setShowTodaySalesModal(false)}
         locationId={locationId}
         locationName={locationName}
+        canVoidInvoice={canVoidInvoice}
       />
 
       <RevisionHistoryModal
