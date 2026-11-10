@@ -172,6 +172,7 @@ export function GodownMobileClient({
 
   // Alert Mode & Web Audio Ringing state
   const [isNativeApp, setIsNativeApp] = useState(false);
+  const [nativeCallAlertsEnabled, setNativeCallAlertsEnabled] = useState(true);
   const [alertMode, setAlertMode] = useState(false);
 
   useEffect(() => {
@@ -180,8 +181,29 @@ export function GodownMobileClient({
         Boolean((window as any).AndroidGodownBridge) ||
         navigator.userAgent.includes("JMDGodownNativeWrapper");
       setIsNativeApp(isNative);
+
+      if (isNative && (window as any).AndroidGodownBridge?.isCallAlertsEnabled) {
+        try {
+          const enabled = (window as any).AndroidGodownBridge.isCallAlertsEnabled();
+          setNativeCallAlertsEnabled(Boolean(enabled));
+        } catch {
+          // ignore
+        }
+      }
     }
   }, []);
+
+  const toggleNativeCallAlerts = () => {
+    const next = !nativeCallAlertsEnabled;
+    setNativeCallAlertsEnabled(next);
+    if (typeof window !== "undefined" && (window as any).AndroidGodownBridge?.setCallAlertsEnabled) {
+      try {
+        (window as any).AndroidGodownBridge.setCallAlertsEnabled(next);
+      } catch {
+        // ignore
+      }
+    }
+  };
   const [activeRingAlert, setActiveRingAlert] = useState<{
     orderId: string;
     orderNumber: string;
@@ -737,23 +759,42 @@ export function GodownMobileClient({
 
       {/* TOP HEADER: Alert Mode / Native Daemon Banner */}
       {isNativeApp ? (
-        <div className="bg-emerald-50 rounded-2xl border border-emerald-200 shadow-xs p-3.5 flex items-center justify-between">
+        <div className={`rounded-2xl border shadow-xs p-3.5 flex items-center justify-between transition ${
+          nativeCallAlertsEnabled ? "bg-emerald-50 border-emerald-200" : "bg-slate-50 border-slate-200"
+        }`}>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-600 text-white shadow-xs">
-              <CheckCircle2 className="w-5 h-5" />
+            <div className={`p-2 rounded-xl text-white shadow-xs ${
+              nativeCallAlertsEnabled ? "bg-emerald-600" : "bg-slate-400"
+            }`}>
+              {nativeCallAlertsEnabled ? <Volume2 className="w-5 h-5 animate-pulse" /> : <VolumeX className="w-5 h-5" />}
             </div>
             <div>
-              <div className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                <span>Godown Alert System:</span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white">
-                  ACTIVE
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <span>Incoming Phone Call Alert:</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                  nativeCallAlertsEnabled ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-700"
+                }`}>
+                  {nativeCallAlertsEnabled ? "ON (Ringing)" : "OFF (Silent)"}
                 </span>
               </div>
-              <div className="text-[10px] text-emerald-700 font-medium">
-                24x7 Incoming Call Ringing • Background Screen Wakeup Enabled
+              <div className="text-[10px] text-slate-600 font-medium">
+                {nativeCallAlertsEnabled
+                  ? "Screen will turn on & ring like a phone call on new orders"
+                  : "Silent mode: Orders appear in list, no loud call popup"}
               </div>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={toggleNativeCallAlerts}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${
+              nativeCallAlertsEnabled
+                ? "bg-slate-800 text-white hover:bg-slate-900"
+                : "bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs"
+            }`}
+          >
+            {nativeCallAlertsEnabled ? "Mute Call" : "Turn ON"}
+          </button>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3.5 flex items-center justify-between">

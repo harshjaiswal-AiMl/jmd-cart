@@ -178,6 +178,15 @@ class GodownAlertWatcherService : Service() {
                     }
                 }
 
+                // If user turned OFF loud incoming call popups, skip screen wakeup and ringing
+                if (!DeviceRegistrationManager.isCallAlertsEnabled(this)) {
+                    if (ContinuousRingtoneService.isCurrentlyRinging) {
+                        ContinuousRingtoneService.stopRinging(this)
+                        IncomingOrderCallActivity.currentInstance?.finish()
+                    }
+                    return
+                }
+
                 if (unhandledAlerts.length() > 0) {
                     triggerCallScreen(unhandledAlerts)
                 } else if (ContinuousRingtoneService.isCurrentlyRinging) {

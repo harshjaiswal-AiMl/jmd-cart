@@ -128,6 +128,16 @@ class MainActivity : AppCompatActivity() {
             }
 
             @JavascriptInterface
+            fun setCallAlertsEnabled(enabled: Boolean) {
+                DeviceRegistrationManager.setCallAlertsEnabled(this@MainActivity, enabled)
+            }
+
+            @JavascriptInterface
+            fun isCallAlertsEnabled(): Boolean {
+                return DeviceRegistrationManager.isCallAlertsEnabled(this@MainActivity)
+            }
+
+            @JavascriptInterface
             fun getDeviceToken(): String {
                 return DeviceRegistrationManager.getDeviceToken(this@MainActivity)
             }

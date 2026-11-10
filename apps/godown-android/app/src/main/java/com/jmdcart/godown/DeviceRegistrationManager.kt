@@ -17,10 +17,23 @@ object DeviceRegistrationManager {
     private const val PREFS_NAME = "jmd_godown_prefs"
     private const val KEY_DEVICE_TOKEN = "device_token"
     private const val KEY_FCM_TOKEN = "fcm_token"
+    private const val KEY_CALL_ALERTS_ENABLED = "call_alerts_enabled"
     private const val DEFAULT_BASE_URL = "https://management.jmdcart.com"
 
     fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    /**
+     * User preference to enable/disable loud telephone incoming call popups
+     * Default: true (active)
+     */
+    fun isCallAlertsEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_CALL_ALERTS_ENABLED, true)
+    }
+
+    fun setCallAlertsEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_CALL_ALERTS_ENABLED, enabled).apply()
     }
 
     /**
