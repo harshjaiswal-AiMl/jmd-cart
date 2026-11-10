@@ -831,3 +831,23 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
 - **Deployment**:
   - Image built via Cloud Build `39ac4c0b-9c45-4716-9ef3-d0875e474483` and deployed to Cloud Run revision `jmd-cart-00094-pq7`.
   - Production smoke tests: 34/34 PASS.
+
+---
+
+### Inventory Stock Clear & Zero-Reset - 2026-11-10
+- **User Request**: Reset all stock in the system to 0 across all locations, clear stock movements/logs, but ensure 100% parity and safety for all bills, invoices, products, and parties.
+- **Safety Pre-Check**:
+  - Captured on-demand Cloud SQL snapshot backup (`1794271024415`, status `SUCCESSFUL`).
+- **Execution**:
+  - Transactionally deleted stock reservations (0) and stock corrections (2).
+  - Disabled `trg_stock_movements_immutable` temporarily within transaction to clear 1,725 past stock movement ledger entries, then re-enabled trigger.
+  - Reset 1,646 `stock_balances` rows to `qty = 0`.
+  - Reset 987 products' `opening_stock_qty`, `opening_stock_godown_qty`, `opening_stock_shop_qty` to `0`.
+- **Integrity Verification**:
+  - Invoices: Exactly 141 (0 changed, 0 deleted).
+  - Invoice items: Exactly 545 (0 changed, 0 deleted).
+  - Payments: Exactly 138 (0 changed, 0 deleted).
+  - Products: Exactly 987 (0 changed, 0 deleted).
+  - Parties: Exactly 1,730 (0 changed, 0 deleted).
+  - Total live stock across all 4 locations: Exactly 0.
+  - Production smoke tests: 34/34 PASS.
