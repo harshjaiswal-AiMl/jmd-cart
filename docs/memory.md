@@ -851,3 +851,21 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Parties: Exactly 1,730 (0 changed, 0 deleted).
   - Total live stock across all 4 locations: Exactly 0.
   - Production smoke tests: 34/34 PASS.
+
+---
+
+### Feature: Van Sales Dashboard & Mobile App Bilingual Support (Hindi & English) - 2026-11-10
+- **User Request**: In the Van Sales phone dashboard / app, add a top button to select language between Hindi and English so the whole interface changes according to the selected language.
+- **Implementation**:
+  - `src/lib/i18n/van-translations.ts`: Complete translation dictionary for Van Sales (`en` and `hi`) covering header, 3 huge primary buttons (New Sale, My Stock, End of Day), 4 metrics cards, load status, PWA home cards, stock matrix, deliveries, and bottom navigation.
+  - `src/lib/i18n/van-language-context.tsx`: Context & `useVanLanguage()` hook with `localStorage` persistence (`jmd_van_lang`) and cross-tab/event sync.
+  - `src/components/van/van-language-toggle.tsx`: High-contrast, mobile-friendly dual segmented selector `[ English | हिंदी ]` with tactile active states.
+  - `src/app/van/van-dashboard-client.tsx`: Interactive client dashboard for `/van` with prominent top language toggle and instant reactivity.
+  - `src/app/app/van/van-mobile-home-client.tsx`: Interactive client component for mobile PWA home (`/app/van`) with language toggle and full translations.
+  - `src/app/van/van-nav.tsx`: Bottom navigation tabs automatically translate ("Stock" <-> "स्टॉक", "New Bill" <-> "नया बिल", "Collect" <-> "कलेक्शन", "Bills" <-> "आज के बिल", "Day End" <-> "हिसाब").
+  - `src/app/app/role-app-shell.tsx`: Added `<VanLanguageToggle />` to top header bar for mobile users.
+- **Verification**:
+  - Unit tests: `tests/unit/van-language.test.ts` (5/5 PASS) verifying key parity, Devanagari script strings, and parameter interpolation.
+  - Cloud Build: `337b20dc-574d-405c-9f5e-9e833b7a4468` (SUCCESS, 116 static/dynamic routes compiled cleanly).
+  - Cloud Run Deployment: Service `jmd-cart` revision `jmd-cart-00095-26l` serving 100% of traffic.
+  - Production smoke tests: 34/34 PASS on `https://jmdcart.com` and `https://management.jmdcart.com`.
