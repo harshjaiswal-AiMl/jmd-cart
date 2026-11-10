@@ -1,96 +1,181 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#12355B"
-    android:padding="24dp"
-    android:gravity="center_horizontal">
+    android:fillViewport="true"
+    android:background="@color/call_bg">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="🚨 INCOMING GODOWN ORDER 🚨"
-        android:textColor="#F4A259"
-        android:textStyle="bold"
-        android:textSize="15sp"
-        android:layout_marginTop="48dp"
-        android:letterSpacing="0.1" />
-
-    <TextView
-        android:id="@+id/tvOrderNumber"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="ORD-000123"
-        android:textColor="#FFFFFF"
-        android:textStyle="bold"
-        android:textSize="32sp"
-        android:layout_marginTop="12dp" />
-
-    <TextView
-        android:id="@+id/tvCustomerName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Ramesh Kirana Store"
-        android:textColor="#D1D5DB"
-        android:textSize="18sp"
-        android:layout_marginTop="8dp" />
-
-    <TextView
-        android:id="@+id/tvAmount"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="₹12,450.00"
-        android:textColor="#34D399"
-        android:textStyle="bold"
-        android:textSize="26sp"
-        android:layout_marginTop="12dp" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-    <!-- Action Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_marginBottom="32dp">
+        android:padding="20dp"
+        android:gravity="center_horizontal">
 
-        <!-- Big Accept Button -->
-        <Button
-            android:id="@+id/btnAccept"
+        <!-- Multi-Order Banner / Single Order Header -->
+        <TextView
+            android:id="@+id/tvOrderBadge"
             android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:text="ACCEPT &amp; PACK (STOP RING)"
-            android:textSize="16sp"
+            android:layout_height="wrap_content"
+            android:text="🚨 INCOMING DISPATCH ORDER 🚨"
+            android:textColor="@color/accent"
             android:textStyle="bold"
-            android:textColor="#1F2933"
-            android:backgroundTint="#F4A259"
-            android:layout_marginBottom="12dp" />
-
-        <!-- Snooze 1 Min Button -->
-        <Button
-            android:id="@+id/btnSnooze"
-            android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:text="⏰ SNOOZE 1 MINUTE"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF"
-            android:backgroundTint="#3B82F6"
-            android:layout_marginBottom="12dp" />
-
-        <!-- Mute / Dismiss Button -->
-        <Button
-            android:id="@+id/btnDismiss"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:text="Mute Ring"
             android:textSize="13sp"
-            android:textColor="#9CA3AF"
-            android:backgroundTint="#1F2933" />
-    </LinearLayout>
+            android:gravity="center"
+            android:padding="8dp"
+            android:background="#1B3150"
+            android:layout_marginTop="24dp"
+            android:letterSpacing="0.08" />
 
-</LinearLayout>
+        <!-- Pulsing Center Icon / Visual Anchor -->
+        <TextView
+            android:id="@+id/tvOrderIcon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📦🔔"
+            android:textSize="44sp"
+            android:layout_marginTop="16dp"
+            android:gravity="center" />
+
+        <!-- Main Single Order Details Card -->
+        <LinearLayout
+            android:id="@+id/llSingleOrderCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/card_bg"
+            android:padding="20dp"
+            android:layout_marginTop="16dp"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:id="@+id/tvOrderNumber"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ORD-000123"
+                android:textColor="@color/text_primary"
+                android:textStyle="bold"
+                android:textSize="26sp"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/tvCustomerName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ramesh Kirana Store"
+                android:textColor="@color/text_secondary"
+                android:textStyle="bold"
+                android:textSize="20sp"
+                android:layout_marginTop="6dp"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/tvContactPhone"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📞 Tap to Call: 9876543210"
+                android:textColor="@color/accent_gold"
+                android:textSize="14sp"
+                android:layout_marginTop="6dp"
+                android:padding="4dp" />
+
+            <!-- Packaging Details (Cartons & Loose) -->
+            <TextView
+                android:id="@+id/tvPackagingSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📦 4 Cartons • 12 Loose Pieces"
+                android:textColor="#93C5FD"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:layout_marginTop="14dp"
+                android:padding="8dp"
+                android:background="#1E3A5F" />
+
+            <!-- Grand Total Paired with Rupee Icon -->
+            <TextView
+                android:id="@+id/tvAmount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₹12,450.00"
+                android:textColor="@color/success"
+                android:textStyle="bold"
+                android:textSize="32sp"
+                android:layout_marginTop="12dp"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Multi-Orders Container (Displayed when multiple orders arrive simultaneously) -->
+        <LinearLayout
+            android:id="@+id/llMultiOrdersContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="16dp" />
+
+        <!-- Next in Queue Preview Card (Visible when >1 order pending) -->
+        <TextView
+            android:id="@+id/tvNextOrderPreview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Next in Queue: ORD-000124 (Gupta Traders • ₹4,200)"
+            android:textColor="@color/text_muted"
+            android:textSize="12sp"
+            android:gravity="center"
+            android:padding="8dp"
+            android:layout_marginTop="10dp"
+            android:background="#101F33"
+            android:visibility="gone" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:minHeight="24dp" />
+
+        <!-- Tactile Action Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="16dp">
+
+            <!-- Big Accept & Pack Button -->
+            <Button
+                android:id="@+id/btnAccept"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:text="✅ ACCEPT &amp; PACK (STOP RING)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/success"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Snooze 5 Minutes Button -->
+            <Button
+                android:id="@+id/btnSnooze"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="⏰ SNOOZE 5 MINUTES"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/snooze_btn"
+                android:layout_marginBottom="10dp" />
+
+            <!-- Mute Ringtone Only Button -->
+            <Button
+                android:id="@+id/btnDismiss"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="🔇 Mute Ringtone (Or Press Volume Key)"
+                android:textSize="13sp"
+                android:textColor="@color/text_muted"
+                android:backgroundTint="@color/mute_btn" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

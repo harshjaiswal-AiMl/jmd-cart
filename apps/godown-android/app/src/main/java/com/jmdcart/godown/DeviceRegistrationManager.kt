@@ -182,9 +182,9 @@ object DeviceRegistrationManager {
     }
 
     /**
-     * Snoozes order alert for 1 minute
+     * Snoozes order alert for 5 minutes (300 seconds default)
      */
-    fun snoozeAlert(context: Context, orderId: String) {
+    fun snoozeAlert(context: Context, orderId: String, snoozeSeconds: Int = 300) {
         val deviceToken = getDeviceToken(context)
         thread {
             try {
@@ -200,7 +200,7 @@ object DeviceRegistrationManager {
                 val payload = JSONObject().apply {
                     put("orderId", orderId)
                     put("deviceToken", deviceToken)
-                    put("snoozeSeconds", 60)
+                    put("snoozeSeconds", snoozeSeconds)
                 }
 
                 conn.outputStream.use { os ->

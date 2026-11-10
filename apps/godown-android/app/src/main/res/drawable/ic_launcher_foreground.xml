@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.65"
+        android:scaleY="0.65"
+        android:translateX="18.9"
+        android:translateY="18.9">
+        <!-- Isometric Warehouse Carton Top -->
+        <path
+            android:fillColor="#F4A259"
+            android:pathData="M54,20 L86,36 L54,52 L22,36 Z" />
+        <!-- Isometric Carton Left -->
+        <path
+            android:fillColor="#E08B3E"
+            android:pathData="M22,36 L54,52 L54,84 L22,68 Z" />
+        <!-- Isometric Carton Right -->
+        <path
+            android:fillColor="#C87528"
+            android:pathData="M54,52 L86,36 L86,68 L54,84 Z" />
+        <!-- Tape / Seal Band -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M48,23 L60,29 L60,84 L48,78 Z" />
+        <!-- Verification Check Badge in Center -->
+        <path
+            android:fillColor="#10B981"
+            android:pathData="M54,42m-14,0a14,14 0,1 1,28 0a14,14 0,1 1,-28 0" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M48,42L52,46L60,38"
+            android:strokeWidth="2.5"
+            android:strokeColor="#FFFFFF"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>

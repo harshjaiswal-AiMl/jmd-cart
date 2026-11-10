@@ -361,10 +361,15 @@ export class PushNotificationService {
    * Seamlessly resolves both online orders and POS counter invoices!
    */
   async getActiveAlertsForUser(userId: string) {
+    const now = new Date();
     const alerts = await prisma.orderAlert.findMany({
       where: {
         userId,
         state: { in: [OrderAlertState.NOTIFIED, OrderAlertState.SEEN] },
+        OR: [
+          { snoozedUntil: null },
+          { snoozedUntil: { lte: now } },
+        ],
       },
       include: {
         order: {

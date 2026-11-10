@@ -171,7 +171,17 @@ export function GodownMobileClient({
   };
 
   // Alert Mode & Web Audio Ringing state
+  const [isNativeApp, setIsNativeApp] = useState(false);
   const [alertMode, setAlertMode] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isNative =
+        Boolean((window as any).AndroidGodownBridge) ||
+        navigator.userAgent.includes("JMDGodownNativeWrapper");
+      setIsNativeApp(isNative);
+    }
+  }, []);
   const [activeRingAlert, setActiveRingAlert] = useState<{
     orderId: string;
     orderNumber: string;
@@ -183,6 +193,7 @@ export function GodownMobileClient({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ringIntervalRef = useRef<any>(null);
   const wakeLockRef = useRef<any>(null);
+  const acknowledgedAlertIdsRef = useRef<Set<string>>(new Set());
 
   // Orders queue state
   const [orders, setOrders] = useState(initialOrders);
@@ -377,6 +388,10 @@ export function GodownMobileClient({
 
   // Web Audio Ring Generator
   const playRingSound = () => {
+    // Deduplicate: If running inside Native Android App, native MediaPlayer handles high-volume ringtone
+    if (typeof window !== "undefined" && (window as any).AndroidGodownBridge) {
+      return;
+    }
     try {
       if (!audioCtxRef.current) {
         audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -466,8 +481,11 @@ export function GodownMobileClient({
     }
   };
 
-  // Poll for active unaccepted alerts
+  // Poll for active unaccepted alerts (ONLY in web browser/PWA mode)
+  // In Native Android App, GodownAlertWatcherService has 100% single authority
   useEffect(() => {
+    if (isNativeApp) return;
+
     const pollAlerts = async () => {
       try {
         const res = await fetch("/api/notifications/alerts");
@@ -476,6 +494,10 @@ export function GodownMobileClient({
           if (data.alerts && data.alerts.length > 0) {
             const first = data.alerts[0];
             const alertRef = first.orderId || first.invoiceId || first.id;
+            // Guard against re-ringing an alert that was just acknowledged
+            if (acknowledgedAlertIdsRef.current.has(alertRef) || acknowledgedAlertIdsRef.current.has(first.id)) {
+              return;
+            }
             if (!activeRingAlert || (activeRingAlert as any).alertId !== first.id) {
               const cartonCount = first.order?.items?.length || 1;
               const ordNum = first.order?.orderNumber || first.title?.replace("🚨 New Order: ", "").replace("🚨 Godown Dispatch: ", "") || "Dispatch";
@@ -497,10 +519,11 @@ export function GodownMobileClient({
 
     const interval = setInterval(pollAlerts, 6000);
     return () => clearInterval(interval);
-  }, [activeRingAlert]);
+  }, [activeRingAlert, isNativeApp]);
 
   // Handle Accept Order Alert
   const handleAcceptAlert = async (orderId: string) => {
+    acknowledgedAlertIdsRef.current.add(orderId);
     stopRinging();
     try {
       await fetch("/api/notifications/alerts", {
@@ -512,6 +535,21 @@ export function GodownMobileClient({
       // ignore
     }
     setActiveTab("orders");
+  };
+
+  // Handle Web Snooze 5 Minutes (300 seconds)
+  const handleWebSnooze = async (orderId: string) => {
+    acknowledgedAlertIdsRef.current.add(orderId);
+    stopRinging();
+    try {
+      await fetch("/api/notifications/alerts/snooze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, snoozeSeconds: 300 }),
+      });
+    } catch {
+      // ignore
+    }
   };
 
   // Subscribe to Push & Activate Loud Ringing (Works in PWA, Chrome & Android APK Wrapper)
@@ -656,8 +694,8 @@ export function GodownMobileClient({
 
   return (
     <div className="space-y-4 max-w-md mx-auto font-sans pb-16">
-      {/* FULL SCREEN RINGING OVERLAY WHEN NEW ORDER ARRIVES */}
-      {activeRingAlert && (
+      {/* FULL SCREEN RINGING OVERLAY WHEN NEW ORDER ARRIVES (Browser / PWA Only) */}
+      {!isNativeApp && activeRingAlert && (
         <div className="fixed inset-0 z-50 bg-red-650 bg-red-600 text-white flex flex-col justify-between p-6 animate-pulse">
           <div className="space-y-2 pt-8 text-center">
             <div className="inline-flex p-4 rounded-full bg-white text-red-600 shadow-xl animate-bounce">
@@ -688,43 +726,64 @@ export function GodownMobileClient({
             </button>
             <button
               type="button"
-              onClick={stopRinging}
+              onClick={() => handleWebSnooze(activeRingAlert.orderId)}
               className="w-full py-3 text-xs font-bold text-white/80 hover:text-white bg-black/20 rounded-xl"
             >
-              Snooze 1 Min
+              Snooze 5 Min
             </button>
           </div>
         </div>
       )}
 
-      {/* TOP HEADER: Alert Mode Toggle */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className={`p-2 rounded-xl ${alertMode ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
-            {alertMode ? <Volume2 className="w-5 h-5 animate-pulse" /> : <VolumeX className="w-5 h-5" />}
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-              <span>Alert Mode:</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${alertMode ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"}`}>
-                {alertMode ? "ON (Ringing)" : "OFF"}
-              </span>
+      {/* TOP HEADER: Alert Mode / Native Daemon Banner */}
+      {isNativeApp ? (
+        <div className="bg-emerald-50 rounded-2xl border border-emerald-200 shadow-xs p-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-600 text-white shadow-xs">
+              <CheckCircle2 className="w-5 h-5" />
             </div>
-            <div className="text-[10px] text-slate-500">
-              {alertMode ? "Phone kept awake • Sound enabled" : "Tap to enable loud ring for new orders"}
+            <div>
+              <div className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                <span>Godown Alert System:</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white">
+                  ACTIVE
+                </span>
+              </div>
+              <div className="text-[10px] text-emerald-700 font-medium">
+                24x7 Incoming Call Ringing • Background Screen Wakeup Enabled
+              </div>
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={toggleAlertMode}
-          className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${
-            alertMode ? "bg-slate-900 text-white" : "bg-emerald-600 text-white shadow-xs"
-          }`}
-        >
-          {alertMode ? "Turn Off" : "Turn ON"}
-        </button>
-      </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className={`p-2 rounded-xl ${alertMode ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
+              {alertMode ? <Volume2 className="w-5 h-5 animate-pulse" /> : <VolumeX className="w-5 h-5" />}
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <span>Alert Mode:</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${alertMode ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-700"}`}>
+                  {alertMode ? "ON (Ringing)" : "OFF"}
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-500">
+                {alertMode ? "Phone kept awake • Sound enabled" : "Tap to enable loud ring for new orders"}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={toggleAlertMode}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${
+              alertMode ? "bg-slate-900 text-white" : "bg-emerald-600 text-white shadow-xs"
+            }`}
+          >
+            {alertMode ? "Turn Off" : "Turn ON"}
+          </button>
+        </div>
+      )}
 
       {/* TAB 1: HOME */}
       {activeTab === "home" && (

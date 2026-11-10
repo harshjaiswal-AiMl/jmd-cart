@@ -13,7 +13,6 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -28,18 +27,74 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 1. Start always-on native alert watcher daemon immediately
+        GodownAlertWatcherService.startService(this)
+
         webView = WebView(this)
         setContentView(webView)
 
+        webView.clearCache(true)
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             databaseEnabled = true
-            cacheMode = WebSettings.LOAD_DEFAULT
-            userAgentString = userAgentString + " JMDGodownNativeWrapper/1.0"
+            cacheMode = WebSettings.LOAD_NO_CACHE
+            userAgentString = userAgentString + " JMDGodownNativeWrapper/1.1"
         }
 
-        webView.webViewClient = WebViewClient()
+        val neutralizeScript = """
+            (function() {
+                // 1. Completely neutralize Web Audio API so "tu tu" beep sound can NEVER play
+                window.AudioContext = function() {
+                    return {
+                        state: 'suspended',
+                        resume: function() { return Promise.resolve(); },
+                        suspend: function() { return Promise.resolve(); },
+                        close: function() { return Promise.resolve(); },
+                        createOscillator: function() {
+                            return {
+                                type: 'sine',
+                                frequency: { setValueAtTime: function() {} },
+                                connect: function() {},
+                                start: function() {},
+                                stop: function() {}
+                            };
+                        },
+                        createGain: function() {
+                            return {
+                                gain: { setValueAtTime: function() {}, exponentialRampToValueAtTime: function() {} },
+                                connect: function() {}
+                            };
+                        },
+                        destination: {}
+                    };
+                };
+                window.webkitAudioContext = window.AudioContext;
+                if (navigator.vibrate) { navigator.vibrate = function() { return true; }; }
+
+                // 2. Hide any legacy web red alert modal
+                var style = document.getElementById('native-suppress-style');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'native-suppress-style';
+                    style.type = 'text/css';
+                    style.innerHTML = '.bg-red-650, .bg-red-600, [class*="animate-pulse fixed inset-0"], .fixed.inset-0.z-50 { display: none !important; opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }';
+                    (document.head || document.documentElement).appendChild(style);
+                }
+            })();
+        """.trimIndent()
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                view?.evaluateJavascript(neutralizeScript, null)
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                view?.evaluateJavascript(neutralizeScript, null)
+            }
+        }
         webView.webChromeClient = WebChromeClient()
 
         // Expose JavaScript bridge to React Godown Client
@@ -53,6 +108,18 @@ class MainActivity : AppCompatActivity() {
                     customerName,
                     amount
                 )
+                try {
+                    val callIntent = Intent(this@MainActivity, IncomingOrderCallActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        putExtra(ContinuousRingtoneService.EXTRA_ORDER_ID, orderId)
+                        putExtra(ContinuousRingtoneService.EXTRA_ORDER_NUMBER, orderNumber)
+                        putExtra(ContinuousRingtoneService.EXTRA_CUSTOMER_NAME, customerName)
+                        putExtra(ContinuousRingtoneService.EXTRA_AMOUNT, amount)
+                    }
+                    this@MainActivity.startActivity(callIntent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
 
             @JavascriptInterface
@@ -105,11 +172,20 @@ class MainActivity : AppCompatActivity() {
         // Check and request permissions
         checkNotificationAndBatteryPermissions()
 
+        loadGodownUrl(intent)
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        intent?.let { loadGodownUrl(it) }
+    }
+
+    private fun loadGodownUrl(intent: Intent) {
         val targetUrl = "https://management.jmdcart.com/app/godown"
         val orderId = intent.getStringExtra("orderId")
         if (!orderId.isNullOrEmpty()) {
             webView.loadUrl("$targetUrl?tab=orders&orderId=$orderId")
-        } else {
+        } else if (webView.url == null) {
             webView.loadUrl(targetUrl)
         }
     }
@@ -132,6 +208,20 @@ class MainActivity : AppCompatActivity() {
                     startActivity(intent)
                 } catch (e: Exception) {
                     e.printStackTrace()
+                }
+            }
+        }
+
+        // 3. Android 14+ Full Screen Intent Permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (!DeviceRegistrationManager.canUseFullScreenIntent(this)) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    // ignore
                 }
             }
         }

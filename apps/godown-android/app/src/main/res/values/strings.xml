@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JMD Godown Alerts</string>
+    <string name="channel_ring_name">JMD Incoming Order Ring</string>
+    <string name="channel_ring_desc">Continuous loud telephone ringtone for warehouse managers on incoming dispatch orders</string>
+    <string name="channel_watcher_name">JMD Alert Watcher Daemon</string>
+    <string name="channel_watcher_desc">Background monitor ensuring instant screen wake and alerts when app is closed</string>
+</resources>
