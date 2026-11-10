@@ -940,37 +940,39 @@ export function GodownMobileClient({
             </Link>
           )}
 
-          {/* Notification Inbox / Quick Push Setup */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
-                <Bell className="w-4 h-4 text-blue-600" />
-                <span>Phone Notification Setup</span>
-              </span>
+          {/* Notification Inbox / Quick Push Setup (Browser / PWA Only) */}
+          {!isNativeApp && (
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                  <Bell className="w-4 h-4 text-blue-600" />
+                  <span>Browser Notification Setup</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleTestAlert}
+                  className="text-[10px] font-bold text-blue-600 hover:underline"
+                >
+                  Test Alert
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-600">
+                Receive notifications with vibration and sound in this browser whenever an order arrives.
+              </p>
+              {testPushStatus && (
+                <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-[10px] text-blue-900 font-medium">
+                  {testPushStatus}
+                </div>
+              )}
               <button
                 type="button"
-                onClick={handleTestAlert}
-                className="text-[10px] font-bold text-blue-600 hover:underline"
+                onClick={handleEnablePush}
+                className="w-full py-2.5 text-xs font-bold bg-[#12355B] hover:bg-slate-800 text-white rounded-xl shadow-xs transition"
               >
-                Test Alert
+                Enable Push Notifications in Browser
               </button>
             </div>
-            <p className="text-[11px] text-slate-600">
-              Receive high-urgency notifications with vibration and sound whenever an order arrives.
-            </p>
-            {testPushStatus && (
-              <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-[10px] text-blue-900 font-medium">
-                {testPushStatus}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={handleEnablePush}
-              className="w-full py-2.5 text-xs font-bold bg-[#12355B] hover:bg-slate-800 text-white rounded-xl shadow-xs transition"
-            >
-              Enable Push Notifications on Phone
-            </button>
-          </div>
+          )}
         </div>
       )}
 
