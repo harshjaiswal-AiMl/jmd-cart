@@ -110,6 +110,7 @@ export interface PosOperationalSettings {
   askPartyOnNewBill: boolean;
   quickFinish: boolean;
   managerCanDelete: boolean;
+  creditAllParties: boolean;
 }
 
 export interface AllSettings {

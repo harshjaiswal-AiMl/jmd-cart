@@ -8,6 +8,7 @@ import {
   updateDeliverySettingsAction,
   updatePaymentModeSettingsAction,
   updateEInvoiceSettingsAction,
+  updatePosCreditSettingsAction,
   SettingsActionResult,
 } from "./actions";
 import { AllSettings, DeliveryZone } from "@/modules/settings/settings.types";
@@ -1168,3 +1169,57 @@ export function EInvoiceSettingsForm({
   );
 }
 
+
+export function ShopPosCreditSettingsForm({
+  initialCreditAllParties,
+}: {
+  initialCreditAllParties: boolean;
+}) {
+  const [state, formAction] = useFormState(updatePosCreditSettingsAction, undefined);
+  const [enabled, setEnabled] = useState(initialCreditAllParties);
+
+  return (
+    <form action={formAction} className="bg-white rounded-xl border border-gray-200 p-6 space-y-5 shadow-sm">
+      <div className="border-b border-gray-100 pb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Shop POS Credit Default</h3>
+        <p className="text-sm text-gray-500">
+          Allow credit billing for all named parties at Shop POS without editing party rows (setting pos.creditAllParties).
+        </p>
+      </div>
+      {state?.error && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">{state.error}</div>
+      )}
+      {state?.success && (
+        <div className="p-3 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg">POS credit settings saved successfully.</div>
+      )}
+      <div className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-lg">
+        <div>
+          <label htmlFor="pos-credit-all-parties" className="text-sm font-semibold text-slate-800 block">
+            Allow Credit for All Named Parties (Shop POS)
+          </label>
+          <p className="text-xs text-slate-500">
+            Walk-in / Counter Sale remains blocked. Party limits greater than 0 still warn and require override.
+          </p>
+        </div>
+        <input
+          id="pos-credit-all-parties"
+          data-testid="setting-pos-credit-all-parties"
+          type="checkbox"
+          name="creditAllParties"
+          checked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+          className="h-5 w-5 text-blue-600 rounded border-slate-300 cursor-pointer"
+        />
+      </div>
+      <div className="flex justify-end pt-2 border-t border-gray-100">
+        <button
+          type="submit"
+          data-testid="save-pos-credit-settings"
+          className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium rounded-lg transition cursor-pointer"
+        >
+          Save POS Credit Setting
+        </button>
+      </div>
+    </form>
+  );
+}

@@ -20,6 +20,7 @@ import {
   AllSettings,
 } from "./settings.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
+import { assertPermissionAsync } from "@/modules/auth/role-matrix.service";
 import { auditService } from "@/modules/audit/audit.service";
 
 export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
@@ -433,20 +434,44 @@ export class SettingsService {
     askPartyOnNewBill: boolean;
     quickFinish: boolean;
     managerCanDelete: boolean;
+    creditAllParties: boolean;
   }> {
-    const [showFinalizedModal, askPartyOnNewBill, quickFinish, managerCanDelete] =
+    const [showFinalizedModal, askPartyOnNewBill, quickFinish, managerCanDelete, creditAllParties] =
       await Promise.all([
         settingsRepository.getSetting<boolean>("pos.showFinalizedModal"),
         settingsRepository.getSetting<boolean>("pos.askPartyOnNewBill"),
         settingsRepository.getSetting<boolean>("pos.quickFinish"),
         settingsRepository.getSetting<boolean>("invoice.managerCanDelete"),
+        settingsRepository.getSetting<boolean>("pos.creditAllParties"),
       ]);
     return {
       showFinalizedModal: Boolean(showFinalizedModal ?? false),
       askPartyOnNewBill: Boolean(askPartyOnNewBill ?? true),
       quickFinish: Boolean(quickFinish ?? false),
       managerCanDelete: Boolean(managerCanDelete ?? false),
+      creditAllParties: creditAllParties === null || creditAllParties === undefined ? true : Boolean(creditAllParties),
     };
+  }
+
+  async updatePosCreditAllParties(
+    actorRole: UserRole,
+    actorId: string | null,
+    enabled: boolean,
+    ip?: string
+  ): Promise<boolean> {
+    await assertPermissionAsync(actorRole, Permission.MANAGE_SETTINGS);
+    const before = (await this.getPosOperationalSettings()).creditAllParties;
+    await settingsRepository.setSetting("pos.creditAllParties", Boolean(enabled));
+    await auditService.log({
+      actorId: actorId ?? null,
+      action: "SETTINGS_POS_CREDIT_UPDATED",
+      entity: "Setting",
+      entityId: "pos.creditAllParties",
+      before: { creditAllParties: before },
+      after: { creditAllParties: Boolean(enabled) },
+      ip,
+    });
+    return Boolean(enabled);
   }
 
   async getProductTierModes(): Promise<

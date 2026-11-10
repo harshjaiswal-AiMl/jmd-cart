@@ -236,3 +236,27 @@ export async function updateEInvoiceSettingsAction(
 }
 
 
+
+export async function updatePosCreditSettingsAction(
+  prevState: SettingsActionResult | undefined,
+  formData: FormData
+): Promise<SettingsActionResult> {
+  const session = await auth();
+  if (!session?.user?.id || !session.user.role) {
+    return { error: "Unauthorized" };
+  }
+  try {
+    const creditAllParties = formData.get("creditAllParties") === "on" || formData.get("creditAllParties") === "true";
+    await settingsService.updatePosCreditAllParties(
+      session.user.role,
+      session.user.id,
+      creditAllParties
+    );
+    revalidatePath("/admin/settings");
+    revalidatePath("/shop/pos");
+    return { success: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to update POS credit setting";
+    return { error: message };
+  }
+}

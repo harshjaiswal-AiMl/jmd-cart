@@ -469,7 +469,8 @@ export class PartyRepository {
   async checkPartyCreditStatus(
     partyId: string,
     additionalDebitPaise: number = 0,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
+    options?: { allowCredit?: boolean }
   ): Promise<PartyCreditStatus> {
     const client = tx || prisma;
     const party = await client.party.findUnique({
@@ -481,15 +482,16 @@ export class PartyRepository {
 
     const outstandingPaise = await this.getPartyOutstanding(partyId, client);
     const effectiveOutstandingPaise = outstandingPaise + additionalDebitPaise;
-    const availableCreditPaise = Math.max(0, party.creditLimitPaise - outstandingPaise);
+    const availableCreditPaise = party.creditLimitPaise > 0 ? Math.max(0, party.creditLimitPaise - outstandingPaise) : 0;
 
     const breachReasons: string[] = [];
+    const effectiveCreditEnabled = Boolean(options?.allowCredit) || party.creditEnabled;
 
-    if (!party.creditEnabled) {
+    if (!effectiveCreditEnabled) {
       breachReasons.push(`Party '${party.name}' is not authorized for credit billing`);
     }
 
-    const isLimitExceeded = party.creditEnabled && effectiveOutstandingPaise > party.creditLimitPaise;
+    const isLimitExceeded = effectiveCreditEnabled && party.creditLimitPaise > 0 && effectiveOutstandingPaise > party.creditLimitPaise;
     const limitExceededByPaise = isLimitExceeded
       ? effectiveOutstandingPaise - party.creditLimitPaise
       : 0;
@@ -532,7 +534,7 @@ export class PartyRepository {
       }
     }
 
-    const canProceedWithoutOverride = party.creditEnabled && !isLimitExceeded && !hasOverdueInvoices;
+    const canProceedWithoutOverride = effectiveCreditEnabled && !isLimitExceeded && !hasOverdueInvoices;
 
     return {
       partyId: party.id,

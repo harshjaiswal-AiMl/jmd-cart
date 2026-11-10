@@ -208,7 +208,7 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
       await page.keyboard.press("Escape");
     }
 
-    // Add item to cart and press F2 with Walk-in -> Credit blocked with message
+    // 1. Add item with Walk-in -> Credit disabled with "Select a party for credit"
     const search = page.locator("#pos-item-search");
     await search.fill("bikaji");
     await page.waitForTimeout(300);
@@ -217,7 +217,62 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
 
     const dialog = page.locator('[role="dialog"]:has-text("Finish & Print Bill")');
     await expect(dialog).toBeVisible({ timeout: 5000 });
-    expect(await dialog.innerText()).toMatch(/Select party for Credit|Select a party for credit/i);
+    expect(await dialog.innerText()).toMatch(/Select a party for credit/i);
+    await expect(dialog.locator('button:has-text("CREDIT")')).toBeDisabled();
+    await page.keyboard.press("Escape");
+
+    // 2. Create a named party (Alt+N / New Party) whose DB creditEnabled=false, limit=0 -> Credit works by default
+    const uniqueParty = `R5 Test Store ${Date.now().toString().slice(-4)}`;
+    await page.locator('button:has-text("Alt+N New Party")').click();
+    const quickHeading = page.locator('h3:has-text("Add New Customer")');
+    await expect(quickHeading).toBeVisible({ timeout: 5000 });
+    const quickCustomerCard = quickHeading.locator("xpath=../..");
+    await quickCustomerCard.locator('input[placeholder*="Ramesh" i]').fill(uniqueParty);
+    await quickCustomerCard.locator('button[type="submit"]').click();
+    await expect(quickHeading).toHaveCount(0, { timeout: 5000 });
+
+    await page.keyboard.press("F2");
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+    const creditBtn = dialog.locator('button:has-text("CREDIT")');
+    await expect(creditBtn).toBeEnabled();
+    await creditBtn.click();
+    await dialog.locator('button:has-text("Save & Print")').click();
+    await expect(dialog).toHaveCount(0, { timeout: 10000 });
+
+    // 3. Toggle pos.creditAllParties OFF in /admin/settings -> party with creditEnabled=false is blocked on Credit
+    try {
+      await page.goto("/admin/settings", { waitUntil: "load" });
+      const creditToggle = page.locator('[data-testid="setting-pos-credit-all-parties"]');
+      await expect(creditToggle).toBeVisible({ timeout: 5000 });
+      await creditToggle.uncheck();
+      await page.locator('[data-testid="save-pos-credit-settings"]').click();
+      await expect(page.locator('text=/POS credit settings saved/i').first()).toBeVisible({ timeout: 5000 });
+
+      await page.goto("/shop/pos", { waitUntil: "load" });
+      const p2 = page.locator('[data-testid="pos-party-popup"]');
+      if (!(await p2.isVisible().catch(() => false))) {
+        await page.locator('button:has-text("Alt+P Party")').click();
+        await expect(p2).toBeVisible({ timeout: 5000 });
+      }
+      await p2.locator("input").first().fill(uniqueParty);
+      await page.waitForTimeout(300);
+      await page.keyboard.press("Enter");
+      await page.locator("#pos-item-search").fill("bikaji");
+      await page.waitForTimeout(300);
+      await page.keyboard.press("Enter");
+      await page.keyboard.press("F2");
+      await expect(dialog).toBeVisible({ timeout: 5000 });
+      await expect(dialog.locator('button:has-text("CREDIT")')).toBeDisabled();
+      expect(await dialog.innerText()).toMatch(/No credit for this party/i);
+    } finally {
+      await page.goto("/admin/settings", { waitUntil: "load" }).catch(() => {});
+      const creditToggle = page.locator('[data-testid="setting-pos-credit-all-parties"]');
+      if (await creditToggle.isVisible().catch(() => false)) {
+        await creditToggle.check();
+        await page.locator('[data-testid="save-pos-credit-settings"]').click();
+        await page.waitForTimeout(400);
+      }
+    }
   });
 
   test("R6: Shared product search returns consistent results across POS and Catalog", async ({

@@ -236,6 +236,7 @@ export function PosClient({
     askPartyOnNewBill: posSettings?.askPartyOnNewBill ?? true,
     quickFinish: posSettings?.quickFinish ?? false,
     managerCanDelete: posSettings?.managerCanDelete ?? false,
+    creditAllParties: posSettings?.creditAllParties ?? true,
   };
   const router = useRouter();
   // Admin check for backdated billing
@@ -2525,13 +2526,14 @@ export function PosClient({
         }
       } else if (e.altKey && (e.code === "KeyR" || e.key.toLowerCase() === "r")) {
         e.preventDefault();
-        if (selectedParty?.creditEnabled) {
+        const creditAllowed = Boolean(selectedParty) && (effectivePosSettings.creditAllParties || selectedParty?.creditEnabled);
+        if (creditAllowed) {
           updateActiveTab({ paymentMode: PaymentMode.CREDIT, paymentCollected: false });
           if (effectivePosSettings.quickFinish && activeTab.cart.length > 0) {
             handleFinalizeBill(undefined, "thermal", "CREDIT");
           }
         } else {
-          setErrorMessage(selectedParty ? "No credit enabled for this party." : "Select a credit-enabled party first (Alt+P).");
+          setErrorMessage(selectedParty ? "No credit for this party." : "Select a party for credit.");
         }
       } else if (e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
@@ -4661,7 +4663,7 @@ export function PosClient({
         onCancel={() => setIsSaveConfirmOpen(false)}
         partyName={selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale (Walk-in)")}
         hasLinkedParty={Boolean(selectedParty)}
-        creditEnabled={Boolean(selectedParty?.creditEnabled)}
+        creditEnabled={Boolean(selectedParty) && (effectivePosSettings.creditAllParties || selectedParty?.creditEnabled)}
         creditLimitPaise={selectedParty?.creditLimitPaise ?? 0}
         currentOutstandingPaise={selectedParty?.currentOutstandingPaise ?? 0}
         documentType={activeTab.documentType ?? "RETAIL"}
