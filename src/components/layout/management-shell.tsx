@@ -160,6 +160,7 @@ interface ManagementShellProps {
     id: string;
     name: string;
     role: string;
+    permissions?: import("@/modules/auth/permissions").Permission[];
   };
   badges: ShellBadges;
   locations: ShellLocation[];
@@ -192,7 +193,10 @@ export function ManagementShell({
     locations[0]?.id || "loc-godown-main"
   );
 
-  const navGroups = useMemo(() => getNavGroupsForRole(user.role), [user.role]);
+  const navGroups = useMemo(
+    () => getNavGroupsForRole(user.role, user.permissions),
+    [user.role, user.permissions]
+  );
 
   const [notificationsRead, setNotificationsRead] = useState<boolean>(false);
 

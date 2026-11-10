@@ -1,4 +1,5 @@
 import { UserRole } from "@prisma/client";
+import { Permission, ROLE_PERMISSIONS } from "@/modules/auth/permissions";
 
 export interface NavItem {
   id: string;
@@ -7,6 +8,7 @@ export interface NavItem {
   icon: string;
   href: string;
   roles: UserRole[];
+  requiredPermission?: Permission;
   badgeKey?: "pendingOrders" | "lowStock" | "autoConverted";
   readOnlyForRoles?: UserRole[];
 }
@@ -84,6 +86,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "Receipt",
     href: "/shop/pos",
     roles: [...ADMIN_ROLES, UserRole.SHOP, UserRole.ACCOUNTS],
+    requiredPermission: Permission.POS_BILL,
   },
   {
     id: "sales-pro-portal",
@@ -233,6 +236,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "FileSpreadsheet",
     href: "/godown/stock/update",
     roles: [...ADMIN_ROLES, UserRole.ACCOUNTS, UserRole.SHOP],
+    requiredPermission: Permission.STOCK_ADJUST,
   },
   {
     id: "inv-operations",
@@ -241,6 +245,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "ArrowLeftRight",
     href: "/godown/operations",
     roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS],
+    requiredPermission: Permission.STOCK_TRANSFER,
     badgeKey: "autoConverted",
   },
   {
@@ -258,6 +263,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "ClipboardCheck",
     href: "/godown/purchases",
     roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS, UserRole.SHOP],
+    requiredPermission: Permission.STOCK_RECEIVE,
   },
   {
     id: "inv-receive-goods",
@@ -332,6 +338,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: "Upload",
     href: "/admin/catalog/import",
     roles: [...WAREHOUSE_ROLES],
+    requiredPermission: Permission.IMPORT_PRODUCTS,
   },
   {
     id: "cat-banners",
@@ -565,16 +572,28 @@ export const NAV_GROUP_ORDER: Array<{ name: NavGroupName; icon: string }> = [
  * For SUPER_ADMIN and ADMIN, every group and every item is visible.
  * For non-admin roles, each role sees at most 6 focused operational items.
  */
-export function getNavGroupsForRole(role: UserRole | string): NavGroup[] {
+export function getNavGroupsForRole(
+  role: UserRole | string,
+  effectivePermissions?: Permission[]
+): NavGroup[] {
   const isSuperOrAdmin =
     role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN;
+  const defaultPerms = ROLE_PERMISSIONS[role as UserRole] || [];
 
   return NAV_GROUP_ORDER.map((grp) => {
-    const items = NAV_ITEMS.filter(
-      (item) =>
-        item.group === grp.name &&
-        (isSuperOrAdmin || item.roles.includes(role as UserRole))
-    );
+    const items = NAV_ITEMS.filter((item) => {
+      if (item.group !== grp.name) return false;
+      const baseVisible = isSuperOrAdmin || item.roles.includes(role as UserRole);
+      if (!effectivePermissions || !item.requiredPermission) {
+        return baseVisible;
+      }
+      const hasPermNow = effectivePermissions.includes(item.requiredPermission);
+      if (baseVisible) {
+        return hasPermNow;
+      }
+      const hadPermDefault = defaultPerms.includes(item.requiredPermission);
+      return !hadPermDefault && hasPermNow;
+    });
     return {
       name: grp.name,
       icon: grp.icon,
