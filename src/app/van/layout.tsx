@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import { ManagementShellServer } from "@/components/layout/management-shell-server";
 import { VanBottomNav } from "./van-nav";
+import { VanLanguageProvider } from "@/lib/i18n/van-language-context";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -35,11 +36,13 @@ export default async function VanLayout({
   }
 
   return (
-    <ManagementShellServer>
-      <div className="min-h-screen bg-[#FAF7F2] text-slate-900 pb-20 sm:pb-10">
-        {children}
-        <VanBottomNav />
-      </div>
-    </ManagementShellServer>
+    <VanLanguageProvider>
+      <ManagementShellServer>
+        <div className="min-h-screen bg-[#FAF7F2] text-slate-900 pb-20 sm:pb-10">
+          {children}
+          <VanBottomNav />
+        </div>
+      </ManagementShellServer>
+    </VanLanguageProvider>
   );
 }

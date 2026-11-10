@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Search, Package, Box, Layers, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { useVanLanguage } from "@/lib/i18n/van-language-context";
 
 interface VanInventoryItem {
   product: {
@@ -30,6 +31,7 @@ export function VanStockView({
   vanName,
   hasActiveLoad,
 }: VanStockViewProps) {
+  const { t } = useVanLanguage();
   const [searchTerm, setSearchTerm] = useState("");
 
   const filtered = inventory.filter((item) => {
@@ -54,13 +56,13 @@ export function VanStockView({
               : "bg-slate-800 text-slate-400 border border-slate-700"
           }`}
         >
-          <span>⚡ New Bill</span>
+          <span>{t("quickNewBill")}</span>
         </Link>
         <Link
           href="/van/bills"
           className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm bg-slate-800 active:bg-slate-700 text-slate-200 border border-slate-700 shadow-md"
         >
-          <span>📄 Today&apos;s Bills</span>
+          <span>{t("viewBills")}</span>
         </Link>
       </div>
 
@@ -71,7 +73,7 @@ export function VanStockView({
           type="search"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search items by name, brand, or code..."
+          placeholder={t("searchStockPlaceholder")}
           className="w-full pl-11 pr-4 py-3 bg-slate-900 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all shadow-inner"
         />
         {searchTerm && (

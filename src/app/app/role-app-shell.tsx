@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Users,
 } from "lucide-react";
+import { VanLanguageToggle } from "@/components/van/van-language-toggle";
 
 interface RoleAppShellProps {
   user: {
@@ -167,6 +168,7 @@ export function RoleAppShell({ user, children }: RoleAppShellProps) {
 
           {/* Sync Status Badge & Quick Actions */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            <VanLanguageToggle />
             <div
               className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border transition-colors ${
                 isOnline

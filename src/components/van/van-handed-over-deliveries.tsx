@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
+import { useVanLanguage } from "@/lib/i18n/van-language-context";
 
 interface VanHandedOverDeliveriesProps {
   orders: OrderSummary[];
@@ -29,6 +30,7 @@ export function VanHandedOverDeliveries({
   orders,
   salespersonName,
 }: VanHandedOverDeliveriesProps) {
+  const { t } = useVanLanguage();
   const [activeTab, setActiveTab] = useState<"pending" | "completed">("pending");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
@@ -116,7 +118,7 @@ export function VanHandedOverDeliveries({
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <span>Pending</span>
+            <span>{t("pendingCount")}</span>
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                 pendingOrders.length > 0
@@ -136,7 +138,7 @@ export function VanHandedOverDeliveries({
                 : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            <span>Delivered</span>
+            <span>{t("completedCount")}</span>
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-600">
               {completedOrders.length}
             </span>

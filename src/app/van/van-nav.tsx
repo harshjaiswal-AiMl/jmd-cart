@@ -4,37 +4,44 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Package, ShoppingCart, ReceiptText, ArrowLeftRight, Wallet } from "lucide-react";
+import { useVanLanguage } from "@/lib/i18n/van-language-context";
 
 export function VanBottomNav() {
   const pathname = usePathname();
+  const { t } = useVanLanguage();
 
   const navItems = [
     {
-      label: "Stock",
+      labelKey: "navStock" as const,
+      defaultLabel: "Stock",
       href: "/van",
       icon: Package,
       exact: true,
     },
     {
-      label: "New Bill",
+      labelKey: "navNewBill" as const,
+      defaultLabel: "New Bill",
       href: "/van/billing",
       icon: ShoppingCart,
       exact: false,
     },
     {
-      label: "Collect",
+      labelKey: "navCollect" as const,
+      defaultLabel: "Collect",
       href: "/van/collections",
       icon: Wallet,
       exact: false,
     },
     {
-      label: "Bills",
+      labelKey: "navBills" as const,
+      defaultLabel: "Bills",
       href: "/van/bills",
       icon: ReceiptText,
       exact: false,
     },
     {
-      label: "Day End",
+      labelKey: "navDayEnd" as const,
+      defaultLabel: "Day End",
       href: "/van/reconciliation",
       icon: ArrowLeftRight,
       exact: false,
@@ -49,6 +56,7 @@ export function VanBottomNav() {
             ? pathname === item.href
             : pathname.startsWith(item.href);
           const Icon = item.icon;
+          const label = t(item.labelKey);
 
           return (
             <Link
@@ -67,7 +75,9 @@ export function VanBottomNav() {
               >
                 <Icon className="w-5 h-5" />
               </div>
-              <span className="text-[11px] tracking-tight">{item.label}</span>
+              <span className="text-[11px] tracking-tight truncate max-w-[64px] text-center">
+                {label}
+              </span>
             </Link>
           );
         })}

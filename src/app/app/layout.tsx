@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import { RoleAppShell } from "./role-app-shell";
+import { VanLanguageProvider } from "@/lib/i18n/van-language-context";
 
 export const metadata = {
   title: "JMD Cart Staff App",
@@ -21,8 +22,10 @@ export default async function RoleAppLayout({
   }
 
   return (
-    <RoleAppShell user={session.user}>
-      {children}
-    </RoleAppShell>
+    <VanLanguageProvider>
+      <RoleAppShell user={session.user}>
+        {children}
+      </RoleAppShell>
+    </VanLanguageProvider>
   );
 }
