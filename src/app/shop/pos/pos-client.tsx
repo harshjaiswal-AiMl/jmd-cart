@@ -56,15 +56,19 @@ import { SearchableSelect } from "@/components/common/SearchableSelect";
 import { paiseToIndianWords } from "@/lib/number-to-words";
 import { ItemInfoModal } from "@/components/pos/ItemInfoModal";
 import { PartySearchBox } from "@/components/pos/PartySearchBox";
-import { SaveVoucherDialog } from "@/components/pos/SaveVoucherDialog";
+import { PartySearchModal } from "@/components/pos/PartySearchModal";
+import { SaveVoucherDialog, type DialogPaymentMode, type PrintPaperFormat } from "@/components/pos/SaveVoucherDialog";
+import { renderDirectPrintHtml } from "@/lib/printing/bill-html";
+import type { BusinessDetails, PosOperationalSettings } from "@/modules/settings/settings.types";
 import { QuickAddProductModal } from "@/components/pos/QuickAddProductModal";
 import { EditProductMasterModal } from "@/components/pos/EditProductMasterModal";
 import { StockCorrectionModal } from "@/components/pos/StockCorrectionModal";
 import { PosTodaySalesModal } from "@/components/pos/PosTodaySalesModal";
 import { RevisionHistoryModal } from "@/components/pos/RevisionHistoryModal";
 import { saveInvoiceRevisionAction } from "./actions";
+import { cancelInvoiceAction } from "../invoices/actions";
 import { toIstDateString } from "@/lib/datetime";
-import { SearchIndexItem, buildProductSearchIndex, searchItems } from "@/lib/search/smart-search";
+import { SearchIndexItem, buildProductSearchIndex, searchItems, splitHighlightSegments } from "@/lib/search/smart-search";
 
 export interface ProductCatalogItem {
   id: string;
@@ -105,6 +109,8 @@ export interface PartyItem {
   type: string;
   phone: string | null;
   address?: string | null;
+  gstin?: string | null;
+  creditDays?: number;
   creditEnabled: boolean;
   creditLimitPaise: number;
   currentOutstandingPaise: number;
@@ -170,7 +176,7 @@ export interface PosBillTab {
   selectedTierMode: "AUTO" | "WHOLESALER" | "RETAILER" | "CUSTOMER";
   cart: PosCartLine[];
   orderDiscountPercent: string;
-  paymentMode: PaymentMode;
+  paymentMode: PaymentMode | "SPLIT";
   splitCashPaise: string;
   splitUpiPaise: string;
   remarks: string;
@@ -198,6 +204,9 @@ interface PosClientProps {
   parties: PartyItem[];
   nextInvoicePreview?: string;
   initialEditInvoice?: any;
+  posSettings?: PosOperationalSettings;
+  businessDetails?: BusinessDetails;
+  initialStartNewBill?: boolean;
 }
 
 export function PosClient({
@@ -214,7 +223,16 @@ export function PosClient({
   parties,
   nextInvoicePreview,
   initialEditInvoice,
+  posSettings,
+  businessDetails,
+  initialStartNewBill = false,
 }: PosClientProps) {
+  const effectivePosSettings: PosOperationalSettings = {
+    showFinalizedModal: posSettings?.showFinalizedModal ?? false,
+    askPartyOnNewBill: posSettings?.askPartyOnNewBill ?? true,
+    quickFinish: posSettings?.quickFinish ?? false,
+    managerCanDelete: posSettings?.managerCanDelete ?? false,
+  };
   const router = useRouter();
   // Admin check for backdated billing
   const isAdmin = cashierRole === "SUPER_ADMIN" || cashierRole === "ADMIN";
@@ -231,6 +249,19 @@ export function PosClient({
     product: null,
   });
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [lastUsedPaymentMode, setLastUsedPaymentMode] = useState<DialogPaymentMode>("CASH");
+  const [isPartyPopupOpen, setIsPartyPopupOpen] = useState(false);
+  const [partyPopupReason, setPartyPopupReason] = useState<"alt_p" | "new_bill">("alt_p");
+  const printIframeRef = useRef<HTMLIFrameElement>(null);
+  const [lastPrintedInvoice, setLastPrintedInvoice] = useState<{ fullInvoice: any; format: PrintPaperFormat } | null>(null);
+  const [printFallbackToast, setPrintFallbackToast] = useState<{ invoice: any; format: PrintPaperFormat; number: string } | null>(null);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const [voidEditModalOpen, setVoidEditModalOpen] = useState(false);
+  const [voidEditReason, setVoidEditReason] = useState("");
+  const [voidEditError, setVoidEditError] = useState<string | null>(null);
+  const [isVoidingEdit, setIsVoidingEdit] = useState(false);
+  const [counterDetailsOpen, setCounterDetailsOpen] = useState(false);
+  const [counterDetailsSaveParty, setCounterDetailsSaveParty] = useState(false);
   const [showTodaySalesModal, setShowTodaySalesModal] = useState(false);
   const [shortStockCorrection, setShortStockCorrection] = useState<{
     productId: string;
@@ -621,14 +652,15 @@ export function PosClient({
     setLocalParties(parties);
   }, [parties]);
 
-  // Autofocus item search input on POS mount / page return
+  // Autofocus item search input on POS mount / page return (skip when opening directly via New Bill party prompt)
   useEffect(() => {
+    if (initialStartNewBill || isPartyPopupOpen) return;
     const timer = setTimeout(() => {
       itemSearchInputRef.current?.focus();
       itemSearchInputRef.current?.select();
     }, 120);
     return () => clearTimeout(timer);
-  }, []);
+  }, [initialStartNewBill, isPartyPopupOpen]);
 
   // Tabs state with localStorage persistence
   const [tabs, setTabs] = useState<PosBillTab[]>([
@@ -999,11 +1031,46 @@ export function PosClient({
     return buildProductSearchIndex(productsList);
   }, [productsList]);
 
-  // Filter products using Smart Item Search (Token + Weight aware)
+  // Filter products using Smart Item Search (Weight + MRP + Partial Words)
   const filteredProducts = useMemo(() => {
     if (!itemSearchTerm.trim()) return [];
-    return searchItems(itemSearchTerm, searchIndex, { limit: 15 });
+    return searchItems(itemSearchTerm, searchIndex, { limit: 25 });
   }, [itemSearchTerm, searchIndex]);
+
+  // Dedicated Capture Keyboard Listener for F8 Discard Unsaved Bill Modal
+  useEffect(() => {
+    if (!discardConfirmOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (e.key === "Escape" || k === "n") {
+        e.preventDefault();
+        e.stopPropagation();
+        setDiscardConfirmOpen(false);
+      } else if (e.key === "Enter" || k === "y") {
+        e.preventDefault();
+        e.stopPropagation();
+        setDiscardConfirmOpen(false);
+        updateActiveTab({
+          cart: [],
+          partyId: "",
+          orderDiscountPercent: "0",
+          remarks: "",
+          walkInName: "",
+          walkInMobile: "",
+          walkInAddress: "",
+        });
+        setPricingResult(null);
+        setToastMsg("Unsaved bill discarded");
+        setTimeout(() => setToastMsg(null), 2500);
+        setTimeout(() => {
+          itemSearchInputRef.current?.focus();
+          itemSearchInputRef.current?.select();
+        }, 25);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [discardConfirmOpen, updateActiveTab]);
 
   // Fetch customer last purchase for highlighted product
   useEffect(() => {
@@ -1560,42 +1627,76 @@ export function PosClient({
     removeLine(last.id);
   };
 
-  // Tab Management
-  const handleCreateNewTab = () => {
-    // Single tab focus: If current tab is empty, keep single tab clean and focus search bar
-    if (activeTab.cart.length === 0 && !activeTab.partyId) {
-      setPricingResult(null);
-      setErrorMessage(null);
-      itemSearchInputRef.current?.focus();
-      itemSearchInputRef.current?.select();
-      return;
-    }
-
-    const newId = `tab-${Date.now()}`;
-    const newTab: PosBillTab = {
-      id: newId,
-      tabTitle: `Bill 1`,
-      partyId: "",
-      selectedTierMode: "AUTO",
-      cart: [],
-      orderDiscountPercent: "0",
-      paymentMode: PaymentMode.CASH,
-      splitCashPaise: "",
-      splitUpiPaise: "",
-      remarks: "",
-      isHeld: false,
-      billDate: undefined,
-    };
-    setTabs((prev) => {
-      const activeUnempty = prev.filter((t) => t.cart.length > 0 || t.isHeld);
-      return activeUnempty.length > 0 ? [...activeUnempty, newTab] : [newTab];
-    });
-    setActiveTabId(newId);
+  // Tab Management & New Bill Flow (G13)
+  const startFreshBillAndPromptParty = useCallback((openPartyModal: boolean = true) => {
+    setFinalizedInvoice(null);
+    setFinalizedModalFocusIndex(0);
     setPricingResult(null);
     setErrorMessage(null);
-    itemSearchInputRef.current?.focus();
-    itemSearchInputRef.current?.select();
-  };
+
+    setTabs((prev) => {
+      const current = prev.find((t) => t.id === activeTabId) || prev[0];
+      // Hold non-empty active bill so nothing is silently discarded
+      const withHeld = current && current.cart.length > 0 && !current.isHeld
+        ? prev.map((t) => (t.id === current.id ? { ...t, isHeld: true, heldAt: Date.now() } : t))
+        : prev;
+
+      const heldTabs = withHeld.filter((t) => t.isHeld);
+      const freshId = current && current.cart.length === 0 && !current.isHeld ? current.id : `tab-${Date.now()}`;
+      const freshTab: PosBillTab = {
+        id: freshId,
+        tabTitle: `Bill ${heldTabs.length + 1}`,
+        partyId: "",
+        selectedTierMode: "AUTO",
+        cart: [],
+        orderDiscountPercent: "0",
+        paymentMode: lastUsedPaymentMode === "CREDIT" ? PaymentMode.CASH : (lastUsedPaymentMode as any),
+        splitCashPaise: "",
+        splitUpiPaise: "",
+        remarks: "",
+        documentType: "RETAIL",
+        isHeld: false,
+        walkInName: "",
+        walkInMobile: "",
+        walkInAddress: "",
+        billDate: undefined,
+      };
+      setActiveTabId(freshId);
+      return heldTabs.length > 0 ? [...heldTabs, freshTab] : [freshTab];
+    });
+
+    if (openPartyModal && effectivePosSettings.askPartyOnNewBill) {
+      setPartyPopupReason("new_bill");
+      setIsPartyPopupOpen(true);
+    } else {
+      setTimeout(() => {
+        itemSearchInputRef.current?.focus();
+        itemSearchInputRef.current?.select();
+      }, 40);
+    }
+  }, [activeTabId, effectivePosSettings.askPartyOnNewBill, lastUsedPaymentMode]);
+
+  const handleCreateNewTab = useCallback(() => {
+    startFreshBillAndPromptParty(true);
+  }, [startFreshBillAndPromptParty]);
+
+  // Trigger Party popup on landing via Alt+F3 (?new=1) or live event on /shop/pos
+  const newBillInitTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (!isStorageLoaded) return;
+    if (initialStartNewBill && !initialEditInvoice && !newBillInitTriggeredRef.current) {
+      newBillInitTriggeredRef.current = true;
+      startFreshBillAndPromptParty(true);
+    }
+  }, [isStorageLoaded, initialStartNewBill, initialEditInvoice, startFreshBillAndPromptParty]);
+
+  useEffect(() => {
+    const onAltF3Event = () => {
+      startFreshBillAndPromptParty(true);
+    };
+    window.addEventListener("pos-new-bill-alt-f3", onAltF3Event);
+    return () => window.removeEventListener("pos-new-bill-alt-f3", onAltF3Event);
+  }, [startFreshBillAndPromptParty]);
 
   const handleHoldCurrentBill = () => {
     if (activeTab.cart.length === 0) return;
@@ -1723,7 +1824,12 @@ export function PosClient({
         setLocalParties((prev) => [newParty, ...prev]);
         updateActiveTab({ partyId: newParty.id, tabTitle: newParty.name });
         setQuickCustomerModalOpen(false);
+        setIsPartyPopupOpen(false);
         setQuickCustomerForm({ name: "", phone: "", type: "CUSTOMER", address: "", gstin: "" });
+        setTimeout(() => {
+          itemSearchInputRef.current?.focus();
+          itemSearchInputRef.current?.select();
+        }, 25);
       }
     } finally {
       setQuickCustomerSaving(false);
@@ -1755,6 +1861,7 @@ export function PosClient({
     number: string;
     totalPaise: number;
     paymentMode: PaymentMode;
+    documentType?: "RETAIL" | "GST";
     billUrl?: string | null;
     waMeUrl?: string | null;
     targetPhone?: string | null;
@@ -1762,10 +1869,67 @@ export function PosClient({
     messagingReason?: string;
   } | null>(null);
   const [finalizedModalFocusIndex, setFinalizedModalFocusIndex] = useState<number>(0);
-  const thermalBtnRef = useRef<HTMLButtonElement>(null);
-  const a4BtnRef = useRef<HTMLButtonElement>(null);
+  const thermalBtnRef = useRef<HTMLAnchorElement>(null);
+  const a4BtnRef = useRef<HTMLAnchorElement>(null);
   const nextBillBtnRef = useRef<HTMLButtonElement>(null);
   const [isFinalizing, startFinalizeTransition] = useTransition();
+
+  useEffect(() => {
+    try {
+      const savedMode = localStorage.getItem("jmd_pos_last_payment_mode");
+      if (savedMode === "CASH" || savedMode === "UPI" || savedMode === "CREDIT" || savedMode === "SPLIT") {
+        setLastUsedPaymentMode(savedMode);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const triggerDirectIframePrint = useCallback((fullInvoice: any, format: PrintPaperFormat) => {
+    if (!fullInvoice) {
+      setPrintFallbackToast({ invoice: fullInvoice, format, number: "" });
+      return;
+    }
+    setLastPrintedInvoice({ fullInvoice, format });
+    try {
+      const html = renderDirectPrintHtml(
+        fullInvoice,
+        businessDetails || {
+          legalName: "JMD Cart",
+          tradeName: "JMD Cart",
+          gstin: "",
+          fssai: "",
+          address: "",
+          phone: "",
+          email: "",
+          upiId: "",
+        },
+        format
+      );
+      const iframe = printIframeRef.current;
+      if (!iframe) throw new Error("Print frame not mounted");
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) throw new Error("Print frame document inaccessible");
+      doc.open();
+      doc.write(html);
+      doc.close();
+      setPrintFallbackToast(null);
+      setTimeout(() => {
+        try {
+          const win = iframe.contentWindow;
+          if (!win) throw new Error("Print window missing");
+          win.focus();
+          win.print();
+        } catch (printErr) {
+          console.warn("[Direct Print Warning]:", printErr);
+          setPrintFallbackToast({ invoice: fullInvoice, format, number: fullInvoice.number || "" });
+        }
+      }, 30);
+    } catch (err) {
+      console.warn("[Direct Print Setup Error]:", err);
+      setPrintFallbackToast({ invoice: fullInvoice, format, number: fullInvoice?.number || "" });
+    }
+  }, [businessDetails]);
 
   // Finalize Bill Action
   const getInsufficientStockItems = (cart: PosCartLine[]) => {
@@ -1791,11 +1955,16 @@ export function PosClient({
     });
   };
 
-  const handleFinalizeBill = (explicitOverride?: { approvedByUserId: string; reason: string }) => {
+  const handleFinalizeBill = (
+    explicitOverride?: { approvedByUserId: string; reason: string },
+    chosenFormat: PrintPaperFormat = "thermal",
+    modeOverride?: DialogPaymentMode
+  ) => {
     if (!pricingResult || activeTab.cart.length === 0) return;
     setErrorMessage(null);
 
     const totalPaise = totalAmountPaise;
+    const effectiveMode = (modeOverride || activeTab.paymentMode || "CASH") as DialogPaymentMode;
     const discountNum = parseFloat(activeTab.orderDiscountPercent);
     const orderDiscountBp = !isNaN(discountNum) && discountNum > 0 ? Math.round(discountNum * 100) : 0;
 
@@ -1811,34 +1980,33 @@ export function PosClient({
       return;
     }
 
-    // Build payments array
+    // Build payments array derived strictly from Payment Mode
     let payments: Array<{ mode: "CASH" | "UPI" | "CARD" | "CREDIT"; amountPaise: number }> = [];
+    let derivedPaymentStatus: "PAID" | "PENDING" | "PARTIAL" = "PAID";
 
-    const isPaymentPending = activeTab.paymentCollected === false && (activeTab.paymentMode === PaymentMode.CASH || activeTab.paymentMode === PaymentMode.UPI);
-
-    if (isPaymentPending) {
-      const hasCustomerInfo = activeTab.partyId || (activeTab.walkInName?.trim() && (activeTab.walkInMobile?.trim().length || 0) >= 10);
-      if (!hasCustomerInfo) {
-        setErrorMessage("Customer Name and 10-digit Mobile are mandatory when Payment Pending is selected.");
-        return;
-      }
-      payments = [];
-    } else if (activeTab.paymentMode === PaymentMode.CASH) {
+    if (effectiveMode === "CASH") {
       payments = [{ mode: "CASH", amountPaise: totalPaise }];
-    } else if (activeTab.paymentMode === PaymentMode.UPI) {
+      derivedPaymentStatus = "PAID";
+    } else if (effectiveMode === "UPI") {
       payments = [{ mode: "UPI", amountPaise: totalPaise }];
-    } else if (activeTab.paymentMode === PaymentMode.CREDIT) {
+      derivedPaymentStatus = "PAID";
+    } else if (effectiveMode === "CREDIT") {
       if (!activeTab.partyId) {
         setQuickCustomerModalOpen(true);
         setQuickCustomerError("Please select or create a Customer for Demand Credit Bill.");
         return;
       }
-      payments = []; // Unpaid credit balance
+      payments = [];
+      derivedPaymentStatus = "PENDING";
     } else {
-      // Split payments
-      const cashAmount = Math.round(parseFloat(activeTab.splitCashPaise || "0") * 100);
-      const upiAmount = Math.round(parseFloat(activeTab.splitUpiPaise || "0") * 100);
+      // SPLIT: Cash + UPI + remaining Credit
+      const cashAmount = Math.max(0, Math.round((parseFloat(activeTab.splitCashPaise || "0") || 0) * 100));
+      const upiAmount = Math.max(0, Math.round((parseFloat(activeTab.splitUpiPaise || "0") || 0) * 100));
 
+      if (cashAmount + upiAmount > totalPaise) {
+        setErrorMessage("Split Cash + UPI exceeds bill total.");
+        return;
+      }
       if (cashAmount + upiAmount < totalPaise && !activeTab.partyId) {
         setErrorMessage("Walk-in retail sales must be fully paid. Total tendered does not cover bill total.");
         return;
@@ -1846,6 +2014,7 @@ export function PosClient({
 
       if (cashAmount > 0) payments.push({ mode: "CASH", amountPaise: cashAmount });
       if (upiAmount > 0) payments.push({ mode: "UPI", amountPaise: upiAmount });
+      derivedPaymentStatus = cashAmount + upiAmount >= totalPaise ? "PAID" : "PARTIAL";
     }
 
     const overrideToUse = explicitOverride || approvedCreditOverride;
@@ -1985,6 +2154,9 @@ export function PosClient({
           customerAddress: activeTab.partyId ? undefined : activeTab.walkInAddress?.trim() || undefined,
           buyerType: effectiveTier,
           orderDiscountBp,
+          documentType: activeTab.documentType ?? "RETAIL",
+          paymentStatus: derivedPaymentStatus,
+          notes: activeTab.remarks?.trim() || undefined,
           items: finalizeItems,
           payments,
           idempotencyKey,
@@ -2046,9 +2218,48 @@ export function PosClient({
 
         const invoice = res.invoice;
         setApprovedCreditOverride(null);
-        const printUrl = `/shop/invoices/${invoice.id}/print${activeTab.documentType === "GST" ? "?format=a4" : ""}`;
+        setLastUsedPaymentMode(effectiveMode);
+        try {
+          localStorage.setItem("jmd_pos_last_payment_mode", effectiveMode);
+        } catch {
+          // ignore
+        }
+
+        const effectivePrintFormat: PrintPaperFormat =
+          effectiveMode === "CREDIT" || activeTab.documentType === "GST"
+            ? chosenFormat
+            : "thermal";
+
+        if (effectivePosSettings.showFinalizedModal) {
+          handleCloseTab(activeTab.id);
+          setFinalizedInvoice({
+            ...invoice,
+            documentType: activeTab.documentType ?? "RETAIL",
+          });
+          setFinalizedModalFocusIndex(0);
+          return;
+        }
+
+        // G3 Default: Direct hidden-iframe printing WITHOUT leaving /shop/pos or opening any new tab
+        if ((invoice as any).fullInvoice) {
+          triggerDirectIframePrint((invoice as any).fullInvoice, effectivePrintFormat);
+        } else {
+          setPrintFallbackToast({ invoice: null, format: effectivePrintFormat, number: invoice.number });
+        }
+
+        // Reset bill for next customer cleanly on /shop/pos and prompt Party if setting enabled
         handleCloseTab(activeTab.id);
-        router.push(printUrl);
+        setToastMsg(`Saved ${invoice.number} · ₹${(invoice.totalPaise / 100).toFixed(2)}`);
+        setTimeout(() => setToastMsg(null), 4000);
+        if (effectivePosSettings.askPartyOnNewBill) {
+          setPartyPopupReason("new_bill");
+          setIsPartyPopupOpen(true);
+        } else {
+          setTimeout(() => {
+            itemSearchInputRef.current?.focus();
+            itemSearchInputRef.current?.select();
+          }, 50);
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to finalize invoice";
         if (
@@ -2117,11 +2328,16 @@ export function PosClient({
         setActiveTabId(freshTab.id);
       }
     }
-    setTimeout(() => {
-      itemSearchInputRef.current?.focus();
-      itemSearchInputRef.current?.select();
-    }, 60);
-  }, [initialEditInvoice, activeTab.id, tabs.length, router]);
+    if (effectivePosSettings.askPartyOnNewBill) {
+      setPartyPopupReason("new_bill");
+      setIsPartyPopupOpen(true);
+    } else {
+      setTimeout(() => {
+        itemSearchInputRef.current?.focus();
+        itemSearchInputRef.current?.select();
+      }, 60);
+    }
+  }, [initialEditInvoice, activeTab.id, tabs.length, router, effectivePosSettings.askPartyOnNewBill]);
 
   // Focus synchronization for Finalized Modal buttons
   useEffect(() => {
@@ -2224,8 +2440,8 @@ export function PosClient({
   // Keyboard Shortcuts Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // If Finalized Invoice modal or Save Voucher Confirmation is open, yield to modal capture listener
-      if (finalizedInvoice || isSaveConfirmOpen) {
+      // If a modal with its own capture handler is open, yield completely
+      if (finalizedInvoice || isSaveConfirmOpen || isPartyPopupOpen || discardConfirmOpen || voidEditModalOpen || counterDetailsOpen) {
         return;
       }
 
@@ -2246,37 +2462,73 @@ export function PosClient({
       } else if (e.key === "F4") {
         e.preventDefault();
         handleHoldCurrentBill();
+      } else if (e.key === "F5") {
+        e.preventDefault();
+        setShowHeldModal((prev) => !prev);
       } else if (e.key === "F6") {
         e.preventDefault();
-        setShowQuickAddModal(true);
-      } else if (e.key === "F9") {
-        e.preventDefault();
-        setShowTodaySalesModal(true);
+        itemSearchInputRef.current?.focus();
+        itemSearchInputRef.current?.select();
       } else if (e.key === "F7") {
         e.preventDefault();
-        // Repeat previous line
         if (activeTab.cart.length > 0) {
           const lastLine = activeTab.cart[activeTab.cart.length - 1];
           addItemToCart(lastLine.product, lastLine.unit, lastLine.qty);
         }
       } else if (e.key === "F8") {
         e.preventDefault();
-        setIsItemInfoOpen((prev) => !prev);
+        e.stopPropagation();
+        if (isEditMode && initialEditInvoice) {
+          setVoidEditReason("");
+          setVoidEditError(null);
+          setVoidEditModalOpen(true);
+          return;
+        }
+        if (activeTab.cart.length === 0) {
+          updateActiveTab({ partyId: "", remarks: "", orderDiscountPercent: "0", walkInName: "", walkInMobile: "", walkInAddress: "" });
+          setToastMsg("Empty bill cleared");
+          setTimeout(() => setToastMsg(null), 2000);
+          itemSearchInputRef.current?.focus();
+          itemSearchInputRef.current?.select();
+        } else {
+          setDiscardConfirmOpen(true);
+        }
       } else if (e.key === "F9") {
         e.preventDefault();
         handleDeleteHighlightedOrLastLine();
-      } else if (e.altKey && e.key.toLowerCase() === "p") {
+      } else if (e.altKey && (e.code === "KeyP" || e.key.toLowerCase() === "p")) {
         e.preventDefault();
-        setIsPartyCardExpanded(true);
-        setTimeout(() => {
-          const partyInput = (document.getElementById("pos-party-search-input")
-            || document.querySelector<HTMLInputElement>("input[placeholder*='Search party'], input[placeholder*='Search buyer']")) as HTMLInputElement | null;
-          partyInput?.focus();
-          partyInput?.select();
-        }, 20);
+        e.stopPropagation();
+        setPartyPopupReason("alt_p");
+        setIsPartyPopupOpen(true);
+      } else if (e.altKey && (e.code === "KeyN" || e.key.toLowerCase() === "n")) {
+        e.preventDefault();
+        e.stopPropagation();
+        setQuickCustomerModalOpen(true);
+      } else if (e.altKey && (e.code === "KeyC" || e.key.toLowerCase() === "c")) {
+        e.preventDefault();
+        updateActiveTab({ paymentMode: PaymentMode.CASH, paymentCollected: true });
+        if (effectivePosSettings.quickFinish && activeTab.cart.length > 0) {
+          handleFinalizeBill(undefined, "thermal", "CASH");
+        }
+      } else if (e.altKey && (e.code === "KeyU" || e.key.toLowerCase() === "u")) {
+        e.preventDefault();
+        updateActiveTab({ paymentMode: PaymentMode.UPI, paymentCollected: true });
+        if (effectivePosSettings.quickFinish && activeTab.cart.length > 0) {
+          handleFinalizeBill(undefined, "thermal", "UPI");
+        }
+      } else if (e.altKey && (e.code === "KeyR" || e.key.toLowerCase() === "r")) {
+        e.preventDefault();
+        if (selectedParty?.creditEnabled) {
+          updateActiveTab({ paymentMode: PaymentMode.CREDIT, paymentCollected: false });
+          if (effectivePosSettings.quickFinish && activeTab.cart.length > 0) {
+            handleFinalizeBill(undefined, "thermal", "CREDIT");
+          }
+        } else {
+          setErrorMessage(selectedParty ? "No credit enabled for this party." : "Select a credit-enabled party first (Alt+P).");
+        }
       } else if (e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
-        // Focus Order Discount
         const discInput = document.querySelector<HTMLInputElement>("input[type='number']#order-discount, input[title*='discount']");
         discInput?.focus();
         discInput?.select();
@@ -2295,6 +2547,12 @@ export function PosClient({
         e.preventDefault();
         handleOpenEditProductMaster();
         return;
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
+        if (lastPrintedInvoice?.fullInvoice) {
+          e.preventDefault();
+          triggerDirectIframePrint(lastPrintedInvoice.fullInvoice, lastPrintedInvoice.format);
+          return;
+        }
       }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -2362,7 +2620,23 @@ export function PosClient({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleFinalizeBill, activeTab, tabs, finalizedInvoice]);
+  }, [
+    handleFinalizeBill,
+    handleCreateNewTab,
+    activeTab,
+    tabs,
+    finalizedInvoice,
+    isSaveConfirmOpen,
+    isPartyPopupOpen,
+    discardConfirmOpen,
+    voidEditModalOpen,
+    counterDetailsOpen,
+    selectedParty,
+    effectivePosSettings.quickFinish,
+    lastPrintedInvoice,
+    triggerDirectIframePrint,
+    isEditMode,
+  ]);
 
   // Voucher lines preview memo for SaveVoucherDialog
   const previewLines = useMemo(() => {
@@ -2496,25 +2770,25 @@ export function PosClient({
   const heldTabsCount = tabs.filter((t) => t.isHeld).length;
 
   return (
-    <div className="flex flex-col h-screen bg-[#F8FAFC] text-slate-900 select-none overflow-hidden font-sans">
-      {/* 1. Slim Top Command Bar: Brand, Location, Cashier, Open Bill Tabs & Unified Button Group */}
-      <header className="bg-slate-900 text-white px-3 sm:px-4 py-1 flex items-center justify-between gap-3 shadow-sm shrink-0 border-b border-slate-800 h-10 z-30">
+    <div className="flex flex-col h-screen bg-[#FEFDF7] text-slate-900 select-none overflow-hidden font-sans">
+      {/* 1. Brand Light Command Header (#FEFDF7 / White with #790E11 Maroon & #FDAF18 Amber accents) */}
+      <header className="bg-[#FEFDF7] text-slate-900 px-3 sm:px-4 py-1 flex items-center justify-between gap-3 shadow-xs shrink-0 border-b-2 border-[#790E11]/20 h-11 z-30">
         {/* Left: Brand & Station Context */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-6 h-6 rounded bg-white p-0.5 flex items-center justify-center shrink-0 shadow-xs">
-            <img src="/brand/jmd-cart-logo.png" alt="JMD POS Logo" className="w-full h-full object-contain" />
+          <div className="w-7 h-7 rounded-lg bg-white border border-[#790E11]/20 p-0.5 flex items-center justify-center shrink-0 shadow-2xs">
+            <img src="/brand/jmd-cart-logo.png" alt="JMD POS Logo" width={28} height={28} className="w-full h-full object-contain" />
           </div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xs font-black tracking-tight text-white uppercase">Shop POS</h1>
-            <span className="bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-bold px-2 py-0.2 rounded-full uppercase tracking-wider">
+            <h1 className="text-sm font-black tracking-tight text-[#790E11] uppercase">Shop POS</h1>
+            <span className="bg-[#790E11] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
               {locationName}
             </span>
-            <span className="text-slate-500 text-xs hidden md:inline">·</span>
-            <span className="text-slate-300 text-xs hidden md:inline font-medium">
-              Cashier: <strong className="text-white">{cashierName}</strong>
+            <span className="text-slate-400 text-xs hidden md:inline">·</span>
+            <span className="text-slate-700 text-xs hidden md:inline font-semibold">
+              Cashier: <strong className="text-slate-900">{cashierName}</strong>
             </span>
             {isAdmin && activeTab.billDate && activeTab.billDate !== todayStr && (
-              <span className="inline-flex items-center gap-1 bg-amber-400 text-amber-950 px-2 py-0.5 rounded font-black text-[10px] uppercase tracking-wider shadow-xs border border-amber-500 animate-pulse">
+              <span className="inline-flex items-center gap-1 bg-[#FDAF18] text-slate-950 px-2 py-0.5 rounded font-black text-[10px] uppercase tracking-wider shadow-xs border border-[#FC830D]">
                 <Calendar className="w-3 h-3" />
                 Backdated: {activeTab.billDate}
               </span>
@@ -2530,22 +2804,22 @@ export function PosClient({
               <div
                 key={tab.id}
                 onClick={() => setActiveTabId(tab.id)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold cursor-pointer transition-all border ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all border ${
                   isActive
-                    ? "bg-white text-slate-900 border-white shadow-xs"
+                    ? "bg-[#790E11] text-white border-[#790E11] shadow-xs"
                     : tab.isHeld
-                    ? "bg-amber-500/20 text-amber-200 border-amber-500/40 hover:bg-amber-500/30"
-                    : "bg-slate-800 text-slate-300 border-transparent hover:bg-slate-700 hover:text-white"
+                    ? "bg-[#FFF1D6] text-[#790E11] border-[#FDAF18] hover:bg-[#FDAF18]/30"
+                    : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
                 }`}
               >
-                {tab.isHeld && <PauseCircle className="w-3 h-3 text-amber-400 shrink-0" />}
+                {tab.isHeld && <PauseCircle className="w-3 h-3 text-[#FC830D] shrink-0" />}
                 <span className="truncate max-w-[100px] text-[11px]">
                   {tab.tabTitle || `Bill ${idx + 1}`}
                 </span>
                 {tabs.length > 1 && (
                   <button
                     onClick={(e) => handleCloseTab(tab.id, e)}
-                    className="p-0.5 hover:bg-black/10 rounded text-slate-400 hover:text-slate-800"
+                    className={`p-0.5 rounded ${isActive ? "text-white/80 hover:text-white" : "text-slate-400 hover:text-slate-800"}`}
                     title="Close tab"
                   >
                     <X className="w-3 h-3" />
@@ -2558,9 +2832,9 @@ export function PosClient({
           <button
             onClick={handleCreateNewTab}
             title="Open new bill (F3)"
-            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-400/50 shadow-xs transition shrink-0"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#FDAF18] hover:bg-[#FC830D] text-slate-950 border border-[#FC830D] shadow-2xs transition shrink-0 cursor-pointer"
           >
-            <Plus className="w-3 h-3 text-amber-400" />
+            <Plus className="w-3 h-3" />
             <span>New (F3)</span>
           </button>
 
@@ -2568,9 +2842,9 @@ export function PosClient({
             onClick={handleHoldCurrentBill}
             title="Hold current bill (F4)"
             disabled={activeTab.cart.length === 0}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-40 transition shrink-0"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 disabled:opacity-40 transition shrink-0 cursor-pointer"
           >
-            <PauseCircle className="w-3 h-3 text-amber-300" />
+            <PauseCircle className="w-3 h-3 text-[#FC830D]" />
             <span>Hold (F4)</span>
           </button>
 
@@ -2578,7 +2852,7 @@ export function PosClient({
             <button
               onClick={() => setShowHeldModal(true)}
               title="View held bills (F5)"
-              className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold bg-amber-400 text-slate-950 shadow-xs animate-pulse shrink-0"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#FFF1D6] text-[#790E11] border border-[#FDAF18] shadow-xs shrink-0 cursor-pointer"
             >
               <span>Held ({heldTabsCount})</span>
             </button>
@@ -2590,53 +2864,51 @@ export function PosClient({
           <button
             type="button"
             onClick={() => setShowQuickAddModal(true)}
-            className="h-7 px-2 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 flex items-center gap-1 shadow-xs transition"
-            title="Quick add new product to bill (F6)"
+            className="h-7 px-2.5 rounded-lg text-xs font-bold bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs transition cursor-pointer"
+            title="Quick create new product"
           >
-            <Plus className="w-3 h-3 text-emerald-400" />
-            <span>+ Item</span>
-            <kbd className="text-[9px] bg-slate-900 text-emerald-400 px-1 py-0.2 rounded font-mono">F6</kbd>
+            <Plus className="w-3 h-3 text-emerald-700" />
+            <span>+ Product</span>
           </button>
           <button
             type="button"
             onClick={() => handleOpenEditProductMaster()}
-            className="h-7 px-2 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1 shadow-xs transition cursor-pointer"
+            className="h-7 px-2.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 flex items-center gap-1 shadow-2xs transition cursor-pointer"
             title="Edit product master details (Alt+M)"
           >
-            <Edit3 className="w-3 h-3 text-sky-400" />
+            <Edit3 className="w-3 h-3 text-[#790E11]" />
             <span>Master</span>
-            <kbd className="text-[9px] bg-slate-900 text-sky-400 px-1 py-0.2 rounded font-mono">Alt+M</kbd>
+            <kbd className="text-[9px] bg-slate-100 text-slate-700 px-1 py-0.2 rounded font-mono">Alt+M</kbd>
           </button>
           <button
             type="button"
             onClick={() => setShowTodaySalesModal(true)}
-            className="h-7 px-2 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1 shadow-xs transition"
-            title="Today's total sales summary (F9)"
+            className="h-7 px-2.5 rounded-lg text-xs font-bold bg-white hover:bg-amber-50 text-slate-800 border border-slate-300 flex items-center gap-1 shadow-2xs transition cursor-pointer"
+            title="Today's total sales summary"
           >
-            <Banknote className="w-3 h-3 text-amber-400" />
+            <Banknote className="w-3 h-3 text-[#FC830D]" />
             <span>Today</span>
-            <kbd className="text-[9px] bg-slate-900 text-amber-400 px-1 py-0.2 rounded font-mono">F9</kbd>
           </button>
 
-          <div className="h-4 w-px bg-slate-700 mx-0.5 hidden xl:block" />
+          <div className="h-4 w-px bg-slate-300 mx-0.5 hidden xl:block" />
 
           <Link
             href="/app/pro?tab=products"
-            className="hidden xl:inline-flex h-7 px-2 rounded text-[11px] font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 items-center gap-1 transition"
+            className="hidden xl:inline-flex h-7 px-2 rounded-lg text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 items-center gap-1 transition"
             title="Mobile Catalog & Price Tier Manager"
           >
-            <Smartphone className="w-3 h-3 text-purple-400" />
+            <Smartphone className="w-3 h-3 text-[#790E11]" />
             <span>PRO Catalog</span>
           </Link>
           <Link
             href="/godown/stock"
-            className="hidden xl:inline-flex h-7 px-2 rounded text-[11px] font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 items-center transition"
+            className="hidden xl:inline-flex h-7 px-2 rounded-lg text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 items-center transition"
           >
             Stock
           </Link>
           <Link
             href="/admin"
-            className="hidden xl:inline-flex h-7 px-2 rounded text-[11px] font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 items-center transition"
+            className="hidden xl:inline-flex h-7 px-2 rounded-lg text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 items-center transition"
           >
             Dashboard
           </Link>
@@ -2705,9 +2977,19 @@ export function PosClient({
               <span className="text-[11px]">👤</span>
             </div>
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className="font-bold text-xs text-slate-900 truncate">
-                {selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale / Walk-in")}
+              <span className="font-bold text-sm text-slate-900 truncate">
+                {selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale (Walk-in)")}
               </span>
+              {!selectedParty && (
+                <button
+                  type="button"
+                  onClick={() => setCounterDetailsOpen(true)}
+                  className="text-[11px] font-bold text-[#790E11] hover:underline shrink-0 cursor-pointer"
+                  title="Add optional walk-in customer name & mobile"
+                >
+                  + Details
+                </button>
+              )}
               {selectedParty?.phone && (
                 <span className="text-[11px] font-mono text-slate-500 shrink-0 hidden sm:inline">
                   {selectedParty.phone}
@@ -2786,29 +3068,20 @@ export function PosClient({
               </button>
             </div>
 
-            {/* Expand / Edit Buyer Button */}
+            {/* Select / Change Party Button */}
             <button
               type="button"
+              data-testid="pos-party-trigger"
               onClick={() => {
-                setIsPartyCardExpanded((prev) => {
-                  const next = !prev;
-                  if (next) {
-                    setTimeout(() => {
-                      const input = (document.getElementById("pos-party-search-input")
-                        || document.querySelector<HTMLInputElement>("input[placeholder*='Search party']")) as HTMLInputElement | null;
-                      input?.focus();
-                      input?.select();
-                    }, 20);
-                  }
-                  return next;
-                });
+                setPartyPopupReason("alt_p");
+                setIsPartyPopupOpen(true);
               }}
-              className="h-6 px-2 rounded bg-white hover:bg-slate-50 border border-slate-300 text-[10px] font-bold text-slate-700 flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
-              title="Search or edit customer details (Alt+P)"
+              className="h-7 px-2.5 rounded-lg bg-white hover:bg-amber-50 border border-[#790E11]/40 text-xs font-bold text-slate-800 flex items-center gap-1.5 shadow-2xs shrink-0 cursor-pointer"
+              title="Search or select party (Alt+P)"
             >
-              <Edit3 className="w-2.5 h-2.5 text-blue-600" />
-              <span>{isPartyCardExpanded ? "Close" : "Party / Edit"}</span>
-              <kbd className="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.2 rounded font-mono">Alt+P</kbd>
+              <Edit3 className="w-3 h-3 text-[#790E11]" />
+              <span>Party</span>
+              <kbd className="text-[10px] bg-slate-100 text-slate-700 px-1 py-0.2 rounded font-mono font-bold">Alt+P</kbd>
             </button>
 
             {/* Recent Bills & Full History if party is selected */}
@@ -3061,6 +3334,7 @@ export function PosClient({
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
+                id="pos-item-search"
                 ref={itemSearchInputRef}
                 type="text"
                 placeholder="Scan barcode / enter item name, weight, code... (e.g. 'bhuj 400') [Ctrl+K]"
@@ -3107,6 +3381,9 @@ export function PosClient({
                           nameInput.select();
                         }
                       }, 40);
+                    } else if (!itemSearchTerm.trim() && activeTab.cart.length > 0) {
+                      e.preventDefault();
+                      setIsSaveConfirmOpen(true);
                     }
                   } else if (e.key === "Escape") {
                     if (itemSearchTerm) {
@@ -3133,18 +3410,28 @@ export function PosClient({
               </div>
             </div>
 
-            {/* Autocomplete Dropdown */}
+            {/* Autocomplete Dropdown (G11) */}
             {filteredProducts.length > 0 && (
-              <div className="absolute left-3 right-3 top-full mt-1 bg-white border border-slate-300 rounded-lg shadow-xl z-40 max-h-72 overflow-y-auto divide-y divide-slate-100 font-sans">
+              <div
+                data-testid="pos-search-results"
+                role="listbox"
+                aria-label="Product search results"
+                className="absolute left-3 right-3 top-full mt-1 bg-white border-2 border-[#790E11]/40 rounded-lg shadow-2xl z-40 max-h-80 overflow-y-auto divide-y divide-slate-100 font-sans"
+              >
                 {filteredProducts.map((p, pIdx) => {
                   const isHighlighted = pIdx === searchSelectedIndex;
                   const inStock = (p.shopStockQty ?? 0) + (p.godownStockQty ?? 0) > 0;
                   const weightText = p.weight ? ` ${p.weight}` : (p.weightValue ? ` ${p.weightValue}${p.weightUnit || "g"}` : "");
                   const fullTitle = `${p.name}${weightText}`;
+                  const segments = splitHighlightSegments(fullTitle, itemSearchTerm);
+                  const mrpRupeesStr = p.mrpPaise && p.mrpPaise > 0 ? `MRP ₹${(p.mrpPaise / 100).toFixed(0)}` : null;
 
                   return (
                     <div
                       key={p.id}
+                      role="option"
+                      aria-selected={isHighlighted}
+                      data-testid="pos-search-option"
                       ref={(el) => {
                         if (isHighlighted && el) {
                           el.scrollIntoView({ block: "nearest" });
@@ -3171,14 +3458,42 @@ export function PosClient({
                           }
                         }, 40);
                       }}
-                      className={`px-3 py-2 flex items-center justify-between text-xs sm:text-sm cursor-pointer transition ${
+                      className={`px-3.5 py-2.5 flex items-center justify-between text-sm cursor-pointer transition ${
                         isHighlighted
-                          ? "bg-slate-900 text-white font-semibold"
-                          : "bg-white text-slate-900 hover:bg-slate-50"
+                          ? "bg-[#790E11] text-white font-semibold"
+                          : "bg-white text-slate-900 hover:bg-amber-50"
                       }`}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="truncate">{fullTitle}</span>
+                      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                        <span className="truncate font-semibold">
+                          {segments.map((seg, sIdx) =>
+                            seg.matched ? (
+                              <mark
+                                key={sIdx}
+                                className={
+                                  isHighlighted
+                                    ? "bg-[#FDAF18] text-slate-950 px-0.5 rounded font-black"
+                                    : "bg-amber-200 text-slate-950 px-0.5 rounded font-black"
+                                }
+                              >
+                                {seg.text}
+                              </mark>
+                            ) : (
+                              <React.Fragment key={sIdx}>{seg.text}</React.Fragment>
+                            )
+                          )}
+                        </span>
+                        {mrpRupeesStr && (
+                          <span
+                            className={`font-mono text-xs px-1.5 py-0.5 rounded font-bold shrink-0 ${
+                              isHighlighted
+                                ? "bg-white/15 text-[#FDAF18]"
+                                : "bg-slate-100 text-slate-800 border border-slate-200"
+                            }`}
+                          >
+                            {mrpRupeesStr}
+                          </span>
+                        )}
                         {(() => {
                           const resolved = resolvePrice(
                             {
@@ -3193,22 +3508,22 @@ export function PosClient({
                           return price > 0 ? (
                             <span
                               className={`font-mono text-xs font-bold shrink-0 ${
-                                isHighlighted ? "text-emerald-300" : "text-emerald-700"
+                                isHighlighted ? "text-emerald-200" : "text-emerald-700"
                               }`}
                             >
-                              ₹${(price / 100).toFixed(2)}
+                              Rate ₹{(price / 100).toFixed(2)}
                             </span>
                           ) : (
-                            <span className="text-[10px] text-amber-500 italic shrink-0">
-                              Price not set
+                            <span className="text-[11px] text-amber-400 font-semibold shrink-0">
+                              Rate unset
                             </span>
                           );
                         })()}
                         {!inStock && (
                           <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider ${
+                            className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
                               isHighlighted
-                                ? "bg-rose-950 text-rose-200 border border-rose-800"
+                                ? "bg-rose-950 text-rose-200 border border-rose-700"
                                 : "bg-rose-50 text-rose-700 border border-rose-200"
                             }`}
                           >
@@ -3217,11 +3532,13 @@ export function PosClient({
                         )}
                       </div>
                       <div
-                        className={`text-xs shrink-0 ml-3 ${
-                          isHighlighted ? "text-slate-300" : "text-slate-500 font-medium"
+                        className={`text-xs shrink-0 ml-3 flex items-center gap-2 font-mono ${
+                          isHighlighted ? "text-slate-200" : "text-slate-600"
                         }`}
                       >
-                        {p.companyName || "Generic"}
+                        <span className="font-sans font-semibold">{p.companyName || "Generic"}</span>
+                        <span>· {p.packSize} pcs/ctn</span>
+                        <span>· Shop:{p.shopStockQty ?? 0} Gdn:{p.godownStockQty ?? 0}</span>
                       </div>
                     </div>
                   );
@@ -3302,21 +3619,21 @@ export function PosClient({
                         key={line.id}
                         data-line-id={line.id}
                         onClick={() => setHighlightedProductId(line.productId)}
-                        className={`transition-colors cursor-pointer ${
+                        className={`min-h-[44px] h-11 transition-colors cursor-pointer ${
                           !isStockSufficient
                             ? "bg-rose-50/70 hover:bg-rose-100/60 border-l-4 border-l-rose-500"
                             : isSelected
-                            ? "bg-blue-50/50 hover:bg-blue-100/40 border-l-4 border-l-blue-600 font-medium"
+                            ? "bg-amber-50/70 hover:bg-amber-100/60 border-l-4 border-l-[#790E11] font-medium"
                             : index % 2 === 0
                             ? "bg-white hover:bg-slate-50"
                             : "bg-slate-50/40 hover:bg-slate-100/60"
                         }`}
                       >
-                        <td className="py-1 px-2.5 text-center text-slate-400 font-mono text-xs font-bold border-r border-slate-100">
+                        <td className="py-1.5 px-2.5 text-center text-slate-600 font-mono text-sm font-bold border-r border-slate-100">
                           {index + 1}
                         </td>
 
-                        <td className="py-1 px-2 border-r border-slate-100">
+                        <td className="py-1.5 px-2 border-r border-slate-100">
                           <div className="flex items-center gap-1.5">
                             <input
                               type="text"
@@ -3327,10 +3644,10 @@ export function PosClient({
                               onFocus={(e) => e.target.select()}
                               onKeyDown={(e) => handlePosCellKeyDown(e, "name", index, line.id)}
                               title="Product Name (Editable - permanently updates product in catalog)"
-                              className="flex-1 px-1.5 py-1 text-xs sm:text-sm font-bold text-slate-900 bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-white focus:text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
+                              className="flex-1 min-h-[38px] px-2 py-1 text-base font-bold text-slate-900 bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none transition-colors"
                             />
                             {!isStockSufficient && (
-                              <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1 py-0.5 rounded shrink-0">
+                              <span className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded shrink-0">
                                 Low ({isCarton ? `${availableCartons} ctn` : `${line.product.shopStockQty ?? 0} pcs`})
                               </span>
                             )}
@@ -3338,7 +3655,7 @@ export function PosClient({
                         </td>
 
                         {/* Qty Input */}
-                        <td className="py-1 px-1.5 text-center border-r border-slate-100">
+                        <td className="py-1.5 px-1.5 text-center border-r border-slate-100">
                           <input
                             data-pos-field="qty"
                             type="text"
@@ -3351,18 +3668,19 @@ export function PosClient({
                             }}
                             onFocus={(e) => e.target.select()}
                             onKeyDown={(e) => handlePosCellKeyDown(e, "qty", index, line.id, line.qty)}
-                            className="w-16 px-1.5 py-1 text-center font-black text-xs sm:text-sm bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-white focus:text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
+                            className="w-18 min-h-[38px] px-1.5 py-1 text-center font-black text-base bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none transition-colors"
                           />
                         </td>
 
                         {/* Unit Selector */}
-                        <td className="py-1 px-1.5 text-center border-r border-slate-100">
+                        <td className="py-1.5 px-1.5 text-center border-r border-slate-100">
                           <select
                             data-pos-field="unit"
+                            aria-label={`Unit for ${line.product.name}`}
                             value={line.unit}
                             onChange={(e) => updateLineUnit(line.id, e.target.value as "Pcs" | "Carton" | "Dozen" | "Bag")}
                             onKeyDown={(e) => handlePosCellKeyDown(e, "unit", index, line.id)}
-                            className="w-24 px-1.5 py-1 text-xs font-semibold bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-white focus:text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none cursor-pointer transition-colors"
+                            className="w-28 min-h-[38px] px-1.5 py-1 text-base font-semibold bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none cursor-pointer transition-colors"
                           >
                             <option value="Pcs">Pcs</option>
                             <option value="Carton">Carton (Crt)</option>
@@ -3372,10 +3690,10 @@ export function PosClient({
                         </td>
 
                         {/* MRP */}
-                        <td className="py-1 px-1.5 text-right border-r border-slate-100">
+                        <td className="py-1.5 px-1.5 text-right border-r border-slate-100">
                           <div className="flex flex-col items-end">
-                            <div className="relative inline-flex items-center justify-end w-22">
-                              <span className="absolute left-1.5 text-slate-400 font-mono text-[10px] pointer-events-none font-bold">₹</span>
+                            <div className="relative inline-flex items-center justify-end w-24">
+                              <span className="absolute left-1.5 text-slate-500 font-mono text-xs pointer-events-none font-bold">₹</span>
                               <input
                                 type="text" inputMode="decimal"
                                 value={
@@ -3392,16 +3710,16 @@ export function PosClient({
                                 data-pos-field="mrp"
                                 onKeyDown={(e) => handlePosCellKeyDown(e, "mrp", index, line.id)}
                                 title="Editable Line MRP (Permanently syncs to Master)"
-                                className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-bold text-xs rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 focus:bg-white focus:text-slate-900 focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
+                                className="w-full min-h-[38px] pl-5 pr-1.5 py-1 text-right font-mono font-bold text-base rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none transition-colors"
                               />
                             </div>
                           </div>
                         </td>
 
                         {/* Rate */}
-                        <td className="py-1 px-1.5 text-right border-r border-slate-100">
-                          <div className="relative inline-flex items-center justify-end w-24">
-                            <span className="absolute left-1.5 text-slate-400 font-mono text-xs pointer-events-none font-bold">₹</span>
+                        <td className="py-1.5 px-1.5 text-right border-r border-slate-100">
+                          <div className="relative inline-flex items-center justify-end w-26">
+                            <span className="absolute left-1.5 text-slate-500 font-mono text-xs pointer-events-none font-bold">₹</span>
                             <input
                               type="text" inputMode="decimal"
                               value={line.customRateInput !== undefined ? line.customRateInput : (ratePerUnitPaise > 0 ? (ratePerUnitPaise / 100).toFixed(2) : "")}
@@ -3411,14 +3729,14 @@ export function PosClient({
                               data-pos-field="rate"
                               onKeyDown={(e) => handlePosCellKeyDown(e, "rate", index, line.id)}
                               title="Selling rate manually"
-                              className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-black text-xs rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
+                              className="w-full min-h-[38px] pl-5 pr-1.5 py-1 text-right font-mono font-black text-base rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 text-slate-900 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none transition-colors"
                             />
                           </div>
                         </td>
 
                         {/* Disc % */}
-                        <td className="py-1 px-1.5 text-center border-r border-slate-100">
-                          <div className="relative inline-flex items-center justify-center w-18">
+                        <td className="py-1.5 px-1.5 text-center border-r border-slate-100">
+                          <div className="relative inline-flex items-center justify-center w-20">
                             <input
                               type="text" inputMode="decimal"
                               value={
@@ -3434,16 +3752,16 @@ export function PosClient({
                               data-pos-field="disc"
                               onKeyDown={(e) => handlePosCellKeyDown(e, "disc", index, line.id)}
                               title="Discount % off MRP. Changing this automatically calculates selling rate."
-                              className="w-full pl-1 pr-3 py-1 text-center font-mono font-bold text-xs rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
+                              className="w-full min-h-[38px] pl-1 pr-4 py-1 text-center font-mono font-bold text-base rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 text-slate-900 focus:bg-[#FEF3C7] focus:outline-[3px] focus:outline-[#790E11] outline-none transition-colors"
                             />
-                            <span className="absolute right-1 text-slate-400 font-bold text-[10px] pointer-events-none">%</span>
+                            <span className="absolute right-1.5 text-slate-500 font-bold text-xs pointer-events-none">%</span>
                           </div>
                         </td>
 
                         {/* Amount (₹) */}
-                        <td className="py-1 px-1.5 text-right border-r border-slate-100">
-                          <div className="relative inline-flex items-center justify-end w-26">
-                            <span className="absolute left-1.5 text-slate-400 font-mono text-xs pointer-events-none font-bold">₹</span>
+                        <td className="py-1.5 px-1.5 text-right border-r border-slate-100">
+                          <div className="relative inline-flex items-center justify-end w-28">
+                            <span className="absolute left-1.5 text-slate-500 font-mono text-xs pointer-events-none font-bold">₹</span>
                             <input
                               type="text"
                               inputMode="decimal"
@@ -3460,7 +3778,7 @@ export function PosClient({
                               onFocus={(e) => e.target.select()}
                               onKeyDown={(e) => handlePosCellKeyDown(e, "amount", index, line.id)}
                               title="Line Amount (₹). Changing this derives rate and discount %."
-                              className="w-full pl-4 pr-1.5 py-1 text-right font-mono font-black text-xs sm:text-sm rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-colors"
+                              className="w-full min-h-[38px] pl-5 pr-1.5 py-1 text-right font-mono font-black text-base rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 text-slate-900 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none transition-colors"
                             />
                           </div>
                         </td>
@@ -3632,19 +3950,19 @@ export function PosClient({
               </div>
             </div>
 
-            {/* Grand Total Hero Card */}
-            <div className="p-3.5 rounded-xl bg-slate-900 text-white shadow-md space-y-1 border border-slate-800">
+            {/* Grand Total Hero Card (Brand Maroon Highlight Card) */}
+            <div className="p-3.5 rounded-xl bg-[#790E11] text-white shadow-md space-y-1 border-2 border-[#FDAF18]">
               <div className="flex justify-between items-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">NET PAYABLE AMOUNT</span>
-                <span className="text-[10px] font-bold bg-slate-800 text-amber-300 px-2 py-0.2 rounded border border-slate-700 uppercase">
+                <span className="text-[13px] font-bold uppercase tracking-wider text-amber-100">NET PAYABLE</span>
+                <span className="text-xs font-bold bg-white/15 text-[#FDAF18] px-2 py-0.5 rounded uppercase">
                   {activeTab.documentType === "GST" ? "GST Invoice" : "Retail Invoice"}
                 </span>
               </div>
-              <div className="text-2xl sm:text-3xl font-black font-mono text-amber-400 tracking-tight">
+              <div className="text-[30px] leading-tight font-black font-mono text-[#FDAF18] tracking-tight">
                 ₹{(totalAmountPaise / 100).toFixed(2)}
               </div>
               {amountInWords && (
-                <p className="text-[10px] text-slate-300/90 italic pt-1 border-t border-slate-800 leading-snug">
+                <p className="text-xs text-amber-50/90 pt-1 border-t border-white/15 leading-snug">
                   {amountInWords}
                 </p>
               )}
@@ -3729,41 +4047,17 @@ export function PosClient({
               </div>
             </div>
 
-            {/* Payment Status (Cash and UPI only) */}
-            {(activeTab.paymentMode === PaymentMode.CASH || activeTab.paymentMode === PaymentMode.UPI) && (
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">Payment Status</label>
-                <div className="grid grid-cols-2 gap-1 bg-slate-200/60 p-0.5 rounded-lg border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => updateActiveTab({ paymentCollected: true })}
-                    className={`py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                      activeTab.paymentCollected !== false
-                        ? "bg-emerald-700 text-white shadow-xs"
-                        : "text-slate-700 hover:text-slate-900"
-                    }`}
-                  >
-                    <span>✓ Done</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateActiveTab({ paymentCollected: false })}
-                    className={`py-1 px-2 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                      activeTab.paymentCollected === false
-                        ? "bg-amber-600 text-white shadow-xs"
-                        : "text-slate-700 hover:text-slate-900"
-                    }`}
-                  >
-                    <span>⏳ Pending</span>
-                  </button>
-                </div>
-                {activeTab.paymentCollected === false && (
-                  <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded p-1.5 font-medium">
-                    Customer Name and Mobile are mandatory when Payment Pending is selected.
-                  </p>
-                )}
-              </div>
-            )}
+            {/* Derived Payment Status Indicator (determined automatically by payment mode) */}
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-xs">
+              <span className="font-bold text-slate-600">Status (Auto):</span>
+              <span className="font-black text-slate-900">
+                {activeTab.paymentMode === "CREDIT"
+                  ? "Credit (Pending)"
+                  : activeTab.paymentMode === "SPLIT"
+                  ? "Split Payment"
+                  : "Done (Paid)"}
+              </span>
+            </div>
 
             {/* Bill Date Selector (Admin Only) */}
             {isAdmin && (
@@ -3931,15 +4225,47 @@ export function PosClient({
         </aside>
       </div>
 
-      {/* 4. Bottom Functional Keys Ribbon (Exact Image 2 Footer) */}
-      <footer className="bg-[#0f172a] text-white px-3 py-1.5 flex items-center justify-between text-xs font-mono font-bold shrink-0 border-t border-slate-700">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+      {/* 4. Bottom Key Legend Bar */}
+      <footer
+        data-testid="pos-key-legend"
+        className="bg-[#790E11] text-white px-3 py-2 flex items-center justify-between text-xs font-mono font-bold shrink-0 border-t-2 border-[#FDAF18]"
+      >
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-wrap">
           <button
             type="button"
-            onClick={() => handleCloseTab(activeTabId)}
-            className="bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded border border-white/20 text-slate-200 transition cursor-pointer"
+            onClick={() => {
+              if (activeTab.cart.length > 0) setIsSaveConfirmOpen(true);
+              else handleFinalizeBill();
+            }}
+            disabled={activeTab.cart.length === 0 || isFinalizing}
+            className="bg-[#FDAF18] hover:bg-[#FC830D] disabled:opacity-50 px-2 py-0.5 rounded text-slate-950 font-black transition cursor-pointer"
           >
-            [Esc - Quit]
+            F2 Finish
+          </button>
+          <button
+            type="button"
+            onClick={handleCreateNewTab}
+            className="bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded border border-white/20 text-white transition cursor-pointer"
+          >
+            F3 New
+          </button>
+          <span className="bg-white/10 px-2 py-0.5 rounded border border-white/15 text-amber-200">
+            Alt+F3 New Anywhere
+          </span>
+          <button
+            type="button"
+            onClick={handleHoldCurrentBill}
+            disabled={activeTab.cart.length === 0}
+            className="bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded border border-white/20 text-white transition cursor-pointer"
+          >
+            F4 Hold
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowHeldModal(true)}
+            className="bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded border border-white/20 text-white transition cursor-pointer"
+          >
+            F5 Held
           </button>
           <button
             type="button"
@@ -3947,32 +4273,9 @@ export function PosClient({
               itemSearchInputRef.current?.focus();
               itemSearchInputRef.current?.select();
             }}
-            className="bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded border border-white/20 text-slate-200 transition cursor-pointer"
+            className="bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded border border-white/20 text-white transition cursor-pointer"
           >
-            [F1 / Ctrl+K - Search]
-          </button>
-          <button
-            type="button"
-            onClick={() => handleFinalizeBill()}
-            disabled={activeTab.cart.length === 0 || isFinalizing}
-            className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-2.5 py-0.5 rounded border border-emerald-400 text-white transition shadow-xs cursor-pointer"
-          >
-            [F2 - Done / Print]
-          </button>
-          <button
-            type="button"
-            onClick={handleCreateNewTab}
-            className="bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded border border-white/20 text-slate-200 transition cursor-pointer"
-          >
-            [F3 - New Bill]
-          </button>
-          <button
-            type="button"
-            onClick={handleHoldCurrentBill}
-            disabled={activeTab.cart.length === 0}
-            className="bg-amber-500/20 hover:bg-amber-500/30 px-2 py-0.5 rounded border border-amber-400/50 text-amber-200 transition cursor-pointer"
-          >
-            [F4 - Hold Bill]
+            F6 Add Row
           </button>
           <button
             type="button"
@@ -3983,34 +4286,282 @@ export function PosClient({
               }
             }}
             disabled={activeTab.cart.length === 0}
-            className="bg-slate-700/60 hover:bg-slate-700 px-2 py-0.5 rounded border border-slate-500/50 text-slate-200 transition cursor-pointer"
+            className="bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded border border-white/20 text-white transition cursor-pointer"
           >
-            [F7 - Repeat]
+            F7 Repeat
           </button>
           <button
             type="button"
-            onClick={() => setIsItemInfoOpen(true)}
-            className="bg-blue-900/40 hover:bg-blue-900/60 px-2 py-0.5 rounded border border-blue-400/40 text-blue-200 transition cursor-pointer"
+            onClick={() => {
+              if (isEditMode && initialEditInvoice) {
+                setVoidEditReason("");
+                setVoidEditError(null);
+                setVoidEditModalOpen(true);
+              } else if (activeTab.cart.length === 0) {
+                updateActiveTab({ partyId: "", remarks: "", orderDiscountPercent: "0", walkInName: "", walkInMobile: "", walkInAddress: "" });
+              } else {
+                setDiscardConfirmOpen(true);
+              }
+            }}
+            className="bg-rose-900/70 hover:bg-rose-800 px-2 py-0.5 rounded border border-rose-300/40 text-white transition cursor-pointer"
           >
-            [F8 - Item Info]
+            F8 Del Bill
           </button>
           <button
             type="button"
             onClick={handleDeleteHighlightedOrLastLine}
             disabled={activeTab.cart.length === 0}
-            className="bg-rose-900/40 hover:bg-rose-900/60 px-2 py-0.5 rounded border border-rose-400/40 text-rose-200 transition cursor-pointer"
+            className="bg-rose-900/70 hover:bg-rose-800 px-2 py-0.5 rounded border border-rose-300/40 text-white transition cursor-pointer"
           >
-            [F9 - Delete Line]
+            F9 Del Row
           </button>
-        </div>
-        <div className="hidden lg:flex items-center gap-3 text-[11px] font-sans text-slate-300">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Connected: <strong>{locationName}</strong></span>
+          <button
+            type="button"
+            onClick={() => {
+              setPartyPopupReason("alt_p");
+              setIsPartyPopupOpen(true);
+            }}
+            className="bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded border border-white/20 text-amber-200 transition cursor-pointer"
+          >
+            Alt+P Party
+          </button>
+          <button
+            type="button"
+            onClick={() => setQuickCustomerModalOpen(true)}
+            className="bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded border border-white/20 text-white transition cursor-pointer"
+          >
+            Alt+N New Party
+          </button>
+          <button
+            type="button"
+            onClick={() => updateActiveTab({ documentType: activeTab.documentType === "GST" ? "RETAIL" : "GST" })}
+            className="bg-white/15 hover:bg-white/25 px-2 py-0.5 rounded border border-white/20 text-white transition cursor-pointer"
+          >
+            Alt+G GST
+          </button>
+          <span className="bg-white/10 px-2 py-0.5 rounded border border-white/15 text-slate-200">
+            Ctrl+K Search · Esc Back
           </span>
-          <span>Cashier: <strong className="text-white">{cashierName}</strong></span>
+        </div>
+        <div className="hidden lg:flex items-center gap-3 text-[11px] font-sans text-amber-100 shrink-0">
+          <span><strong>{locationName}</strong> · <strong>{cashierName}</strong></span>
         </div>
       </footer>
+
+      {/* F8 Discard Unsaved Bill Modal (G10) */}
+      {discardConfirmOpen && (
+        <div
+          data-testid="pos-delete-bill-confirm"
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+        >
+          <div className="bg-white border-2 border-[#790E11] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <h3 className="text-lg font-black text-[#790E11]">Delete this bill? (Discard unsaved bill)</h3>
+            <p className="text-sm text-slate-700">
+              All {activeTab.cart.length} unsaved item(s) will be cleared. No stock or party ledger entries will be touched.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDiscardConfirmOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold cursor-pointer"
+              >
+                No, Keep Editing [N / Esc]
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDiscardConfirmOpen(false);
+                  updateActiveTab({
+                    cart: [],
+                    partyId: "",
+                    orderDiscountPercent: "0",
+                    remarks: "",
+                    walkInName: "",
+                    walkInMobile: "",
+                    walkInAddress: "",
+                  });
+                  setPricingResult(null);
+                  setTimeout(() => {
+                    itemSearchInputRef.current?.focus();
+                    itemSearchInputRef.current?.select();
+                  }, 25);
+                }}
+                className="px-4 py-2 rounded-xl bg-[#790E11] hover:bg-[#5E0A0D] text-white text-sm font-bold cursor-pointer"
+              >
+                Yes, Discard [Y]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* F8 Void Invoice in Edit Mode Modal (G10) */}
+      {voidEditModalOpen && initialEditInvoice && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+        >
+          <div className="bg-white border-2 border-rose-600 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <h3 className="text-lg font-black text-rose-700">
+              Void / Delete Invoice {initialEditInvoice.number}?
+            </h3>
+            <p className="text-xs text-slate-600">
+              Keeps invoice number, posts SALE_CANCEL stock movements, and reverses party ledger balance.
+            </p>
+            {voidEditError && (
+              <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                {voidEditError}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {["Wrong party", "Wrong item / rate", "Customer cancelled", "Duplicate bill"].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setVoidEditReason(preset)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold cursor-pointer"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+            <textarea
+              rows={2}
+              value={voidEditReason}
+              onChange={(e) => setVoidEditReason(e.target.value)}
+              placeholder="Reason for voiding invoice (min 5 chars)..."
+              className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 outline-none"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={isVoidingEdit}
+                onClick={() => setVoidEditModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isVoidingEdit || voidEditReason.trim().length < 5}
+                onClick={async () => {
+                  setIsVoidingEdit(true);
+                  setVoidEditError(null);
+                  try {
+                    const res = await cancelInvoiceAction(initialEditInvoice.id, voidEditReason);
+                    if (!res.success) {
+                      setVoidEditError(res.error || "Permission denied or cancellation failed");
+                    } else {
+                      setVoidEditModalOpen(false);
+                      router.push("/shop/invoices");
+                    }
+                  } finally {
+                    setIsVoidingEdit(false);
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+              >
+                {isVoidingEdit ? "Voiding..." : "Confirm Void"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Optional Counter Sale Details Popup (G5) */}
+      {counterDetailsOpen && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 bg-black/55 flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-[#790E11] rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <h3 className="text-base font-black text-[#790E11]">Walk-in Customer Details (Optional)</h3>
+              <button type="button" onClick={() => setCounterDetailsOpen(false)} className="text-slate-500 cursor-pointer">✕</button>
+            </div>
+            <div className="space-y-2.5 text-sm">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Customer Name</label>
+                <input
+                  type="text"
+                  value={activeTab.walkInName || ""}
+                  onChange={(e) => updateActiveTab({ walkInName: e.target.value })}
+                  placeholder="Optional customer name"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Mobile Number</label>
+                <input
+                  type="tel"
+                  value={activeTab.walkInMobile || ""}
+                  onChange={(e) => updateActiveTab({ walkInMobile: e.target.value })}
+                  placeholder="Optional 10-digit mobile"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Address / Notes</label>
+                <input
+                  type="text"
+                  value={activeTab.walkInAddress || ""}
+                  onChange={(e) => updateActiveTab({ walkInAddress: e.target.value })}
+                  placeholder="Optional address"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-800 pt-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={counterDetailsSaveParty}
+                  onChange={(e) => setCounterDetailsSaveParty(e.target.checked)}
+                />
+                <span>Save as customer (create Party in directory)</span>
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setCounterDetailsOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (counterDetailsSaveParty && activeTab.walkInName?.trim()) {
+                    const res = await createQuickPartyAction({
+                      name: activeTab.walkInName.trim(),
+                      phone: activeTab.walkInMobile?.trim() || undefined,
+                      address: activeTab.walkInAddress?.trim() || undefined,
+                      type: "CUSTOMER",
+                    });
+                    if (res.party) {
+                      const created: PartyItem = {
+                        id: res.party.id,
+                        name: res.party.name,
+                        type: res.party.type,
+                        phone: res.party.phone,
+                        creditEnabled: res.party.creditEnabled,
+                        creditLimitPaise: res.party.creditLimitPaise,
+                        currentOutstandingPaise: 0,
+                      };
+                      setLocalParties((prev) => [created, ...prev]);
+                      updateActiveTab({ partyId: created.id, tabTitle: created.name });
+                    }
+                  }
+                  setCounterDetailsSaveParty(false);
+                  setCounterDetailsOpen(false);
+                }}
+                className="px-4 py-2 rounded-xl bg-[#790E11] text-white text-xs font-bold cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Item Info Diagnostics Modal [F8] */}
       <ItemInfoModal
@@ -4092,17 +4643,27 @@ export function PosClient({
       {/* Save Voucher Confirmation Dialog [F2] */}
       <SaveVoucherDialog
         isOpen={isSaveConfirmOpen}
-        onConfirm={() => {
+        onConfirm={(chosenFormat) => {
           setIsSaveConfirmOpen(false);
-          handleFinalizeBill();
+          handleFinalizeBill(undefined, chosenFormat);
         }}
         onCancel={() => setIsSaveConfirmOpen(false)}
-        partyName={selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale")}
+        partyName={selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale (Walk-in)")}
+        hasLinkedParty={Boolean(selectedParty)}
+        creditEnabled={Boolean(selectedParty?.creditEnabled)}
+        creditLimitPaise={selectedParty?.creditLimitPaise ?? 0}
+        currentOutstandingPaise={selectedParty?.currentOutstandingPaise ?? 0}
+        documentType={activeTab.documentType ?? "RETAIL"}
         itemsCount={activeTab.cart.length}
         totalQtyPcs={activeTab.cart.reduce((sum, item) => sum + (item.unit === "Carton" ? item.qty * Math.max(1, item.product.packSize) : item.qty), 0)}
         totalAmountPaise={totalAmountPaise}
-        paymentMode={activeTab.paymentMode}
-        paymentStatus={activeTab.paymentCollected === false ? "PENDING" : "PAID"}
+        paymentMode={activeTab.paymentMode as DialogPaymentMode}
+        splitCashRupees={activeTab.splitCashPaise}
+        splitUpiRupees={activeTab.splitUpiPaise}
+        onSplitChange={(cashStr, upiStr) =>
+          updateActiveTab({ splitCashPaise: cashStr, splitUpiPaise: upiStr })
+        }
+        paymentStatus={activeTab.paymentMode === "CREDIT" ? "PENDING" : "PAID"}
         tier={effectiveTier[0]}
         discountPaise={totalDiscountPaise}
         lines={previewLines}
@@ -4113,11 +4674,101 @@ export function PosClient({
         onEditReasonChange={(val) => setEditReason(val)}
         onPaymentModeChange={(mode) => {
           updateActiveTab({
-            paymentMode: mode,
+            paymentMode: mode as any,
             paymentCollected: mode === "CREDIT" ? false : true,
           });
         }}
       />
+
+      {/* Centered Party Popup Overlay (G2 / G13) */}
+      <PartySearchModal
+        isOpen={isPartyPopupOpen}
+        parties={localParties}
+        currentPartyId={activeTab.partyId}
+        onSelectParty={(party) => {
+          if (party) {
+            updateActiveTab({
+              partyId: party.id,
+              tabTitle: party.name,
+              walkInName: "",
+              walkInMobile: "",
+              walkInAddress: "",
+            });
+          } else {
+            updateActiveTab({
+              partyId: "",
+              tabTitle: "Counter Sale",
+            });
+          }
+          setIsPartyPopupOpen(false);
+          setTimeout(() => {
+            itemSearchInputRef.current?.focus();
+            itemSearchInputRef.current?.select();
+          }, 20);
+        }}
+        onAddNewParty={(initialName) => {
+          setIsPartyPopupOpen(false);
+          setQuickCustomerForm((prev) => ({
+            ...prev,
+            name: initialName || "",
+          }));
+          setQuickCustomerModalOpen(true);
+        }}
+        onClose={() => {
+          if (partyPopupReason === "new_bill" && !activeTab.partyId) {
+            updateActiveTab({ partyId: "", tabTitle: "Counter Sale" });
+          }
+          setIsPartyPopupOpen(false);
+          setTimeout(() => {
+            itemSearchInputRef.current?.focus();
+            itemSearchInputRef.current?.select();
+          }, 20);
+        }}
+      />
+
+      {/* Hidden Same-Tab Direct Print Iframe (G3) */}
+      <iframe
+        ref={printIframeRef}
+        id="pos-print-iframe"
+        data-pos-print-frame="true"
+        title="POS Direct Print Frame"
+        style={{
+          position: "fixed",
+          width: 0,
+          height: 0,
+          border: 0,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Print Fallback / Reprint Toast */}
+      {printFallbackToast && (
+        <div
+          role="alert"
+          className="fixed bottom-16 right-4 z-50 bg-rose-950 text-white px-4 py-3 rounded-xl shadow-2xl border-2 border-amber-400 flex items-center gap-3 text-xs font-bold"
+        >
+          <span>Print failed for {printFallbackToast.number || "bill"} — bill is saved.</span>
+          <button
+            type="button"
+            onClick={() => {
+              if (printFallbackToast.invoice) {
+                triggerDirectIframePrint(printFallbackToast.invoice, printFallbackToast.format);
+              }
+            }}
+            className="px-3 py-1 rounded-lg bg-[#FDAF18] text-slate-950 font-black cursor-pointer"
+          >
+            Reprint (Ctrl+P)
+          </button>
+          <button
+            type="button"
+            onClick={() => setPrintFallbackToast(null)}
+            className="text-white/70 hover:text-white cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Full History Slide-Over Drawer */}
       {showHistoryDrawer && (
@@ -4436,11 +5087,10 @@ export function PosClient({
             />
 
             <div className="grid grid-cols-2 gap-2 pt-2">
-              <button
+              <Link
                 ref={thermalBtnRef}
-                type="button"
+                href={`/shop/invoices/${finalizedInvoice.id}/print`}
                 onFocus={() => setFinalizedModalFocusIndex(0)}
-                onClick={() => router.push(`/shop/invoices/${finalizedInvoice.id}/print`)}
                 className={`py-3 px-3 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-1 transition-all outline-none cursor-pointer ${
                   finalizedModalFocusIndex === 0
                     ? "bg-slate-900 text-white ring-4 ring-[#FC830D] ring-offset-2 scale-[1.03] shadow-xl"
@@ -4454,13 +5104,12 @@ export function PosClient({
                 <span className="text-[10px] font-mono text-slate-400">
                   {finalizedModalFocusIndex === 0 ? "↵ Enter / [1]" : "[1]"}
                 </span>
-              </button>
+              </Link>
 
-              <button
+              <Link
                 ref={a4BtnRef}
-                type="button"
+                href={`/shop/invoices/${finalizedInvoice.id}/print?format=a4`}
                 onFocus={() => setFinalizedModalFocusIndex(1)}
-                onClick={() => router.push(`/shop/invoices/${finalizedInvoice.id}/print?format=a4`)}
                 className={`py-3 px-3 rounded-xl font-black text-xs flex flex-col items-center justify-center gap-1 transition-all outline-none cursor-pointer ${
                   finalizedModalFocusIndex === 1
                     ? "bg-[#0E2843] text-white ring-4 ring-[#FC830D] ring-offset-2 scale-[1.03] shadow-xl"
@@ -4474,7 +5123,7 @@ export function PosClient({
                 <span className="text-[10px] font-mono text-blue-200">
                   {finalizedModalFocusIndex === 1 ? "↵ Enter / [2]" : "[2]"}
                 </span>
-              </button>
+              </Link>
             </div>
 
             <button

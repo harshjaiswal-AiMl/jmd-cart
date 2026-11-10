@@ -37,7 +37,7 @@ class GodownAlertWatcherService : Service() {
         private const val TAG = "JMDGodownWatcher"
         const val WATCHER_CHANNEL_ID = "jmd_godown_watcher_channel"
         const val WATCHER_NOTIFICATION_ID = 8001
-        private const val POLL_INTERVAL_SECONDS = 6L
+        private const val POLL_INTERVAL_SECONDS = 8L
         private const val DEFAULT_BASE_URL = "https://management.jmdcart.com"
 
         // In-memory cache of snoozed order IDs and expiry timestamps (prevents race-condition re-ringing)
@@ -167,13 +167,17 @@ class GodownAlertWatcherService : Service() {
 
                 // Filter out any locally snoozed or acknowledged orders to guarantee zero race-condition re-ringing
                 val unhandledAlerts = org.json.JSONArray()
+                val seenOrderIds = mutableSetOf<String>()
                 if (hasPendingAlerts && alertsArray != null) {
                     for (i in 0 until alertsArray.length()) {
                         val alertObj = alertsArray.getJSONObject(i)
                         val id = alertObj.optString("orderId")
                         val alertId = alertObj.optString("alertId")
                         if (!isOrderSnoozedOrAcknowledged(id) && !isOrderSnoozedOrAcknowledged(alertId)) {
-                            unhandledAlerts.put(alertObj)
+                            // Deduplicate locally so the same order is NEVER processed twice!
+                            if (seenOrderIds.add(id)) {
+                                unhandledAlerts.put(alertObj)
+                            }
                         }
                     }
                 }
@@ -188,7 +192,26 @@ class GodownAlertWatcherService : Service() {
                 }
 
                 if (unhandledAlerts.length() > 0) {
-                    triggerCallScreen(unhandledAlerts)
+                    // Check if MainActivity is currently in the foreground (user is actively using the app)
+                    if (MainActivity.isAppInForeground) {
+                        // User is actively inside the Godown order dashboard!
+                        // Do NOT hijack the screen with a jarring call popup every few seconds!
+                        if (ContinuousRingtoneService.isCurrentlyRinging) {
+                            ContinuousRingtoneService.muteSoundOnly(this)
+                        }
+                        IncomingOrderCallActivity.currentInstance?.finish()
+                        return
+                    }
+
+                    // Check if IncomingOrderCallActivity is ALREADY active on screen:
+                    val existingCallActivity = IncomingOrderCallActivity.currentInstance
+                    if (existingCallActivity != null && !existingCallActivity.isFinishing) {
+                        // Just update the list without re-launching or flashing the activity!
+                        existingCallActivity.updateOrders(unhandledAlerts)
+                    } else if (!ContinuousRingtoneService.isCurrentlyRinging) {
+                        // Launch call screen ONLY when not already open and not already ringing!
+                        triggerCallScreen(unhandledAlerts)
+                    }
                 } else if (ContinuousRingtoneService.isCurrentlyRinging) {
                     // All pending orders resolved or snoozed! Silence ringtone
                     ContinuousRingtoneService.stopRinging(this)

@@ -736,7 +736,7 @@ export class BillingService {
           );
         }
 
-        // E. Offset party ledger if linked
+        // E. Offset party ledger if linked (reverse invoice debit AND any immediate payment receipts so net balance reverts cleanly)
         if (existing.partyId) {
           await tx.ledgerEntry.create({
             data: {
@@ -748,6 +748,23 @@ export class BillingService {
               referenceId: creditNote.id,
             },
           });
+
+          const totalNonCreditPaidPaise = (existing.payments || [])
+            .filter((p) => p.mode !== "CREDIT")
+            .reduce((sum, p) => sum + p.amountPaise, 0);
+
+          if (totalNonCreditPaidPaise > 0) {
+            await tx.ledgerEntry.create({
+              data: {
+                partyId: existing.partyId,
+                kind: LedgerKind.ADJUSTMENT,
+                debitPaise: totalNonCreditPaidPaise,
+                creditPaise: 0,
+                referenceType: "INVOICE_CANCEL_REFUND",
+                referenceId: creditNote.id,
+              },
+            });
+          }
         }
 
         // F. Reverse incentive entries

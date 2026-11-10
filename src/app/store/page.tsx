@@ -35,7 +35,7 @@ export default async function StorePage({
   const categoryId = searchParams?.categoryId || searchParams?.category;
   const inStockOnly = searchParams?.inStockOnly === "true" || searchParams?.inStock === "true";
   const currentPage = Math.max(1, parseInt(searchParams?.page || "1", 10) || 1);
-  const pageSize = categoryId || searchParams?.q ? 100 : 32;
+  const pageSize = categoryId || searchParams?.q ? 100 : 24;
   const offset = (currentPage - 1) * pageSize;
 
   const queryParams = {

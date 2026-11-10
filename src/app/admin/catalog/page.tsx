@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { UserRole } from "@prisma/client";
 import { catalogService } from "@/modules/catalog/catalog.service";
+import { settingsService } from "@/modules/settings/settings.service";
 import { CatalogClient } from "./catalog-client";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ export default async function AdminCatalogPage({
   const companyId = params?.companyId;
   const categoryId = params?.categoryId;
 
-  const [{ products }, companies, categories] = await Promise.all([
+  const [{ products }, companies, categories, tierModes] = await Promise.all([
     catalogService.searchProducts(session.user.role, {
       q,
       companyId,
@@ -45,6 +46,7 @@ export default async function AdminCatalogPage({
     }),
     catalogService.listCompanies(session.user.role),
     catalogService.listCategories(session.user.role),
+    settingsService.getProductTierModes(),
   ]);
 
   const isReadOnly = session.user.role === UserRole.GODOWN;
@@ -80,6 +82,7 @@ export default async function AdminCatalogPage({
           initialProducts={products}
           companies={companies}
           categories={categories}
+          initialTierModes={tierModes}
           readOnly={isReadOnly}
         />
       </div>

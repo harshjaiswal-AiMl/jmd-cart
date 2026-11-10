@@ -43,7 +43,7 @@ export function PrintViewer({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        router.push("/shop/pos");
+        router.replace("/shop/pos");
       }
     };
     window.addEventListener("keydown", handleKeyDown, true);
@@ -53,7 +53,11 @@ export function PrintViewer({
   useEffect(() => {
     if (autoPrint) {
       const timer = setTimeout(() => {
-        window.print();
+        if (typeof document !== "undefined" && document.fonts?.ready) {
+          document.fonts.ready.then(() => window.print());
+        } else {
+          window.print();
+        }
       }, 400);
       return () => clearTimeout(timer);
     }
@@ -129,7 +133,7 @@ export function PrintViewer({
                       ? "bg-white text-purple-900 shadow-sm font-bold border border-purple-400"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
-                  title="Demand Bill format (with Dues stamp)"
+                  title="Thermal Bill format (80mm)"
                 >
                   <span>📋 Demand Bill</span>
                 </button>

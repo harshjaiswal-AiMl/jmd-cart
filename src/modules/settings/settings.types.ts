@@ -105,6 +105,13 @@ export const invoicePrintSettingsSchema = z.object({
 
 export type InvoicePrintSettings = z.infer<typeof invoicePrintSettingsSchema>;
 
+export interface PosOperationalSettings {
+  showFinalizedModal: boolean;
+  askPartyOnNewBill: boolean;
+  quickFinish: boolean;
+  managerCanDelete: boolean;
+}
+
 export interface AllSettings {
   businessDetails: BusinessDetails;
   roleDiscountLimits: RoleDiscountLimits;

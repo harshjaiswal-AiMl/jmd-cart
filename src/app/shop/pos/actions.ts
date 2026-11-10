@@ -249,6 +249,7 @@ export async function finalizeBillAction(input: {
           invoice.payments.find((p) => p.mode === "CREDIT")?.mode ||
           invoice.payments[0]?.mode ||
           "CASH",
+        fullInvoice: JSON.parse(JSON.stringify(invoice)),
       },
     };
   } catch (err: any) {

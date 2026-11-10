@@ -154,6 +154,7 @@ export async function updateProductPricesInlineAction(input: {
   priceBPaise: number | null;
   priceCPaise: number | null;
   packSize?: number;
+  tierModes?: { a?: "PERCENT" | "RATE"; b?: "PERCENT" | "RATE"; c?: "PERCENT" | "RATE" };
 }): Promise<CatalogActionResult> {
   const session = await auth();
   if (!session?.user?.id || !session.user.role) {
@@ -173,6 +174,12 @@ export async function updateProductPricesInlineAction(input: {
         ...(input.packSize !== undefined ? { packSize: input.packSize } : {}),
       }
     );
+
+    if (input.tierModes) {
+      await settingsService.mergeProductTierModes({
+        [input.id]: input.tierModes,
+      });
+    }
 
     revalidatePath("/admin/catalog");
     revalidatePath("/admin/catalog/price-lists");
@@ -200,6 +207,14 @@ export async function bulkSetPricesPercentOffMrpAction(input: {
       session.user.id,
       input
     );
+
+    if (input.productIds.length > 0) {
+      const modeMap: Record<string, { a: "PERCENT"; b: "PERCENT"; c: "PERCENT" }> = {};
+      for (const pid of input.productIds) {
+        modeMap[pid] = { a: "PERCENT", b: "PERCENT", c: "PERCENT" };
+      }
+      await settingsService.mergeProductTierModes(modeMap);
+    }
 
     revalidatePath("/admin/catalog");
     revalidatePath("/admin/catalog/price-lists");

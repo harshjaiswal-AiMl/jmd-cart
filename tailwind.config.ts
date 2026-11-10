@@ -67,7 +67,7 @@ const config: Config = {
           variant: "#554243",
         },
         outline: {
-          DEFAULT: "#887273",
+          DEFAULT: "#5c4a4b",
           variant: "#dbc0c1",
         },
         error: {

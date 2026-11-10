@@ -70,8 +70,39 @@ class IncomingOrderCallActivity : AppCompatActivity() {
         }
     }
 
+    fun updateOrders(array: JSONArray) {
+        runOnUiThread {
+            val seenIds = mutableSetOf<String>()
+            val newQueue = mutableListOf<OrderAlertItem>()
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val id = obj.optString("orderId")
+                if (id.isEmpty() || !seenIds.add(id)) continue
+
+                val num = obj.optString("orderNumber", "New Order")
+                val cust = obj.optString("customerName", "Customer")
+                val phone = obj.optString("contactPhone", "")
+                val amtPaise = obj.optLong("amountPaise", 0L)
+                val cartons = obj.optInt("cartonCount", 0)
+                val loose = obj.optInt("looseCount", 0)
+                val totalPcs = obj.optInt("totalPieces", 0)
+
+                val amtStr = if (amtPaise > 0) "₹" + String.format("%,.2f", amtPaise / 100.0) else ""
+                val packStr = "📦 $cartons Cartons • $loose Loose Pieces (Total: $totalPcs Pcs)"
+
+                newQueue.add(OrderAlertItem(id, num, cust, phone, amtStr, packStr))
+            }
+            if (newQueue.isNotEmpty()) {
+                orderQueue.clear()
+                orderQueue.addAll(newQueue)
+                displayCurrentOrder()
+            }
+        }
+    }
+
     private fun parseOrderQueue(intent: Intent) {
         orderQueue.clear()
+        val seenIds = mutableSetOf<String>()
         val multiOrdersJson = intent.getStringExtra(ContinuousRingtoneService.EXTRA_MULTI_ORDERS_JSON)
 
         if (!multiOrdersJson.isNullOrEmpty()) {
@@ -80,6 +111,8 @@ class IncomingOrderCallActivity : AppCompatActivity() {
                 for (i in 0 until array.length()) {
                     val obj = array.getJSONObject(i)
                     val id = obj.optString("orderId")
+                    if (id.isEmpty() || !seenIds.add(id)) continue
+
                     val num = obj.optString("orderNumber", "New Order")
                     val cust = obj.optString("customerName", "Customer")
                     val phone = obj.optString("contactPhone", "")

@@ -109,30 +109,14 @@ export function DiwaliStoreSection({
             transform: scale(1.15);
           }
         }
-        .festive-lantern-left {
-          transform-origin: 50% 0px;
-          animation: festiveSwingLeft 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
-        }
-        .festive-lantern-right {
-          transform-origin: 50% 0px;
-          animation: festiveSwingRight 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
-        }
-        .fairy-blink-a {
-          animation: festiveBlinkA 1.1s ease-in-out infinite;
-        }
-        .fairy-blink-b {
-          animation: festiveBlinkB 1.3s ease-in-out infinite;
-        }
-        .fairy-blink-c {
-          animation: festiveBlinkC 0.95s ease-in-out infinite;
-        }
-        .diya-flame-animated {
-          transform-origin: 34px 34px;
-          animation: diyaFlameBurn 1.4s ease-in-out infinite alternate;
-        }
+        .festive-lantern-left,
+        .festive-lantern-right,
+        .fairy-blink-a,
+        .fairy-blink-b,
+        .fairy-blink-c,
+        .diya-flame-animated,
         .diya-aura-animated {
-          transform-origin: 34px 20px;
-          animation: diyaAuraPulse 1.8s ease-in-out infinite;
+          animation: none !important;
         }
       `}</style>
 
@@ -215,12 +199,12 @@ export function DiwaliStoreSection({
           </div>
         </div>
 
-        {/* 3 Festive Shelves: Gifts, Sweets, Dry Fruits */}
+        {/* Festive Shelf Highlight (capped initial render to reduce image & DOM work on mobile) */}
         <div className="relative z-10 space-y-6 sm:space-y-7 pt-4 sm:pt-5">
-          {showcase.shelves.map((shelf) => (
+          {showcase.shelves.slice(0, 1).map((shelf) => (
             <DiwaliShelfRow
               key={shelf.key}
-              shelf={shelf}
+              shelf={{ ...shelf, products: shelf.products.slice(0, 5) }}
               cartQuantities={cartQuantities}
               onAddToCart={onAddToCart}
               onUpdateQty={onUpdateQty}
@@ -606,6 +590,7 @@ function DiwaliShelfRow({
                 {/* Product Image Box - Exactly matching standard catalogue card */}
                 <Link
                   href={`/store/products/${product.id}`}
+                  prefetch={false}
                   className="block aspect-square bg-surface-container-low rounded-xl border border-outline-variant/30 relative p-2 sm:p-3 overflow-hidden group-hover:border-primary/40 transition-colors"
                 >
                   {product.imageUrl ? (

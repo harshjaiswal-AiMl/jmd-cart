@@ -55,6 +55,9 @@ export interface SearchIndexItem {
   parsedWeightBase: number | null; // e.g. 400 for 400g, 1000 for 1kg/1L
   weightValueStr: string; // e.g. "400", "0.4"
   weightDisplay: string; // e.g. "400g", "1kg"
+  mrpRupees: number | null; // e.g. 95 for 9500 paise
+  mrpStr: string; // e.g. "95", "95.5"
+  packSizeStr: string;
   inStock: boolean;
   totalStockPcs: number;
   searchableTokens: string[];
@@ -76,7 +79,7 @@ export function parseWeightToBase(val?: number | null, unit?: string | null): nu
  */
 export function extractWeightFromText(text: string): { value: number; unit: string; base: number } | null {
   if (!text) return null;
-  const match = text.match(/(\d+(?:\.\d+)?)\s*(kg|kilo|gm|g|gram|grams|ltr|l|litre|liter|ml|pcs|pc)\b/i);
+  const match = text.match(/(\d+(?:\.\d+)?)\s*(kgs|kg|kilo|gms|gm|g|grams|gram|ltrs|ltr|lt|l|litres|litre|liters|liter|ml|pcs|pc)\b/i);
   if (!match) return null;
   const val = parseFloat(match[1]);
   if (isNaN(val) || val <= 0) return null;
@@ -230,6 +233,9 @@ export function buildProductSearchIndex(products: SearchableProduct[]): SearchIn
 
     const weightDisplay = p.weight?.trim() || (weightVal ? `${weightVal}${weightU || "g"}` : "");
     const weightValueStr = weightVal !== null ? String(weightVal) : "";
+    const mrpRupees = p.mrpPaise != null && p.mrpPaise > 0 ? p.mrpPaise / 100 : null;
+    const mrpStr = mrpRupees !== null ? (Number.isInteger(mrpRupees) ? String(mrpRupees) : mrpRupees.toFixed(2)) : "";
+    const packSizeStr = p.packSize ? String(p.packSize) : "";
 
     const totalStock = (p.shopStockQty ?? 0) + (p.godownStockQty ?? 0);
     const inStock = totalStock > 0;
@@ -243,6 +249,8 @@ export function buildProductSearchIndex(products: SearchableProduct[]): SearchIn
       weightValueStr,
       weightBase !== null ? `${weightBase}g` : "",
       weightBase !== null ? `${weightBase}` : "",
+      mrpStr,
+      packSizeStr,
       p.packLabel ? p.packLabel.toLowerCase() : "",
     ].filter(Boolean);
 
@@ -256,6 +264,9 @@ export function buildProductSearchIndex(products: SearchableProduct[]): SearchIn
       parsedWeightBase: weightBase,
       weightValueStr,
       weightDisplay,
+      mrpRupees,
+      mrpStr,
+      packSizeStr,
       inStock,
       totalStockPcs: totalStock,
       searchableTokens,
@@ -280,7 +291,7 @@ export function searchItems(
     return [];
   }
 
-  const limit = options?.limit ?? 15;
+  const limit = options?.limit ?? 50;
 
   // Build index if passed raw products
   let index: SearchIndexItem[];
@@ -307,33 +318,45 @@ export function searchItems(
       let tokenMatched = false;
       let tokenScore = 0;
 
-      // 1. Weight token matching
+      // 1. Weight & numeric (MRP, weight, packSize, code) token matching
       const weightInfo = parseQueryTokenForWeight(qTok);
       if (weightInfo.isWeight && item.parsedWeightBase !== null) {
         if (Math.abs(item.parsedWeightBase - weightInfo.baseWeight!) < 0.01) {
           tokenMatched = true;
-          tokenScore += 50; // exact weight match
+          tokenScore += 65; // exact weight match
         }
       } else if (weightInfo.bareNumber !== undefined) {
-        // e.g. "400" or "4"
+        const bareNum = weightInfo.bareNumber;
         const bareStr = weightInfo.bareNumberStr!;
-        // Exact weight base match (e.g. 400g item matches "400")
-        if (item.parsedWeightBase !== null && item.parsedWeightBase === weightInfo.bareNumber) {
+        // Priority 1: Exact MRP match (e.g. "95" -> MRP ₹95, "135" -> MRP ₹135)
+        if (item.mrpRupees !== null && Math.abs(item.mrpRupees - bareNum) < 0.01) {
           tokenMatched = true;
-          tokenScore += 45;
+          tokenScore += 65;
         }
-        // Item weightValue starts with this bare number (e.g. "4" matches 400g or 40g like Busy)
-        else if (item.weightValueStr && item.weightValueStr.startsWith(bareStr)) {
+        // Priority 2: Exact weight base match (e.g. "100" -> 100g/100ml, "400" -> 400g)
+        else if (item.parsedWeightBase !== null && Math.abs(item.parsedWeightBase - bareNum) < 0.01) {
           tokenMatched = true;
-          tokenScore += 30;
+          tokenScore += 60;
         }
-        // Base grams starts with bare number (e.g. 400g matches "4")
-        else if (item.parsedWeightBase !== null && String(item.parsedWeightBase).startsWith(bareStr)) {
+        // Priority 3: Exact packSize match
+        else if (item.packSizeStr === bareStr) {
           tokenMatched = true;
-          tokenScore += 25;
+          tokenScore += 35;
         }
-        // Name contains number prefix
-        else if (item.nameWords.some((w) => w.startsWith(bareStr))) {
+        // Priority 4: Weight value / MRP / base starts with number
+        else if (
+          (item.mrpStr && item.mrpStr.startsWith(bareStr)) ||
+          (item.weightValueStr && item.weightValueStr.startsWith(bareStr)) ||
+          (item.parsedWeightBase !== null && String(item.parsedWeightBase).startsWith(bareStr))
+        ) {
+          tokenMatched = true;
+          tokenScore += 28;
+        }
+        // Priority 5: Name word or short code contains number
+        else if (
+          item.nameWords.some((w) => w.startsWith(bareStr)) ||
+          item.lowerShortCode.includes(bareStr)
+        ) {
           tokenMatched = true;
           tokenScore += 20;
         }
@@ -385,8 +408,14 @@ export function searchItems(
         tokenScore += 15;
       }
 
-      // 6. Typo / edit tolerance on tokens >= 4 chars
-      if (!tokenMatched && qTok.length >= 4) {
+      // 6. Typo / edit tolerance on non-numeric text tokens >= 4 chars
+      if (
+        !tokenMatched &&
+        qTok.length >= 4 &&
+        !weightInfo.isWeight &&
+        weightInfo.bareNumber === undefined &&
+        !/^\d/.test(qTok)
+      ) {
         for (const w of item.nameWords) {
           if (w.length >= 4 && isOneEditAway(qTok, w)) {
             tokenMatched = true;
@@ -430,4 +459,29 @@ export function searchItems(
   });
 
   return matches.slice(0, limit).map((m) => m.item.product);
+}
+
+/**
+ * Splits display text into highlighted/non-highlighted segments matching query tokens.
+ */
+export function splitHighlightSegments(
+  text: string,
+  query: string
+): Array<{ text: string; matched: boolean }> {
+  if (!text) return [];
+  const tokens = query
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t.length >= 2)
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (tokens.length === 0) return [{ text, matched: false }];
+
+  const regex = new RegExp(`(${tokens.join("|")})`, "gi");
+  const parts = text.split(regex);
+  return parts
+    .filter(Boolean)
+    .map((part) => ({
+      text: part,
+      matched: new RegExp(`^(?:${tokens.join("|")})$`, "i").test(part),
+    }));
 }

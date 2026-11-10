@@ -234,6 +234,27 @@ export function ManagementShell({
     }
   };
 
+  // Global Alt+F3: Start a new POS bill from anywhere in Management Shell
+  useEffect(() => {
+    const canPos = ["SHOP", "SUPER_ADMIN", "ADMIN", "ACCOUNTS"].includes(user.role);
+    if (!canPos) return;
+
+    const onAltF3 = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === "F3" || e.code === "F3")) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (pathname === "/shop/pos" || pathname.startsWith("/shop/pos")) {
+          window.dispatchEvent(new CustomEvent("pos-new-bill-alt-f3"));
+        } else {
+          router.push("/shop/pos?new=1");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", onAltF3, { capture: true });
+    return () => window.removeEventListener("keydown", onAltF3, { capture: true });
+  }, [pathname, user.role, router]);
+
   // Ctrl+K shortcut for Command Palette (disabled on /shop/pos to allow dedicated POS item search)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -495,6 +516,7 @@ export function ManagementShell({
                         <Link
                           key={item.id}
                           href={item.href}
+                          prefetch={false}
                           title={
                             isCollapsed
                               ? `${group.name}: ${item.label}`

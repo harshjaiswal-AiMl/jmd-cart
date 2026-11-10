@@ -11,14 +11,14 @@ import { unstable_cache } from "next/cache";
 const getCachedAnonymousHomeData = unstable_cache(
   async () => {
     const [catalogueData, filterOptions, banners, diwaliShowcase] = await Promise.all([
-      storeService.getCatalogue({ limit: 32 }),
+      storeService.getCatalogue({ limit: 20 }),
       storeService.getFilterOptions(),
       bannerService.getActiveBanners(),
       diwaliService.getDiwaliShowcase({}),
     ]);
     return { catalogueData, filterOptions, banners, diwaliShowcase };
   },
-  ["anonymous-store-home-v2"],
+  ["anonymous-store-home-v3"],
   { revalidate: 60, tags: ["catalogue", "banners", "diwali"] }
 );
 

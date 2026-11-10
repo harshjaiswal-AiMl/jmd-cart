@@ -21,7 +21,24 @@ import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        @Volatile
+        var isAppInForeground: Boolean = false
+    }
+
     private lateinit var webView: WebView
+
+    override fun onResume() {
+        super.onResume()
+        isAppInForeground = true
+        // If ringtone was buzzing while opening app, silence sound
+        ContinuousRingtoneService.muteSoundOnly(this)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        isAppInForeground = false
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {

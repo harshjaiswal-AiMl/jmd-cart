@@ -6,7 +6,7 @@ import { settingsService } from "@/modules/settings/settings.service";
 import { previewNextInvoiceNumber } from "@/lib/invoice-number";
 import { PosClient } from "./pos-client";
 
-export default async function ShopPosPage({ searchParams }: { searchParams?: Promise<{ edit?: string }> }) {
+export default async function ShopPosPage({ searchParams }: { searchParams?: Promise<{ edit?: string; new?: string; showFinalized?: string }> }) {
   const session = await auth();
 
   if (!session?.user) {
@@ -44,7 +44,7 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
     ...(godownLocation ? [godownLocation.id] : []),
   ];
 
-  const [productsRaw, companies, categories, partiesRaw, roleLimits, nextInvoicePreview] = await Promise.all([
+  const [productsRaw, companies, categories, partiesRaw, roleLimits, nextInvoicePreview, posSettings, businessDetails] = await Promise.all([
     prisma.product.findMany({
       where: { active: true },
       include: {
@@ -74,6 +74,8 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
         type: true,
         phone: true,
         address: true,
+        gstin: true,
+        creditDays: true,
         creditEnabled: true,
         creditLimitPaise: true,
         ledgerEntries: {
@@ -84,6 +86,8 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
     }),
     settingsService.getRoleDiscountLimits(),
     previewNextInvoiceNumber("INV"),
+    settingsService.getPosOperationalSettings(),
+    settingsService.getBusinessDetails(),
   ]);
 
   const products = productsRaw.map((p) => {
@@ -146,6 +150,8 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
       type: party.type,
       phone: party.phone,
       address: party.address,
+      gstin: party.gstin,
+      creditDays: party.creditDays,
       creditEnabled: party.creditEnabled,
       creditLimitPaise: party.creditLimitPaise,
       currentOutstandingPaise,
@@ -205,6 +211,12 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
       parties={parties}
       nextInvoicePreview={nextInvoicePreview}
       initialEditInvoice={initialEditInvoice}
+      posSettings={{
+        ...posSettings,
+        showFinalizedModal: params?.showFinalized === "1" ? true : posSettings.showFinalizedModal,
+      }}
+      businessDetails={businessDetails}
+      initialStartNewBill={params?.new === "1"}
     />
   );
 }

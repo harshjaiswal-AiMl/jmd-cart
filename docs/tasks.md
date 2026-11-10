@@ -238,3 +238,12 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
   - [x] Part H: Verification, Build, Deploy:
     - Additive database migration `20261102030000_prompt18_godown_alerts_roles`.
     - Unit tests passing.
+- 2026-11-10: Prompt #08 Looping Fix Verification (`fix:`, `perf:`, `ui:`):
+  - [x] G1: Finalized-invoice modal gated behind `pos.showFinalizedModal` (default off) with same-tab print links & `Esc` -> `/shop/pos`.
+  - [x] G2 & G13: Centered `PartySearchModal` via single `Alt+P`, `F3`, and global `Alt+F3` anywhere (`pos.askPartyOnNewBill` default on).
+  - [x] G3 & G12: `F2` Finish modal (`C`/`U`/`R`/`S` Split), `Alt+C/U/R`, `pos.quickFinish`, hidden iframe direct print on `/shop/pos`, bold `#000` 5-col thermal/A4 template with ZERO dues/balance.
+  - [x] G10: `F8` discard bill confirmation, `F9` row delete, Invoice Delete (void) with `SALE_CANCEL` stock + exact CASH/UPI/CREDIT ledger reversal, `Show cancelled` toggle, `invoice.managerCanDelete` setting.
+  - [x] G11: Normalized weight + MRP + partial word search (`100 gm 95`, `135`, `50g`, `meat 100`) across POS, `Ctrl+K`, and Catalog.
+  - [x] G4: Linked Price + Percent inputs per A/B/C tier with persisted `PERCENT`/`RATE` modes and `>=50%` / tier-order validation warnings.
+  - [x] G5 & G9: Keyboard-only 5-item POS billing (`>=16px` grid, 3px `#790E11` active outline, `#FEFDF7` cream / `#790E11` maroon / `#FDAF18` amber light theme, bottom key legend bar).
+  - [x] G6 & G7: Eliminated infinite image `onError` retries, blocking Google Fonts CSS, mount IP geo calls, festive infinite CSS loops, and off-screen RSC prefetches; fixed Lighthouse A11y contrast & tap targets.

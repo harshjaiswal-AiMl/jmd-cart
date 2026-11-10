@@ -8,11 +8,13 @@ export function StoreFooter() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Column 1: Brand & Regional Depot Info */}
           <div className="space-y-4">
-            <Link href="/" className="flex items-center gap-2">
+            <Link prefetch={false} href="/" className="flex items-center gap-2">
               <img
                 src="/brand/jmd-cart-logo.png"
                 alt="JMD Cart Logo"
-                className="h-9 w-auto object-contain"
+                width={36}
+                height={36}
+                className="h-9 w-9 object-contain"
               />
               <span className="font-headline text-2xl tracking-tight text-primary font-bold">
                 JMD<span className="text-secondary">Cart</span>
@@ -34,28 +36,28 @@ export function StoreFooter() {
             </h4>
             <ul className="space-y-2 text-xs text-on-surface-variant font-medium">
               <li>
-                <Link href="/store" className="hover:text-primary transition-colors">
+                <Link prefetch={false} href="/store" className="hover:text-primary transition-colors">
                   All Groceries & Staples
                 </Link>
               </li>
               <li>
-                <Link href="/store/wholesale" className="hover:text-primary transition-colors flex items-center gap-1">
+                <Link prefetch={false} href="/store/wholesale" className="hover:text-primary transition-colors flex items-center gap-1">
                   <span>B2B Wholesale Hub</span>
                   <span className="text-[10px] bg-secondary-fixed text-on-secondary-fixed px-1.5 py-0.2 rounded font-bold">Bulk</span>
                 </Link>
               </li>
               <li>
-                <Link href="/store/orders" className="hover:text-primary transition-colors">
+                <Link prefetch={false} href="/store/orders" className="hover:text-primary transition-colors">
                   Track Your Order
                 </Link>
               </li>
               <li>
-                <Link href="/store/checkout" className="hover:text-primary transition-colors">
+                <Link prefetch={false} href="/store/checkout" className="hover:text-primary transition-colors">
                   Review Shopping Cart
                 </Link>
               </li>
               <li>
-                <Link href="/login" className="hover:text-primary transition-colors">
+                <Link prefetch={false} href="/login" className="hover:text-primary transition-colors">
                   Customer Sign In
                 </Link>
               </li>
@@ -69,27 +71,27 @@ export function StoreFooter() {
             </h4>
             <ul className="space-y-2 text-xs text-on-surface-variant font-medium">
               <li>
-                <Link href="/store?categoryId=Rice%20%26%20Aata" className="hover:text-primary transition-colors">
+                <Link prefetch={false} href="/store?categoryId=Rice%20%26%20Aata" className="hover:text-primary transition-colors">
                   Aashirvaad & Regional Atta
                 </Link>
               </li>
               <li>
-                <Link href="/store?categoryId=Spices%20%26%20Masala" className="hover:text-primary transition-colors">
+                <Link prefetch={false} href="/store?categoryId=Spices%20%26%20Masala" className="hover:text-primary transition-colors">
                   MDH Authentic Spices & Masala
                 </Link>
               </li>
               <li>
-                <Link href="/store?categoryId=Ghee%20%26%20Oils" className="hover:text-primary transition-colors">
+                <Link prefetch={false} href="/store?categoryId=Ghee%20%26%20Oils" className="hover:text-primary transition-colors">
                   Saloni Kacchi Ghani Mustard Oil
                 </Link>
               </li>
               <li>
-                <Link href="/store?categoryId=Biscuit%20%26%20Snacks" className="hover:text-primary transition-colors">
+                <Link prefetch={false} href="/store?categoryId=Biscuit%20%26%20Snacks" className="hover:text-primary transition-colors">
                   Bikaji Namkeen & Sweets
                 </Link>
               </li>
               <li>
-                <Link href="/store?categoryId=Personal%20Care" className="hover:text-primary transition-colors">
+                <Link prefetch={false} href="/store?categoryId=Personal%20Care" className="hover:text-primary transition-colors">
                   Himalaya & Denver Grooming
                 </Link>
               </li>
@@ -128,19 +130,19 @@ export function StoreFooter() {
         {/* Legal & Policy Navigation Strip */}
         <div className="pt-6 border-t border-surface-container-high/80 flex flex-wrap items-center justify-between gap-3 text-xs text-on-surface-variant">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-semibold">
-            <Link href="/privacy" className="hover:text-primary transition-colors">
+            <Link prefetch={false} href="/privacy" className="hover:text-primary transition-colors">
               Privacy Policy
             </Link>
             <span className="opacity-30 hidden sm:inline">•</span>
-            <Link href="/terms" className="hover:text-primary transition-colors">
+            <Link prefetch={false} href="/terms" className="hover:text-primary transition-colors">
               Terms & Conditions
             </Link>
             <span className="opacity-30 hidden sm:inline">•</span>
-            <Link href="/cookie-policy" className="hover:text-primary transition-colors">
+            <Link prefetch={false} href="/cookie-policy" className="hover:text-primary transition-colors">
               Cookie Policy
             </Link>
             <span className="opacity-30 hidden sm:inline">•</span>
-            <Link href="/refund-policy" className="hover:text-primary transition-colors">
+            <Link prefetch={false} href="/refund-policy" className="hover:text-primary transition-colors">
               Refund & Cancellation
             </Link>
           </div>

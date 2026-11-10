@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { ProductWithDetails } from "@/modules/catalog/catalog.types";
+import { buildProductSearchIndex, searchItems } from "@/lib/search/smart-search";
 import {
   createProductAction,
   updateProductAction,
@@ -30,6 +31,7 @@ interface CatalogClientProps {
   initialProducts: ProductWithDetails[];
   companies: { id: string; name: string }[];
   categories: { id: string; name: string }[];
+  initialTierModes?: Record<string, { a?: "PERCENT" | "RATE"; b?: "PERCENT" | "RATE"; c?: "PERCENT" | "RATE" }>;
   readOnly?: boolean;
 }
 
@@ -106,6 +108,7 @@ export function CatalogClient({
   initialProducts,
   companies,
   categories,
+  initialTierModes = {},
   readOnly = false,
 }: CatalogClientProps) {
   const [products, setProducts] = useState<ProductWithDetails[]>(initialProducts);
@@ -290,6 +293,11 @@ export function CatalogClient({
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Persisted Tier Modes (PERCENT vs RATE) per product so MRP updates recompute PERCENT tiers cleanly
+  const [tierModes, setTierModes] = useState<
+    Record<string, { a?: "PERCENT" | "RATE"; b?: "PERCENT" | "RATE"; c?: "PERCENT" | "RATE" }>
+  >(initialTierModes);
+
   // Inline edits state map: productId -> { mrp, a, b, c, pctA, pctB, pctC, packSize }
   const [inlineEdits, setInlineEdits] = useState<
     Record<
@@ -308,6 +316,8 @@ export function CatalogClient({
     >
   >({});
 
+  const catalogSearchIndex = useMemo(() => buildProductSearchIndex(products as any), [products]);
+
   const [createState, formAction] = useFormState<CatalogActionResult | undefined, FormData>(
     async (prev, formData) => {
       const res = await createProductAction(prev, formData);
@@ -320,20 +330,24 @@ export function CatalogClient({
     undefined
   );
 
-  const filteredProducts = products.filter((product) => {
-    const term = searchTerm.toLowerCase().trim();
-    let matchesSearch = true;
+  const filteredProducts = useMemo(() => {
+    const term = searchTerm.trim();
+    let matchedIdOrder: Map<string, number> | null = null;
     if (term) {
-      const tokens = term.split(/\s+/).filter(Boolean);
-      const searchStr = `${product.name} ${product.shortCode} ${product.weight || ""} ${product.company?.name || ""}`.toLowerCase();
-      matchesSearch = tokens.every((tok) => searchStr.includes(tok));
+      const hits = searchItems(term, catalogSearchIndex, { limit: 1000 });
+      matchedIdOrder = new Map(hits.map((h, i) => [h.id, i]));
     }
-
-    const matchesCompany = !selectedCompany || product.companyId === selectedCompany;
-    const matchesCategory = !selectedCategory || product.categoryId === selectedCategory;
-
-    return matchesSearch && matchesCompany && matchesCategory;
-  });
+    const list = products.filter((product) => {
+      if (matchedIdOrder && !matchedIdOrder.has(product.id)) return false;
+      const matchesCompany = !selectedCompany || product.companyId === selectedCompany;
+      const matchesCategory = !selectedCategory || product.categoryId === selectedCategory;
+      return matchesCompany && matchesCategory;
+    });
+    if (matchedIdOrder) {
+      list.sort((a, b) => (matchedIdOrder!.get(a.id) ?? 9999) - (matchedIdOrder!.get(b.id) ?? 9999));
+    }
+    return list;
+  }, [products, searchTerm, catalogSearchIndex, selectedCompany, selectedCategory]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -369,17 +383,38 @@ export function CatalogClient({
       dirty: true,
     };
 
+    const existingModes = tierModes[p.id] || {};
     const mrpPaise = parseInputToPaise(field === "mrp" ? value : current.mrp);
+
     if (field === "a") {
       updated.pctA = calculatePercentFromPrice(mrpPaise, parseInputToPaise(value));
+      setTierModes((prev) => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), a: "RATE" } }));
     } else if (field === "b") {
       updated.pctB = calculatePercentFromPrice(mrpPaise, parseInputToPaise(value));
+      setTierModes((prev) => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), b: "RATE" } }));
     } else if (field === "c") {
       updated.pctC = calculatePercentFromPrice(mrpPaise, parseInputToPaise(value));
+      setTierModes((prev) => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), c: "RATE" } }));
     } else if (field === "mrp") {
-      updated.pctA = calculatePercentFromPrice(mrpPaise, parseInputToPaise(current.a));
-      updated.pctB = calculatePercentFromPrice(mrpPaise, parseInputToPaise(current.b));
-      updated.pctC = calculatePercentFromPrice(mrpPaise, parseInputToPaise(current.c));
+      // PERCENT tiers keep their % and recompute price; RATE tiers keep their rupee price and update %
+      if (existingModes.a === "PERCENT" && current.pctA) {
+        const pA = calculatePriceFromPercent(mrpPaise, current.pctA);
+        if (pA != null) updated.a = paiseToRupeesString(pA);
+      } else {
+        updated.pctA = calculatePercentFromPrice(mrpPaise, parseInputToPaise(current.a));
+      }
+      if (existingModes.b === "PERCENT" && current.pctB) {
+        const pB = calculatePriceFromPercent(mrpPaise, current.pctB);
+        if (pB != null) updated.b = paiseToRupeesString(pB);
+      } else {
+        updated.pctB = calculatePercentFromPrice(mrpPaise, parseInputToPaise(current.b));
+      }
+      if (existingModes.c === "PERCENT" && current.pctC) {
+        const pC = calculatePriceFromPercent(mrpPaise, current.pctC);
+        if (pC != null) updated.c = paiseToRupeesString(pC);
+      } else {
+        updated.pctC = calculatePercentFromPrice(mrpPaise, parseInputToPaise(current.c));
+      }
     }
 
     setInlineEdits((prev) => ({
@@ -400,6 +435,7 @@ export function CatalogClient({
 
     const pctKey = tier === "a" ? "pctA" : tier === "b" ? "pctB" : "pctC";
 
+    setTierModes((prev) => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), [tier]: "PERCENT" } }));
     setInlineEdits((prev) => ({
       ...prev,
       [p.id]: {
@@ -418,6 +454,7 @@ export function CatalogClient({
     const priceBPaise = parseInputToPaise(row.b);
     const priceCPaise = parseInputToPaise(row.c);
     const packSize = Math.max(1, parseInt(row.packSize || "1", 10) || 1);
+    const productModes = tierModes[p.id];
 
     startTransition(async () => {
       const res = await updateProductPricesInlineAction({
@@ -427,6 +464,7 @@ export function CatalogClient({
         priceBPaise,
         priceCPaise,
         packSize,
+        tierModes: productModes,
       });
 
       if (res.error) {
@@ -1709,25 +1747,36 @@ export function CatalogClient({
                           </div>
                         ) : (
                           <div>
-                            <input
-                              type="number"
-                              step="0.01"
-                              placeholder="—"
-                              value={row.a}
-                              onChange={(e) => handleInlineChange(p, "a", e.target.value)}
-                              className={`w-24 px-2 py-1 text-right font-mono text-xs font-bold border rounded focus:ring-1 ${
-                                mrpPaiseVal && parseInputToPaise(row.a) && parseInputToPaise(row.a)! > mrpPaiseVal
-                                  ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
-                                  : "border-emerald-300 bg-emerald-50/30 text-slate-900 focus:border-emerald-600"
-                              }`}
-                            />
+                            <div className="flex items-center justify-end gap-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="—"
+                                data-tier-price="A"
+                                aria-label={`Tier A price for ${p.name}`}
+                                value={row.a}
+                                onChange={(e) => handleInlineChange(p, "a", e.target.value)}
+                                className={`w-24 px-2 py-1 text-right font-mono text-xs font-bold border rounded focus:ring-1 ${
+                                  mrpPaiseVal && parseInputToPaise(row.a) && parseInputToPaise(row.a)! > mrpPaiseVal
+                                    ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
+                                    : "border-emerald-300 bg-emerald-50/30 text-slate-900 focus:border-emerald-600"
+                                }`}
+                              />
+                            </div>
                             <div className="flex items-center justify-end gap-1 mt-1">
+                              {tierModes[p.id]?.a === "PERCENT" && (
+                                <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold" title="Percent-locked: updates automatically on MRP change">
+                                  %mode
+                                </span>
+                              )}
                               <input
                                 type="number"
                                 step="0.01"
                                 min="0"
                                 max="99.99"
                                 placeholder="0.00"
+                                data-tier-percent="A"
+                                aria-label={`Tier A discount percent for ${p.name}`}
                                 disabled={!mrpPaiseVal || mrpPaiseVal <= 0}
                                 value={row.pctA ?? ""}
                                 onChange={(e) => handleInlinePercentChange(p, "a", e.target.value)}
@@ -1739,6 +1788,10 @@ export function CatalogClient({
                             {mrpPaiseVal && parseInputToPaise(row.a) && parseInputToPaise(row.a)! > mrpPaiseVal ? (
                               <div className="text-[9px] text-rose-600 font-bold leading-tight mt-0.5 max-w-[120px]">
                                 &gt; MRP (Legal Metrology)
+                              </div>
+                            ) : mrpPaiseVal && mrpPaiseVal > 0 && aPaiseVal != null && ((mrpPaiseVal - aPaiseVal) / mrpPaiseVal) >= 0.5 ? (
+                              <div className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1 rounded font-bold leading-tight mt-0.5 max-w-[120px] ml-auto">
+                                ≥50% off! Check rate
                               </div>
                             ) : null}
                           </div>
@@ -1759,25 +1812,36 @@ export function CatalogClient({
                           </div>
                         ) : (
                           <div>
-                            <input
-                              type="number"
-                              step="0.01"
-                              placeholder="—"
-                              value={row.b}
-                              onChange={(e) => handleInlineChange(p, "b", e.target.value)}
-                              className={`w-24 px-2 py-1 text-right font-mono text-xs font-bold border rounded focus:ring-1 ${
-                                mrpPaiseVal && parseInputToPaise(row.b) && parseInputToPaise(row.b)! > mrpPaiseVal
-                                  ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
-                                  : "border-blue-300 bg-blue-50/30 text-slate-900 focus:border-blue-600"
-                              }`}
-                            />
+                            <div className="flex items-center justify-end gap-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="—"
+                                data-tier-price="B"
+                                aria-label={`Tier B price for ${p.name}`}
+                                value={row.b}
+                                onChange={(e) => handleInlineChange(p, "b", e.target.value)}
+                                className={`w-24 px-2 py-1 text-right font-mono text-xs font-bold border rounded focus:ring-1 ${
+                                  mrpPaiseVal && parseInputToPaise(row.b) && parseInputToPaise(row.b)! > mrpPaiseVal
+                                    ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
+                                    : "border-blue-300 bg-blue-50/30 text-slate-900 focus:border-blue-600"
+                                }`}
+                              />
+                            </div>
                             <div className="flex items-center justify-end gap-1 mt-1">
+                              {tierModes[p.id]?.b === "PERCENT" && (
+                                <span className="text-[9px] px-1 py-0.2 rounded bg-blue-100 text-blue-800 font-bold" title="Percent-locked: updates automatically on MRP change">
+                                  %mode
+                                </span>
+                              )}
                               <input
                                 type="number"
                                 step="0.01"
                                 min="0"
                                 max="99.99"
                                 placeholder="0.00"
+                                data-tier-percent="B"
+                                aria-label={`Tier B discount percent for ${p.name}`}
                                 disabled={!mrpPaiseVal || mrpPaiseVal <= 0}
                                 value={row.pctB ?? ""}
                                 onChange={(e) => handleInlinePercentChange(p, "b", e.target.value)}
@@ -1789,6 +1853,10 @@ export function CatalogClient({
                             {mrpPaiseVal && parseInputToPaise(row.b) && parseInputToPaise(row.b)! > mrpPaiseVal ? (
                               <div className="text-[9px] text-rose-600 font-bold leading-tight mt-0.5 max-w-[120px]">
                                 &gt; MRP (Legal Metrology)
+                              </div>
+                            ) : mrpPaiseVal && mrpPaiseVal > 0 && bPaiseVal != null && ((mrpPaiseVal - bPaiseVal) / mrpPaiseVal) >= 0.5 ? (
+                              <div className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1 rounded font-bold leading-tight mt-0.5 max-w-[120px] ml-auto">
+                                ≥50% off! Check rate
                               </div>
                             ) : null}
                           </div>
@@ -1809,25 +1877,36 @@ export function CatalogClient({
                           </div>
                         ) : (
                           <div>
-                            <input
-                              type="number"
-                              step="0.01"
-                              placeholder="—"
-                              value={row.c}
-                              onChange={(e) => handleInlineChange(p, "c", e.target.value)}
-                              className={`w-24 px-2 py-1 text-right font-mono text-xs font-bold border rounded focus:ring-1 ${
-                                mrpPaiseVal && parseInputToPaise(row.c) && parseInputToPaise(row.c)! > mrpPaiseVal
-                                  ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
-                                  : "border-amber-300 bg-amber-50/30 text-slate-900 focus:border-amber-600"
-                              }`}
-                            />
+                            <div className="flex items-center justify-end gap-1">
+                              <input
+                                type="number"
+                                step="0.01"
+                                placeholder="—"
+                                data-tier-price="C"
+                                aria-label={`Tier C price for ${p.name}`}
+                                value={row.c}
+                                onChange={(e) => handleInlineChange(p, "c", e.target.value)}
+                                className={`w-24 px-2 py-1 text-right font-mono text-xs font-bold border rounded focus:ring-1 ${
+                                  mrpPaiseVal && parseInputToPaise(row.c) && parseInputToPaise(row.c)! > mrpPaiseVal
+                                    ? "border-rose-500 bg-rose-50 text-rose-800 focus:border-rose-600"
+                                    : "border-amber-300 bg-amber-50/30 text-slate-900 focus:border-amber-600"
+                                }`}
+                              />
+                            </div>
                             <div className="flex items-center justify-end gap-1 mt-1">
+                              {tierModes[p.id]?.c === "PERCENT" && (
+                                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-100 text-amber-800 font-bold" title="Percent-locked: updates automatically on MRP change">
+                                  %mode
+                                </span>
+                              )}
                               <input
                                 type="number"
                                 step="0.01"
                                 min="0"
                                 max="99.99"
                                 placeholder="0.00"
+                                data-tier-percent="C"
+                                aria-label={`Tier C discount percent for ${p.name}`}
                                 disabled={!mrpPaiseVal || mrpPaiseVal <= 0}
                                 value={row.pctC ?? ""}
                                 onChange={(e) => handleInlinePercentChange(p, "c", e.target.value)}
@@ -1839,6 +1918,10 @@ export function CatalogClient({
                             {mrpPaiseVal && parseInputToPaise(row.c) && parseInputToPaise(row.c)! > mrpPaiseVal ? (
                               <div className="text-[9px] text-rose-600 font-bold leading-tight mt-0.5 max-w-[120px]">
                                 &gt; MRP (Legal Metrology)
+                              </div>
+                            ) : mrpPaiseVal && mrpPaiseVal > 0 && cPaiseVal != null && ((mrpPaiseVal - cPaiseVal) / mrpPaiseVal) >= 0.5 ? (
+                              <div className="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1 rounded font-bold leading-tight mt-0.5 max-w-[120px] ml-auto">
+                                ≥50% off! Check rate
                               </div>
                             ) : null}
                           </div>

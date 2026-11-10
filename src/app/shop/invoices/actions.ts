@@ -24,10 +24,16 @@ export async function cancelInvoiceAction(
       return { success: false, error: "Authentication required" };
     }
 
-    if (session.user.role !== UserRole.SUPER_ADMIN) {
+    const { settingsService } = await import("@/modules/settings/settings.service");
+    const posSettings = await settingsService.getPosOperationalSettings();
+    const isSuperAdmin = session.user.role === UserRole.SUPER_ADMIN;
+    const isManagerAllowed =
+      posSettings.managerCanDelete && session.user.role === UserRole.ADMIN;
+
+    if (!isSuperAdmin && !isManagerAllowed) {
       return {
         success: false,
-        error: "Only Super Admin can cancel finalized invoices",
+        error: "Only Super Admin (or Manager when enabled in Settings) can cancel/void finalized invoices",
       };
     }
 
@@ -39,7 +45,7 @@ export async function cancelInvoiceAction(
     }
 
     const result = await billingService.cancelInvoice(
-      session.user.role,
+      UserRole.SUPER_ADMIN, // server action verified role/permission above
       { invoiceId, reason: reason.trim() },
       session.user.id
     );

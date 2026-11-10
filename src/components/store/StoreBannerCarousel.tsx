@@ -103,9 +103,11 @@ export function StoreBannerCarousel({ banners }: StoreBannerCarouselProps) {
                     decoding={idx === 0 ? "sync" : "async"}
                     className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.015]"
                     onError={(e) => {
-                      if (banner.imageUrl && e.currentTarget.src !== banner.imageUrl) {
-                        e.currentTarget.src = banner.imageUrl;
+                      if (e.currentTarget.dataset.fallbackTried) return;
+                      e.currentTarget.dataset.fallbackTried = "1";
+                      if (banner.imageUrl) {
                         e.currentTarget.removeAttribute("srcset");
+                        e.currentTarget.src = banner.imageUrl;
                       }
                     }}
                   />
@@ -135,20 +137,24 @@ export function StoreBannerCarousel({ banners }: StoreBannerCarouselProps) {
               <span className="material-symbols-outlined text-[20px]">chevron_right</span>
             </button>
 
-            {/* Dots Indicator - Modern subtle pill indicator */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 bg-black/35 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10 shadow-xs">
+            {/* Dots Indicator - accessible >= 24x24px hit targets */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 z-20 bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-full border border-white/10 shadow-xs">
               {activeBanners.map((_, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => setCurrentIndex(i)}
                   aria-label={`Go to slide ${i + 1}`}
-                  className={`transition-all duration-300 rounded-full ${
-                    currentIndex === i
-                      ? "w-5 h-1.5 bg-white shadow-xs"
-                      : "w-1.5 h-1.5 bg-white/50 hover:bg-white/80"
-                  }`}
-                />
+                  className="min-w-[24px] min-h-[24px] flex items-center justify-center cursor-pointer focus:outline-none"
+                >
+                  <span
+                    className={`block transition-all duration-300 rounded-full ${
+                      currentIndex === i
+                        ? "w-5 h-1.5 bg-white shadow-xs"
+                        : "w-1.5 h-1.5 bg-white/60 hover:bg-white/90"
+                    }`}
+                  />
+                </button>
               ))}
             </div>
           </>

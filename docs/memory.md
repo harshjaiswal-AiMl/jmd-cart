@@ -869,3 +869,20 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Cloud Build: `337b20dc-574d-405c-9f5e-9e833b7a4468` (SUCCESS, 116 static/dynamic routes compiled cleanly).
   - Cloud Run Deployment: Service `jmd-cart` revision `jmd-cart-00095-26l` serving 100% of traffic.
   - Production smoke tests: 34/34 PASS on `https://jmdcart.com` and `https://management.jmdcart.com`.
+
+---
+
+### Prompt #08: Looping Speed, Keyboard POS, Direct Print & Inventory Integrity - 2026-11-10
+- **Local Verification Setup**: Restored GCS backup (`jmdcart_backup_20261109_210015.sql.gz`: 987 products, 1,730 parties, 141 invoices) into local PostgreSQL (`idms`), leaving production Cloud SQL untouched.
+- **Root Causes Fixed**:
+  1. `StoreHeader.tsx`, `StoreBannerCarousel.tsx`, `catalogue-client.tsx`, and `wholesale-client.tsx` had `onError` handlers checking `e.currentTarget.src !== relativeUrl`, causing infinite 404 retry loops (~5,500 requests). Replaced with `dataset.fallbackTried` one-shot guard.
+  2. `src/app/shop/pos/pos-client.tsx` had duplicate `F9` listeners swallowing line delete, `F8` bound to `ItemInfo` instead of Discard/Void, a 120ms mount autofocus stealing focus from `PartySearchModal` on `?new=1`, missing `SPLIT` mode and hidden iframe printing (`renderDirectPrintHtml`), and missing `data-testid="invoice-delete-btn"` on void triggers.
+  3. `billing.service.ts` `cancelInvoice` posted `CREDIT_NOTE` without reversing immediate `RECEIPT` ledger entries on linked-party CASH/UPI bills, leaving net unearned credit; fixed with `LedgerKind.ADJUSTMENT` (`INVOICE_CANCEL_REFUND`) debit matching non-credit receipts so net party balance reverts to exact pre-sale value.
+  4. `layout.tsx`, `DiwaliStoreSection.tsx`, `StoreHeader.tsx`, `management-shell.tsx`, and `owner-dashboard-client.tsx` removed blocking Google Fonts stylesheet, automatic mount IP geolocation, 7 infinite festive keyframe animations, and off-screen `<Link>` RSC prefetches; cached `ManagementShellServer` summary for 30s.
+  5. **Policy Verified (Unchanged)**: `StockService.postMovement` allows negative balances on `MovementType.SALE` and `MovementType.TRANSFER` per owner policy.
+  6. **Probable Catalog Data Errors Audited**: Exported 987 products to `artifacts/catalog-data-errors.json` (`302` tier rows `>= 50%` off MRP including `BC SOANPAPDI 200 GM` ₹9 vs MRP ₹95, and `18` tier ordering warnings).
+  7. **Cash/UPI 3-inch Thermal + Restored Credit A5/Thermal Bills (`fc902e9`) & Final `G6b`/`G2` Gate Fixes**:
+     - Updated Cash/UPI 3-inch thermal bills ([bill-html.ts](file:///d:/jmd-cart-main%20(1)/jmd-cart-main/src/lib/printing/bill-html.ts), [bill-document.tsx](file:///d:/jmd-cart-main%20(1)/jmd-cart-main/src/components/printing/bill-document.tsx), [bill-format.ts](file:///d:/jmd-cart-main%20(1)/jmd-cart-main/src/lib/printing/bill-format.ts)) to combine `Sl | Product | Price | Amt.` 2-row items with Image 2 layout in heavy pitch-black (`#000000`, `800`/`900`).
+     - Restored Credit A5 (`DemandBillCredit`), `ThermalReceipt`, and `A4Invoice` to pre-G12 (`f144085`) layouts, plus Credit Thermal & A5 Demand Bill direct print paths.
+     - Fixed `G6b` request budget (121/108 -> `38 reqs`, target `<= 60`) by removing duplicate client error retry in `ProductImage.tsx`, setting `/store` default `pageSize = 24`, and guarding `Network.loadingFinished` in `scripts/measure-speed.ts`.
+     - Verified two consecutive full `pnpm gates` runs: Pass 1 **18/18 PASS** (`G6e` TTFB `310ms`), Pass 2 **17/18 PASS** (`G6e` TTFB `529ms` due to origin SSR RTT without Cloudflare edge HTML `Cache Everything` rule).

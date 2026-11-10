@@ -182,50 +182,8 @@ export function StoreHeader({
     if (existingDisplay) {
       setCurrentLocationText(existingDisplay);
     } else {
-      // Auto-detect real location dynamically
-      const autoDetect = async () => {
-        // If GPS permission is already granted, use it immediately
-        if (navigator.geolocation && navigator.permissions?.query) {
-          try {
-            const perm = await navigator.permissions.query({ name: "geolocation" });
-            if (perm.state === "granted") {
-              navigator.geolocation.getCurrentPosition(
-                async (pos) => {
-                  if (!isMounted) return;
-                  try {
-                    const lat = pos.coords.latitude;
-                    const lng = pos.coords.longitude;
-                    const res = await fetch(`/api/store/geo/reverse?lat=${lat}&lng=${lng}`);
-                    const data = await res.json();
-                    if (data.success && isMounted && (data.city || data.area)) {
-                      const locLabel = [data.area, data.city].filter(Boolean).join(", ") || data.city;
-                      const fullText = data.pincode ? `${locLabel} (${data.pincode})` : locLabel;
-                      applyNewLocation(fullText, data);
-                      return;
-                    }
-                  } catch {}
-                  if (isMounted) resolveRealLocationCascade();
-                },
-                () => {
-                  if (isMounted) resolveRealLocationCascade();
-                },
-                { enableHighAccuracy: true, timeout: 6000 }
-              );
-              return;
-            }
-          } catch {}
-        }
-
-        // Silent IP resolution cascade
-        if (isMounted) {
-          const success = await resolveRealLocationCascade();
-          if (!success && isMounted) {
-            setCurrentLocationText("Select Location");
-          }
-        }
-      };
-
-      autoDetect();
+      // Non-blocking fast default; user can detect GPS/IP when clicking location pill
+      setCurrentLocationText("Saharsa (852201)");
     }
 
     // Cross-tab and in-page location sync listener
@@ -410,7 +368,7 @@ export function StoreHeader({
         <div className="h-16 md:h-20 max-w-[1280px] mx-auto px-2.5 sm:px-4 lg:px-8 flex items-center justify-between gap-1.5 sm:gap-4">
           {/* Logo & Interactive Location Trigger */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
-            <Link href="/" className="flex items-center gap-1 sm:gap-2 group shrink-0">
+            <Link prefetch={false} href="/" className="flex items-center gap-1 sm:gap-2 group shrink-0">
               <img
                 src="/brand/jmd-cart-logo.png"
                 alt="JMD Cart Logo"
@@ -497,7 +455,7 @@ export function StoreHeader({
                     </div>
                     <div className="max-h-[340px] overflow-y-auto divide-y divide-surface-container-low">
                       {searchResults.map((item) => (
-                        <Link
+                        <Link prefetch={false}
                           key={item.id}
                           href={`/store/products/${item.id}`}
                           onClick={() => setShowDropdown(false)}
@@ -514,7 +472,9 @@ export function StoreHeader({
                                 decoding="async"
                                 className="w-full h-full object-contain"
                                 onError={(e) => {
-                                  if (item.imageUrl && e.currentTarget.src !== item.imageUrl) {
+                                  if (e.currentTarget.dataset.fallbackTried) return;
+                                  e.currentTarget.dataset.fallbackTried = "1";
+                                  if (item.imageUrl) {
                                     e.currentTarget.src = item.imageUrl;
                                   }
                                 }}
@@ -593,7 +553,7 @@ export function StoreHeader({
           {/* Action Controls */}
           <div className="flex items-center gap-1 sm:gap-2.5 lg:gap-3 shrink-0">
             {/* Wholesale Hub CTA */}
-            <Link
+            <Link prefetch={false}
               href="/store/wholesale"
               className="hidden lg:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-secondary-fixed text-on-secondary-fixed font-bold text-xs shadow-2xs hover:bg-secondary-fixed-dim transition-colors"
             >
@@ -624,7 +584,7 @@ export function StoreHeader({
                   </div>
                 </button>
               ) : (
-                <Link
+                <Link prefetch={false}
                   href="/login"
                   className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg border border-outline-variant/60 hover:bg-surface-container-low text-xs font-bold text-on-surface transition-colors cursor-pointer"
                 >
@@ -649,7 +609,7 @@ export function StoreHeader({
 
                   {/* All Account Features as Separate Options */}
                   <div className="py-1">
-                    <Link
+                    <Link prefetch={false}
                       href="/store/account?tab=orders"
                       onClick={() => setAccountDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
@@ -658,7 +618,7 @@ export function StoreHeader({
                       <span>My Orders</span>
                     </Link>
 
-                    <Link
+                    <Link prefetch={false}
                       href="/store/account?tab=addresses"
                       onClick={() => setAccountDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
@@ -667,7 +627,7 @@ export function StoreHeader({
                       <span>Saved Addresses</span>
                     </Link>
 
-                    <Link
+                    <Link prefetch={false}
                       href="/store/account?tab=profile"
                       onClick={() => setAccountDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
@@ -676,7 +636,7 @@ export function StoreHeader({
                       <span>Profile &amp; GST Details</span>
                     </Link>
 
-                    <Link
+                    <Link prefetch={false}
                       href="/store/wishlist"
                       onClick={() => setAccountDropdownOpen(false)}
                       className="flex items-center justify-between px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
@@ -692,7 +652,7 @@ export function StoreHeader({
                       )}
                     </Link>
 
-                    <Link
+                    <Link prefetch={false}
                       href="/store/account?tab=security"
                       onClick={() => setAccountDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-on-surface hover:bg-surface-container-low hover:text-primary transition-colors"
@@ -704,7 +664,7 @@ export function StoreHeader({
 
                   {/* Sign Out */}
                   <div className="pt-1">
-                    <Link
+                    <Link prefetch={false}
                       href="/logout"
                       onClick={() => setAccountDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50/60 transition-colors"
@@ -736,7 +696,7 @@ export function StoreHeader({
             </button>
 
             {/* Shopping Bag Button */}
-            <Link
+            <Link prefetch={false}
               href="/store/cart"
               className={`flex items-center gap-1 sm:gap-2 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl font-bold text-xs transition-all shrink-0 ${
                 cartCount > 0
@@ -824,7 +784,7 @@ export function StoreHeader({
                   </div>
                   <div className="max-h-[280px] overflow-y-auto divide-y divide-surface-container-low">
                     {searchResults.map((item) => (
-                      <Link
+                      <Link prefetch={false}
                         key={item.id}
                         href={`/store/products/${item.id}`}
                         onClick={() => setShowDropdown(false)}
@@ -841,7 +801,9 @@ export function StoreHeader({
                               decoding="async"
                               className="w-full h-full object-contain"
                               onError={(e) => {
-                                if (item.imageUrl && e.currentTarget.src !== item.imageUrl) {
+                                if (e.currentTarget.dataset.fallbackTried) return;
+                                e.currentTarget.dataset.fallbackTried = "1";
+                                if (item.imageUrl) {
                                   e.currentTarget.src = item.imageUrl;
                                 }
                               }}
@@ -900,7 +862,7 @@ export function StoreHeader({
         {mobileMenuOpen && (
           <div className="md:hidden bg-surface-container-lowest border-t border-surface-container-high p-4 space-y-3 shadow-xl animate-fade-in">
             <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
-              <Link
+              <Link prefetch={false}
                 href="/store"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center gap-2 text-on-surface"
@@ -908,7 +870,7 @@ export function StoreHeader({
                 <span className="material-symbols-outlined text-[18px] text-primary">storefront</span>
                 All Groceries
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/wholesale"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-3 rounded-xl bg-secondary-fixed/40 text-on-secondary-fixed hover:bg-secondary-fixed flex items-center gap-2"
@@ -916,7 +878,7 @@ export function StoreHeader({
                 <span className="material-symbols-outlined text-[18px] text-secondary">warehouse</span>
                 Wholesale Hub
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/account?tab=orders"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center gap-2 text-on-surface"
@@ -924,7 +886,7 @@ export function StoreHeader({
                 <span className="material-symbols-outlined text-[18px] text-primary">package_2</span>
                 My Orders
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/account?tab=addresses"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center gap-2 text-on-surface"
@@ -932,7 +894,7 @@ export function StoreHeader({
                 <span className="material-symbols-outlined text-[18px] text-primary">location_on</span>
                 Saved Addresses
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/account?tab=profile"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center gap-2 text-on-surface"
@@ -940,7 +902,7 @@ export function StoreHeader({
                 <span className="material-symbols-outlined text-[18px] text-primary">badge</span>
                 Profile &amp; GST
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/account?tab=security"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center gap-2 text-on-surface"
@@ -948,7 +910,7 @@ export function StoreHeader({
                 <span className="material-symbols-outlined text-[18px] text-primary">lock</span>
                 Change Password
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/checkout"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center gap-2 text-on-surface"
@@ -956,7 +918,7 @@ export function StoreHeader({
                 <span className="material-symbols-outlined text-[18px] text-primary">shopping_cart</span>
                 My Basket ({cartCount})
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/wishlist"
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-3 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center justify-between text-on-surface"
@@ -981,14 +943,14 @@ export function StoreHeader({
                 Call Saharsa Depot
               </a>
               {isLoggedIn ? (
-                <Link
+                <Link prefetch={false}
                   href="/logout"
                   className="text-on-surface-variant hover:text-error py-1 px-2 font-medium"
                 >
                   Sign Out
                 </Link>
               ) : (
-                <Link
+                <Link prefetch={false}
                   href="/login"
                   className="text-primary font-bold py-1 px-2 hover:underline"
                 >
@@ -1102,7 +1064,7 @@ export function StoreHeader({
         !pathname?.includes("/invoice") && (
           <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md border-t border-surface-container-high/80 px-2 py-1.5 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
             <div className="flex items-center justify-around text-[10px] font-semibold text-on-surface-variant">
-              <Link
+              <Link prefetch={false}
                 href="/store"
                 className={`flex flex-col items-center py-1 px-2 rounded-lg transition-colors ${
                   pathname === "/store" || pathname === "/"
@@ -1113,7 +1075,7 @@ export function StoreHeader({
                 <span className="material-symbols-outlined text-[20px]">storefront</span>
                 <span>Store</span>
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/wholesale"
                 className={`flex flex-col items-center py-1 px-2 rounded-lg transition-colors ${
                   pathname === "/store/wholesale"
@@ -1124,7 +1086,7 @@ export function StoreHeader({
                 <span className="material-symbols-outlined text-[20px]">warehouse</span>
                 <span>Wholesale</span>
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/wishlist"
                 className={`flex flex-col items-center py-1 px-2 rounded-lg relative transition-colors ${
                   pathname === "/store/wishlist"
@@ -1142,7 +1104,7 @@ export function StoreHeader({
                 </div>
                 <span>Wishlist</span>
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/account"
                 className={`flex flex-col items-center py-1 px-2 rounded-lg transition-colors ${
                   pathname?.startsWith("/store/account") || pathname?.startsWith("/store/orders")
@@ -1153,7 +1115,7 @@ export function StoreHeader({
                 <span className="material-symbols-outlined text-[20px]">account_circle</span>
                 <span>Account</span>
               </Link>
-              <Link
+              <Link prefetch={false}
                 href="/store/cart"
                 className={`flex flex-col items-center py-1 px-2 rounded-lg relative transition-colors ${
                   pathname === "/store/checkout" || pathname === "/store/cart"

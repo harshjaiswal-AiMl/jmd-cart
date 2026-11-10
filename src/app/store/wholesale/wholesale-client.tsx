@@ -412,7 +412,9 @@ export function WholesaleClient({
                                     decoding="async"
                                     className="w-10 h-10 object-contain rounded bg-surface-container flex-shrink-0"
                                     onError={(e) => {
-                                      if (p.imageUrl && e.currentTarget.src !== p.imageUrl) {
+                                      if (e.currentTarget.dataset.fallbackTried) return;
+                                      e.currentTarget.dataset.fallbackTried = "1";
+                                      if (p.imageUrl) {
                                         e.currentTarget.src = p.imageUrl;
                                       }
                                     }}

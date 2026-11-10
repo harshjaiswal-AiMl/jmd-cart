@@ -35,7 +35,7 @@ async function handlePoll(req: NextRequest) {
     }).catch(() => {});
 
     // 2. Query active, unaccepted alerts that are NOT snoozed
-    const activeAlerts = await prisma.orderAlert.findMany({
+    const rawAlerts = await prisma.orderAlert.findMany({
       where: {
         state: { in: [OrderAlertState.NOTIFIED, OrderAlertState.SEEN] },
         OR: [
@@ -47,6 +47,7 @@ async function handlePoll(req: NextRequest) {
         order: {
           select: {
             id: true,
+            status: true,
             orderNumber: true,
             customerNotes: true,
             contactPhone: true,
@@ -71,8 +72,40 @@ async function handlePoll(req: NextRequest) {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 30,
     });
+
+    // 3. Strict Deduplication by Unique Order/Invoice ID:
+    // When an order is created, an OrderAlert record is created for every warehouse manager.
+    // We MUST deduplicate by unique orderId / invoiceId so staff never see duplicate copies!
+    const uniqueAlertMap = new Map<string, typeof rawAlerts[0]>();
+    const finishedAlertIds: string[] = [];
+
+    for (const alert of rawAlerts) {
+      // Auto-dismiss alerts for orders that are already dispatched, completed, or cancelled
+      if (alert.order) {
+        const st = String(alert.order.status).toUpperCase();
+        if (st === "DISPATCHED" || st === "COMPLETED" || st === "DELIVERED" || st === "CANCELLED") {
+          finishedAlertIds.push(alert.id);
+          continue;
+        }
+      }
+
+      const key = alert.orderId || alert.invoiceId || alert.id;
+      if (!uniqueAlertMap.has(key)) {
+        uniqueAlertMap.set(key, alert);
+      }
+    }
+
+    // Auto-clean any already-dispatched order alerts in background
+    if (finishedAlertIds.length > 0) {
+      prisma.orderAlert.updateMany({
+        where: { id: { in: finishedAlertIds } },
+        data: { state: OrderAlertState.ACCEPTED, acceptedAt: now },
+      }).catch(() => {});
+    }
+
+    const activeAlerts = Array.from(uniqueAlertMap.values());
 
     if (activeAlerts.length === 0) {
       return NextResponse.json({

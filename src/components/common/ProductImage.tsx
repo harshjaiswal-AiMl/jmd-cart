@@ -25,11 +25,10 @@ export function ProductImage({
   height = 180,
   priority = false,
 }: ProductImageProps) {
-  const [triedFallback, setTriedFallback] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  const resolvedUrl = triedFallback ? mediaUrl(src) : mediaUrl(src, size);
-  const srcSet = triedFallback ? undefined : mediaSrcSet(src, [160, 320, 640]);
+  const resolvedUrl = mediaUrl(src, size);
+  const srcSet = mediaSrcSet(src, [160, 320, 640]);
 
   if (!src || hasError) {
     return (
@@ -38,14 +37,6 @@ export function ProductImage({
       </div>
     );
   }
-
-  const handleError = () => {
-    if (!triedFallback && src) {
-      setTriedFallback(true);
-    } else {
-      setHasError(true);
-    }
-  };
 
   return (
     <img
@@ -56,7 +47,7 @@ export function ProductImage({
       width={width}
       height={height}
       className={className}
-      onError={handleError}
+      onError={() => setHasError(true)}
       loading={priority ? "eager" : "lazy"}
       decoding="async"
       fetchPriority={priority ? "high" : "auto"}

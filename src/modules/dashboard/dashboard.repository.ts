@@ -83,10 +83,14 @@ export class DashboardRepository {
         },
       }),
 
-      // 5. Today's recorded payments & collections
+      // 5. Today's recorded payments & collections (exclude voided/cancelled invoices)
       prisma.payment.findMany({
         where: {
           createdAt: { gte: startUtc, lte: endUtc },
+          OR: [
+            { invoiceId: null },
+            { invoice: { status: { not: InvoiceStatus.CANCELLED } } },
+          ],
         },
       }),
 
@@ -117,6 +121,12 @@ export class DashboardRepository {
 
       // 9. Recent 5 payments for live activity stream
       prisma.payment.findMany({
+        where: {
+          OR: [
+            { invoiceId: null },
+            { invoice: { status: { not: InvoiceStatus.CANCELLED } } },
+          ],
+        },
         orderBy: { createdAt: "desc" },
         take: 5,
       }),

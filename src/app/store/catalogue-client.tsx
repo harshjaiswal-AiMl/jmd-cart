@@ -86,8 +86,9 @@ export function CatalogueClient({
   const [inStockOnly, setInStockOnly] = useState(currentInStockOnly);
   const [sortBy, setSortBy] = useState<"name" | "price-asc" | "price-desc">("name");
 
-  // Category Grid Collapse / Expand State (2 rows by default, See All option)
+  // Category Grid Collapse / Expand State (compact by default, See All option)
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [showAllShelves, setShowAllShelves] = useState(false);
 
   // Cart Optimistic State (supports local guest storage + DB sync)
   const [cartQuantities, setCartQuantities] = useState<Record<string, number>>(initialCartQuantities);
@@ -348,8 +349,9 @@ export function CatalogueClient({
       >
         <div>
           {/* Product Image Tile */}
-          <Link
+          <Link prefetch={false}
             href={`/store/products/${product.id}`}
+            
             className="block aspect-square bg-surface-container-low rounded-xl border border-outline-variant/30 relative p-2 sm:p-3 overflow-hidden group-hover:border-primary/40 transition-colors"
           >
             {product.imageUrl ? (
@@ -441,7 +443,7 @@ export function CatalogueClient({
               </button>
             )}
 
-            <Link
+            <Link prefetch={false}
               href={`/store/products/${product.id}`}
               className="font-bold text-xs text-on-surface hover:text-primary transition-colors line-clamp-2 leading-tight block h-8 sm:h-9"
               title={product.name}
@@ -607,12 +609,9 @@ export function CatalogueClient({
               {categories.map((cat, idx) => {
                 const isSelected = selectedCategory === cat.id;
 
-                // 2-Row Display Logic:
-                // - Items 0..7 are visible on mobile (4 cols x 2 rows = 8 cards).
-                // - Items 8..15 are hidden on mobile but visible on sm/lg (6x2 or 8x2 = 2 rows on desktop).
-                // - Items 16+ are shown only when showAllCategories is true.
-                const isHiddenOnMobile = !showAllCategories && idx >= 8 && idx < 16;
-                const isHiddenOnAll = !showAllCategories && idx >= 16;
+                // Compact initial category render (8 visible initially; full list on See All)
+                const isHiddenOnMobile = !showAllCategories && idx >= 4 && idx < 8;
+                const isHiddenOnAll = !showAllCategories && idx >= 8;
 
                 if (isHiddenOnAll) return null;
 
@@ -642,10 +641,13 @@ export function CatalogueClient({
                           className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110 drop-shadow-sm"
                           loading="lazy"
                           onError={(e) => {
-                            if (cat.imageUrl && e.currentTarget.src !== cat.imageUrl) {
+                            if (e.currentTarget.dataset.fallbackTried === "2") return;
+                            if (!e.currentTarget.dataset.fallbackTried && cat.imageUrl) {
+                              e.currentTarget.dataset.fallbackTried = "1";
                               e.currentTarget.src = cat.imageUrl;
                             } else {
-                              (e.currentTarget as HTMLImageElement).src = "/brand/jmd-cart-logo.png";
+                              e.currentTarget.dataset.fallbackTried = "2";
+                              e.currentTarget.src = "/brand/jmd-cart-logo.png";
                             }
                           }}
                         />
@@ -696,8 +698,9 @@ export function CatalogueClient({
                       className="bg-surface-container-lowest p-2.5 sm:p-3 rounded-xl shadow-2xs flex flex-col justify-between border border-outline-variant/30 hover:border-primary/40 transition-colors"
                     >
                       <div className="relative w-full aspect-square bg-surface-container-low rounded-lg mb-2 overflow-hidden flex items-center justify-center p-2 group">
-                        <Link
+                        <Link prefetch={false}
                           href={`/store/products/${pick.id}`}
+                          
                           className="w-full h-full flex items-center justify-center"
                         >
                           {pick.imageUrl ? (
@@ -736,7 +739,7 @@ export function CatalogueClient({
                         <span className="text-[10px] text-secondary font-bold truncate block">
                           {pick.companyName || "JMD"} • {pick.weight || ""}
                         </span>
-                        <Link
+                        <Link prefetch={false}
                           href={`/store/products/${pick.id}`}
                           className="font-bold text-xs text-on-surface hover:text-primary transition-colors line-clamp-1 block mt-0.5"
                           title={pick.name}
@@ -792,6 +795,7 @@ export function CatalogueClient({
               <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-on-surface-variant font-medium">Brand:</span>
                 <select
+                  aria-label="Filter products by brand"
                   value={selectedCompany}
                   onChange={(e) => handleCompanyChange(e.target.value)}
                   className="bg-surface-container-low border border-outline-variant/60 rounded-lg px-2.5 py-1.5 font-bold text-xs text-on-surface focus:outline-none focus:border-primary"
@@ -839,6 +843,7 @@ export function CatalogueClient({
             <div className="flex items-center gap-1.5 text-xs ml-auto">
               <span className="text-on-surface-variant font-medium">Sort:</span>
               <select
+                aria-label="Sort products"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
                 className="bg-surface-container-low border border-outline-variant/60 rounded-lg px-2.5 py-1.5 font-bold text-xs text-on-surface focus:outline-none focus:border-primary"
@@ -853,7 +858,10 @@ export function CatalogueClient({
           {/* Zepto / Blinkit Category Shelves vs Filtered Grid */}
           {!selectedCategory && !currentSearch && !selectedCompany ? (
             <div className="space-y-8 sm:space-y-10">
-              {categories.map((cat) => {
+              {(showAllShelves
+                ? categories
+                : categories.filter((c) => (categoryShelves.get(c.id)?.length || 0) > 0).slice(0, 3)
+              ).map((cat) => {
                 const shelfProducts = categoryShelves.get(cat.id) || [];
                 if (shelfProducts.length === 0) return null;
 
@@ -872,7 +880,9 @@ export function CatalogueClient({
                               decoding="async"
                               className="w-full h-full object-contain"
                               onError={(e) => {
-                                if (cat.imageUrl && e.currentTarget.src !== cat.imageUrl) {
+                                if (e.currentTarget.dataset.fallbackTried) return;
+                                e.currentTarget.dataset.fallbackTried = "1";
+                                if (cat.imageUrl) {
                                   e.currentTarget.src = cat.imageUrl;
                                 }
                               }}
@@ -908,7 +918,7 @@ export function CatalogueClient({
               })}
 
               {/* Uncategorized Products Shelf (if any) */}
-              {(categoryShelves.get("uncategorized")?.length || 0) > 0 && (
+              {showAllShelves && (categoryShelves.get("uncategorized")?.length || 0) > 0 && (
                 <div className="space-y-3.5">
                   <div className="flex items-center justify-between border-b border-outline-variant/30 pb-2.5">
                     <h3 className="font-headline text-base sm:text-lg font-bold text-on-surface">
@@ -920,6 +930,18 @@ export function CatalogueClient({
                       renderProductCard(product, true)
                     )}
                   </div>
+                </div>
+              )}
+
+              {!showAllShelves && categories.filter((c) => (categoryShelves.get(c.id)?.length || 0) > 0).length > 3 && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllShelves(true)}
+                    className="px-6 py-2.5 rounded-xl bg-primary text-on-primary text-xs font-bold shadow-xs hover:bg-primary/90 transition cursor-pointer"
+                  >
+                    Browse All Category Shelves
+                  </button>
                 </div>
               )}
             </div>
@@ -937,7 +959,9 @@ export function CatalogueClient({
                         decoding="async"
                         className="w-full h-full object-contain"
                         onError={(e) => {
-                          if (selectedCategoryData.imageUrl && e.currentTarget.src !== selectedCategoryData.imageUrl) {
+                          if (e.currentTarget.dataset.fallbackTried) return;
+                          e.currentTarget.dataset.fallbackTried = "1";
+                          if (selectedCategoryData.imageUrl) {
                             e.currentTarget.src = selectedCategoryData.imageUrl;
                           }
                         }}
@@ -1014,7 +1038,9 @@ export function CatalogueClient({
                           decoding="async"
                           className="w-full h-full object-contain"
                           onError={(e) => {
-                            if (selectedCategoryData.imageUrl && e.currentTarget.src !== selectedCategoryData.imageUrl) {
+                            if (e.currentTarget.dataset.fallbackTried) return;
+                            e.currentTarget.dataset.fallbackTried = "1";
+                            if (selectedCategoryData.imageUrl) {
                               e.currentTarget.src = selectedCategoryData.imageUrl;
                             }
                           }}

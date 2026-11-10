@@ -12,21 +12,30 @@ import {
   Eye,
   Printer,
   Edit2,
+  Trash2,
   TrendingUp,
   DollarSign,
   AlertCircle,
 } from "lucide-react";
+import { cancelInvoiceAction } from "./actions";
 
 interface InvoicesClientProps {
   initialInvoices: InvoiceWithDetails[];
+  canCancel?: boolean;
 }
 
-export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
+export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesClientProps) {
+  const [invoicesList, setInvoicesList] = useState<InvoiceWithDetails[]>(initialInvoices);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [showCancelled, setShowCancelled] = useState(false);
   const [channelFilter, setChannelFilter] = useState<string>("ALL");
   const [datePreset, setDatePreset] = useState<"ALL" | "TODAY" | "YESTERDAY" | "THIS_WEEK" | "THIS_MONTH" | "THIS_FY" | "CUSTOM">("TODAY");
   const [customDate, setCustomDate] = useState<string>("");
+  const [voidTarget, setVoidTarget] = useState<InvoiceWithDetails | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const [isVoiding, setIsVoiding] = useState(false);
 
   const todayStr = useMemo(() => toIstDateString(new Date()), []);
 
@@ -39,7 +48,10 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
     const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
     const monthStart = todayStart - 30 * 24 * 60 * 60 * 1000;
 
-    const list = initialInvoices.filter((inv) => {
+    const list = invoicesList.filter((inv) => {
+      if (!showCancelled && statusFilter === "ALL" && inv.status === InvoiceStatus.CANCELLED) {
+        return false;
+      }
       if (statusFilter !== "ALL" && inv.status !== statusFilter) return false;
       if (channelFilter !== "ALL" && inv.channel !== channelFilter) return false;
 
@@ -79,7 +91,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
       const timeB = new Date(b.invoiceDate || b.createdAt).getTime();
       return timeB - timeA;
     });
-  }, [initialInvoices, search, statusFilter, channelFilter, datePreset, customDate]);
+  }, [invoicesList, search, statusFilter, showCancelled, channelFilter, datePreset, customDate]);
 
   // Aggregate Totals across all filtered invoices (excluding cancelled from money totals)
   const totals = useMemo(() => {
@@ -258,6 +270,7 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
           <div className="flex items-center gap-2">
             <select
               value={statusFilter}
+              aria-label="Filter by invoice status"
               onChange={(e) => setStatusFilter(e.target.value)}
               className="text-xs px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold"
             >
@@ -266,8 +279,19 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
               <option value={InvoiceStatus.CANCELLED}>CANCELLED</option>
             </select>
 
+            <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 px-3 py-2 rounded-xl border border-slate-300 bg-white cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showCancelled}
+                onChange={(e) => setShowCancelled(e.target.checked)}
+                className="rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+              />
+              <span>Show cancelled</span>
+            </label>
+
             <select
               value={channelFilter}
+              aria-label="Filter by invoice channel"
               onChange={(e) => setChannelFilter(e.target.value)}
               className="text-xs px-3 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold"
             >
@@ -483,6 +507,22 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
                         >
                           <Printer className="w-4 h-4" />
                         </Link>
+                        {canCancel && inv.status === "FINAL" && (
+                          <button
+                            type="button"
+                            data-testid="invoice-delete-btn"
+                            aria-label={`Delete / Void ${inv.number}`}
+                            onClick={() => {
+                              setVoidTarget(inv);
+                              setVoidReason("");
+                              setVoidError(null);
+                            }}
+                            title="Delete / Void Invoice"
+                            className="p-1 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -492,6 +532,98 @@ export function InvoicesClient({ initialInvoices }: InvoicesClientProps) {
           </table>
         </div>
       </div>
+
+      {/* Void / Delete Invoice Modal (G10) */}
+      {voidTarget && (
+        <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+            <h3 className="text-base font-bold text-rose-700">
+              Void / Delete Invoice {voidTarget.number}
+            </h3>
+            <p className="text-xs text-slate-600">
+              Voiding keeps invoice number <strong>{voidTarget.number}</strong>, issues a Credit Note, posts SALE_CANCEL stock movements, and reverses party ledger balance.
+            </p>
+            {(() => {
+              const invYm = toIstDateString(voidTarget.invoiceDate || voidTarget.createdAt).slice(0, 7);
+              const curYm = todayStr.slice(0, 7);
+              if (invYm < curYm) {
+                return (
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-300 text-xs text-amber-900 font-semibold">
+                    GSTR-1 Notice: This invoice falls in a prior month ({invYm}). Cancelling will generate a Credit Note adjustment for GST return reconciliation.
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            {voidError && (
+              <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                {voidError}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {["Wrong party", "Wrong item / rate", "Customer cancelled", "Duplicate bill"].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setVoidReason(preset)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold cursor-pointer"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setVoidError(null);
+                setIsVoiding(true);
+                try {
+                  const res = await cancelInvoiceAction(voidTarget.id, voidReason);
+                  if (!res.success) {
+                    setVoidError(res.error || "Failed to void invoice");
+                  } else {
+                    setInvoicesList((prev) =>
+                      prev.map((row) =>
+                        row.id === voidTarget.id ? { ...row, status: InvoiceStatus.CANCELLED } : row
+                      )
+                    );
+                    setVoidTarget(null);
+                  }
+                } finally {
+                  setIsVoiding(false);
+                }
+              }}
+              className="space-y-3"
+            >
+              <textarea
+                required
+                rows={2}
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="Reason for voiding invoice (min 5 chars)..."
+                className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 outline-none"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isVoiding}
+                  onClick={() => setVoidTarget(null)}
+                  className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVoiding || voidReason.trim().length < 5}
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl disabled:opacity-50 cursor-pointer"
+                >
+                  {isVoiding ? "Voiding..." : "Confirm Void"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

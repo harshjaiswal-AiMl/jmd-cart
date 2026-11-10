@@ -427,6 +427,50 @@ export class SettingsService {
       invoicePrintSettings,
     };
   }
+
+  async getPosOperationalSettings(): Promise<{
+    showFinalizedModal: boolean;
+    askPartyOnNewBill: boolean;
+    quickFinish: boolean;
+    managerCanDelete: boolean;
+  }> {
+    const [showFinalizedModal, askPartyOnNewBill, quickFinish, managerCanDelete] =
+      await Promise.all([
+        settingsRepository.getSetting<boolean>("pos.showFinalizedModal"),
+        settingsRepository.getSetting<boolean>("pos.askPartyOnNewBill"),
+        settingsRepository.getSetting<boolean>("pos.quickFinish"),
+        settingsRepository.getSetting<boolean>("invoice.managerCanDelete"),
+      ]);
+    return {
+      showFinalizedModal: Boolean(showFinalizedModal ?? false),
+      askPartyOnNewBill: Boolean(askPartyOnNewBill ?? true),
+      quickFinish: Boolean(quickFinish ?? false),
+      managerCanDelete: Boolean(managerCanDelete ?? false),
+    };
+  }
+
+  async getProductTierModes(): Promise<
+    Record<string, { a?: "PERCENT" | "RATE"; b?: "PERCENT" | "RATE"; c?: "PERCENT" | "RATE" }>
+  > {
+    const val = await settingsRepository.getSetting<
+      Record<string, { a?: "PERCENT" | "RATE"; b?: "PERCENT" | "RATE"; c?: "PERCENT" | "RATE" }>
+    >("pricing.productTierModes");
+    return val ?? {};
+  }
+
+  async mergeProductTierModes(
+    updates: Record<string, { a?: "PERCENT" | "RATE"; b?: "PERCENT" | "RATE"; c?: "PERCENT" | "RATE" }>
+  ): Promise<void> {
+    const current = await this.getProductTierModes();
+    const merged = { ...current };
+    for (const [productId, tiers] of Object.entries(updates)) {
+      merged[productId] = {
+        ...(merged[productId] || {}),
+        ...tiers,
+      };
+    }
+    await settingsRepository.setSetting("pricing.productTierModes", merged);
+  }
 }
 
 export const settingsService = new SettingsService();

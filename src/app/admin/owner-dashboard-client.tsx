@@ -66,9 +66,10 @@ export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {quickActionsBar.map((action) => (
-            <Link
+            <Link prefetch={false}
               key={action.label}
               href={action.href}
+              
               className={`px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-2xs ${
                 action.primary
                   ? "bg-[#790E11] hover:bg-[#5E0A0D] text-white"
@@ -137,15 +138,17 @@ export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
 
                 <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                   {step.secondaryHref && step.secondaryLabel && (
-                    <Link
+                    <Link prefetch={false}
                       href={step.secondaryHref}
+                      
                       className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition"
                     >
                       {step.secondaryLabel}
                     </Link>
                   )}
-                  <Link
+                  <Link prefetch={false}
                     href={step.actionHref}
+                    
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
                       step.done
                         ? "bg-slate-100 hover:bg-slate-200 text-slate-700"
@@ -179,7 +182,7 @@ export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
                 <AlertTriangle
                   className={`w-5 h-5 flex-shrink-0 ${
                     alert.severity === "CRITICAL"
-                      ? "text-rose-600 animate-pulse"
+                      ? "text-rose-600"
                       : alert.severity === "WARNING"
                       ? "text-amber-600"
                       : "text-blue-600"
@@ -187,8 +190,9 @@ export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
                 />
                 <span className="text-xs sm:text-sm font-semibold">{alert.message}</span>
               </div>
-              <Link
+              <Link prefetch={false}
                 href={alert.actionHref}
+                
                 className="self-start sm:self-auto text-xs font-bold px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs hover:bg-slate-50 transition-colors flex items-center gap-1.5 whitespace-nowrap"
               >
                 <span>{alert.actionLabel}</span>
@@ -313,7 +317,7 @@ export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
       {/* 3. Operational Quick Actions Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {quickLinks.map((item) => (
-          <Link
+          <Link prefetch={false}
             key={item.href}
             href={item.href}
             className="p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md hover:border-slate-300 transition-all flex flex-col justify-between group"
@@ -374,7 +378,7 @@ export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600">
               <span>Credit given today: ₹{(metrics.todayCreditGivenPaise / 100).toFixed(0)}</span>
-              <Link href="/admin/reports?tab=sales" className="text-blue-600 font-bold hover:underline">
+              <Link prefetch={false} href="/admin/reports?tab=sales"  className="text-blue-600 font-bold hover:underline">
                 View Sales Register →
               </Link>
             </div>
@@ -387,7 +391,7 @@ export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
                 <h3 className="text-sm font-bold text-slate-900">Store Orders Pipeline</h3>
                 <p className="text-xs text-slate-500">Live order fulfillment status across Saharsa town</p>
               </div>
-              <Link href="/admin/orders" className="text-xs font-bold text-blue-600 hover:underline">
+              <Link prefetch={false} href="/admin/orders"  className="text-xs font-bold text-blue-600 hover:underline">
                 Manage Orders →
               </Link>
             </div>
@@ -422,7 +426,7 @@ export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
                 <h3 className="text-sm font-bold text-slate-900">Today&apos;s Fast-Moving Products</h3>
                 <p className="text-xs text-slate-500">Highest volume FMCG SKUs sold today</p>
               </div>
-              <Link href="/godown/stock" className="text-xs font-bold text-teal-600 hover:underline">
+              <Link prefetch={false} href="/godown/stock"  className="text-xs font-bold text-teal-600 hover:underline">
                 Stock Matrix →
               </Link>
             </div>
@@ -462,7 +466,7 @@ export function OwnerDashboardClient({ data }: OwnerDashboardClientProps) {
                 <p className="text-xs text-slate-500">Recent invoices and settlements across systems</p>
               </div>
               <span className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-bold">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 Live
               </span>
             </div>

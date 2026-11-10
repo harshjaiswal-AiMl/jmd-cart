@@ -285,12 +285,17 @@ export function buildInvoiceViewModel(
       ? `${baseName} (${rawWeight})`
       : baseName;
     const packSize = item.product?.packSize || 1;
+    const rawUnitLabel = (item as any).unitLabel as string | undefined;
     const isFullCarton =
-      packSize > 1 && item.qty >= packSize && item.qty % packSize === 0;
+      rawUnitLabel === "Pcs"
+        ? false
+        : rawUnitLabel === "Carton" || rawUnitLabel === "Ctn" || rawUnitLabel === "Bag"
+        ? packSize > 1 && item.qty >= packSize && item.qty % packSize === 0
+        : packSize > 1 && item.qty >= packSize && item.qty % packSize === 0;
 
     const displayQty = isFullCarton ? item.qty / packSize : item.qty;
     const displayUnit = isFullCarton
-      ? item.product?.packLabel || "Carton"
+      ? item.product?.packLabel || "Ctn"
       : "Pcs";
 
     totalPieces += item.qty;
