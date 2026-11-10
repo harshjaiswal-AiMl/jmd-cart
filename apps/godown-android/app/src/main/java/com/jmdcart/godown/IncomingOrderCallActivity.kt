@@ -139,13 +139,13 @@ class IncomingOrderCallActivity : AppCompatActivity() {
             for ((idx, item) in orderQueue.withIndex()) {
                 val orderCard = android.widget.LinearLayout(this).apply {
                     orientation = android.widget.LinearLayout.VERTICAL
-                    setBackgroundColor(android.graphics.Color.parseColor("#172B45"))
-                    setPadding(32, 24, 32, 24)
+                    setBackgroundResource(R.drawable.bg_order_item_card)
+                    setPadding(36, 28, 36, 28)
                     val lp = android.widget.LinearLayout.LayoutParams(
                         android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                         android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
                     ).apply {
-                        setMargins(0, 0, 0, 16)
+                        setMargins(0, 0, 0, 18)
                     }
                     layoutParams = lp
                 }

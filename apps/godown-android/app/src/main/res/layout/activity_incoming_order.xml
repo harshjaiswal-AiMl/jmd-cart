@@ -3,95 +3,116 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="@color/call_bg">
+    android:background="@drawable/bg_call_gradient">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="28dp"
+        android:paddingBottom="24dp"
         android:gravity="center_horizontal">
 
-        <!-- Multi-Order Banner / Single Order Header -->
+        <!-- Top Urgency Pill Badge -->
         <TextView
             android:id="@+id/tvOrderBadge"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="🚨 INCOMING DISPATCH ORDER 🚨"
-            android:textColor="@color/accent"
-            android:textStyle="bold"
-            android:textSize="13sp"
-            android:gravity="center"
-            android:padding="8dp"
-            android:background="#1B3150"
-            android:layout_marginTop="24dp"
-            android:letterSpacing="0.08" />
-
-        <!-- Pulsing Center Icon / Visual Anchor -->
-        <TextView
-            android:id="@+id/tvOrderIcon"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="📦🔔"
-            android:textSize="44sp"
-            android:layout_marginTop="16dp"
-            android:gravity="center" />
+            android:text="🚨 INCOMING GODOWN DISPATCH 🚨"
+            android:textColor="#38BDF8"
+            android:textStyle="bold"
+            android:textSize="12sp"
+            android:gravity="center"
+            android:paddingStart="18dp"
+            android:paddingEnd="18dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:background="@drawable/bg_order_badge"
+            android:letterSpacing="0.06" />
 
-        <!-- Main Single Order Details Card -->
+        <!-- Glowing Circular Order Avatar -->
+        <FrameLayout
+            android:layout_width="84dp"
+            android:layout_height="84dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_call_avatar">
+
+            <TextView
+                android:id="@+id/tvOrderIcon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="📦"
+                android:textSize="40sp" />
+        </FrameLayout>
+
+        <!-- Main Single Order Card -->
         <LinearLayout
             android:id="@+id/llSingleOrderCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="@color/card_bg"
-            android:padding="20dp"
-            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_card_rounded"
+            android:padding="22dp"
+            android:layout_marginTop="18dp"
             android:gravity="center_horizontal">
 
+            <!-- Order Number (Prominent Monospace) -->
             <TextView
                 android:id="@+id/tvOrderNumber"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="ORD-000123"
-                android:textColor="@color/text_primary"
+                android:textColor="#F8FAFC"
+                android:fontFamily="monospace"
                 android:textStyle="bold"
-                android:textSize="26sp"
+                android:textSize="24sp"
+                android:letterSpacing="0.04"
                 android:gravity="center" />
 
+            <!-- Customer / Party Name -->
             <TextView
                 android:id="@+id/tvCustomerName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Ramesh Kirana Store"
-                android:textColor="@color/text_secondary"
+                android:textColor="#F1F5F9"
                 android:textStyle="bold"
                 android:textSize="20sp"
                 android:layout_marginTop="6dp"
                 android:gravity="center" />
 
+            <!-- Tap-to-Call Phone Chip -->
             <TextView
                 android:id="@+id/tvContactPhone"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="📞 Tap to Call: 9876543210"
-                android:textColor="@color/accent_gold"
-                android:textSize="14sp"
-                android:layout_marginTop="6dp"
-                android:padding="4dp" />
+                android:text="📞 Call: 9876543210"
+                android:textColor="#38BDF8"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginTop="10dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="7dp"
+                android:paddingBottom="7dp"
+                android:background="@drawable/bg_phone_chip" />
 
-            <!-- Packaging Details (Cartons & Loose) -->
+            <!-- Packaging Breakdown Card (Cartons & Loose Pieces) -->
             <TextView
                 android:id="@+id/tvPackagingSummary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="📦 4 Cartons • 12 Loose Pieces"
+                android:text="📦 4 Cartons • 12 Loose Pieces (Total: 108 Pcs)"
                 android:textColor="#93C5FD"
                 android:textStyle="bold"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:gravity="center"
-                android:layout_marginTop="14dp"
-                android:padding="8dp"
-                android:background="#1E3A5F" />
+                android:layout_marginTop="16dp"
+                android:padding="12dp"
+                android:background="@drawable/bg_pack_chip" />
 
             <!-- Grand Total Paired with Rupee Icon -->
             <TextView
@@ -99,14 +120,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="₹12,450.00"
-                android:textColor="@color/success"
+                android:textColor="#10B981"
                 android:textStyle="bold"
                 android:textSize="32sp"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="14dp"
                 android:gravity="center" />
         </LinearLayout>
 
-        <!-- Multi-Orders Container (Displayed when multiple orders arrive simultaneously) -->
+        <!-- Multi-Orders Container (Populated dynamically when multiple orders exist) -->
         <LinearLayout
             android:id="@+id/llMultiOrdersContainer"
             android:layout_width="match_parent"
@@ -115,66 +136,84 @@
             android:visibility="gone"
             android:layout_marginTop="16dp" />
 
-        <!-- Next in Queue Preview Card (Visible when >1 order pending) -->
+        <!-- Next in Queue Preview Card (Deprecated / Hidden by default) -->
         <TextView
             android:id="@+id/tvNextOrderPreview"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Next in Queue: ORD-000124 (Gupta Traders • ₹4,200)"
-            android:textColor="@color/text_muted"
-            android:textSize="12sp"
-            android:gravity="center"
-            android:padding="8dp"
-            android:layout_marginTop="10dp"
-            android:background="#101F33"
             android:visibility="gone" />
 
+        <!-- Flexible Spacer -->
         <View
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:minHeight="24dp" />
 
-        <!-- Tactile Action Buttons -->
+        <!-- High-Impact Action Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginBottom="16dp">
+            android:layout_marginTop="16dp">
 
-            <!-- Big Accept & Pack Button -->
-            <Button
+            <!-- Primary Big Accept & Pack Button -->
+            <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnAccept"
                 android:layout_width="match_parent"
-                android:layout_height="64dp"
-                android:text="✅ ACCEPT &amp; PACK (STOP RING)"
-                android:textSize="16sp"
+                android:layout_height="58dp"
+                android:text="✅ ACCEPT ALL &amp; PACK"
+                android:textSize="15sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="@color/success"
+                android:background="@drawable/bg_btn_accept"
+                android:stateListAnimator="@null"
                 android:layout_marginBottom="12dp" />
 
-            <!-- Snooze 5 Minutes Button -->
-            <Button
-                android:id="@+id/btnSnooze"
+            <!-- Secondary Actions Row: Snooze (5 Min) + Mute Side-by-Side -->
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:text="⏰ SNOOZE 5 MINUTES"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:backgroundTint="@color/snooze_btn"
-                android:layout_marginBottom="10dp" />
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
-            <!-- Mute Ringtone Only Button -->
-            <Button
-                android:id="@+id/btnDismiss"
+                <!-- Snooze Button -->
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnSnooze"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:text="⏰ SNOOZE 5 MIN"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:background="@drawable/bg_btn_snooze"
+                    android:stateListAnimator="@null"
+                    android:layout_marginEnd="8dp" />
+
+                <!-- Mute Ringtone Button -->
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnDismiss"
+                    android:layout_width="0dp"
+                    android:layout_height="50dp"
+                    android:layout_weight="1"
+                    android:text="🔇 MUTE SOUND"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="#94A3B8"
+                    android:background="@drawable/bg_btn_mute"
+                    android:stateListAnimator="@null"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
+
+            <!-- Hardware Key Shortcut Hint -->
+            <TextView
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:text="🔇 Mute Ringtone (Or Press Volume Key)"
-                android:textSize="13sp"
-                android:textColor="@color/text_muted"
-                android:backgroundTint="@color/mute_btn" />
+                android:layout_height="wrap_content"
+                android:text="💡 Press volume buttons to mute ringtone instantly"
+                android:textColor="#64748B"
+                android:textSize="11sp"
+                android:gravity="center"
+                android:layout_marginTop="12dp" />
         </LinearLayout>
 
     </LinearLayout>
