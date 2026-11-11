@@ -25,6 +25,9 @@ export interface EditInvoiceInput {
   dateChangeReason?: string;
   items: EditInvoiceItemInput[];
   notes?: string;
+  paymentMode?: "CASH" | "UPI" | "CARD" | "CREDIT" | "SPLIT";
+  paymentStatus?: "PAID" | "PENDING" | "PARTIAL";
+  payments?: Array<{ mode: "CASH" | "UPI" | "CARD" | "CREDIT"; amountPaise: number }>;
 }
 
 export interface InvoiceEditPreview {
@@ -236,8 +239,13 @@ export class InvoiceEditService {
           igstPaise: invoice.igstPaise,
           roundOffPaise: invoice.roundOffPaise,
           totalPaise: invoice.totalPaise,
+          paymentStatus: invoice.paymentStatus,
           version: invoice.version,
         },
+        payments: invoice.payments.map((p) => ({
+          mode: p.mode,
+          amountPaise: p.amountPaise,
+        })),
         items: invoice.items.map((it) => ({
           productId: it.productId,
           qty: it.qty,
@@ -247,6 +255,7 @@ export class InvoiceEditService {
           taxablePaise: it.taxablePaise,
           taxPaise: it.taxPaise,
           lineTotalPaise: it.unitPricePaise * it.qty,
+          unitLabel: (it as any).unitLabel || "Pcs",
         })),
       };
 
@@ -367,16 +376,78 @@ export class InvoiceEditService {
         }
       }
 
+      const oldPaidPaise = invoice.payments
+        .filter((p) => p.mode !== "CREDIT")
+        .reduce((sum, p) => sum + p.amountPaise, 0);
+
+      // Compute updated payments & paymentStatus when paymentMode/payments passed (or keep existing)
+      let nextPaymentsData: Array<{ mode: "CASH" | "UPI" | "CARD" | "CREDIT"; amountPaise: number }> | null = null;
+      if (input.paymentMode === "CREDIT" || input.paymentStatus === "PENDING") {
+        nextPaymentsData = [];
+      } else if (
+        input.paymentMode === "CASH" ||
+        input.paymentMode === "UPI" ||
+        input.paymentMode === "CARD"
+      ) {
+        nextPaymentsData = [{ mode: input.paymentMode, amountPaise: invoiceTotals.totalPaise }];
+      } else if (input.payments !== undefined) {
+        const sanitized = input.payments
+          .filter((p) => p.amountPaise > 0)
+          .map((p) => ({ mode: p.mode, amountPaise: Math.round(p.amountPaise) }));
+        const rawSum = sanitized.reduce((s, p) => s + p.amountPaise, 0);
+        if (
+          input.paymentStatus === "PAID" &&
+          sanitized.length === 1 &&
+          sanitized[0].mode !== "CREDIT" &&
+          Math.abs(invoiceTotals.totalPaise - rawSum) <= 500
+        ) {
+          nextPaymentsData = [{ ...sanitized[0], amountPaise: invoiceTotals.totalPaise }];
+        } else {
+          nextPaymentsData = sanitized;
+        }
+      }
+
+      if (nextPaymentsData !== null) {
+        const nonCreditNext = nextPaymentsData
+          .filter((p) => p.mode !== "CREDIT")
+          .reduce((s, p) => s + p.amountPaise, 0);
+        if (nonCreditNext < invoiceTotals.totalPaise && !effectivePartyId) {
+          throw new Error("Walk-in bills cannot remain on Credit / unpaid balance. Select a party first.");
+        }
+        await tx.payment.deleteMany({ where: { invoiceId: invoice.id } });
+        for (const p of nextPaymentsData) {
+          await tx.payment.create({
+            data: {
+              invoiceId: invoice.id,
+              partyId: effectivePartyId ?? null,
+              mode: p.mode,
+              amountPaise: p.amountPaise,
+              receivedBy: actorId ?? null,
+              createdAt: targetDate,
+            },
+          });
+        }
+      }
+
+      const newPaidPaise =
+        nextPaymentsData !== null
+          ? nextPaymentsData
+              .filter((p) => p.mode !== "CREDIT")
+              .reduce((sum, p) => sum + p.amountPaise, 0)
+          : oldPaidPaise;
+
       const totalDifferencePaise = invoiceTotals.totalPaise - invoice.totalPaise;
+      const paidDifferencePaise = newPaidPaise - oldPaidPaise;
 
       if (partyChangePermitted && effectivePartyId !== invoice.partyId) {
-        if (invoice.partyId && invoice.totalPaise > 0) {
+        const oldNetDue = invoice.totalPaise - oldPaidPaise;
+        if (invoice.partyId && oldNetDue !== 0) {
           await tx.ledgerEntry.create({
             data: {
               partyId: invoice.partyId,
-              kind: LedgerKind.RECEIPT,
-              debitPaise: 0,
-              creditPaise: invoice.totalPaise,
+              kind: oldNetDue > 0 ? LedgerKind.RECEIPT : LedgerKind.INVOICE,
+              debitPaise: oldNetDue < 0 ? Math.abs(oldNetDue) : 0,
+              creditPaise: oldNetDue > 0 ? oldNetDue : 0,
               createdAt: targetDate,
               effectiveDate: targetDate,
               referenceType: "INVOICE_EDIT",
@@ -398,29 +469,42 @@ export class InvoiceEditService {
             },
           });
         }
-      } else if (effectivePartyId && totalDifferencePaise !== 0) {
-        if (totalDifferencePaise > 0) {
-          // Party owes more -> Debit ledger
+        if (effectivePartyId && newPaidPaise > 0) {
           await tx.ledgerEntry.create({
             data: {
               partyId: effectivePartyId,
-              kind: LedgerKind.INVOICE,
-              debitPaise: totalDifferencePaise,
-              creditPaise: 0,
+              kind: LedgerKind.RECEIPT,
+              debitPaise: 0,
+              creditPaise: newPaidPaise,
               createdAt: targetDate,
               effectiveDate: targetDate,
               referenceType: "INVOICE_EDIT",
               referenceId: invoice.id,
             },
           });
-        } else {
-          // Party owes less -> Credit ledger
+        }
+      } else if (effectivePartyId) {
+        if (totalDifferencePaise !== 0) {
           await tx.ledgerEntry.create({
             data: {
               partyId: effectivePartyId,
-              kind: LedgerKind.RECEIPT,
-              debitPaise: 0,
-              creditPaise: Math.abs(totalDifferencePaise),
+              kind: totalDifferencePaise > 0 ? LedgerKind.INVOICE : LedgerKind.RECEIPT,
+              debitPaise: totalDifferencePaise > 0 ? totalDifferencePaise : 0,
+              creditPaise: totalDifferencePaise < 0 ? Math.abs(totalDifferencePaise) : 0,
+              createdAt: targetDate,
+              effectiveDate: targetDate,
+              referenceType: "INVOICE_EDIT",
+              referenceId: invoice.id,
+            },
+          });
+        }
+        if (paidDifferencePaise !== 0) {
+          await tx.ledgerEntry.create({
+            data: {
+              partyId: effectivePartyId,
+              kind: paidDifferencePaise > 0 ? LedgerKind.RECEIPT : LedgerKind.INVOICE,
+              debitPaise: paidDifferencePaise < 0 ? Math.abs(paidDifferencePaise) : 0,
+              creditPaise: paidDifferencePaise > 0 ? paidDifferencePaise : 0,
               createdAt: targetDate,
               effectiveDate: targetDate,
               referenceType: "INVOICE_EDIT",
@@ -456,11 +540,10 @@ export class InvoiceEditService {
       });
 
       // 5. Update invoice record
-      const totalPaidPaise = invoice.payments.reduce((sum, p) => sum + p.amountPaise, 0);
       const newPaymentStatus =
-        totalPaidPaise >= invoiceTotals.totalPaise
+        newPaidPaise >= invoiceTotals.totalPaise
           ? PaymentStatus.PAID
-          : totalPaidPaise > 0
+          : newPaidPaise > 0
           ? PaymentStatus.PARTIAL
           : PaymentStatus.PENDING;
 
@@ -492,7 +575,10 @@ export class InvoiceEditService {
           items: { include: { product: true } },
           payments: true,
           party: true,
-          revisions: true,
+          revisions: {
+            include: { editor: { select: { id: true, name: true, role: true } } },
+            orderBy: { revisionNumber: "desc" },
+          },
         },
       });
 
@@ -513,12 +599,27 @@ export class InvoiceEditService {
           igstPaise: updatedInvoice.igstPaise,
           roundOffPaise: updatedInvoice.roundOffPaise,
           totalPaise: updatedInvoice.totalPaise,
+          paymentStatus: updatedInvoice.paymentStatus,
           version: updatedInvoice.version,
         },
-        items: gstLines,
+        payments: updatedInvoice.payments.map((p) => ({
+          mode: p.mode,
+          amountPaise: p.amountPaise,
+        })),
+        items: input.items.map((it, idx) => ({
+          productId: it.productId,
+          qty: it.qty,
+          mrpPaise: gstLines[idx].mrpPaise,
+          unitPricePaise: gstLines[idx].unitPricePaise,
+          discountBp: gstLines[idx].discountBp,
+          taxablePaise: gstLines[idx].taxablePaise,
+          taxPaise: gstLines[idx].taxPaise,
+          lineTotalPaise: gstLines[idx].lineTotalPaise,
+          unitLabel: (it as any).unitLabel || "Pcs",
+        })),
       };
 
-      await tx.invoiceRevision.create({
+      const createdRevision = await tx.invoiceRevision.create({
         data: {
           invoiceId: invoice.id,
           revisionNumber: nextRevisionNum,
@@ -531,6 +632,9 @@ export class InvoiceEditService {
           },
           reason: input.reason,
           editorUserId: actorId || null,
+        },
+        include: {
+          editor: { select: { id: true, name: true, role: true } },
         },
       });
 
@@ -551,8 +655,65 @@ export class InvoiceEditService {
         },
       });
 
-      return updatedInvoice;
+      return {
+        ...updatedInvoice,
+        revisions: [createdRevision, ...updatedInvoice.revisions],
+      };
     });
+  }
+
+  /**
+   * Reverts an invoice back to the state captured in an earlier InvoiceRevision snapshot
+   * (atomically adjusting stock, GST, totals, and party ledger via modifyInvoice).
+   */
+  async revertToRevision(
+    role: UserRole,
+    input: {
+      invoiceId: string;
+      revisionId: string;
+      expectedVersion?: number;
+      target?: "before" | "after";
+    },
+    actorId?: string
+  ) {
+    const rev = await prisma.invoiceRevision.findFirst({
+      where: { id: input.revisionId, invoiceId: input.invoiceId },
+    });
+    if (!rev) {
+      throw new Error("Revision record not found for this invoice.");
+    }
+    const useAfter = input.target === "after";
+    const snapshot: any = useAfter ? rev.afterSnapshot : rev.beforeSnapshot;
+    const snapItems: any[] = Array.isArray(snapshot?.items) ? snapshot.items : [];
+    const validItems = snapItems.filter((it) => it && typeof it.productId === "string" && it.qty > 0);
+    if (!snapshot?.invoice || validItems.length === 0) {
+      throw new Error("This revision does not contain a restorable item snapshot.");
+    }
+
+    const editItems = validItems.map((it) => ({
+      productId: it.productId as string,
+      qty: Number(it.qty),
+      mrpPaise: it.mrpPaise ?? undefined,
+      ratePaise: it.unitPricePaise ?? undefined,
+      discountBp: it.discountBp ?? 0,
+      unitLabel: it.unitLabel || "Pcs",
+    }));
+
+    const snapPayments = Array.isArray(snapshot.payments) ? snapshot.payments : undefined;
+    const snapStatus = snapshot.invoice.paymentStatus as "PAID" | "PENDING" | "PARTIAL" | undefined;
+
+    return this.modifyInvoice(
+      role,
+      {
+        invoiceId: input.invoiceId,
+        expectedVersion: input.expectedVersion,
+        reason: `Reversed to ${useAfter ? "state of" : "pre-edit state of"} Revision #${rev.revisionNumber}`,
+        items: editItems,
+        paymentStatus: snapStatus,
+        payments: snapPayments,
+      },
+      actorId
+    );
   }
 }
 

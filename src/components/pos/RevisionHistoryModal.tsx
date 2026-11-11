@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { X, History, User, Calendar, FileText } from "lucide-react";
+import React, { useState } from "react";
+import { X, History, User, RotateCcw } from "lucide-react";
 import { formatDmy } from "@/lib/datetime";
 
 interface RevisionItem {
@@ -23,6 +23,7 @@ interface RevisionHistoryModalProps {
   onClose: () => void;
   invoiceNumber: string;
   revisions: RevisionItem[];
+  onReverseRevision?: (revisionId: string, revisionNumber: number, target?: "before" | "after") => Promise<void>;
 }
 
 export function RevisionHistoryModal({
@@ -30,7 +31,9 @@ export function RevisionHistoryModal({
   onClose,
   invoiceNumber,
   revisions,
+  onReverseRevision,
 }: RevisionHistoryModalProps) {
+  const [revertingId, setRevertingId] = useState<string | null>(null);
   if (!isOpen) return null;
 
   return (
@@ -89,19 +92,47 @@ export function RevisionHistoryModal({
                 </div>
 
                 {rev.beforeSnapshot?.invoice && rev.afterSnapshot?.invoice && (
-                  <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-200 font-mono">
-                    <div>
-                      <span className="text-slate-500">Before Total:</span>{" "}
-                      <strong>
-                        ₹{(rev.beforeSnapshot.invoice.totalPaise / 100).toFixed(2)}
-                      </strong>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] pt-2 border-t border-slate-200 font-mono">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <span className="text-slate-500">Before Total:</span>{" "}
+                        <strong>
+                          ₹{(rev.beforeSnapshot.invoice.totalPaise / 100).toFixed(2)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">After Total:</span>{" "}
+                        <strong className="text-purple-700">
+                          ₹{(rev.afterSnapshot.invoice.totalPaise / 100).toFixed(2)}
+                        </strong>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-slate-500">After Total:</span>{" "}
-                      <strong className="text-purple-700">
-                        ₹{(rev.afterSnapshot.invoice.totalPaise / 100).toFixed(2)}
-                      </strong>
-                    </div>
+                    {onReverseRevision && Array.isArray(rev.beforeSnapshot?.items) && rev.beforeSnapshot.items.length > 0 && (
+                      <div className="flex items-center gap-1.5 font-sans">
+                        <button
+                          type="button"
+                          disabled={revertingId !== null}
+                          onClick={async () => {
+                            if (!window.confirm(`Reverse Revision #${rev.revisionNumber} and restore bill to ₹${(rev.beforeSnapshot.invoice.totalPaise / 100).toFixed(2)}?`)) return;
+                            setRevertingId(rev.id + ":before");
+                            try {
+                              await onReverseRevision(rev.id, rev.revisionNumber, "before");
+                            } finally {
+                              setRevertingId(null);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-[11px] font-bold transition shadow-2xs cursor-pointer"
+                          data-testid={`reverse-revision-${rev.revisionNumber}`}
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>
+                            {revertingId === rev.id + ":before"
+                              ? "Reversing..."
+                              : `Reverse (Restore ₹${(rev.beforeSnapshot.invoice.totalPaise / 100).toFixed(2)})`}
+                          </span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

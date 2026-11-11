@@ -65,7 +65,7 @@ import { EditProductMasterModal } from "@/components/pos/EditProductMasterModal"
 import { StockCorrectionModal } from "@/components/pos/StockCorrectionModal";
 import { PosTodaySalesModal } from "@/components/pos/PosTodaySalesModal";
 import { RevisionHistoryModal } from "@/components/pos/RevisionHistoryModal";
-import { saveInvoiceRevisionAction } from "./actions";
+import { saveInvoiceRevisionAction, revertInvoiceRevisionAction } from "./actions";
 import { cancelInvoiceAction } from "../invoices/actions";
 import { toIstDateString } from "@/lib/datetime";
 import { SearchIndexItem, buildProductSearchIndex, searchItems, splitHighlightSegments } from "@/lib/search/smart-search";
@@ -1990,10 +1990,14 @@ export function PosClient({
     chosenFormat: PrintPaperFormat = "thermal",
     modeOverride?: DialogPaymentMode
   ) => {
-    if (!pricingResult || activeTab.cart.length === 0) return;
+    if (activeTab.cart.length === 0) return;
     setErrorMessage(null);
 
-    const totalPaise = totalAmountPaise;
+    const syncedServerTotalPaise =
+      pricingResult && Array.isArray(pricingResult.lines) && pricingResult.lines.length === activeTab.cart.length
+        ? pricingResult.totalPaise
+        : totalAmountPaise;
+    const totalPaise = syncedServerTotalPaise;
     const effectiveMode = (modeOverride || activeTab.paymentMode || "CASH") as DialogPaymentMode;
     const discountNum = parseFloat(activeTab.orderDiscountPercent);
     const orderDiscountBp = !isNaN(discountNum) && discountNum > 0 ? Math.round(discountNum * 100) : 0;
@@ -2135,11 +2139,21 @@ export function PosClient({
             dateChangeReason: hasDateChanged ? editReason.trim() : undefined,
             items: editItems,
             notes: activeTab.remarks,
+            paymentMode: effectiveMode,
+            paymentStatus: derivedPaymentStatus,
+            payments,
           });
 
           if (editRes.success && editRes.invoice) {
-            const printUrl = `/shop/invoices/${editRes.invoice.id}/print${activeTab.documentType === "GST" ? "?format=a4" : ""}`;
-            router.push(printUrl);
+            const fmtQuery =
+              activeTab.documentType === "GST"
+                ? chosenFormat === "thermal"
+                  ? "?format=thermal&autoprint=1"
+                  : "?format=a4&autoprint=1"
+                : chosenFormat === "a4" && effectiveMode === "CREDIT"
+                ? "?format=demand_bill&autoprint=1"
+                : "?format=cash_receipt&autoprint=1";
+            router.push(`/shop/invoices/${editRes.invoice.id}/print${fmtQuery}`);
           } else {
             setErrorMessage(editRes.error || "Failed to save invoice revision");
           }
@@ -4051,8 +4065,15 @@ export function PosClient({
               <div className="grid grid-cols-3 gap-1 bg-slate-200/60 p-0.5 rounded-lg border border-slate-200">
                 <button
                   type="button"
-                  onClick={() => updateActiveTab({ paymentMode: PaymentMode.CASH })}
-                  className={`py-1.5 px-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  data-testid="pos-mode-cash"
+                  disabled={isFinalizing}
+                  onClick={() => {
+                    updateActiveTab({ paymentMode: PaymentMode.CASH, paymentCollected: true });
+                    if (activeTab.cart.length > 0) {
+                      handleFinalizeBill(undefined, "thermal", "CASH");
+                    }
+                  }}
+                  className={`py-1.5 px-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                     activeTab.paymentMode === PaymentMode.CASH
                       ? "bg-slate-900 text-white shadow-xs"
                       : "text-slate-700 hover:text-slate-900"
@@ -4064,8 +4085,15 @@ export function PosClient({
 
                 <button
                   type="button"
-                  onClick={() => updateActiveTab({ paymentMode: PaymentMode.UPI })}
-                  className={`py-1.5 px-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  data-testid="pos-mode-upi"
+                  disabled={isFinalizing}
+                  onClick={() => {
+                    updateActiveTab({ paymentMode: PaymentMode.UPI, paymentCollected: true });
+                    if (activeTab.cart.length > 0) {
+                      handleFinalizeBill(undefined, "thermal", "UPI");
+                    }
+                  }}
+                  className={`py-1.5 px-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                     activeTab.paymentMode === PaymentMode.UPI
                       ? "bg-slate-900 text-white shadow-xs"
                       : "text-slate-700 hover:text-slate-900"
@@ -4077,8 +4105,15 @@ export function PosClient({
 
                 <button
                   type="button"
-                  onClick={() => updateActiveTab({ paymentMode: PaymentMode.CREDIT, paymentCollected: false })}
-                  className={`py-1.5 px-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  data-testid="pos-mode-credit"
+                  disabled={isFinalizing}
+                  onClick={() => {
+                    updateActiveTab({ paymentMode: PaymentMode.CREDIT, paymentCollected: false });
+                    if (activeTab.cart.length > 0) {
+                      handleFinalizeBill(undefined, "thermal", "CREDIT");
+                    }
+                  }}
+                  className={`py-1.5 px-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                     activeTab.paymentMode === PaymentMode.CREDIT
                       ? "bg-slate-900 text-white shadow-xs"
                       : "text-slate-700 hover:text-slate-900"
@@ -4716,6 +4751,25 @@ export function PosClient({
         onClose={() => setShowRevisionHistory(false)}
         invoiceNumber={initialEditInvoice?.number || "Invoice"}
         revisions={initialEditInvoice?.revisions || []}
+        onReverseRevision={
+          initialEditInvoice
+            ? async (revisionId, revisionNumber, target = "before") => {
+                const res = await revertInvoiceRevisionAction({
+                  invoiceId: initialEditInvoice.id,
+                  revisionId,
+                  expectedVersion: initialEditInvoice.version,
+                  target,
+                });
+                if (!res.success || !res.invoice) {
+                  setErrorMessage(res.error || "Failed to reverse revision");
+                  return;
+                }
+                setShowRevisionHistory(false);
+                setToastMsg(`Reversed to before Revision #${revisionNumber}`);
+                window.location.href = `/shop/pos?edit=${initialEditInvoice.id}`;
+              }
+            : undefined
+        }
       />
 
       {/* Save Voucher Confirmation Dialog [F2] */}

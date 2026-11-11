@@ -261,16 +261,23 @@ export function A5Invoice({ invoice, business, options }: A5InvoiceProps) {
                   {vm.totals.amountInWords}
                 </div>
 
-
+                {/* Signatories */}
+                <div className="flex justify-between items-end pt-6 pb-2 px-1 text-[10px] font-bold text-slate-800">
+                  <div className="text-left">
+                    <div className="border-t border-slate-500 w-36 mb-1" />
+                    <span>Receiver&apos;s Signatory</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="border-t border-slate-500 w-36 ml-auto mb-1" />
+                    <span>Authorised Signatory</span>
+                  </div>
+                </div>
 
                 {/* Footer */}
                 <div className="border-t border-[#FC830D] pt-2 text-center text-[9.5px] text-slate-600 uppercase tracking-wide space-y-0.5">
                   <p className="font-bold text-slate-900">{vm.business.footerThankYou}</p>
                   <p className="font-semibold text-[#881337]">
                     {vm.business.footerDeliveryText}: {vm.business.footerDeliveryPhone}
-                  </p>
-                  <p className="text-[8px] text-slate-500 normal-case">
-                    This is a computer-generated invoice. No signature required.
                   </p>
                   <p className="text-[8.5px] font-bold text-slate-700 tracking-widest pt-0.5">
                     BHAROSA GHAR TAK.

@@ -54,7 +54,10 @@ export async function createProductAction(
       packLabel: (formData.get("packLabel") as string) || "Carton",
       reorderLevel: Number(formData.get("reorderLevel") || 0),
       imageUrl: (formData.get("imageUrl") as string)?.trim() || null,
-      active: formData.get("active") === "true" || formData.get("active") === "on",
+      active: (() => {
+        const raw = formData.get("active");
+        return raw === null ? true : raw === "true" || raw === "on";
+      })(),
     };
 
     const product = await catalogService.createProduct(

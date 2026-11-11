@@ -492,11 +492,19 @@ export function A4Invoice({
             </span>
           </div>
 
-          <div className="pt-8">
-            <div className="border-t border-slate-400 w-36 inline-block"></div>
-            <span className="block text-[10pt] text-slate-600 font-semibold mt-0.5">
-              Authorized Signatory
-            </span>
+          <div className="pt-8 w-full flex justify-between items-end gap-4">
+            <div className="text-left">
+              <div className="border-t border-slate-400 w-32 inline-block"></div>
+              <span className="block text-[10pt] text-slate-600 font-semibold mt-0.5">
+                Receiver&apos;s Signatory
+              </span>
+            </div>
+            <div className="text-right">
+              <div className="border-t border-slate-400 w-32 inline-block"></div>
+              <span className="block text-[10pt] text-slate-600 font-semibold mt-0.5">
+                Authorised Signatory
+              </span>
+            </div>
           </div>
         </div>
       </div>

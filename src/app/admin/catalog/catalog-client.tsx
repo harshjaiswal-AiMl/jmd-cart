@@ -153,6 +153,7 @@ export function CatalogClient({
 
   // Bi-directional Price ↔ Percent State for Add Product Modal
   const [addMrp, setAddMrp] = useState("");
+  const [addActive, setAddActive] = useState(true);
   const [addPriceA, setAddPriceA] = useState("");
   const [addPctA, setAddPctA] = useState("");
   const [addPriceB, setAddPriceB] = useState("");
@@ -974,7 +975,10 @@ export function CatalogClient({
               📑 + Bulk Add Products
             </button>
             <button
-              onClick={() => setIsAddOpen(true)}
+              onClick={() => {
+                setAddActive(true);
+                setIsAddOpen(true);
+              }}
               className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#790E11] hover:bg-[#5E0A0D] transition-colors"
             >
               + Add Product
@@ -1499,7 +1503,18 @@ export function CatalogClient({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-100">
+                <label className="inline-flex items-center gap-2 text-xs font-semibold text-gray-800 cursor-pointer select-none">
+                  <input type="hidden" name="active" value={addActive ? "true" : "false"} />
+                  <input
+                    type="checkbox"
+                    checked={addActive}
+                    onChange={(e) => setAddActive(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-slate-900 focus:ring-slate-900"
+                  />
+                  <span>Active (Visible in Billing &amp; Store)</span>
+                </label>
+                <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(false)}
@@ -1508,6 +1523,7 @@ export function CatalogClient({
                   Cancel
                 </button>
                 <SubmitButton />
+                </div>
               </div>
             </form>
           </div>

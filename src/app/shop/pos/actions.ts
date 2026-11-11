@@ -781,6 +781,31 @@ export async function saveInvoiceRevisionAction(input: any) {
   }
 }
 
+export async function revertInvoiceRevisionAction(input: {
+  invoiceId: string;
+  revisionId: string;
+  expectedVersion?: number;
+  target?: "before" | "after";
+}) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+  try {
+    const { InvoiceEditService } = await import("@/modules/billing/invoice-edit.service");
+    const editService = new InvoiceEditService();
+    const result = await editService.revertToRevision(
+      session.user.role as UserRole,
+      input,
+      session.user.id
+    );
+    activeEditLocks.delete(input.invoiceId);
+    return { success: true, invoice: result };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to reverse invoice revision" };
+  }
+}
+
 export async function posQuickAddProductAction(input: {
   name: string;
   companyName: string;

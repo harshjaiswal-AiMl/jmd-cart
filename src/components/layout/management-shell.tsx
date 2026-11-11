@@ -238,13 +238,14 @@ export function ManagementShell({
     }
   };
 
-  // Global Alt+F3: Start a new POS bill from anywhere in Management Shell
+  // Global Alt+F3 (New POS Bill) and Alt+I (Open Invoices) anywhere in Management Shell
   useEffect(() => {
     const canPos = ["SHOP", "SUPER_ADMIN", "ADMIN", "ACCOUNTS"].includes(user.role);
-    if (!canPos) return;
+    const canInvoices = ["SHOP", "SUPER_ADMIN", "ADMIN", "ACCOUNTS", "WH_MANAGER"].includes(user.role);
+    if (!canPos && !canInvoices) return;
 
-    const onAltF3 = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === "F3" || e.code === "F3")) {
+    const onGlobalNavHotkey = (e: KeyboardEvent) => {
+      if (canPos && e.altKey && (e.key === "F3" || e.code === "F3")) {
         e.preventDefault();
         e.stopPropagation();
         if (pathname === "/shop/pos" || pathname.startsWith("/shop/pos")) {
@@ -252,11 +253,23 @@ export function ManagementShell({
         } else {
           router.push("/shop/pos?new=1");
         }
+        return;
+      }
+      if (
+        canInvoices &&
+        e.altKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        (e.code === "KeyI" || e.key.toLowerCase() === "i")
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        router.push("/shop/invoices");
       }
     };
 
-    window.addEventListener("keydown", onAltF3, { capture: true });
-    return () => window.removeEventListener("keydown", onAltF3, { capture: true });
+    window.addEventListener("keydown", onGlobalNavHotkey, { capture: true });
+    return () => window.removeEventListener("keydown", onGlobalNavHotkey, { capture: true });
   }, [pathname, user.role, router]);
 
   // Ctrl+K shortcut for Command Palette (disabled on /shop/pos to allow dedicated POS item search)

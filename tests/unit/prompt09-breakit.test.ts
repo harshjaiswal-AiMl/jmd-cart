@@ -22,6 +22,10 @@ import { getBillLineItemDisplay } from "@/lib/printing/bill-format";
 import { settingsService } from "@/modules/settings/settings.service";
 import { partyRepository } from "@/modules/party/party.repository";
 import { prisma } from "@/lib/prisma";
+import { billingService } from "@/modules/billing/billing.service";
+import { pricingService } from "@/modules/pricing/pricing.service";
+import { stockService } from "@/modules/stock/stock.service";
+import { invoiceEditService } from "@/modules/billing/invoice-edit.service";
 
 function makeInvoice(opts: {
   isCredit: boolean;
@@ -315,5 +319,94 @@ describe("Prompt 09 Break-It Pass (Adversarial Hostile Cases R1-R6)", () => {
     );
     expect(editServiceSrc).toContain("allowPartyChange");
     expect(editServiceSrc).toContain("partyChangePermitted");
+    expect(editServiceSrc).toContain("revertToRevision");
+
+    // Verify UPI thermal bill shows Mode: UPI without Amount Pending
+    const upiInv = makeInvoice({ isCredit: false });
+    upiInv.payments = [{ id: "p-upi", mode: PaymentMode.UPI, amountPaise: 50000 }];
+    const upiHtml = renderDirectPrintHtml(upiInv, testBiz);
+    expect(upiHtml).toContain("UPI");
+    expect(upiHtml).not.toContain("Amount Pending:");
+  });
+
+  it("R7: BillingService aligns single-tender PAID within ₹5 rounding tolerance and EditService switches payment modes + reverts revisions", async () => {
+    const product = await prisma.product.findFirst({ where: { active: true } });
+    const shopLoc = await prisma.location.findFirst({ where: { type: "SHOP", active: true } });
+    const party = await prisma.party.findFirst({ where: { type: "CUSTOMER", active: true } });
+    const admin = await prisma.user.findFirst({ where: { role: "SUPER_ADMIN", active: true } });
+    expect(product && shopLoc && party && admin).toBeTruthy();
+
+    await stockService.postMovement({
+      type: "ADJUSTMENT",
+      productId: product!.id,
+      fromLocationId: null,
+      toLocationId: shopLoc!.id,
+      qty: 50,
+      referenceType: "BREAKIT_TEST",
+      referenceId: "bt-r7-adj",
+      reason: "Seed stock",
+      idempotencyKey: `bt-r7-stock-${Date.now()}`,
+      actorId: admin!.id,
+      allowNegative: true,
+    });
+
+    const preview = await pricingService.calculateOrderPricing({
+      items: [{ productId: product!.id, qty: 2 }],
+      partyId: party!.id,
+      userRole: "SUPER_ADMIN",
+    });
+
+    // Simulate client ₹1.00 (100 paise) rounding diff on CASH full checkout
+    const cashInv = await billingService.finalizeInvoice(
+      "SUPER_ADMIN",
+      {
+        channel: "SHOP",
+        locationId: shopLoc!.id,
+        partyId: party!.id,
+        paymentStatus: "PAID",
+        items: [{ productId: product!.id, qty: 2 }],
+        payments: [{ mode: "CASH", amountPaise: Math.max(100, preview.totalPaise - 100) }],
+        idempotencyKey: `bt-r7-inv-${Date.now()}`,
+      },
+      admin!.id
+    );
+
+    expect(cashInv.paymentStatus).toBe("PAID");
+    expect(cashInv.payments.length).toBe(1);
+    expect(cashInv.payments[0].mode).toBe("CASH");
+    expect(cashInv.payments[0].amountPaise).toBe(cashInv.totalPaise);
+
+    // Edit invoice to UPI mode & qty 3 -> payment mode & status update cleanly
+    const revised = await invoiceEditService.modifyInvoice(
+      "SUPER_ADMIN",
+      {
+        invoiceId: cashInv.id,
+        expectedVersion: cashInv.version,
+        reason: "Switch to UPI and qty 3",
+        items: [{ productId: product!.id, qty: 3 }],
+        paymentMode: "UPI",
+        paymentStatus: "PAID",
+      },
+      admin!.id
+    );
+    expect(revised.paymentStatus).toBe("PAID");
+    expect(revised.payments[0].mode).toBe("UPI");
+    expect(revised.revisions.length).toBeGreaterThanOrEqual(1);
+
+    // Revert back to state before Revision #1 (qty 2, CASH, original total)
+    const rev1 = revised.revisions[0];
+    const reverted = await invoiceEditService.revertToRevision(
+      "SUPER_ADMIN",
+      {
+        invoiceId: cashInv.id,
+        revisionId: rev1.id,
+        expectedVersion: revised.version,
+        target: "before",
+      },
+      admin!.id
+    );
+    expect(reverted.totalPaise).toBe(cashInv.totalPaise);
+    expect(reverted.paymentStatus).toBe("PAID");
+    expect(reverted.payments[0].mode).toBe("CASH");
   });
 });

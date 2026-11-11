@@ -144,7 +144,23 @@ export class BillingService {
     }
 
     // 4. Payment validation & Credit Policy Enforcement
-    const totalPaidPaise = validated.payments.reduce(
+    // Align single-tender non-CREDIT PAID checkouts within ₹5 client/server rounding tolerance
+    // so full Cash/UPI sales never degrade to ₹1 PARTIAL / CREDIT due to bp round-off drift.
+    let effectivePayments = validated.payments.map((p) => ({ ...p }));
+    const rawTotalPaidPaise = effectivePayments.reduce((sum, p) => sum + p.amountPaise, 0);
+    if (
+      validated.paymentStatus === "PAID" &&
+      effectivePayments.length === 1 &&
+      effectivePayments[0].mode !== "CREDIT" &&
+      rawTotalPaidPaise > 0 &&
+      Math.abs(orderPricing.totalPaise - rawTotalPaidPaise) <= 500
+    ) {
+      effectivePayments = [
+        { ...effectivePayments[0], amountPaise: orderPricing.totalPaise },
+      ];
+    }
+
+    const totalPaidPaise = effectivePayments.reduce(
       (sum, p) => sum + p.amountPaise,
       0
     );
@@ -536,7 +552,7 @@ export class BillingService {
 
 
         // E. Record Payments
-        for (const payment of validated.payments) {
+        for (const payment of effectivePayments) {
           await tx.payment.create({
             data: {
               invoiceId: invoice.id,
