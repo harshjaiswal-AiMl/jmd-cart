@@ -1133,6 +1133,18 @@ export function CatalogClient({
                   />
                 </div>
 
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Hindi Name
+                  </label>
+                  <input
+                    type="text"
+                    name="nameHi"
+                    placeholder="e.g. सरसों तेल पाउच 1 लीटर"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-700">
                     Weight / Size
@@ -2239,6 +2251,19 @@ export function CatalogClient({
                     name="name"
                     required
                     defaultValue={editingProduct.name}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold text-gray-700">
+                    Hindi Name
+                  </label>
+                  <input
+                    type="text"
+                    name="nameHi"
+                    defaultValue={editingProduct.nameHi || ""}
+                    placeholder="e.g. बीकाजी भुजिया 400 ग्राम"
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                 </div>

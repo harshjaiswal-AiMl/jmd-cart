@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { Search, UserPlus, Phone, MapPin, X, Building, Store, User } from "lucide-react";
 import { searchParties, SearchableParty, formatPartyBalance } from "@/lib/search/party-search";
+import { tHi } from "@/lib/i18n/messages/hi";
 
 export interface PartySearchBoxProps<T extends SearchableParty> {
   parties: T[];
@@ -17,6 +18,7 @@ export interface PartySearchBoxProps<T extends SearchableParty> {
   disabled?: boolean;
   autoFocus?: boolean;
   id?: string;
+  locale?: "en" | "hi";
 }
 
 export function PartySearchBox<T extends SearchableParty>({
@@ -32,7 +34,9 @@ export function PartySearchBox<T extends SearchableParty>({
   disabled = false,
   autoFocus = false,
   id = "pos-party-search-input",
+  locale = "en",
 }: PartySearchBoxProps<T>) {
+  const isHi = locale === "hi";
   const addPartyHandler = onAddNewParty || onQuickAdd;
   const canAddParty = Boolean(addPartyHandler && allowQuickAdd);
   const [query, setQuery] = useState("");
@@ -146,7 +150,7 @@ export function PartySearchBox<T extends SearchableParty>({
           ref={inputRef}
           id={id}
           type="text"
-          value={isOpen ? query : (selectedParty ? selectedParty.name : "")}
+          value={isOpen ? query : (selectedParty ? (isHi ? (selectedParty.nameHi || selectedParty.name) : selectedParty.name) : "")}
           onChange={(e) => {
             setQuery(e.target.value);
             if (!isOpen) setIsOpen(true);
@@ -176,7 +180,7 @@ export function PartySearchBox<T extends SearchableParty>({
         <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto divide-y divide-slate-100 font-sans">
           {results.length === 0 ? (
             <div className="p-4 text-center text-xs text-slate-500">
-              No parties matching &quot;<span className="font-bold">{query}</span>&quot;
+              {isHi ? tHi("partySearchEmpty", { query }) : <>No parties matching &quot;<span className="font-bold">{query}</span>&quot;</>}
             </div>
           ) : (
             results.map((p, idx) => {
@@ -202,7 +206,7 @@ export function PartySearchBox<T extends SearchableParty>({
                   <div className="min-w-0 flex-1 pr-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className={`font-bold truncate text-xs sm:text-sm ${isSelected ? "text-white" : "text-slate-900"}`}>
-                        {p.name}
+                        {isHi ? (p.nameHi || p.name) : p.name}
                       </span>
                       {p.type && (
                         <span
@@ -217,7 +221,7 @@ export function PartySearchBox<T extends SearchableParty>({
                           }`}
                         >
                           {renderTypeIcon(p.type)}
-                          {p.type}
+                          {isHi ? (p.type === "WHOLESALER" ? tHi("partyTypeWholesaler") : p.type === "RETAILER" ? tHi("partyTypeRetailer") : tHi("partyTypeCustomer")) : p.type}
                         </span>
                       )}
                       {p.creditEnabled && (
@@ -228,7 +232,7 @@ export function PartySearchBox<T extends SearchableParty>({
                               : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           }`}
                         >
-                          Credit
+                          {isHi ? tHi("partyCreditTag") : "Credit"}
                         </span>
                       )}
                     </div>
@@ -237,14 +241,14 @@ export function PartySearchBox<T extends SearchableParty>({
                       <span className="flex items-center gap-1 font-mono">
                         <Phone className={`w-3 h-3 shrink-0 ${isSelected ? "text-emerald-300" : "text-emerald-600"}`} />
                         <span className={p.phone ? "font-semibold" : "italic text-slate-400"}>
-                          {p.phone || "No Phone"}
+                          {p.phone || (isHi ? tHi("partyNoPhone") : "No Phone")}
                         </span>
                       </span>
 
                       <span className="flex items-center gap-1 truncate max-w-[280px]">
                         <MapPin className={`w-3 h-3 shrink-0 ${isSelected ? "text-rose-300" : "text-rose-500"}`} />
                         <span className={(p.address || p.city) ? "font-medium" : "italic text-slate-400"}>
-                          {[p.address, p.city].filter(Boolean).join(", ") || "No Address"}
+                          {[p.address, p.city].filter(Boolean).join(", ") || (isHi ? tHi("partyNoAddress") : "No Address")}
                         </span>
                       </span>
                     </div>
@@ -288,7 +292,7 @@ export function PartySearchBox<T extends SearchableParty>({
               }`}
             >
               <UserPlus className="w-4 h-4" />
-              <span>+ Add New Party</span>
+              <span>{isHi ? tHi("partyAddNewAction") : "+ Add New Party"}</span>
             </div>
           )}
         </div>

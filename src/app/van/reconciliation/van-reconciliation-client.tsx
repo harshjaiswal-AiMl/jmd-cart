@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import { VanReconciliationReport, CashHandoverWithDetails } from "@/modules/van/van.types";
+import { tHi } from "@/lib/i18n/messages/hi";
+import { formatDDMMYYYY } from "@/lib/date";
 import { reconcileVanDayAction, confirmCashHandoverAction } from "./actions";
 import {
   ArrowLeft,
@@ -131,11 +133,10 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
 
     if (liveStats.hasDiscrepancy) {
       const confirmDiscrepancy = window.confirm(
-        `Discrepancy detected:\nShortage: ₹${(liveStats.totalShortagePaise / 100).toFixed(
-          2
-        )}\nExcess: ₹${(liveStats.totalExcessPaise / 100).toFixed(
-          2
-        )}\n\nAre you sure you want to finalize this reconciliation?`
+        tHi("discrepancyConfirmPrompt", {
+          shortage: (liveStats.totalShortagePaise / 100).toFixed(2),
+          excess: (liveStats.totalExcessPaise / 100).toFixed(2),
+        })
       );
       if (!confirmDiscrepancy) return;
     }
@@ -160,10 +161,10 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
 
     if (res.success && res.data) {
       setReport(res.data);
-      setSuccessMsg("Van day successfully reconciled! Stock returned to Central Godown.");
+      setSuccessMsg(tHi("reconcileSuccessToast"));
       router.refresh();
     } else {
-      setError(res.error || "Failed to reconcile van day");
+      setError(res.error || tHi("reconcileFailedError"));
     }
   };
 
@@ -191,10 +192,10 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
           closedBy: res.data.receivedById,
         },
       }));
-      setSuccessMsg("Cash handover confirmed by owner! Van Day is officially CLOSED.");
+      setSuccessMsg(tHi("handoverSuccessToast"));
       router.refresh();
     } else {
-      setError(res.error || "Failed to confirm cash handover");
+      setError(res.error || tHi("handoverFailedError"));
     }
   };
 
@@ -213,9 +214,9 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black text-white">Evening Return & Day End</h1>
+              <h1 className="text-xl font-black text-white">{tHi("vanReconcileTitle")}</h1>
               <span
-                className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                className={`px-2 py-0.5 rounded text-xs font-black ${
                   vanDay.status === "OPEN"
                     ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
                     : vanDay.status === "RECONCILED"
@@ -223,12 +224,11 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                     : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                 }`}
               >
-                {vanDay.status}
+                {vanDay.status === "OPEN" ? tHi("vanStatusOpen") : vanDay.status === "RECONCILED" ? tHi("vanStatusReconciled") : tHi("vanStatusClosed")}
               </span>
             </div>
-            <p className="text-xs text-slate-400">
-              Sheet: <span className="font-mono text-slate-300">{vanDay.issueSheetNo}</span> • Van:{" "}
-              {vanDay.vanLocation.name} • Driver: {vanDay.salesperson.name}
+            <p className="text-sm text-slate-400">
+              {tHi("vanReconcileSubtitle", { sheet: vanDay.issueSheetNo, van: vanDay.vanLocation.name, driver: vanDay.salesperson.name })}
             </p>
           </div>
         </div>
@@ -239,7 +239,7 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700"
           >
             <Printer className="w-4 h-4 text-slate-400" />
-            Print Report
+            {tHi("printReportBtn")}
           </button>
         )}
       </div>
@@ -265,14 +265,13 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
         <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/60 to-slate-900 border border-emerald-500/30">
           <div className="flex items-center gap-1.5 text-emerald-400 text-[11px] font-bold uppercase tracking-wider mb-1">
             <Coins className="w-3.5 h-3.5" />
-            Cash In Hand
+            {tHi("cashInHand")}
           </div>
           <div className="text-xl font-black text-emerald-400 font-mono">
             ₹{(financials.totalCashInHandPaise / 100).toFixed(2)}
           </div>
-          <p className="text-[10px] text-slate-400 mt-1">
-            Bills: ₹{(financials.invoiceCashPaise / 100).toFixed(2)} | Coll: ₹
-            {(financials.routeCollectionCashPaise / 100).toFixed(2)}
+          <p className="text-xs text-slate-400 mt-1">
+            {tHi("billsCollBreakdown", { bills: (financials.invoiceCashPaise / 100).toFixed(2), coll: (financials.routeCollectionCashPaise / 100).toFixed(2) })}
           </p>
         </div>
 
@@ -280,14 +279,13 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800">
           <div className="flex items-center gap-1.5 text-blue-400 text-[11px] font-bold uppercase tracking-wider mb-1">
             <QrCode className="w-3.5 h-3.5" />
-            UPI Collected
+            {tHi("upiCollectedLabel")}
           </div>
           <div className="text-xl font-black text-white font-mono">
             ₹{(financials.totalUpiReceivedPaise / 100).toFixed(2)}
           </div>
-          <p className="text-[10px] text-slate-400 mt-1">
-            Bills: ₹{(financials.invoiceUpiPaise / 100).toFixed(2)} | Coll: ₹
-            {(financials.routeCollectionUpiPaise / 100).toFixed(2)}
+          <p className="text-xs text-slate-400 mt-1">
+            {tHi("billsCollBreakdown", { bills: (financials.invoiceUpiPaise / 100).toFixed(2), coll: (financials.routeCollectionUpiPaise / 100).toFixed(2) })}
           </p>
         </div>
 
@@ -295,14 +293,13 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
         <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800">
           <div className="flex items-center gap-1.5 text-indigo-400 text-[11px] font-bold uppercase tracking-wider mb-1">
             <ShoppingBag className="w-3.5 h-3.5" />
-            Route Bills
+            {tHi("routeBillsLabel")}
           </div>
           <div className="text-xl font-black text-white font-mono">
             ₹{(financials.invoiceTotalPaise / 100).toFixed(2)}
           </div>
-          <p className="text-[10px] text-slate-400 mt-1">
-            {financials.invoiceCount} invoices • Credit: ₹
-            {(financials.invoiceCreditPaise / 100).toFixed(2)}
+          <p className="text-xs text-slate-400 mt-1">
+            {tHi("routeBillsSubBreakdown", { count: financials.invoiceCount, credit: (financials.invoiceCreditPaise / 100).toFixed(2) })}
           </p>
         </div>
 
@@ -316,21 +313,21 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
         >
           <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider mb-1">
             <PackageCheck className="w-3.5 h-3.5" />
-            Stock Variance
+            {tHi("stockVarianceLabel")}
           </div>
           {liveStats.hasDiscrepancy ? (
             <div>
               <div className="text-base font-black text-rose-400">
                 -₹{(liveStats.totalShortagePaise / 100).toFixed(2)}
               </div>
-              <p className="text-[10px] text-rose-300/80 mt-1">
-                Shortage detected (Excess: ₹{(liveStats.totalExcessPaise / 100).toFixed(2)})
+              <p className="text-xs text-rose-300/80 mt-1">
+                {tHi("shortageDetected", { excess: (liveStats.totalExcessPaise / 100).toFixed(2) })}
               </p>
             </div>
           ) : (
             <div>
-              <div className="text-base font-black text-emerald-400">Match 100%</div>
-              <p className="text-[10px] text-slate-400 mt-1">Zero physical discrepancy</p>
+              <div className="text-base font-black text-emerald-400">{tHi("match100Percent")}</div>
+              <p className="text-xs text-slate-400 mt-1">{tHi("zeroDiscrepancy")}</p>
             </div>
           )}
         </div>
@@ -340,9 +337,9 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
         <div className="px-5 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-bold text-white">Itemized Return Count Verification</h2>
-            <p className="text-xs text-slate-400">
-              Count physically returned stock (cartons & loose pieces) to transfer back to Central Godown
+            <h2 className="text-base font-bold text-white">{tHi("itemizedReturnHeading")}</h2>
+            <p className="text-sm text-slate-400">
+              {tHi("itemizedReturnSub")}
             </p>
           </div>
 
@@ -355,7 +352,7 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                 title="Fill return counts with 100% of expected items"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                Fill All Expected
+                {tHi("resetExpectedBtn")}
               </button>
               <button
                 type="button"
@@ -364,7 +361,7 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                 title="Set all return quantities to zero"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                Zero Returns
+                {tHi("zeroReturnsBtn")}
               </button>
             </div>
           )}
@@ -374,14 +371,14 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950/70 text-slate-400 font-semibold border-b border-slate-800">
               <tr>
-                <th className="px-4 py-3">Product</th>
-                <th className="px-3 py-3 text-center">Issued</th>
-                <th className="px-3 py-3 text-center">Sold</th>
-                <th className="px-3 py-3 text-center text-blue-400">Expected</th>
+                <th className="px-4 py-3">{tHi("colProduct")}</th>
+                <th className="px-3 py-3 text-center">{tHi("colIssued")}</th>
+                <th className="px-3 py-3 text-center">{tHi("colSold")}</th>
+                <th className="px-3 py-3 text-center text-blue-400">{tHi("colExpected")}</th>
                 <th className="px-3 py-3 text-center text-emerald-400 w-44">
-                  Returned Count
+                  {tHi("colReturnedCount")}
                 </th>
-                <th className="px-4 py-3 text-right">Variance</th>
+                <th className="px-4 py-3 text-right">{tHi("colVariance")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -393,9 +390,9 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                 return (
                   <tr key={line.productId} className="hover:bg-slate-800/30">
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-white">{line.productName}</div>
-                      <div className="text-[11px] text-slate-400">
-                        {line.shortCode} • {line.packSize} pcs/ctn • ₹{(line.mrpPaise / 100).toFixed(2)}
+                      <div className="font-semibold text-white text-base">{line.productNameHi || line.productName}</div>
+                      <div className="text-xs text-slate-400">
+                        {line.shortCode} • {line.packSize} {tHi("pcsPerCtnShort")} • ₹{(line.mrpPaise / 100).toFixed(2)}
                       </div>
                     </td>
 
@@ -438,7 +435,7 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                               }
                               className="w-10 bg-transparent text-center font-mono font-bold text-white focus:outline-none text-xs"
                             />
-                            <span className="text-[10px] text-slate-400 uppercase font-semibold">ctn</span>
+                            <span className="text-xs text-slate-400 font-semibold">{tHi("ctnShort")}</span>
                           </div>
 
                           <div className="flex items-center gap-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1">
@@ -451,7 +448,7 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                               }
                               className="w-10 bg-transparent text-center font-mono font-bold text-white focus:outline-none text-xs"
                             />
-                            <span className="text-[10px] text-slate-400 uppercase font-semibold">pcs</span>
+                            <span className="text-xs text-slate-400 font-semibold">{tHi("pcs")}</span>
                           </div>
                         </div>
                       )}
@@ -460,23 +457,23 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                     {/* Variance */}
                     <td className="px-4 py-3 text-right">
                       {diff === 0 ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-400">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          Match
+                          {tHi("varianceMatch")}
                         </span>
                       ) : diff < 0 ? (
                         <div className="text-right">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400">
-                            Short {Math.abs(diff)} pcs
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-400">
+                            {tHi("varianceShort", { qty: Math.abs(diff) })}
                           </span>
-                          <span className="text-[10px] text-rose-400/80 block font-mono">
+                          <span className="text-xs text-rose-400/80 block font-mono">
                             -₹{((Math.abs(diff) * line.mrpPaise) / 100).toFixed(2)}
                           </span>
                         </div>
                       ) : (
                         <div className="text-right">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-400">
-                            Excess +{diff} pcs
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-400">
+                            {tHi("varianceExcess", { qty: diff })}
                           </span>
                           <span className="text-[10px] text-purple-400/80 block font-mono">
                             +₹{((diff * line.mrpPaise) / 100).toFixed(2)}
@@ -495,14 +492,14 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
       {/* Notes & Actions Bar */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
         <div>
-          <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-            Reconciliation & Return Notes
+          <label className="block text-sm font-bold text-slate-300 mb-1.5">
+            {tHi("reconcileNotesLabel")}
           </label>
           <textarea
             disabled={isReconciled}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Returned crates counted with Godown manager. Minor shortage due to damaged seal on 1 packet."
+            placeholder={tHi("reconcileNotesPlaceholder")}
             rows={2}
             className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
           />
@@ -511,26 +508,26 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
         {!isReconciled ? (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
             <p className="text-xs text-slate-400">
-              ⚠️ Finalizing will post <code className="text-blue-400">VAN_RETURN</code> stock movements to Central Godown and lock billing for this van day.
+              {tHi("reconcileWarningNote")}
             </p>
 
             <button
               type="button"
               disabled={isSubmitting}
               onClick={handleSubmit}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm shadow-lg shadow-blue-600/20 disabled:opacity-50"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-base shadow-lg shadow-blue-600/20 disabled:opacity-50"
             >
               <FileCheck className="w-4 h-4" />
-              {isSubmitting ? "Finalizing Reconciliation..." : "Submit Evening Return"}
+              {isSubmitting ? tHi("submittingReconcileText") : tHi("submitReconcileBtn")}
             </button>
           </div>
         ) : (
           <div className="p-3 bg-blue-950/30 border border-blue-500/30 rounded-xl text-blue-300 text-xs flex items-center justify-between">
             <span>
-              ✅ This van day has been reconciled. Unsold stock is safely returned to Central Godown.
+              {tHi("reconcileSuccessBanner")}
             </span>
-            <span className="text-[11px] text-blue-400 font-mono">
-              Reconciled by: {vanDay.reconciledBy || "Godown Staff"}
+            <span className="text-xs text-blue-400 font-mono">
+              {tHi("reconciledByLabel")} {vanDay.reconciledBy || tHi("godownStaffFallback")}
             </span>
           </div>
         )}
@@ -547,11 +544,11 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                     <CheckCircle2 className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">
-                      Cash Handover Confirmed — Day Officially Closed
+                    <h3 className="text-base font-bold text-white">
+                      {tHi("cashHandoverConfirmedTitle")}
                     </h3>
                     <p className="text-xs text-slate-400">
-                      Received by <span className="text-white font-medium">{handover?.receivedBy?.name || "Owner / Accounts"}</span> • {handover?.confirmedAt ? new Date(handover.confirmedAt).toLocaleDateString("en-IN") : "Today"}
+                      {tHi("receivedByLabel")} <span className="text-white font-medium">{handover?.receivedBy?.name || tHi("ownerAccountsFallback")}</span> • {handover?.confirmedAt ? formatDDMMYYYY(handover.confirmedAt) : formatDDMMYYYY(new Date())}
                     </p>
                   </div>
                 </div>
@@ -560,8 +557,8 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                   <div className="text-xl font-mono font-black text-emerald-400">
                     ₹{((handover?.receivedCashPaise ?? financials.totalCashInHandPaise) / 100).toFixed(2)}
                   </div>
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold">
-                    Physical Cash Handed Over
+                  <span className="text-xs text-slate-400 font-semibold">
+                    {tHi("physicalCashHandedLabel")}
                   </span>
                 </div>
               </div>
@@ -569,19 +566,19 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
               {/* Handover Details Strip */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-800 text-xs">
                 <div>
-                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Expected Cash</span>
+                  <span className="text-xs text-slate-500 block font-medium">{tHi("expectedCashLabel")}</span>
                   <span className="font-mono text-slate-300">
                     ₹{((handover?.expectedCashPaise ?? financials.totalCashInHandPaise) / 100).toFixed(2)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Actual Received</span>
+                  <span className="text-xs text-slate-500 block font-medium">{tHi("actualReceivedLabel")}</span>
                   <span className="font-mono text-emerald-400 font-bold">
                     ₹{((handover?.receivedCashPaise ?? financials.totalCashInHandPaise) / 100).toFixed(2)}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Cash Variance</span>
+                  <span className="text-xs text-slate-500 block font-medium">{tHi("stockVarianceLabel")}</span>
                   <span className={`font-mono font-semibold ${
                     (handover?.shortagePaise ?? 0) > 0
                       ? "text-rose-400"
@@ -590,16 +587,16 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                       : "text-emerald-400"
                   }`}>
                     {(handover?.shortagePaise ?? 0) > 0
-                      ? `-₹${((handover?.shortagePaise ?? 0) / 100).toFixed(2)} Short`
+                      ? `-₹${((handover?.shortagePaise ?? 0) / 100).toFixed(2)} ${tHi("shortageWord")}`
                       : (handover?.excessPaise ?? 0) > 0
-                      ? `+₹${((handover?.excessPaise ?? 0) / 100).toFixed(2)} Excess`
-                      : "Zero Variance"}
+                      ? `+₹${((handover?.excessPaise ?? 0) / 100).toFixed(2)} ${tHi("excessWord")}`
+                      : tHi("zeroDiscrepancy")}
                   </span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block uppercase font-medium">Status</span>
-                  <span className="text-emerald-400 font-bold uppercase tracking-wider text-[11px]">
-                    Closed & Locked
+                  <span className="text-xs text-slate-500 block font-medium">{tHi("btStatusLabel")}</span>
+                  <span className="text-emerald-400 font-bold text-xs">
+                    {tHi("vanStatusClosed")}
                   </span>
                 </div>
               </div>
@@ -617,14 +614,14 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <Coins className="w-4 h-4 text-emerald-400" />
-                    Owner Cash Handover Confirmation
+                    {tHi("cashHandoverHeading")}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Verify cash received from {vanDay.salesperson.name} to officially lock and close this van day.
+                    {tHi("ownerVerifyDesc", { driver: vanDay.salesperson.name })}
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-slate-400 block uppercase font-semibold">Expected Handover</span>
+                  <span className="text-xs text-slate-400 block font-semibold">{tHi("expectedHandoverLabel")}</span>
                   <span className="font-mono font-bold text-emerald-400 text-base">
                     ₹{(financials.totalCashInHandPaise / 100).toFixed(2)}
                   </span>
@@ -633,8 +630,8 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Physical Cash Counted (₹)
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                    {tHi("physicalCashCountedLabel")}
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-slate-400 text-sm font-bold">₹</span>
@@ -653,20 +650,20 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                       onClick={() => setReceivedCashRupees(Math.round(financials.totalCashInHandPaise / 100))}
                       className="text-[11px] text-emerald-400 hover:underline font-medium"
                     >
-                      Fill Exact: ₹{(financials.totalCashInHandPaise / 100).toFixed(2)}
+                      {tHi("fillExactAmountBtn", { amt: (financials.totalCashInHandPaise / 100).toFixed(2) })}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                    Handover Remarks
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                    {tHi("handoverRemarksLabel")}
                   </label>
                   <input
                     type="text"
                     value={handoverNotes}
                     onChange={(e) => setHandoverNotes(e.target.value)}
-                    placeholder="Enter handover verification remarks"
+                    placeholder={tHi("handoverRemarksPlaceholder")}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -677,17 +674,17 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                 <div className="text-xs">
                   {Math.round(receivedCashRupees * 100) === financials.totalCashInHandPaise ? (
                     <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Exact cash match — zero variance
+                      <CheckCircle2 className="w-3.5 h-3.5" /> {tHi("exactCashMatchLabel")}
                     </span>
                   ) : Math.round(receivedCashRupees * 100) < financials.totalCashInHandPaise ? (
                     <span className="text-rose-400 font-semibold flex items-center gap-1">
                       <AlertTriangle className="w-3.5 h-3.5" />
-                      Cash Shortage: ₹{((financials.totalCashInHandPaise - Math.round(receivedCashRupees * 100)) / 100).toFixed(2)}
+                      {tHi("cashShortageLabel", { amt: ((financials.totalCashInHandPaise - Math.round(receivedCashRupees * 100)) / 100).toFixed(2) })}
                     </span>
                   ) : (
                     <span className="text-purple-400 font-semibold flex items-center gap-1">
                       <Sparkles className="w-3.5 h-3.5" />
-                      Cash Excess: ₹{((Math.round(receivedCashRupees * 100) - financials.totalCashInHandPaise) / 100).toFixed(2)}
+                      {tHi("cashExcessLabel", { amt: ((Math.round(receivedCashRupees * 100) - financials.totalCashInHandPaise) / 100).toFixed(2) })}
                     </span>
                   )}
                 </div>
@@ -699,7 +696,7 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/20 disabled:opacity-50"
                 >
                   <Coins className="w-4 h-4" />
-                  {isConfirmingHandover ? "Confirming..." : "Confirm Handover & Close Van Day"}
+                  {isConfirmingHandover ? tHi("confirmingText") : tHi("confirmCashHandoverBtn")}
                 </button>
               </div>
             </div>
@@ -708,10 +705,10 @@ export function VanReconciliationClient({ initialReport, initialHandover, userRo
             <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-5 space-y-2">
               <div className="flex items-center gap-2 text-amber-400 text-sm font-bold">
                 <Coins className="w-4 h-4" />
-                Awaiting Owner Cash Handover Confirmation
+                {tHi("awaitingOwnerHandoverTitle")}
               </div>
-              <p className="text-xs text-slate-300">
-                Unsold stock is reconciled. Please present <strong className="text-emerald-400 font-mono">₹{(financials.totalCashInHandPaise / 100).toFixed(2)}</strong> in cash to the Owner or the accounts manager to officially close this van day.
+              <p className="text-sm text-slate-300">
+                {tHi("awaitingOwnerHandoverDesc", { amt: (financials.totalCashInHandPaise / 100).toFixed(2) })}
               </p>
             </div>
           )}

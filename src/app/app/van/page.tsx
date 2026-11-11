@@ -2,6 +2,7 @@ import React from "react";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { VanMobileHomeClient } from "./van-mobile-home-client";
+import { VanLanguageProvider } from "@/lib/i18n/van-language-context";
 
 export const dynamic = "force-dynamic";
 
@@ -27,13 +28,17 @@ export default async function VanAppPage() {
   const activeVanDay = van?.vanDays?.[0] || null;
 
   return (
-    <VanMobileHomeClient
+    <VanLanguageProvider>
+      <div data-app="van" className="van-hindi-shell text-base">
+        <VanMobileHomeClient
       van={van ? { id: van.id, name: van.name } : null}
       activeVanDay={
         activeVanDay
           ? { id: activeVanDay.id, issueSheetNo: activeVanDay.issueSheetNo }
           : null
       }
-    />
+        />
+      </div>
+    </VanLanguageProvider>
   );
 }

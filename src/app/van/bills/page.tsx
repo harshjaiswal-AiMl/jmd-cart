@@ -8,6 +8,7 @@ import { ReceiptText, ArrowLeft } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 import { VanBillsClient, SerializedVanInvoice } from "./van-bills-client";
+import { tHi } from "@/lib/i18n/messages/hi";
 
 export default async function VanBillsPage() {
   const session = await auth();
@@ -58,6 +59,7 @@ export default async function VanBillsPage() {
       ? {
           id: inv.party.id,
           name: inv.party.name,
+          nameHi: inv.party.nameHi ?? null,
           phone: inv.party.phone,
         }
       : null,
@@ -73,9 +75,9 @@ export default async function VanBillsPage() {
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div>
-          <h1 className="text-xl font-black text-white">Van Invoices Register</h1>
-          <p className="text-xs text-slate-400">
-            {van ? van.name : "Unassigned Van"} • Bluetooth Print & Sales History
+          <h1 className="text-xl font-black text-white">{tHi("vanInvoicesRegisterHeading")}</h1>
+          <p className="text-sm text-slate-400">
+            {tHi("vanInvoicesRegisterSub", { van: van ? van.name : tHi("unassignedVan") })}
           </p>
         </div>
       </div>

@@ -7,6 +7,7 @@ export interface RowError {
 
 export interface ParsedCatalogRow {
   name: string;
+  nameHi?: string;
   shortCode: string;
   companyName?: string;
   categoryName?: string;

@@ -45,10 +45,12 @@ import { searchItems } from "@/lib/search/smart-search";
 import { CreditOverrideModal } from "@/components/billing/credit-override-modal";
 import { QtyUnitPicker, PickerUnit } from "@/components/billing/qty-unit-picker";
 import { PaymentMode } from "@prisma/client";
+import { tHi } from "@/lib/i18n/messages/hi";
 
 interface VanProduct {
   id: string;
   name: string;
+  nameHi?: string | null;
   phone?: string | null;
   address?: string | null;
   shortCode: string;
@@ -70,6 +72,7 @@ interface VanProduct {
 interface PartyOption {
   id: string;
   name: string;
+  nameHi?: string | null;
   type?: string;
   phone?: string | null;
   address?: string | null;
@@ -182,6 +185,7 @@ export function VanBillingClient({
   const [quickCustomerOpen, setQuickCustomerOpen] = useState(false);
   const [quickCustomerForm, setQuickCustomerForm] = useState({
     name: "",
+    nameHi: "",
     phone: "",
     type: "CUSTOMER" as "CUSTOMER" | "RETAILER" | "WHOLESALER",
     address: "",
@@ -236,7 +240,7 @@ export function VanBillingClient({
   const handleSavePartyInVan = async () => {
     if (!selectedParty) return;
     if (!vanPartyName.trim()) {
-      alert("Customer name cannot be empty");
+      alert(tHi("customerNameEmptyAlert"));
       return;
     }
     setIsSavingParty(true);
@@ -265,10 +269,10 @@ export function VanBillingClient({
         setPartySaveSuccess(true);
         setTimeout(() => setPartySaveSuccess(false), 2500);
       } else {
-        alert(res.error || "Failed to update party");
+        alert(res.error || tHi("partyUpdateFailedError"));
       }
     } catch (err: any) {
-      alert(err.message || "Failed to update party");
+      alert(err.message || tHi("partyUpdateFailedError"));
     } finally {
       setIsSavingParty(false);
     }
@@ -286,14 +290,14 @@ export function VanBillingClient({
 
     const handleOnline = () => {
       setIsOnline(true);
-      setStatusMessage({ type: "info", text: "Back online. Syncing pending drafts..." });
+      setStatusMessage({ type: "info", text: tHi("onlineSyncingMsg") });
       triggerDraftSync();
     };
     const handleOffline = () => {
       setIsOnline(false);
       setStatusMessage({
         type: "warning",
-        text: "Network dropped. Bills will be saved as local drafts.",
+        text: tHi("offlineModeNotice"),
       });
     };
 
@@ -497,15 +501,22 @@ export function VanBillingClient({
 
   const handleCreateQuickCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickCustomerForm.name.trim()) {
-      setQuickCustomerError("Customer name is required");
+    const trimmedBillName = quickCustomerForm.name.trim();
+    if (!trimmedBillName) {
+      setQuickCustomerError(tHi("customerRequiredError"));
+      return;
+    }
+    if (/[\u0900-\u097F]/.test(trimmedBillName) || /[^\x20-\x7E]/.test(trimmedBillName) || !/[A-Za-z]/.test(trimmedBillName)) {
+      setQuickCustomerError(tHi("englishBillNameError"));
       return;
     }
     setQuickCustomerSaving(true);
     setQuickCustomerError(null);
     try {
       const res = await createQuickPartyAction({
-        name: quickCustomerForm.name.trim(),
+        name: trimmedBillName,
+        nameHi: quickCustomerForm.nameHi.trim() || undefined,
+        requireEnglishBillName: true,
         phone: quickCustomerForm.phone.trim() || undefined,
         type: quickCustomerForm.type,
         address: quickCustomerForm.address.trim() || undefined,
@@ -517,6 +528,7 @@ export function VanBillingClient({
         const newParty: PartyOption = {
           id: res.party.id,
           name: res.party.name,
+          nameHi: (res.party as any).nameHi ?? null,
           phone: res.party.phone,
           address: res.party.address,
           creditEnabled: res.party.creditEnabled,
@@ -527,10 +539,10 @@ export function VanBillingClient({
         setSelectedPartyId(newParty.id);
         setCustomerMode("PARTY");
         setQuickCustomerOpen(false);
-        setQuickCustomerForm({ name: "", phone: "", type: "CUSTOMER", address: "", gstin: "" });
+        setQuickCustomerForm({ name: "", nameHi: "", phone: "", type: "CUSTOMER", address: "", gstin: "" });
       }
     } catch (err: any) {
-      setQuickCustomerError(err.message || "Failed to create customer");
+      setQuickCustomerError(err.message || tHi("customerCreateFailedError"));
     } finally {
       setQuickCustomerSaving(false);
     }
@@ -539,7 +551,7 @@ export function VanBillingClient({
   // Submit Bill
   const handleFinalizeBill = async (explicitOverride?: { approvedByUserId: string; reason: string }) => {
     if (cart.length === 0) {
-      setStatusMessage({ type: "error", text: "Cart is empty. Please select products first." });
+      setStatusMessage({ type: "error", text: tHi("cartEmptyError") });
       return;
     }
 
@@ -550,7 +562,7 @@ export function VanBillingClient({
       if (!hasCustomerInfo) {
         setStatusMessage({
           type: "error",
-          text: "Customer Name and 10-digit Mobile are mandatory when Payment Pending is selected.",
+          text: tHi("pendingNeedsCustomerError"),
         });
         return;
       }
@@ -560,7 +572,7 @@ export function VanBillingClient({
 
     if (paymentMode === PaymentMode.CREDIT && !overrideToUse) {
       if (!selectedParty) {
-        setStatusMessage({ type: "error", text: "Please select a registered customer party for credit sales" });
+        setStatusMessage({ type: "error", text: tHi("creditNeedsPartyError") });
         return;
       }
 
@@ -578,14 +590,14 @@ export function VanBillingClient({
         }
       } else {
         if (!selectedParty.creditEnabled) {
-          setStatusMessage({ type: "error", text: "This party is not enabled for credit" });
+          setStatusMessage({ type: "error", text: tHi("creditPartyNotEnabledOffline") });
           return;
         }
         const remainingCredit =
           selectedParty.creditLimitPaise - selectedParty.currentOutstandingPaise;
         if (totalPaise > remainingCredit) {
           setOverrideBreachReasons([
-            `Exceeds credit limit! Available credit: ₹${(remainingCredit / 100).toFixed(2)} (Bill: ₹${(totalPaise / 100).toFixed(2)})`
+            tHi("creditLimitExceedOffline", { avail: (remainingCredit / 100).toFixed(2), bill: (totalPaise / 100).toFixed(2) })
           ]);
           setPendingOverridePartyName(selectedParty.name);
           setOverrideModalOpen(true);
@@ -673,7 +685,7 @@ export function VanBillingClient({
       setIsSubmitting(false);
       setStatusMessage({
         type: "warning",
-        text: `📶 Saved offline as draft. Total: ₹${(totalPaise / 100).toFixed(2)}. Will sync when reconnected.`,
+        text: tHi("offlineSavedWarning", { total: (totalPaise / 100).toFixed(2) }),
       });
       return;
     }
@@ -720,7 +732,7 @@ export function VanBillingClient({
       clearCart();
       setStatusMessage({
         type: "success",
-        text: `Invoice #${res.invoice.number} finalized successfully!`,
+        text: tHi("invoiceSuccessToast", { number: res.invoice.number }),
       });
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Network error";
@@ -729,7 +741,7 @@ export function VanBillingClient({
       clearCart();
       setStatusMessage({
         type: "warning",
-        text: `Submission interrupted: ${errMsg}. Bill saved locally as draft.`,
+        text: tHi("invoiceInterruptedWarning", { err: errMsg }),
       });
     } finally {
       setIsSubmitting(false);
@@ -782,7 +794,7 @@ export function VanBillingClient({
       if (syncedCount > 0) {
         setStatusMessage({
           type: "success",
-          text: `Successfully synced ${syncedCount} offline draft(s) with server!`,
+          text: tHi("syncedDraftsSuccess", { count: syncedCount }),
         });
       }
     } finally {
@@ -790,12 +802,12 @@ export function VanBillingClient({
     }
   };
 
-  // Helper: Display Customer Label
+  // Helper: Display Customer Label (Hindi display name in Van UI)
   const activeCustomerLabel = useMemo(() => {
-    if (selectedParty) return selectedParty.name;
-    if (walkInName.trim()) return `${walkInName.trim()} (Walk-in)`;
-    if (walkInMobile.trim()) return `Cash Customer (${walkInMobile.trim()})`;
-    return "Cash Retail Buyer";
+    if (selectedParty) return selectedParty.nameHi || selectedParty.name;
+    if (walkInName.trim()) return `${walkInName.trim()} (${tHi("walkInCustomer")})`;
+    if (walkInMobile.trim()) return `${tHi("walkInCustomer")} (${walkInMobile.trim()})`;
+    return tHi("walkInCustomer");
   }, [selectedParty, walkInName, walkInMobile]);
 
   return (
@@ -816,11 +828,11 @@ export function VanBillingClient({
             <div className="flex items-center gap-2">
               <span className="text-sm font-black text-slate-900">{vanName}</span>
               <span className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
-                Load #{issueSheetNo}
+                {tHi("loadShortBadge", { sheet: issueSheetNo })}
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 font-medium">
-              {isOnline ? "🟢 Online • Cloud sync ready" : "🟠 Offline • Local memory safe"}
+            <p className="text-xs text-slate-500 font-medium">
+              {isOnline ? tHi("onlineSyncReady") : tHi("offlineSyncSafe")}
             </p>
           </div>
         </div>
@@ -831,7 +843,7 @@ export function VanBillingClient({
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition animate-pulse"
           >
             <CloudUpload className="w-3.5 h-3.5" />
-            <span>{pendingDrafts.length} Offline Draft{pendingDrafts.length > 1 ? "s" : ""}</span>
+            <span>{tHi("offlineDraftsBtn", { count: pendingDrafts.length })}</span>
           </button>
         )}
       </div>
@@ -866,18 +878,19 @@ export function VanBillingClient({
             </div>
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-200/80 px-2 py-0.5 rounded-md">
-                BILL GENERATED
+                {tHi("billGeneratedBadge")}
               </span>
               <h2 className="text-xl font-black text-slate-900 mt-0.5">
                 {lastInvoice.number}
               </h2>
               <p className="text-sm font-bold text-slate-700">
-                Total: <strong className="text-emerald-700 text-base">₹{(lastInvoice.totalPaise / 100).toFixed(2)}</strong>
+                {tHi("totalWord")} <strong className="text-emerald-700 text-base">₹{(lastInvoice.totalPaise / 100).toFixed(2)}</strong>
               </p>
             </div>
           </div>
 
           <BillMessagingCard
+            locale="hi"
             invoiceId={lastInvoice.id}
             invoiceNumber={lastInvoice.number}
             defaultPhone={lastInvoice.targetPhone}
@@ -898,7 +911,7 @@ export function VanBillingClient({
               target="_blank"
               className="px-4 py-3 rounded-2xl text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 transition"
             >
-              📄 Browser Print
+              {tHi("browserPrintBtn")}
             </Link>
             <button
               onClick={() => {
@@ -907,7 +920,7 @@ export function VanBillingClient({
               }}
               className="flex-1 min-w-[140px] px-5 py-3 rounded-2xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition text-center"
             >
-              + Start Next Sale (अगला बिल)
+              {tHi("startNextSaleBtn")}
             </button>
           </div>
         </div>
@@ -933,7 +946,7 @@ export function VanBillingClient({
             >
               1
             </span>
-            <span className="truncate">Customer</span>
+            <span className="truncate">{tHi("step1Short")}</span>
           </button>
 
           {/* Step 2 Tab */}
@@ -953,7 +966,7 @@ export function VanBillingClient({
             >
               2
             </span>
-            <span className="truncate">Items ({totalPiecesInCart})</span>
+            <span className="truncate">{tHi("step2Short", { count: totalPiecesInCart })}</span>
           </button>
 
           {/* Step 3 Tab */}
@@ -961,7 +974,7 @@ export function VanBillingClient({
             type="button"
             onClick={() => {
               if (cart.length > 0) setCurrentStep(3);
-              else setStatusMessage({ type: "warning", text: "Please add products first before proceeding to payment." });
+              else setStatusMessage({ type: "warning", text: tHi("addProductsFirstWarning") });
             }}
             className={`py-2.5 px-2 rounded-xl flex items-center justify-center gap-1.5 transition ${
               currentStep === 3
@@ -976,7 +989,7 @@ export function VanBillingClient({
             >
               3
             </span>
-            <span className="truncate">Payment</span>
+            <span className="truncate">{tHi("step3Short")}</span>
           </button>
         </div>
       </div>
@@ -988,10 +1001,10 @@ export function VanBillingClient({
             <div>
               <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
                 <User className="w-5 h-5 text-blue-600" />
-                <span>Step 1: Select Customer (ग्राहक चुनें)</span>
+                <span>{tHi("step1Customer")}</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Choose a registered Kirana store or enter walk-in buyer details
+                {tHi("step1Subtitle")}
               </p>
             </div>
 
@@ -1004,7 +1017,7 @@ export function VanBillingClient({
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#12355B]/10 hover:bg-[#12355B]/20 text-[#12355B] transition"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>+ New Customer</span>
+              <span>{tHi("newCustomerBtn")}</span>
             </button>
           </div>
 
@@ -1020,7 +1033,7 @@ export function VanBillingClient({
               }`}
             >
               <Store className="w-4 h-4" />
-              <span>Registered Shop / Party</span>
+              <span>{tHi("registeredShopTab")}</span>
             </button>
             <button
               type="button"
@@ -1035,7 +1048,7 @@ export function VanBillingClient({
               }`}
             >
               <User className="w-4 h-4" />
-              <span>Walk-in / Cash Buyer</span>
+              <span>{tHi("walkInBuyerTab")}</span>
             </button>
           </div>
 
@@ -1044,16 +1057,17 @@ export function VanBillingClient({
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Select Customer Party / Shop:
+                  {tHi("selectCustomerLabel")}
                 </label>
                 <PartySearchBox
                   parties={localParties as any}
                   selectedPartyId={selectedPartyId}
                   onSelect={(party) => setSelectedPartyId(party.id)}
                   onClear={() => setSelectedPartyId("")}
-                  placeholder="-- Search Kirana Store or Customer Name [Alt+P] --"
+                  placeholder={tHi("searchPartyPlaceholder")}
                   allowQuickAdd={true}
                   onQuickAdd={() => setQuickCustomerOpen(true)}
+                  locale="hi"
                 />
               </div>
 
@@ -1061,17 +1075,17 @@ export function VanBillingClient({
               {selectedParty && (
                 <div className="bg-blue-50/60 border border-blue-200 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center justify-between border-b border-blue-200/80 pb-2">
-                    <span className="text-[11px] font-black uppercase text-blue-900 tracking-wider">
-                      Shop &amp; Contact Details
+                    <span className="text-xs font-black text-blue-900">
+                      {tHi("shopContactDetailsTitle")}
                     </span>
-                    <span className="text-[11px] text-blue-700 font-medium">
-                      Press Save to update DB
+                    <span className="text-xs text-blue-700 font-medium">
+                      {tHi("pressSaveUpdateDb")}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Shop Name:</label>
+                      <label className="text-xs font-bold text-slate-600 block mb-0.5">{tHi("shopNameLabel")}</label>
                       <input
                         type="text"
                         value={vanPartyName}
@@ -1083,7 +1097,7 @@ export function VanBillingClient({
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Phone Number:</label>
+                      <label className="text-xs font-bold text-slate-600 block mb-0.5">{tHi("phoneNumberLabel")}</label>
                       <input
                         type="tel"
                         value={vanPartyPhone}
@@ -1091,12 +1105,12 @@ export function VanBillingClient({
                           setVanPartyPhone(e.target.value);
                           setIsPartyDirty(true);
                         }}
-                        placeholder="10-digit mobile"
+                        placeholder={tHi("phonePlaceholder")}
                         className="w-full px-2.5 py-1.5 text-xs font-mono text-slate-900 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-600 block mb-0.5">Address / Village:</label>
+                      <label className="text-xs font-bold text-slate-600 block mb-0.5">{tHi("addressVillageLabel")}</label>
                       <input
                         type="text"
                         value={vanPartyAddress}
@@ -1104,7 +1118,7 @@ export function VanBillingClient({
                           setVanPartyAddress(e.target.value);
                           setIsPartyDirty(true);
                         }}
-                        placeholder="Location"
+                        placeholder={tHi("locationPlaceholder")}
                         className="w-full px-2.5 py-1.5 text-xs text-slate-900 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
@@ -1113,7 +1127,7 @@ export function VanBillingClient({
                   <div className="flex items-center justify-between pt-1">
                     <div className="flex items-center gap-3 text-xs">
                       <div>
-                        <span className="text-slate-500">Balance: </span>
+                        <span className="text-slate-500">{tHi("balanceLabel")} </span>
                         <strong
                           className={
                             selectedParty.currentOutstandingPaise > 0
@@ -1128,7 +1142,7 @@ export function VanBillingClient({
                       </div>
                       {selectedParty.creditEnabled && (
                         <div>
-                          <span className="text-slate-500">Credit Limit: </span>
+                          <span className="text-slate-500">{tHi("creditLimitShort")} </span>
                           <strong className="text-slate-800">
                             ₹{(selectedParty.creditLimitPaise / 100).toFixed(0)}
                           </strong>
@@ -1149,11 +1163,11 @@ export function VanBillingClient({
                       }`}
                     >
                       {isSavingParty ? (
-                        <span>Saving...</span>
+                        <span>{tHi("savingText")}</span>
                       ) : partySaveSuccess ? (
-                        <span>✓ Saved!</span>
+                        <span>{tHi("savedDetailsBtn")}</span>
                       ) : (
-                        <span>💾 Save Details</span>
+                        <span>{tHi("saveDetailsBtn")}</span>
                       )}
                     </button>
                   </div>
@@ -1165,15 +1179,15 @@ export function VanBillingClient({
           {/* Customer Mode B: Walk-in Cash Customer */}
           {customerMode === "WALKIN" && (
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-              <span className="text-[11px] font-black uppercase text-slate-700 tracking-wider block">
-                Walk-in Customer Details
+              <span className="text-xs font-black text-slate-700 block">
+                {tHi("walkInSectionTitle")}
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Mobile (10-digit):</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">{tHi("walkInMobileLabel")}</label>
                   <input
                     type="tel"
-                    placeholder="Enter 10-digit mobile..."
+                    placeholder={tHi("walkInMobilePlaceholder")}
                     value={walkInMobile}
                     onChange={(e) => {
                       const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
@@ -1190,20 +1204,20 @@ export function VanBillingClient({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Customer Name:</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">{tHi("walkInNameLabel")}</label>
                   <input
                     type="text"
-                    placeholder="e.g. Ramesh Kumar"
+                    placeholder={tHi("walkInNamePlaceholder")}
                     value={walkInName}
                     onChange={(e) => setWalkInName(e.target.value)}
                     className="w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Delivery Address / Village:</label>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">{tHi("walkInAddressLabel")}</label>
                   <input
                     type="text"
-                    placeholder="e.g. Bangaon, Ward 4"
+                    placeholder={tHi("walkInAddressPlaceholder")}
                     value={walkInAddress}
                     onChange={(e) => setWalkInAddress(e.target.value)}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white focus:ring-2 focus:ring-blue-500"
@@ -1220,7 +1234,7 @@ export function VanBillingClient({
               onClick={() => setCurrentStep(2)}
               className="w-full py-3.5 px-4 rounded-2xl bg-[#12355B] hover:bg-[#0E2843] text-white text-sm font-black shadow-md flex items-center justify-center gap-2 transition"
             >
-              <span>Continue to Select Products → (सामान चुनें)</span>
+              <span>{tHi("continueSelectProductsBtn")}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -1233,7 +1247,7 @@ export function VanBillingClient({
           {/* Customer Mini Summary Banner */}
           <div className="bg-white border border-slate-200 rounded-2xl p-3 px-4 flex items-center justify-between gap-3 shadow-xs">
             <div className="flex items-center gap-2 text-xs">
-              <span className="font-bold text-slate-500">Customer:</span>
+              <span className="font-bold text-slate-500">{tHi("customerBannerLabel")}</span>
               <span className="font-black text-[#12355B] text-sm">{activeCustomerLabel}</span>
             </div>
             <button
@@ -1241,14 +1255,14 @@ export function VanBillingClient({
               onClick={() => setCurrentStep(1)}
               className="text-xs font-bold text-blue-600 hover:text-blue-800 underline"
             >
-              Change Customer
+              {tHi("changeCustomerBtn")}
             </button>
           </div>
 
           {/* Pricing Tier Selector (Auto / Tier A / Tier B / Tier C) */}
           <div className="flex items-center justify-between gap-2 flex-wrap bg-white p-2.5 px-3.5 rounded-2xl border border-slate-200 shadow-2xs">
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Price Tier:</span>
+              <span className="text-xs font-bold text-slate-500">{tHi("priceTierLabel")}</span>
               <span className={`text-[11px] font-black px-2 py-0.5 rounded-md ${
                 effectiveTier === "WHOLESALER"
                   ? "bg-purple-100 text-purple-900 border border-purple-200"
@@ -1256,7 +1270,7 @@ export function VanBillingClient({
                   ? "bg-blue-100 text-blue-900 border border-blue-200"
                   : "bg-emerald-100 text-emerald-900 border border-emerald-200"
               }`}>
-                {effectiveTier === "WHOLESALER" ? "Tier A (Wholesale)" : effectiveTier === "RETAILER" ? "Tier B (Retail)" : "Tier C (Standard)"}
+                {effectiveTier === "WHOLESALER" ? tHi("tierAWholesale") : effectiveTier === "RETAILER" ? tHi("tierBRetail") : tHi("tierCStandard")}
               </span>
             </div>
 
@@ -1270,7 +1284,7 @@ export function VanBillingClient({
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                Auto ({effectiveTier[0]})
+                {tHi("tierAutoBtn", { tier: effectiveTier[0] })}
               </button>
               <button
                 type="button"
@@ -1281,7 +1295,7 @@ export function VanBillingClient({
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                A (Wholesale)
+                {tHi("tierABtn")}
               </button>
               <button
                 type="button"
@@ -1292,7 +1306,7 @@ export function VanBillingClient({
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                B (Retail)
+                {tHi("tierBBtn")}
               </button>
               <button
                 type="button"
@@ -1303,7 +1317,7 @@ export function VanBillingClient({
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                C (Standard)
+                {tHi("tierCBtn")}
               </button>
             </div>
           </div>
@@ -1315,7 +1329,7 @@ export function VanBillingClient({
               type="search"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search morning load items by name, code or weight..."
+              placeholder={tHi("searchItemPlaceholder")}
               className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#12355B] shadow-xs"
             />
           </div>
@@ -1325,8 +1339,8 @@ export function VanBillingClient({
             {filteredProducts.length === 0 ? (
               <div className="bg-white rounded-3xl p-10 text-center text-slate-400 border border-slate-200 text-xs space-y-2">
                 <Package className="w-8 h-8 text-slate-300 mx-auto" />
-                <p className="font-bold text-slate-600 text-sm">No morning loaded products match search.</p>
-                <p>Only products dispatched on today&apos;s load sheet appear here.</p>
+                <p className="font-bold text-slate-600 text-base">{tHi("noMorningLoadMatchTitle")}</p>
+                <p>{tHi("noMorningLoadMatchDesc")}</p>
               </div>
             ) : (
               filteredProducts.map((p) => {
@@ -1347,8 +1361,8 @@ export function VanBillingClient({
                       {/* Product Metadata */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="text-sm font-black text-slate-900">
-                            {p.name}
+                          <h4 className="text-base font-black text-slate-900">
+                            {p.nameHi || p.name}
                           </h4>
                           {p.weight && (
                             <span className="text-[10px] font-extrabold text-amber-900 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-300">
@@ -1363,21 +1377,21 @@ export function VanBillingClient({
                           <span className="font-mono text-slate-600">{p.shortCode}</span>
                           <span>•</span>
                           <span className="text-[#12355B] font-black bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                            Rate: ₹{(tierPieceRate / 100).toFixed(2)}/pc
+                            {tHi("ratePerPcPrefix")} ₹{(tierPieceRate / 100).toFixed(2)}/{tHi("pcs")}
                           </span>
                           <span className="text-slate-500 font-bold line-through">
-                            MRP: ₹{(p.mrpPaise / 100).toFixed(2)}
+                            {tHi("mrpShortLabel")} ₹{(p.mrpPaise / 100).toFixed(2)}
                           </span>
                         </div>
 
                         {/* Morning Load Stock Indicator */}
                         <div className="flex items-center gap-2 mt-1.5 text-[11px]">
                           <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 font-extrabold">
-                            Available: {p.cartons} Ctn + {p.loosePieces} Pcs ({p.availablePieces} pcs)
+                            {tHi("availableStockChip", { cartons: p.cartons, loose: p.loosePieces, total: p.availablePieces })}
                           </span>
                           {p.morningIssuedQty !== undefined && (
                             <span className="text-slate-500 font-medium hidden sm:inline">
-                              (Morning Load: {p.morningIssuedQty} pcs)
+                              {tHi("morningLoadChip", { qty: p.morningIssuedQty })}
                             </span>
                           )}
                         </div>
@@ -1386,7 +1400,7 @@ export function VanBillingClient({
                         {totalInCartPieces > 0 && (
                           <div className="mt-2 text-xs font-black text-blue-900 flex items-center gap-1.5 flex-wrap">
                             <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                            <span>In Cart: {totalInCartPieces} pcs ({inCart.map(i => `${i.unitQty} ${i.unit}`).join(", ")})</span>
+                            <span>{tHi("inCartSummaryChip", { pieces: totalInCartPieces })}</span>
                           </div>
                         )}
 
@@ -1452,6 +1466,7 @@ export function VanBillingClient({
                             addToCart(p, qty, unit);
                           }}
                           disabled={false}
+                          locale="hi"
                         />
                       </div>
                     </div>
@@ -1465,14 +1480,14 @@ export function VanBillingClient({
           {cart.length > 0 && (
             <div className="sticky bottom-3 z-20 bg-slate-900 text-white p-3 sm:p-4 rounded-3xl shadow-2xl flex items-center justify-between gap-3 animate-in slide-in-from-bottom-2">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">
-                  Total Bill Amount
+                <span className="text-xs font-bold text-slate-400 block">
+                  {tHi("totalBillAmountLabel")}
                 </span>
                 <span className="text-lg sm:text-xl font-black text-white">
                   ₹{(totalPaise / 100).toFixed(2)}
                 </span>
                 <span className="text-xs text-slate-400 ml-2 font-medium">
-                  ({totalPiecesInCart} pcs in {cart.length} line{cart.length > 1 ? "s" : ""})
+                  {tHi("cartCountSummary", { pieces: totalPiecesInCart, lines: cart.length })}
                 </span>
               </div>
 
@@ -1482,14 +1497,14 @@ export function VanBillingClient({
                   onClick={() => setCurrentStep(1)}
                   className="px-3 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition"
                 >
-                  ← Customer
+                  ← {tHi("step1Short")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setCurrentStep(3)}
                   className="px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-black shadow-lg transition flex items-center gap-1.5"
                 >
-                  <span>Proceed to Pay (भुगतान) →</span>
+                  <span>{tHi("nextStepBtn")}</span>
                 </button>
               </div>
             </div>
@@ -1504,10 +1519,10 @@ export function VanBillingClient({
             <div>
               <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-blue-600" />
-                <span>Step 3: Review &amp; Payment (बिल और भुगतान)</span>
+                <span>{tHi("step3Payment")}</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Verify bill lines, choose payment mode (Cash/UPI/Credit), and finalize
+                {tHi("step3Subtitle")}
               </p>
             </div>
 
@@ -1516,14 +1531,14 @@ export function VanBillingClient({
               onClick={() => setCurrentStep(2)}
               className="text-xs font-bold text-blue-600 hover:text-blue-800 underline"
             >
-              + Add More Items
+              {tHi("addMoreItemsBtn")}
             </button>
           </div>
 
           {/* Customer Snapshot */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 px-4 flex items-center justify-between text-xs">
             <div>
-              <span className="text-slate-500 block">Billed To:</span>
+              <span className="text-slate-500 block">{tHi("billedToLabel")}</span>
               <strong className="text-sm font-black text-slate-900">{activeCustomerLabel}</strong>
             </div>
             <button
@@ -1531,14 +1546,14 @@ export function VanBillingClient({
               onClick={() => setCurrentStep(1)}
               className="text-blue-600 font-bold hover:underline"
             >
-              Change
+              {tHi("changeBtn")}
             </button>
           </div>
 
           {/* Itemized Cart Table */}
           <div className="space-y-2">
-            <span className="text-xs font-black text-slate-700 uppercase tracking-wider block">
-              Bill Items ({cart.length})
+            <span className="text-xs font-black text-slate-700 block">
+              {tHi("billItemsHeading", { count: cart.length })}
             </span>
             <div className="border border-slate-200 rounded-2xl divide-y divide-slate-100 overflow-hidden bg-white shadow-2xs">
               {cart.map((line) => {
@@ -1565,7 +1580,7 @@ export function VanBillingClient({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="font-black text-slate-900 truncate">{line.product.name}</p>
+                        <p className="font-black text-slate-900 truncate">{line.product.nameHi || line.product.name}</p>
                         {line.product.weight && (
                           <span className="text-[10px] font-bold text-amber-900 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
                             {line.product.weight}
@@ -1576,7 +1591,7 @@ export function VanBillingClient({
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                        {line.unitQty} {line.unit} ({line.qty} pcs)
+                        {line.unitQty} {line.unit === "CARTON" ? tHi("unitCarton") : line.unit === "BAG" ? tHi("unitBag") : line.unit === "DOZEN" ? tHi("unitDozen") : tHi("unitPcs")} ({line.qty} {tHi("pcs")})
                       </p>
                     </div>
 
@@ -1641,7 +1656,7 @@ export function VanBillingClient({
                         type="button"
                         onClick={() => removeFromCart(line.product.id, line.unit)}
                         className="text-slate-400 hover:text-rose-600 p-1"
-                        title="Remove line"
+                        title={tHi("removeLineTitle")}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -1654,21 +1669,21 @@ export function VanBillingClient({
 
           {/* Giant Grand Total Box */}
           <div className="bg-[#12355B] text-white rounded-3xl p-5 text-center shadow-md">
-            <span className="text-xs uppercase font-extrabold tracking-widest text-blue-200">
-              GRAND TOTAL (कुल राशि)
+            <span className="text-sm font-extrabold text-blue-200">
+              {tHi("grandTotalUpper")}
             </span>
             <div className="text-3xl sm:text-4xl font-black mt-1 font-mono">
               ₹{(totalPaise / 100).toFixed(2)}
             </div>
             <p className="text-xs text-blue-200 mt-1 font-medium">
-              Tax-inclusive GST • {totalPiecesInCart} total pieces
+              {tHi("gstIncludedSummary", { pieces: totalPiecesInCart })}
             </p>
           </div>
 
           {/* Payment Mode Selector (3 Big Cards) */}
           <div className="space-y-2">
-            <label className="text-xs font-black text-slate-800 uppercase tracking-wider block">
-              Choose Payment Mode (भुगतान का तरीका):
+            <label className="text-sm font-black text-slate-800 block">
+              {tHi("paymentModeLabel")}
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Cash Mode */}
@@ -1691,8 +1706,8 @@ export function VanBillingClient({
                   <Banknote className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-black text-sm">💵 Cash (नकद)</h4>
-                  <p className="text-[11px] text-slate-500">Collect cash in hand</p>
+                  <h4 className="font-black text-sm">{tHi("modeCash")}</h4>
+                  <p className="text-xs text-slate-500">{tHi("modeCashSub")}</p>
                 </div>
               </button>
 
@@ -1716,8 +1731,8 @@ export function VanBillingClient({
                   <Smartphone className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-black text-sm">📱 UPI / QR (ऑनलाइन)</h4>
-                  <p className="text-[11px] text-slate-500">PhonePe / GPay / Paytm</p>
+                  <h4 className="font-black text-sm">{tHi("modeUpi")}</h4>
+                  <p className="text-xs text-slate-500">{tHi("modeUpiSub")}</p>
                 </div>
               </button>
 
@@ -1726,7 +1741,7 @@ export function VanBillingClient({
                 type="button"
                 onClick={() => {
                   if (!selectedParty) {
-                    alert("Credit sale is only allowed for registered customer parties. Please select a party in Step 1.");
+                    setStatusMessage({ type: "error", text: tHi("creditNeedsPartyError") });
                     setCurrentStep(1);
                     return;
                   }
@@ -1748,9 +1763,9 @@ export function VanBillingClient({
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="font-black text-sm">📋 Credit (उधार)</h4>
-                  <p className="text-[11px] text-slate-500">
-                    {selectedParty?.creditEnabled ? "Credit Approved" : "Registered Party Only"}
+                  <h4 className="font-black text-sm">{tHi("modeCredit")}</h4>
+                  <p className="text-xs text-slate-500">
+                    {selectedParty?.creditEnabled ? tHi("creditApprovedTag") : tHi("creditRegisteredOnlyTag")}
                   </p>
                 </div>
               </button>
@@ -1760,7 +1775,7 @@ export function VanBillingClient({
           {/* Payment Status Toggle (Cash / UPI) */}
           {paymentMode !== PaymentMode.CREDIT && (
             <div className="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-700">Payment Collection:</span>
+              <span className="font-bold text-slate-700">{tHi("paymentCollectionLabel")}</span>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -1771,7 +1786,7 @@ export function VanBillingClient({
                       : "bg-white text-slate-600 border border-slate-300"
                   }`}
                 >
-                  ✓ Payment Received
+                  {tHi("paymentReceivedBtn")}
                 </button>
                 <button
                   type="button"
@@ -1782,7 +1797,7 @@ export function VanBillingClient({
                       : "bg-white text-slate-600 border border-slate-300"
                   }`}
                 >
-                  ⏳ Payment Pending
+                  {tHi("paymentPendingBtn")}
                 </button>
               </div>
             </div>
@@ -1795,7 +1810,7 @@ export function VanBillingClient({
               onClick={() => setCurrentStep(2)}
               className="w-full sm:w-auto px-5 py-3.5 rounded-2xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs transition"
             >
-              ← Back to Items
+              {tHi("prevStepBtn")}
             </button>
 
             <button
@@ -1805,11 +1820,11 @@ export function VanBillingClient({
               className="flex-1 w-full py-4 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm sm:text-base font-black shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSubmitting ? (
-                <span>Generating Invoice...</span>
+                <span>{tHi("generatingInvoiceText")}</span>
               ) : (
                 <>
                   <Sparkles className="w-5 h-5" />
-                  <span>Finalize Sale &amp; Print Bill (बिल बनाएं)</span>
+                  <span>{tHi("finalizeBillBtn")}</span>
                 </>
               )}
             </button>
@@ -1824,7 +1839,7 @@ export function VanBillingClient({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-[#12355B] text-base flex items-center gap-1.5">
                 <Plus className="w-4 h-4 text-emerald-600" />
-                Quick Add Customer
+                {tHi("quickAddCustomerTitle")}
               </h3>
               <button
                 onClick={() => setQuickCustomerOpen(false)}
@@ -1843,31 +1858,45 @@ export function VanBillingClient({
             <form onSubmit={handleCreateQuickCustomer} className="space-y-3 text-xs">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">
-                  Customer / Shop Name <span className="text-rose-500">*</span>
+                  {tHi("englishBillNameLabel")}
                 </label>
+                <p className="text-xs text-slate-500 mb-1">{tHi("englishBillNameHint")}</p>
                 <input
                   type="text"
                   required
                   value={quickCustomerForm.name}
                   onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, name: e.target.value })}
-                  placeholder="e.g. Saharsa Kirana Store"
+                  placeholder="e.g. Gupta Kirana Store"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#12355B]"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  {tHi("hindiDisplayNameLabel")}
+                </label>
+                <input
+                  type="text"
+                  value={quickCustomerForm.nameHi}
+                  onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, nameHi: e.target.value })}
+                  placeholder={tHi("hindiDisplayNamePlaceholder")}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#12355B]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Phone Number</label>
+                  <label className="font-semibold text-slate-700 block mb-1">{tHi("phoneLabel")}</label>
                   <input
                     type="tel"
                     value={quickCustomerForm.phone}
                     onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, phone: e.target.value })}
-                    placeholder="10-digit mobile"
+                    placeholder={tHi("phonePlaceholder")}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#12355B]"
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Customer Type</label>
+                  <label className="font-semibold text-slate-700 block mb-1">{tHi("customerTypeLabel")}</label>
                   <select
                     value={quickCustomerForm.type}
                     onChange={(e) =>
@@ -1875,20 +1904,20 @@ export function VanBillingClient({
                     }
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#12355B] bg-white"
                   >
-                    <option value="CUSTOMER">Retail Consumer</option>
-                    <option value="RETAILER">Retailer (Kirana Store)</option>
-                    <option value="WHOLESALER">Wholesaler</option>
+                    <option value="CUSTOMER">{tHi("retailConsumer")}</option>
+                    <option value="RETAILER">{tHi("retailerKirana")}</option>
+                    <option value="WHOLESALER">{tHi("wholesaler")}</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">Address / Landmark</label>
+                <label className="font-semibold text-slate-700 block mb-1">{tHi("addressLabel")}</label>
                 <input
                   type="text"
                   value={quickCustomerForm.address}
                   onChange={(e) => setQuickCustomerForm({ ...quickCustomerForm, address: e.target.value })}
-                  placeholder="e.g. Purab Bazar, Saharsa"
+                  placeholder={tHi("addressPlaceholder")}
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#12355B]"
                 />
               </div>
@@ -1899,14 +1928,14 @@ export function VanBillingClient({
                   onClick={() => setQuickCustomerOpen(false)}
                   className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold"
                 >
-                  Cancel
+                  {tHi("cancelBtn")}
                 </button>
                 <button
                   type="submit"
                   disabled={quickCustomerSaving}
                   className="px-5 py-2 rounded-xl bg-[#12355B] hover:bg-[#0E2843] text-white font-bold transition disabled:opacity-50"
                 >
-                  {quickCustomerSaving ? "Saving..." : "Save Customer"}
+                  {quickCustomerSaving ? tHi("savingText") : tHi("saveCustomerBtn")}
                 </button>
               </div>
             </form>
@@ -1921,7 +1950,7 @@ export function VanBillingClient({
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-bold text-[#12355B] text-base flex items-center gap-2">
                 <CloudUpload className="w-5 h-5 text-amber-500" />
-                Pending Offline Drafts ({pendingDrafts.length})
+                {tHi("offlineDraftsModalTitle", { count: pendingDrafts.length })}
               </h3>
               <button
                 onClick={() => setShowDraftsModal(false)}
@@ -1932,13 +1961,13 @@ export function VanBillingClient({
             </div>
 
             <p className="text-xs text-slate-600">
-              These bills were created without internet connectivity and are safely stored in your phone&apos;s local memory.
+              {tHi("offlineDraftsModalDesc")}
             </p>
 
             <div className="max-h-60 overflow-y-auto space-y-2">
               {pendingDrafts.length === 0 ? (
                 <div className="p-4 text-center text-xs text-slate-400">
-                  No drafts pending sync.
+                  {tHi("noDraftsPendingSync")}
                 </div>
               ) : (
                 pendingDrafts.map((draft) => (
@@ -1962,7 +1991,7 @@ export function VanBillingClient({
                         await loadPendingDrafts();
                       }}
                       className="p-1 text-slate-400 hover:text-rose-600"
-                      title="Discard draft"
+                      title={tHi("discardDraftTitle")}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1977,13 +2006,13 @@ export function VanBillingClient({
                 disabled={!isOnline || isSyncing || pendingDrafts.length === 0}
                 className="flex-1 py-2.5 px-4 rounded-xl text-xs font-bold bg-[#12355B] hover:bg-[#0E2843] text-white disabled:opacity-40 transition-colors shadow-xs"
               >
-                {isSyncing ? "Syncing..." : isOnline ? "Sync All to Server Now" : "Connect to Sync"}
+                {isSyncing ? tHi("syncingText") : isOnline ? tHi("syncAllNowBtn") : tHi("connectToSyncBtn")}
               </button>
               <button
                 onClick={() => setShowDraftsModal(false)}
                 className="py-2.5 px-4 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200"
               >
-                Close
+                {tHi("doneBtn")}
               </button>
             </div>
           </div>

@@ -59,6 +59,23 @@ export function formatISTTime(date: Date | string | null | undefined): string {
   }).format(d);
 }
 
+export function formatDDMMYYYY(date: Date | string | null | undefined): string {
+  if (!date) return "-";
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d.getTime())) return "-";
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: IST_TIME_ZONE,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(d);
+  const day = parts.find((p) => p.type === "day")?.value ?? "01";
+  const month = parts.find((p) => p.type === "month")?.value ?? "01";
+  const year = parts.find((p) => p.type === "year")?.value ?? "2026";
+  return `${day}-${month}-${year}`;
+}
+
 /**
  * Returns current or given date in YYYY-MM-DD format according to Indian Standard Time.
  */

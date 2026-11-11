@@ -14,6 +14,7 @@ interface BillMessagingCardProps {
   initialReason?: string;
   className?: string;
   compact?: boolean;
+  locale?: "en" | "hi";
 }
 
 export function BillMessagingCard({
@@ -26,7 +27,9 @@ export function BillMessagingCard({
   initialReason,
   className = "",
   compact = false,
+  locale = "en",
 }: BillMessagingCardProps) {
+  const isHi = locale === "hi";
   const [phone, setPhone] = useState(defaultPhone || "");
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [sendSms, setSendSms] = useState(true);
@@ -146,10 +149,10 @@ export function BillMessagingCard({
         <div className="flex items-center gap-2">
           <span className="text-base">📱</span>
           <div>
-            <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-              Send Bill to Customer
+            <h4 className="text-xs font-black text-slate-800">
+              {isHi ? "ग्राहक को बिल भेजें" : "Send Bill to Customer"}
             </h4>
-            <p className="text-[10px] text-slate-500">WhatsApp &amp; In-House SMS Delivery</p>
+            <p className="text-[10px] text-slate-500">{isHi ? "व्हाट्सएप और SMS द्वारा बिल" : "WhatsApp & In-House SMS Delivery"}</p>
           </div>
         </div>
 
@@ -186,7 +189,7 @@ export function BillMessagingCard({
           <input
             type="tel"
             maxLength={10}
-            placeholder="10-digit mobile"
+            placeholder={isHi ? "10 अंकों का मोबाइल" : "10-digit mobile"}
             value={phone}
             onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
             className="w-full pl-10 pr-3 py-1.5 text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"
@@ -229,7 +232,7 @@ export function BillMessagingCard({
           title="Direct click-to-chat link with zero ban risk (Alt+W)"
         >
           <span>💬</span>
-          <span>Open WhatsApp</span>
+          <span>{isHi ? "व्हाट्सएप खोलें" : "Open WhatsApp"}</span>
           <span className="text-[9px] opacity-75 font-mono">Alt+W</span>
         </button>
 
@@ -246,7 +249,7 @@ export function BillMessagingCard({
           ) : (
             <span>📤</span>
           )}
-          <span>{status === "QUEUED" ? "Resend" : "Send Bill"}</span>
+          <span>{isHi ? (status === "QUEUED" ? "फिर भेजें" : "बिल भेजें") : (status === "QUEUED" ? "Resend" : "Send Bill")}</span>
           <span className="text-[9px] opacity-75 font-mono">Alt+M</span>
         </button>
 
@@ -258,7 +261,7 @@ export function BillMessagingCard({
             className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition shadow-xs cursor-pointer"
             title="Copy public customer bill link"
           >
-            <span>{copied ? "✓ Copied" : "🔗 Copy Link"}</span>
+            <span>{isHi ? (copied ? "✓ कॉपी हुआ" : "🔗 लिंक कॉपी") : (copied ? "✓ Copied" : "🔗 Copy Link")}</span>
           </button>
         )}
       </div>

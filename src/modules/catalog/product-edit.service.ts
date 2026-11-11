@@ -4,6 +4,8 @@ import { Prisma, UserRole } from "@prisma/client";
 export interface UpdateProductInput {
   productId: string;
   name?: string;
+  nameHi?: string | null;
+  nameHiSource?: string | null;
   shortCode?: string;
   companyId?: string | null;
   categoryId?: string | null;
@@ -142,6 +144,8 @@ export class ProductEditService {
         where: { id: product.id },
         data: {
           name: input.name !== undefined ? input.name.trim() : product.name,
+          nameHi: input.nameHi !== undefined ? (input.nameHi?.trim() || null) : product.nameHi,
+          nameHiSource: input.nameHiSource !== undefined ? input.nameHiSource : (input.nameHi !== undefined ? (input.nameHi?.trim() ? "MANUAL" : null) : product.nameHiSource),
           shortCode: input.shortCode !== undefined ? input.shortCode.trim().toUpperCase() : product.shortCode,
           companyId: input.companyId !== undefined ? input.companyId : product.companyId,
           categoryId: input.categoryId !== undefined ? input.categoryId : product.categoryId,

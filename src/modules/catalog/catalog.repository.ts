@@ -74,6 +74,8 @@ export class CatalogRepository {
     return prisma.product.create({
       data: {
         name: data.name,
+        nameHi: data.nameHi?.trim() || null,
+        nameHiSource: data.nameHiSource ?? (data.nameHi?.trim() ? "MANUAL" : null),
         shortCode: data.shortCode,
         weight: data.weight ?? null,
         companyId: data.companyId ?? null,
@@ -107,6 +109,8 @@ export class CatalogRepository {
       where: { id },
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.nameHi !== undefined ? { nameHi: data.nameHi?.trim() || null } : {}),
+        ...(data.nameHiSource !== undefined ? { nameHiSource: data.nameHiSource } : {}),
         ...(data.shortCode !== undefined ? { shortCode: data.shortCode } : {}),
         ...(data.weight !== undefined ? { weight: data.weight } : {}),
         ...(data.companyId !== undefined ? { companyId: data.companyId } : {}),

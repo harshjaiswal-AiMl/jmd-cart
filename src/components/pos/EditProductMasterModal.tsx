@@ -32,6 +32,7 @@ export function EditProductMasterModal({
 
   // Form Fields
   const [name, setName] = useState("");
+  const [nameHi, setNameHi] = useState("");
   const [shortCode, setShortCode] = useState("");
   const [packSize, setPackSize] = useState("1");
   const [packLabel, setPackLabel] = useState("Pcs");
@@ -76,6 +77,7 @@ export function EditProductMasterModal({
   const populateForm = (prod: any | null) => {
     if (!prod) return;
     setName(prod.name || "");
+    setNameHi(prod.nameHi || "");
     setShortCode(prod.shortCode || "");
     setPackSize(String(prod.packSize || 1));
     setPackLabel(prod.packLabel || "Pcs");
@@ -279,6 +281,7 @@ export function EditProductMasterModal({
       const res = await updateProductMasterFromPosAction({
         productId: selectedProduct.id,
         name: name.trim(),
+        nameHi: nameHi.trim() || null,
         shortCode: shortCode.trim() || undefined,
         weight: weight.trim() || null,
         packSize: packSizeNum,
@@ -474,6 +477,19 @@ export function EditProductMasterModal({
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Bikaji Bhujia 400g"
                   className="w-full px-3 py-1.5 text-sm font-bold bg-white border border-slate-300 rounded-xl focus:border-[#12355B] focus:ring-2 focus:ring-[#12355B]/20 outline-none transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-0.5">
+                  Hindi Name
+                </label>
+                <input
+                  type="text"
+                  value={nameHi}
+                  onChange={(e) => setNameHi(e.target.value)}
+                  placeholder="e.g. बीकाजी भुजिया 400 ग्राम"
+                  className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg focus:border-[#12355B] outline-none"
                 />
               </div>
 

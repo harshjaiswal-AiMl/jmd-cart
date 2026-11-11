@@ -9,6 +9,7 @@ import {
 import { formatTestPrintEscPos } from "@/lib/escpos-invoice";
 import { getBusinessDetailsForPrintAction } from "@/app/van/billing/actions";
 import { BusinessDetails } from "@/modules/settings/settings.types";
+import { tHi } from "@/lib/i18n/messages/hi";
 import {
   Printer,
   Bluetooth,
@@ -58,9 +59,9 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
     try {
       const res = await bluetoothPrinter.connect();
       if (!res.success) {
-        setErrorMessage(res.error || "Failed to connect to printer.");
+        setErrorMessage(res.error || tHi("btConnectFailedError"));
       } else {
-        setSuccessMessage(`Connected to ${res.deviceName || "Bluetooth Printer"}!`);
+        setSuccessMessage(tHi("btStatusConnected", { device: res.deviceName || tHi("btPrinterBtn") }));
       }
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : "Connection failed.");
@@ -73,7 +74,7 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
     setErrorMessage(null);
     setSuccessMessage(null);
     await bluetoothPrinter.disconnect();
-    setSuccessMessage("Printer disconnected.");
+    setSuccessMessage(tHi("btDisconnectedMsg"));
   };
 
   const handleTestPrint = async () => {
@@ -102,9 +103,9 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
 
       const printRes = await bluetoothPrinter.printData(testBytes);
       if (!printRes.success) {
-        setErrorMessage(printRes.error || "Test print failed.");
+        setErrorMessage(printRes.error || tHi("btTestPrintFailedError"));
       } else {
-        setSuccessMessage("Test slip printed successfully!");
+        setSuccessMessage(tHi("btTestSlipSuccess"));
       }
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : "Test print failed.");
@@ -123,8 +124,8 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
               <Printer className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-black text-white">Bluetooth Thermal Printer</h2>
-              <p className="text-xs text-slate-400">Mobile Van ESC/POS Hardware</p>
+              <h2 className="text-base font-black text-white">{tHi("btConnectPrinter")}</h2>
+              <p className="text-xs text-slate-400">{tHi("btModalSub")}</p>
             </div>
           </div>
           <button
@@ -142,10 +143,9 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
             <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-2.5">
               <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
               <div>
-                <p className="font-bold">Web Bluetooth Unavailable</p>
+                <p className="font-bold">{tHi("btWebBtMissingTitle")}</p>
                 <p className="mt-0.5 text-amber-400/90 leading-relaxed">
-                  Your current browser does not support Web Bluetooth. Please use Google Chrome on
-                  Android or Desktop. Browser print fallback remains available.
+                  {tHi("btWebBtMissingDesc")}
                 </p>
               </div>
             </div>
@@ -164,13 +164,13 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
                 }`}
               />
               <div>
-                <p className="text-xs text-slate-400 font-medium">Status</p>
-                <p className="text-sm font-bold text-white capitalize">
+                <p className="text-xs text-slate-400 font-medium">{tHi("btStatusLabel")}</p>
+                <p className="text-sm font-bold text-white">
                   {printerInfo.status === "connected"
-                    ? `Connected: ${printerInfo.deviceName || "Printer"}`
+                    ? tHi("btStatusConnected", { device: printerInfo.deviceName || tHi("btPrinterBtn") })
                     : printerInfo.status === "connecting"
-                    ? "Searching / Connecting..."
-                    : "Disconnected"}
+                    ? tHi("btStatusConnecting")
+                    : tHi("btStatusDisconnected")}
                 </p>
               </div>
             </div>
@@ -180,7 +180,7 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
                 onClick={handleDisconnect}
                 className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition"
               >
-                Disconnect
+                {tHi("btDisconnectBtn")}
               </button>
             ) : (
               <button
@@ -191,12 +191,12 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
                 {isConnecting ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    Connecting...
+                    {tHi("btConnectingBtn")}
                   </>
                 ) : (
                   <>
                     <Bluetooth className="w-3.5 h-3.5" />
-                    Pair Printer
+                    {tHi("btPairPrinterBtn")}
                   </>
                 )}
               </button>
@@ -205,7 +205,7 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
 
           {/* Paper Width Selection */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-300">Thermal Roll Width</label>
+            <label className="text-xs font-bold text-slate-300">{tHi("btRollWidthLabel")}</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -216,8 +216,8 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
                     : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
                 }`}
               >
-                <span className="text-xs font-black">58mm (2-inch)</span>
-                <span className="text-[10px] text-slate-500">Handheld / Belt Van Printer (32 cols)</span>
+                <span className="text-xs font-black">{tHi("btWidth58")}</span>
+                <span className="text-xs text-slate-500">{tHi("btWidth58Sub")}</span>
               </button>
               <button
                 type="button"
@@ -228,8 +228,8 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
                     : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
                 }`}
               >
-                <span className="text-xs font-black">80mm (3-inch)</span>
-                <span className="text-[10px] text-slate-500">Wide Desktop POS Roll (48 cols)</span>
+                <span className="text-xs font-black">{tHi("btWidth80")}</span>
+                <span className="text-xs text-slate-500">{tHi("btWidth80Sub")}</span>
               </button>
             </div>
           </div>
@@ -244,18 +244,18 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
               {isTestPrinting ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  Printing Test Slip...
+                  {tHi("btTestPrintingBtn")}
                 </>
               ) : (
                 <>
                   <FileText className="w-3.5 h-3.5 text-blue-400" />
-                  Print Test Slip via Bluetooth
+                  {tHi("btTestPrintBtn")}
                 </>
               )}
             </button>
             {printerInfo.status !== "connected" && (
               <p className="text-[10px] text-slate-500 text-center mt-1">
-                Connect printer above to enable test printing
+                {tHi("btConnectFirstHint")}
               </p>
             )}
           </div>
@@ -290,14 +290,14 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
                 <Printer className="w-4 h-4 text-emerald-400" />
-                <span>Direct Thermal Print Fallback</span>
+                <span>{tHi("btDirectFallbackTitle")}</span>
               </div>
-              <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-bold">
-                No Bluetooth Needed
+              <span className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-bold">
+                {tHi("btDirectFallbackBadge")}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Invoices and slips can always be printed directly via your system print dialog (USB / Wi-Fi / Bluetooth printer).
+            <p className="text-xs text-slate-400 leading-relaxed">
+              {tHi("btDirectFallbackDesc")}
             </p>
             <button
               type="button"
@@ -341,7 +341,7 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
               className="w-full py-2 px-3 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition flex items-center justify-center gap-2 border border-slate-700"
             >
               <FileText className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Test Direct Browser Print</span>
+              <span>{tHi("btTestDirectPrintBtn")}</span>
             </button>
           </div>
 
@@ -368,9 +368,9 @@ export function BluetoothPrinterModal({ isOpen, onClose }: BluetoothPrinterModal
             >
               <div className="flex items-center gap-2">
                 <HelpCircle className="w-4 h-4 text-blue-400" />
-                <span>Handheld Printer Pairing Guide</span>
+                <span>{tHi("btPairingGuideTitle")}</span>
               </div>
-              <span className="text-slate-500 text-[10px]">{showGuide ? "Hide" : "Show"}</span>
+              <span className="text-slate-500 text-xs">{showGuide ? tHi("btGuideHide") : tHi("btGuideShow")}</span>
             </button>
 
             {showGuide && (

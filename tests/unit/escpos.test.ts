@@ -171,6 +171,8 @@ describe("Task 2.5: ESC/POS Command Encoder & Receipt Formatter", () => {
         id: "party-kirana-01",
         branchId: 1,
         name: "Gupta Kirana Store",
+        nameHi: null,
+        nameHiSource: null,
         phone: "9876500001",
         email: null,
         type: "RETAILER",

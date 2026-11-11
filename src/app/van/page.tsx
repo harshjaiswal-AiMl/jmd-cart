@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { vanService } from "@/modules/van/van.service";
 import { orderService } from "@/modules/order/order.service";
 import { OrderSummary } from "@/modules/order/order.types";
-import { formatISTDateTime } from "@/lib/date";
+import { formatDDMMYYYY } from "@/lib/date";
+import { tHi } from "@/lib/i18n/messages/hi";
 import { VanDashboardClient } from "./van-dashboard-client";
 
 export const dynamic = "force-dynamic";
@@ -99,7 +100,7 @@ export default async function SalespersonVanPage() {
   const cashInHandPaise = todayPayments.reduce((sum, p) => sum + p.amountPaise, 0);
 
   const formattedLoadDate = stockSummary?.activeVanDay?.date
-    ? formatISTDateTime(stockSummary.activeVanDay.date)
+    ? formatDDMMYYYY(stockSummary.activeVanDay.date)
     : undefined;
 
   return (
@@ -111,7 +112,7 @@ export default async function SalespersonVanPage() {
       todaySalesPaise={todaySalesPaise}
       cashInHandPaise={cashInHandPaise}
       pendingCashPaise={pendingCashPaise}
-      userName={session.user.name || "Salesperson"}
+      userName={session.user.name || tHi("salespersonFallback")}
       formattedLoadDate={formattedLoadDate}
     />
   );

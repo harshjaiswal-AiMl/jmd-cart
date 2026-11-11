@@ -28,6 +28,9 @@ const TALLY_FIELD_ALIASES: Record<string, keyof CreatePartyInput | "parent"> = {
   ledger: "name",
   customername: "name",
   particulars: "name",
+  namehi: "nameHi",
+  hindiname: "nameHi",
+  partynamehi: "nameHi",
 
   // Type / Parent
   type: "type",
@@ -275,6 +278,7 @@ export class PartyImportService {
         rowData.openingOutstandingPaise || ""
       );
 
+      const nameHi = rowData.nameHi?.trim() || undefined;
       const tallyRef = rowData.tallyRef || undefined;
       const email = rowData.email || undefined;
       const address = rowData.address || undefined;
@@ -299,6 +303,7 @@ export class PartyImportService {
           await partyRepository.updateParty({
             id: existing.id,
             name,
+            ...(nameHi ? { nameHi, nameHiSource: "MANUAL" } : {}),
             type,
             phone: phone ?? existing.phone ?? undefined,
             email: email ?? existing.email ?? undefined,
@@ -314,6 +319,8 @@ export class PartyImportService {
         } else {
           await partyRepository.createParty({
             name,
+            nameHi,
+            nameHiSource: nameHi ? "MANUAL" : undefined,
             type,
             phone,
             email,

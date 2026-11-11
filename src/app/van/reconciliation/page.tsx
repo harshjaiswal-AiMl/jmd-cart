@@ -6,6 +6,7 @@ import { vanService } from "@/modules/van/van.service";
 import Link from "next/link";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 import { VanReconciliationClient } from "./van-reconciliation-client";
+import { tHi } from "@/lib/i18n/messages/hi";
 
 interface Props {
   searchParams: Promise<{ vanId?: string }>;
@@ -62,15 +63,15 @@ export default async function VanReconciliationPage({ searchParams }: Props) {
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-4">
         <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-3">
           <AlertCircle className="w-8 h-8 text-amber-400 mx-auto" />
-          <h2 className="text-base font-bold text-white">No Van Assigned</h2>
-          <p className="text-xs text-slate-400">
-            Your user account is not currently assigned to any active delivery vehicle.
+          <h2 className="text-lg font-bold text-white">{tHi("noVanAssigned")}</h2>
+          <p className="text-sm text-slate-400">
+            {tHi("noVanAssignedMsg")}
           </p>
           <Link
             href="/van"
-            className="inline-block px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-white"
+            className="inline-block px-4 py-2 rounded-xl bg-slate-800 text-sm font-semibold text-white"
           >
-            Back to Van Workspace
+            {tHi("backToVan")}
           </Link>
         </div>
       </div>
@@ -96,7 +97,7 @@ export default async function VanReconciliationPage({ searchParams }: Props) {
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-black text-white">Evening Return & Day End</h1>
+            <h1 className="text-xl font-black text-white">{tHi("vanReconcileTitle")}</h1>
             <p className="text-xs text-slate-400">{van.name}</p>
           </div>
         </div>
@@ -106,16 +107,16 @@ export default async function VanReconciliationPage({ searchParams }: Props) {
             <AlertCircle className="w-6 h-6" />
           </div>
           <div className="space-y-1">
-            <h2 className="text-base font-bold text-white">No Load Sheet Found</h2>
-            <p className="text-xs text-slate-400 max-w-sm mx-auto">
-              No morning load sheet has been issued for {van.name} yet. Stock must be dispatched from Central Godown before performing evening reconciliation.
+            <h2 className="text-lg font-bold text-white">{tHi("noLoadSheetFoundTitle")}</h2>
+            <p className="text-sm text-slate-400 max-w-sm mx-auto">
+              {tHi("noLoadSheetFoundDesc", { van: van.name })}
             </p>
           </div>
           <Link
             href="/van"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold"
           >
-            Return to Van Workspace
+            {tHi("backToVan")}
           </Link>
         </div>
       </div>

@@ -35,8 +35,11 @@ export async function createProductAction(
     const priceBPaise = parseOptionalRupeesToPaise(formData.get("priceBRupees"));
     const priceCPaise = parseOptionalRupeesToPaise(formData.get("priceCRupees"));
 
+    const nameHiRaw = ((formData.get("nameHi") as string) || "").trim() || null;
     const rawData = {
       name: formData.get("name") as string,
+      nameHi: nameHiRaw,
+      nameHiSource: nameHiRaw ? "MANUAL" : null,
       shortCode: formData.get("shortCode") as string,
       weight: (formData.get("weight") as string) || null,
       companyId: (formData.get("companyId") as string) || undefined,
@@ -85,8 +88,11 @@ export async function updateProductAction(
   }
 
   try {
+    const hasNameHi = formData.has("nameHi");
+    const nameHiRaw = hasNameHi ? (((formData.get("nameHi") as string) || "").trim() || null) : undefined;
     const rawData: Record<string, any> = {
       name: formData.get("name") as string,
+      ...(hasNameHi ? { nameHi: nameHiRaw, nameHiSource: nameHiRaw ? "MANUAL" : null } : {}),
       shortCode: formData.get("shortCode") as string,
       weight: (formData.get("weight") as string) || null,
       companyId: (formData.get("companyId") as string) || null,

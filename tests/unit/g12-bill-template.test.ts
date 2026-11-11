@@ -79,6 +79,8 @@ const makeInvoice = (overrides: Partial<InvoiceWithDetails> = {}): InvoiceWithDe
     branchId: 1,
     type: PartyType.RETAILER,
     name: "Gupta Kirana",
+    nameHi: null,
+    nameHiSource: null,
     phone: "9876543210",
     email: null,
     gstin: "10XXXXX1234X1Z5",

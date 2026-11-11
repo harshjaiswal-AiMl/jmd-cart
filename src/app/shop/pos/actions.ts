@@ -306,6 +306,8 @@ export async function finalizeBillAction(input: {
 
 export async function createQuickPartyAction(input: {
   name: string;
+  nameHi?: string;
+  requireEnglishBillName?: boolean;
   phone?: string;
   type?: "CUSTOMER" | "RETAILER" | "WHOLESALER";
   address?: string;
@@ -316,10 +318,24 @@ export async function createQuickPartyAction(input: {
     return { error: "Authentication required" };
   }
 
+  const trimmedName = (input.name || "").trim();
+  if (trimmedName.length < 2) {
+    return { error: input.requireEnglishBillName ? "अंग्रेज़ी बिल नाम कम से कम 2 अक्षर का लिखें।" : "Party name must be at least 2 characters." };
+  }
+  if (input.requireEnglishBillName) {
+    if (/[\u0900-\u097F]/.test(trimmedName) || /[^\x20-\x7E]/.test(trimmedName) || !/[A-Za-z]/.test(trimmedName)) {
+      const { hiMessages } = await import("@/lib/i18n/messages/hi");
+      return { error: hiMessages.englishBillNameError };
+    }
+  }
+
   try {
     const { partyRepository } = await import("@/modules/party/party.repository");
+    const trimmedNameHi = input.nameHi?.trim() || undefined;
     const party = await partyRepository.createParty({
-      name: input.name,
+      name: trimmedName,
+      nameHi: trimmedNameHi,
+      nameHiSource: trimmedNameHi ? "MANUAL" : undefined,
       phone: input.phone || undefined,
       type: (input.type as any) || "CUSTOMER",
       address: input.address || undefined,
@@ -1088,6 +1104,7 @@ export async function getPosTodaySalesSummaryAction(locationId: string) {
 export async function updateProductMasterFromPosAction(input: {
   productId: string;
   name?: string;
+  nameHi?: string | null;
   shortCode?: string | null;
   weight?: string | null;
   packSize?: number;
@@ -1134,6 +1151,11 @@ export async function updateProductMasterFromPosAction(input: {
     const updateData: any = {};
     if (typeof input.name === "string" && input.name.trim()) {
       updateData.name = input.name.trim();
+    }
+    if (input.nameHi !== undefined) {
+      const cleanedHi = typeof input.nameHi === "string" ? input.nameHi.trim() : "";
+      updateData.nameHi = cleanedHi || null;
+      updateData.nameHiSource = cleanedHi ? "MANUAL" : null;
     }
     if (typeof input.shortCode === "string" && input.shortCode.trim()) {
       const cleanCode = input.shortCode.trim().toUpperCase();

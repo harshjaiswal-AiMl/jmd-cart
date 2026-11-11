@@ -3,7 +3,9 @@
 import React, { useState, useMemo } from "react";
 import { CollectionModal } from "@/components/van/collection-modal";
 import { BluetoothCollectionPrintButton } from "@/components/van/bluetooth-collection-print-button";
-import { formatISTDate, formatISTTime } from "@/lib/date";
+import { formatDDMMYYYY } from "@/lib/date";
+import { tHi } from "@/lib/i18n/messages/hi";
+import { searchParties } from "@/lib/search/party-search";
 import {
   Search,
   Wallet,
@@ -18,6 +20,7 @@ import {
 export interface SerializedParty {
   id: string;
   name: string;
+  nameHi?: string | null;
   phone: string | null;
   address: string | null;
   type: string;
@@ -31,6 +34,7 @@ export interface SerializedCollection {
   receiptNo: string;
   partyId: string;
   partyName: string;
+  partyNameHi?: string | null;
   partyPhone: string | null;
   amountPaise: number;
   mode: "CASH" | "UPI" | "CARD";
@@ -62,17 +66,9 @@ export function VanCollectionsClient({
   );
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Filter parties
+  // Filter parties using Hindi/Hinglish/English party search
   const filteredParties = useMemo(() => {
-    return parties.filter((p) => {
-      const q = search.trim().toLowerCase();
-      const match =
-        !q ||
-        p.name.toLowerCase().includes(q) ||
-        (p.phone && p.phone.includes(q)) ||
-        (p.address && p.address.toLowerCase().includes(q));
-      return match;
-    });
+    return searchParties(search, parties, parties.length || 100);
   }, [parties, search]);
 
   // Daily collection sums
@@ -110,20 +106,20 @@ export function VanCollectionsClient({
           <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
             {vanName}
           </span>
-          <h2 className="text-lg font-black text-white mt-0.5">Route Collections</h2>
+          <h2 className="text-lg font-black text-white mt-0.5">{tHi("vanCollectionsTitle")}</h2>
           <p className="text-xs text-slate-400">
-            Collect pending credit payments from retailers on route
+            {tHi("vanCollectionsSubtitle", { van: vanName })}
           </p>
         </div>
         <div className="flex items-center gap-4 text-right">
           <div>
-            <p className="text-[11px] text-slate-400">Cash in Van</p>
+            <p className="text-xs text-slate-400">{tHi("cashInVanLabel")}</p>
             <p className="text-sm sm:text-base font-black text-emerald-400">
               ₹{(cashCollectedTodayPaise / 100).toFixed(2)}
             </p>
           </div>
           <div className="pl-4 border-l border-slate-800">
-            <p className="text-[11px] text-slate-400">Total Collected</p>
+            <p className="text-xs text-slate-400">{tHi("totalCollectedLabel")}</p>
             <p className="text-base sm:text-xl font-black text-white">
               ₹{(totalCollectedTodayPaise / 100).toFixed(2)}
             </p>
@@ -142,7 +138,7 @@ export function VanCollectionsClient({
           }`}
         >
           <UserCheck className="w-3.5 h-3.5" />
-          <span>Retailers ({parties.length})</span>
+          <span>{tHi("tabRetailers", { count: parties.length })}</span>
         </button>
         <button
           onClick={() => setTab("HISTORY")}
@@ -153,7 +149,7 @@ export function VanCollectionsClient({
           }`}
         >
           <ReceiptText className="w-3.5 h-3.5" />
-          <span>Today&apos;s Receipts ({collections.length})</span>
+          <span>{tHi("tabReceiptsHistory", { count: collections.length })}</span>
         </button>
       </div>
 
@@ -165,7 +161,7 @@ export function VanCollectionsClient({
             <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search retailer by shop name, phone or locality..."
+              placeholder={tHi("searchRetailerPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
@@ -176,8 +172,8 @@ export function VanCollectionsClient({
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
             {filteredParties.length === 0 ? (
               <div className="p-8 text-center text-slate-400 space-y-1">
-                <p className="text-sm font-bold text-white">No retailers found</p>
-                <p className="text-xs text-slate-500">Try adjusting your search query.</p>
+                <p className="text-base font-bold text-white">{tHi("noRetailersFound")}</p>
+                <p className="text-xs text-slate-500">{tHi("noBillsFoundDesc")}</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-800">
@@ -191,20 +187,20 @@ export function VanCollectionsClient({
                     >
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-white">{p.name}</h4>
-                          <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-slate-800 text-slate-400">
-                            {p.type}
+                          <h4 className="text-base font-bold text-white">{p.nameHi || p.name}</h4>
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">
+                            {p.type === "WHOLESALER" ? tHi("partyTypeWholesaler") : p.type === "RETAILER" ? tHi("partyTypeRetailer") : tHi("partyTypeCustomer")}
                           </span>
                         </div>
                         <p className="text-xs text-slate-400">
-                          {p.phone && `Ph: ${p.phone}`}
+                          {p.phone && p.phone}
                           {p.address && ` • ${p.address}`}
                         </p>
                       </div>
 
                       <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/60">
                         <div className="text-left sm:text-right">
-                          <p className="text-[10px] text-slate-400 font-medium">Balance Due</p>
+                          <p className="text-xs text-slate-400 font-medium">{tHi("balanceDueLabel")}</p>
                           <p
                             className={`text-sm sm:text-base font-black ${
                               hasDue ? "text-amber-400" : "text-emerald-400"
@@ -224,7 +220,7 @@ export function VanCollectionsClient({
                           }`}
                         >
                           <Wallet className="w-3.5 h-3.5" />
-                          <span>Collect</span>
+                          <span>{tHi("collectBtnLabel")}</span>
                         </button>
                       </div>
                     </div>
@@ -242,10 +238,7 @@ export function VanCollectionsClient({
           {collections.length === 0 ? (
             <div className="p-8 text-center text-slate-400 space-y-1">
               <ReceiptText className="w-10 h-10 mx-auto text-slate-600 mb-2" />
-              <p className="text-sm font-bold text-white">No collections recorded today</p>
-              <p className="text-xs text-slate-500">
-                Payment receipts issued to retailers on route will appear here.
-              </p>
+              <p className="text-base font-bold text-white">{tHi("noCollectionsToday")}</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-800">
@@ -266,10 +259,10 @@ export function VanCollectionsClient({
                           {c.mode}
                         </span>
                       </div>
-                      <h4 className="text-sm font-bold text-white">{c.partyName}</h4>
+                      <h4 className="text-base font-bold text-white">{c.partyNameHi || c.partyName}</h4>
                       <p className="text-xs text-slate-400">
-                        {formatISTDate(date)} at {formatISTTime(date)}
-                        {c.notes && ` • Note: ${c.notes}`}
+                        {formatDDMMYYYY(date)}
+                        {c.notes && ` • ${c.notes}`}
                       </p>
                     </div>
 

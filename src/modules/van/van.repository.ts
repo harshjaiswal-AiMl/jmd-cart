@@ -868,6 +868,7 @@ export class VanRepository {
       lines.push({
         productId: line.productId,
         productName: line.product.name,
+        productNameHi: line.product.nameHi ?? null,
         shortCode: line.product.shortCode,
         packSize: line.product.packSize,
         mrpPaise: lineMrp,
@@ -902,6 +903,7 @@ export class VanRepository {
       lines.push({
         productId: product.id,
         productName: product.name,
+        productNameHi: product.nameHi ?? null,
         shortCode: product.shortCode,
         packSize: product.packSize,
         mrpPaise: extraMrp,

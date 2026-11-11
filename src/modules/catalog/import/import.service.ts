@@ -164,6 +164,7 @@ export class CatalogImportService {
           rowNumber,
           parsed: {
             name,
+            nameHi: data.nameHi?.trim() || undefined,
             shortCode,
             companyName: data.company?.trim(),
             categoryName: data.category?.trim(),
@@ -237,6 +238,7 @@ export class CatalogImportService {
             where: { shortCode: parsed.shortCode },
             update: {
               name: parsed.name,
+              ...(parsed.nameHi ? { nameHi: parsed.nameHi, nameHiSource: "MANUAL" } : {}),
               companyId,
               categoryId,
               hsn: parsed.hsn,
@@ -249,6 +251,8 @@ export class CatalogImportService {
             },
             create: {
               name: parsed.name,
+              nameHi: parsed.nameHi ?? null,
+              nameHiSource: parsed.nameHi ? "MANUAL" : null,
               shortCode: parsed.shortCode,
               companyId,
               categoryId,

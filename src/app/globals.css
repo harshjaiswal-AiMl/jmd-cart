@@ -10,6 +10,27 @@
   src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
 }
 
+@font-face {
+  font-family: 'Noto Sans Devanagari';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/noto-sans-devanagari-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Noto Sans Devanagari';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/noto-sans-devanagari-700.woff2') format('woff2');
+}
+
+.van-hindi-shell {
+  font-family: 'Noto Sans Devanagari', var(--font-inter), system-ui, sans-serif;
+  font-size: 16px;
+}
+
 .material-symbols-outlined {
   font-family: 'Material Symbols Outlined';
   font-weight: normal;

@@ -9,6 +9,7 @@ import {
 import { formatCollectionReceiptForEscPos } from "@/lib/escpos-invoice";
 import { getCollectionForPrintAction } from "@/app/van/collections/actions";
 import { BluetoothPrinterModal } from "./bluetooth-printer-modal";
+import { tHi } from "@/lib/i18n/messages/hi";
 import { Printer, RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
 
 interface BluetoothCollectionPrintButtonProps {
@@ -46,7 +47,7 @@ export function BluetoothCollectionPrintButton({
     if (!isBluetoothSupported()) {
       setFeedback({
         type: "error",
-        message: "Web Bluetooth is not supported on this browser.",
+        message: tHi("btNotSupportedMsg"),
       });
       return;
     }
@@ -79,9 +80,7 @@ export function BluetoothCollectionPrintButton({
 
       setFeedback({
         type: "success",
-        message: `Printed receipt #${receiptNo || res.receipt.receiptNo} on ${
-          printerInfo.deviceName || "Printer"
-        }!`,
+        message: tHi("btPrintedSuccess", { number: receiptNo || res.receipt.receiptNo, device: printerInfo.deviceName || tHi("btPrinterBtn") }),
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Print failed";
@@ -112,7 +111,7 @@ export function BluetoothCollectionPrintButton({
           ) : (
             <Printer className="w-3.5 h-3.5" />
           )}
-          <span>Print Slip</span>
+          <span>{tHi("btPrintBtn")}</span>
         </button>
 
         <BluetoothPrinterModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
@@ -137,15 +136,15 @@ export function BluetoothCollectionPrintButton({
         {isPrinting ? (
           <>
             <RefreshCw className="w-4 h-4 animate-spin" />
-            <span>Printing Receipt Slip...</span>
+            <span>{tHi("btPrintingText")}</span>
           </>
         ) : (
           <>
             <Printer className="w-4 h-4" />
             <span>
               {isConnected
-                ? `Print Receipt Slip (${printerInfo.deviceName || "Bluetooth"})`
-                : "Print Receipt via Bluetooth"}
+                ? tHi("btPrintOnDeviceBtn", { device: printerInfo.deviceName || "Bluetooth" })
+                : tHi("btPrintViaBtn")}
             </span>
           </>
         )}

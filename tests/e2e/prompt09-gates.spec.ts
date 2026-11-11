@@ -327,14 +327,62 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
     await expect(page.locator("text=Bikaji Bhujia 1kg").first()).toBeVisible({ timeout: 5000 });
   });
 
-  test("R3: Van app routes render Hindi UI cleanly and bills stay English", async ({
+  test("R3: Van app routes render everyday Hindi (>=16px Noto Sans Devanagari), reject Hindi bill name, and keep printed bills English", async ({
     page,
   }) => {
     await loginAs(page, "9876543213", "van123", "**/van**");
+
+    // Verify all Van routes load in Hindi with >= 16px body font & loaded Noto Sans Devanagari
+    for (const route of ["/van", "/van/billing", "/van/bills", "/van/collections", "/van/reconciliation", "/app/van"]) {
+      await page.goto(route, { waitUntil: "load" });
+      const text = await page.locator("main, body").first().innerText();
+      expect(text, `${route} should render Devanagari Hindi copy`).toMatch(/[\u0900-\u097F]/);
+
+      // Should not leak Devanagari numerals ०-९
+      expect(text, `${route} must keep ASCII 0-9 numerals`).not.toMatch(/[\u0966-\u096F]/);
+
+      // Check shell computed font size >= 16px and Noto Sans Devanagari font family
+      const shellCheck = await page.evaluate(() => {
+        const el = document.querySelector(".van-hindi-shell") || document.body;
+        const cs = window.getComputedStyle(el);
+        return {
+          fontSizePx: parseFloat(cs.fontSize),
+          fontFamily: cs.fontFamily,
+        };
+      });
+      expect(shellCheck.fontSizePx, `${route} base font size`).toBeGreaterThanOrEqual(16);
+      expect(shellCheck.fontFamily.toLowerCase()).toContain("noto sans devanagari");
+    }
+
+    // Verify zero stale English navigation labels on /van bottom nav or primary buttons
     await page.goto("/van", { waitUntil: "load" });
-    const bodyText = await page.locator("main, body").first().innerText();
-    // Must contain Devanagari Hindi strings everywhere in Van UI
-    expect(bodyText).toMatch(/[\u0900-\u097F]/);
+    const vanText = await page.locator("main, body").first().innerText();
+    expect(vanText).not.toContain("Van Counter");
+    expect(vanText).not.toContain("Morning Load Status");
+    expect(vanText).not.toContain("Start Billing");
+
+    // Verify Quick Add Customer in /van/billing (if morning load is active) requires English Bill Name & allows blank name_hi
+    await page.goto("/van/billing", { waitUntil: "load" });
+    const newCustBtn = page.getByRole("button", { name: /\+ नया ग्राहक/i });
+    if (await newCustBtn.count()) {
+      await newCustBtn.click();
+      const billNameInput = page.locator('input[placeholder*="Gupta Kirana Store"]').first();
+      await expect(billNameInput).toBeVisible();
+      await billNameInput.fill("गुप्ता दुकान");
+      await page.getByRole("button", { name: /ग्राहक सेव करें/i }).click();
+      await expect(page.locator("text=केवल अंग्रेज़ी अक्षर")).toBeVisible({ timeout: 5000 });
+
+      const uniqueParty = `VanR3 Shop ${Date.now().toString().slice(-4)}`;
+      await billNameInput.fill(uniqueParty);
+      await page.getByRole("button", { name: /ग्राहक सेव करें/i }).click();
+      await expect(page.locator(`text=${uniqueParty}`).first()).toBeVisible({ timeout: 5000 });
+    }
+
+    // Printed invoice check as Admin for sample bill guarantees zero Devanagari characters
+    await loginAs(page, "9876543210", "admin123", "**/admin**");
+    await page.goto("/shop/invoices/sample/print?format=thermal", { waitUntil: "load" });
+    const printBody = await page.locator("body").innerText();
+    expect(printBody).not.toMatch(/[\u0900-\u097F]/);
   });
 
   test("R4: Thermal bill has 480px logo first, date & party next, 5 columns, and 11-17px typography without overflow", async ({

@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { Search, Package, Box, Layers, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { useVanLanguage } from "@/lib/i18n/van-language-context";
+import { tHi } from "@/lib/i18n/messages/hi";
 
 interface VanInventoryItem {
   product: {
@@ -78,9 +79,9 @@ export function VanStockView({
         {searchTerm && (
           <button
             onClick={() => setSearchTerm("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-white px-1.5 py-0.5 rounded bg-slate-800"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-800"
           >
-            Clear
+            {tHi("clearBtn")}
           </button>
         )}
       </div>
@@ -90,29 +91,29 @@ export function VanStockView({
         <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Package className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-white tracking-wide">
-              On-Van Physical Stock
+            <h3 className="text-base font-bold text-white tracking-wide">
+              {tHi("onVanPhysicalStock")}
             </h3>
           </div>
-          <span className="text-xs text-slate-400">
-            {filtered.length} of {inventory.length} items
+          <span className="text-sm text-slate-400">
+            {tHi("itemsCountOf", { shown: filtered.length, total: inventory.length })}
           </span>
         </div>
 
         {filtered.length === 0 ? (
           <div className="p-8 text-center text-slate-400 space-y-2">
             <Package className="w-10 h-10 mx-auto text-slate-600 mb-2" />
-            <p className="text-sm font-medium">
+            <p className="text-base font-medium">
               {inventory.length === 0
-                ? "No inventory loaded on van. Check morning dispatch sheet."
-                : `No products matching "${searchTerm}"`}
+                ? tHi("noStockLoaded")
+                : tHi("noProductsMatchSearch", { query: searchTerm })}
             </p>
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm("")}
-                className="text-xs text-emerald-400 hover:underline"
+                className="text-sm text-emerald-400 hover:underline"
               >
-                Reset search filter
+                {tHi("resetSearchFilter")}
               </button>
             )}
           </div>
@@ -124,8 +125,8 @@ export function VanStockView({
                 <div key={item.product.id} className="p-4 hover:bg-slate-800/40 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h4 className="font-bold text-sm text-white leading-tight">
-                        {item.product.name}
+                      <h4 className="font-bold text-base text-white leading-tight">
+                        {(item.product as any).nameHi || item.product.name}
                       </h4>
                       <p className="text-xs text-slate-400 mt-0.5">
                         {item.product.company?.name ? `${item.product.company.name} • ` : ""}
@@ -138,7 +139,7 @@ export function VanStockView({
                       <span className="text-sm font-bold text-emerald-400">
                         ₹{((item.product.mrpPaise ?? 0) / 100).toFixed(2)}
                       </span>
-                      <p className="text-[10px] text-slate-400">MRP/pc</p>
+                      <p className="text-xs text-slate-400">{tHi("mrpPerPc")}</p>
                     </div>
                   </div>
 
@@ -147,22 +148,22 @@ export function VanStockView({
                     <div className="flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700/80 text-xs">
                       <Box className="w-3.5 h-3.5 text-amber-400" />
                       <span className="text-slate-300 font-medium">
-                        {item.cartons} ctn
+                        {item.cartons} {tHi("ctnShort")}
                       </span>
-                      <span className="text-slate-400 text-[10px]">
-                        ({item.product.packSize}/ctn)
+                      <span className="text-slate-400 text-xs">
+                        ({item.product.packSize}/{tHi("ctnShort")})
                       </span>
                     </div>
 
                     <div className="flex items-center gap-1 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700/80 text-xs">
                       <Layers className="w-3.5 h-3.5 text-blue-400" />
                       <span className="text-slate-300 font-medium">
-                        {item.loosePieces} loose
+                        {item.loosePieces} {tHi("looseWord")}
                       </span>
                     </div>
 
-                    <div className="ml-auto flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 text-xs text-emerald-300 font-bold">
-                      <span>{item.qty} pcs</span>
+                    <div className="ml-auto flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 text-sm text-emerald-300 font-bold">
+                      <span>{item.qty} {tHi("pcs")}</span>
                     </div>
                   </div>
                 </div>
@@ -174,21 +175,21 @@ export function VanStockView({
               <table className="min-w-full divide-y divide-slate-800 text-left text-xs">
                 <thead className="bg-slate-800/60 text-slate-300 font-semibold uppercase tracking-wider">
                   <tr>
-                    <th className="px-4 py-3">Product Name</th>
-                    <th className="px-4 py-3">Company</th>
-                    <th className="px-4 py-3">Item Code</th>
-                    <th className="px-4 py-3">Pack Config</th>
-                    <th className="px-4 py-3 text-center">Cartons</th>
-                    <th className="px-4 py-3 text-center">Loose Pcs</th>
-                    <th className="px-4 py-3 text-right">Available Pcs</th>
-                    <th className="px-4 py-3 text-right">MRP</th>
+                    <th className="px-4 py-3">{tHi("colProductName")}</th>
+                    <th className="px-4 py-3">{tHi("colCompany")}</th>
+                    <th className="px-4 py-3">{tHi("colItemCode")}</th>
+                    <th className="px-4 py-3">{tHi("colPackConfig")}</th>
+                    <th className="px-4 py-3 text-center">{tHi("colCartons")}</th>
+                    <th className="px-4 py-3 text-center">{tHi("colLoosePcs")}</th>
+                    <th className="px-4 py-3 text-right">{tHi("colAvailablePcs")}</th>
+                    <th className="px-4 py-3 text-right">{tHi("colMrp")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 text-slate-200">
                   {filtered.map((item) => (
                     <tr key={item.product.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-white">
-                        {item.product.name}
+                      <td className="px-4 py-3 font-semibold text-white text-base">
+                        {(item.product as any).nameHi || item.product.name}
                       </td>
                       <td className="px-4 py-3 text-slate-400">
                         {item.product.company?.name || "-"}
@@ -197,16 +198,16 @@ export function VanStockView({
                         {item.product.shortCode}
                       </td>
                       <td className="px-4 py-3 text-slate-400">
-                        {item.product.packSize} pcs / {item.product.packLabel}
+                        {item.product.packSize} {tHi("pcs")} / {tHi("unitCarton")}
                       </td>
                       <td className="px-4 py-3 text-center font-bold text-amber-300">
-                        {item.cartons > 0 ? `${item.cartons} ctn` : "-"}
+                        {item.cartons > 0 ? `${item.cartons} ${tHi("ctnShort")}` : "-"}
                       </td>
                       <td className="px-4 py-3 text-center text-blue-300 font-medium">
-                        {item.loosePieces > 0 ? `${item.loosePieces} pcs` : "-"}
+                        {item.loosePieces > 0 ? `${item.loosePieces} ${tHi("pcs")}` : "-"}
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-emerald-400 text-sm">
-                        {item.qty} pcs
+                      <td className="px-4 py-3 text-right font-black text-emerald-400 text-base">
+                        {item.qty} {tHi("pcs")}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-slate-300">
                         ₹{((item.product.mrpPaise ?? 0) / 100).toFixed(2)}
