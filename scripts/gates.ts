@@ -4,7 +4,16 @@ import path from "path";
 import sharp from "sharp";
 import { chromium } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
-import { setup as setupTestDb, teardown as teardownTestDb } from "../tests/global-setup";
+import { pathToFileURL } from "url";
+
+async function loadTestDbHelpers(): Promise<{
+  setupTestDb: () => Promise<void>;
+  teardownTestDb: () => Promise<void>;
+}> {
+  const modPath = pathToFileURL(path.resolve(process.cwd(), "tests/global-setup.ts")).href;
+  const mod = await import(/* webpackIgnore: true */ modPath);
+  return { setupTestDb: mod.setup, teardownTestDb: mod.teardown };
+}
 import { Permission, ROLE_PERMISSIONS } from "../src/modules/auth/permissions";
 
 interface GateResult {
@@ -238,6 +247,7 @@ async function main() {
     }
   }
 
+  const { setupTestDb, teardownTestDb } = await loadTestDbHelpers();
   await setupTestDb();
 
   let serverProc: ChildProcess | null = null;
@@ -285,7 +295,8 @@ async function main() {
       } catch {}
       serverProc = null;
     }
-    await setupTestDb();
+    // Reset clean test fixture for X1 comparison
+  await setupTestDb();
     serverProc = spawn("cmd.exe", ["/c", "pnpm start -H 127.0.0.1 -p 3000"], {
       env: {
         ...process.env,
