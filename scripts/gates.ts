@@ -212,9 +212,16 @@ async function main() {
   const lint = runSync("pnpm lint");
   fs.writeFileSync(path.join(artifactsDir, "lint.log"), lint.output, "utf8");
 
-  const unitRes = runSync("pnpm exec vitest --config vitest.unit.config.ts run tests/unit/smart-search.test.ts tests/unit/party-search.test.ts tests/unit/search-everywhere.test.ts tests/unit/gst.test.ts", {
+  const unitPureRes = runSync("pnpm exec vitest --config vitest.unit.config.ts run tests/unit/smart-search.test.ts tests/unit/party-search.test.ts tests/unit/search-everywhere.test.ts tests/unit/gst.test.ts", {
     VITEST_UNIT: "true",
   });
+  const unitPrompt09Res = runSync("pnpm exec vitest run tests/unit/r3-hindi-van.test.ts tests/unit/r4-thermal-bill.test.ts tests/unit/g12-bill-template.test.ts tests/unit/r6-search-parity.test.ts", {
+    DATABASE_URL: TEST_DB_URL,
+  });
+  const unitRes = {
+    success: unitPureRes.success && unitPrompt09Res.success,
+    output: unitPureRes.output + "\n" + unitPrompt09Res.output,
+  };
   fs.writeFileSync(path.join(artifactsDir, "vitest-units.log"), unitRes.output, "utf8");
 
   if (needRebuild) {
@@ -270,6 +277,31 @@ async function main() {
       pwReport = JSON.parse(fs.readFileSync(pwJsonPath, "utf8"));
     }
 
+    // Reset clean test fixture & restart server before X1 baseline screenshot diff
+    // so mutations from R1/R2/R5 tests do not skew unchanged UI screenshots.
+    if (serverProc?.pid) {
+      try {
+        execSync(`taskkill /PID ${serverProc.pid} /T /F`, { stdio: "ignore" });
+      } catch {}
+      serverProc = null;
+    }
+    await setupTestDb();
+    serverProc = spawn("cmd.exe", ["/c", "pnpm start -H 127.0.0.1 -p 3000"], {
+      env: {
+        ...process.env,
+        DATABASE_URL: TEST_DB_URL,
+        AUTH_SECRET,
+        NEXTAUTH_SECRET: AUTH_SECRET,
+        NEXTAUTH_URL: BASE_URL,
+        PORT: "3000",
+      },
+      stdio: "ignore",
+    });
+    const healthyForX1 = await waitForHealth(`${BASE_URL}/api/health`, 45000);
+    if (!healthyForX1) {
+      throw new Error("Server failed to become healthy for X1 screenshot comparison");
+    }
+
     x1ScreenshotDiff = await compareBaselineScreenshots();
   } finally {
     if (serverProc?.pid) {
@@ -306,8 +338,8 @@ async function main() {
   const results: GateResult[] = [
     {
       gate: "X0 Baseline & Type/Lint",
-      status: typecheck.success && lint.success && fs.existsSync(path.join(baselineDir, "permissions-snapshot.json")) ? "PASS" : "FAIL",
-      evidence: `typecheck=${typecheck.success ? "0 err" : "FAIL"}, lint=${lint.success ? "0 err" : "FAIL"}`,
+      status: typecheck.success && lint.success && unitRes.success && fs.existsSync(path.join(baselineDir, "permissions-snapshot.json")) ? "PASS" : "FAIL",
+      evidence: `typecheck=${typecheck.success ? "0 err" : "FAIL"}, lint=${lint.success ? "0 err" : "FAIL"}, unit=${unitRes.success ? "PASS" : "FAIL"}`,
       artifactPath: "artifacts/typecheck.log",
     },
     {
@@ -368,6 +400,9 @@ async function main() {
     console.log("Saved initial Step 0 baseline table to artifacts/baseline/gates-before.json");
   }
   fs.writeFileSync(path.join(artifactsDir, "gates-latest.json"), JSON.stringify(results, null, 2));
+  if (results.some((r) => r.status === "FAIL")) {
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {
