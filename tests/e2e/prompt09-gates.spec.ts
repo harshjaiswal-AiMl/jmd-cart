@@ -163,9 +163,14 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
       await page.keyboard.press("F2");
       const finishDialog = page.locator('[role="dialog"]:has-text("Finish & Print Bill")');
       await expect(finishDialog).toBeVisible({ timeout: 5000 });
-      await finishDialog.locator('button:has-text("Save & Print")').click();
+      await Promise.all([
+        page.waitForResponse((r) => r.url().includes("/shop/pos") && r.request().method() === "POST" && r.status() === 200, {
+          timeout: 15000,
+        }),
+        finishDialog.locator('button:has-text("Save & Print")').click(),
+      ]);
       await expect(finishDialog).toHaveCount(0, { timeout: 10000 });
-      await page.waitForTimeout(500);
+      await expect(page.locator("tbody tr[data-line-id]")).toHaveCount(0, { timeout: 10000 });
 
       await page.goto("/shop/invoices", { waitUntil: "load" });
       const invIdAttr = await page.locator('a[href^="/shop/invoices/"]').first().getAttribute("href");
@@ -236,7 +241,12 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
     const creditBtn = dialog.locator('button:has-text("CREDIT")');
     await expect(creditBtn).toBeEnabled();
     await creditBtn.click();
-    await dialog.locator('button:has-text("Save & Print")').click();
+    await Promise.all([
+      page.waitForResponse((r) => r.url().includes("/shop/pos") && r.request().method() === "POST" && r.status() === 200, {
+        timeout: 15000,
+      }),
+      dialog.locator('button:has-text("Save & Print")').click(),
+    ]);
     await expect(dialog).toHaveCount(0, { timeout: 10000 });
 
     // 3. Toggle pos.creditAllParties OFF in /admin/settings -> party with creditEnabled=false is blocked on Credit
