@@ -20,6 +20,7 @@ export interface EditInvoiceInput {
   customerName?: string;
   customerPhone?: string;
   customerAddress?: string;
+  allowPartyChange?: boolean;
   invoiceDate?: Date | string | null;
   dateChangeReason?: string;
   items: EditInvoiceItemInput[];
@@ -337,11 +338,67 @@ export class InvoiceEditService {
         }
       }
 
-      // 3. Ledger adjustments for linked parties
-      const effectivePartyId = input.partyId !== undefined ? input.partyId : invoice.partyId;
+      // 3. Party lock & ledger adjustments: NEVER change bill customer/party unless explicitly unlocked (allowPartyChange === true)
+      const partyChangePermitted = input.allowPartyChange === true;
+      const effectivePartyId = partyChangePermitted && input.partyId !== undefined
+        ? input.partyId
+        : invoice.partyId;
+
+      let resolvedCustomerName = invoice.customerName;
+      let resolvedCustomerPhone = invoice.customerPhone;
+      let resolvedCustomerAddress = invoice.customerAddress;
+
+      if (partyChangePermitted) {
+        if (effectivePartyId && effectivePartyId !== invoice.partyId) {
+          const nextParty = await tx.party.findUnique({
+            where: { id: effectivePartyId },
+            select: { name: true, phone: true, address: true },
+          });
+          if (!nextParty) {
+            throw new Error("Selected replacement customer party does not exist.");
+          }
+          resolvedCustomerName = input.customerName?.trim() || nextParty.name;
+          resolvedCustomerPhone = input.customerPhone?.trim() || nextParty.phone;
+          resolvedCustomerAddress = input.customerAddress?.trim() || nextParty.address;
+        } else {
+          if (input.customerName !== undefined) resolvedCustomerName = input.customerName;
+          if (input.customerPhone !== undefined) resolvedCustomerPhone = input.customerPhone;
+          if (input.customerAddress !== undefined) resolvedCustomerAddress = input.customerAddress;
+        }
+      }
+
       const totalDifferencePaise = invoiceTotals.totalPaise - invoice.totalPaise;
 
-      if (effectivePartyId && totalDifferencePaise !== 0) {
+      if (partyChangePermitted && effectivePartyId !== invoice.partyId) {
+        if (invoice.partyId && invoice.totalPaise > 0) {
+          await tx.ledgerEntry.create({
+            data: {
+              partyId: invoice.partyId,
+              kind: LedgerKind.RECEIPT,
+              debitPaise: 0,
+              creditPaise: invoice.totalPaise,
+              createdAt: targetDate,
+              effectiveDate: targetDate,
+              referenceType: "INVOICE_EDIT",
+              referenceId: invoice.id,
+            },
+          });
+        }
+        if (effectivePartyId && invoiceTotals.totalPaise > 0) {
+          await tx.ledgerEntry.create({
+            data: {
+              partyId: effectivePartyId,
+              kind: LedgerKind.INVOICE,
+              debitPaise: invoiceTotals.totalPaise,
+              creditPaise: 0,
+              createdAt: targetDate,
+              effectiveDate: targetDate,
+              referenceType: "INVOICE_EDIT",
+              referenceId: invoice.id,
+            },
+          });
+        }
+      } else if (effectivePartyId && totalDifferencePaise !== 0) {
         if (totalDifferencePaise > 0) {
           // Party owes more -> Debit ledger
           await tx.ledgerEntry.create({
@@ -411,9 +468,9 @@ export class InvoiceEditService {
         where: { id: invoice.id },
         data: {
           partyId: effectivePartyId,
-          customerName: input.customerName !== undefined ? input.customerName : invoice.customerName,
-          customerPhone: input.customerPhone !== undefined ? input.customerPhone : invoice.customerPhone,
-          customerAddress: input.customerAddress !== undefined ? input.customerAddress : invoice.customerAddress,
+          customerName: resolvedCustomerName,
+          customerPhone: resolvedCustomerPhone,
+          customerAddress: resolvedCustomerAddress,
           invoiceDate: targetDate,
           dateChangeReason: input.dateChangeReason || invoice.dateChangeReason,
           isPostDated: Boolean((invoice as any).isPostDated),

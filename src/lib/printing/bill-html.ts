@@ -335,7 +335,7 @@ export function renderDirectPrintHtml(
 <style>
   @page {
     ${isA4 ? "size: A4 portrait;" : `size: ${paperWidthMm}mm auto;`}
-    margin: 0;
+    margin: ${isA4 ? "0" : "1mm 3mm"};
   }
   * {
     box-sizing: border-box;
@@ -350,69 +350,69 @@ export function renderDirectPrintHtml(
     background: #FFFFFF;
     color: #000000;
     font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-    font-size: ${sz("12px", "10.5pt")};
+    font-size: ${sz("8.5px", "10.5pt")};
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    line-height: 1.25;
-    width: ${isA4 ? "100%" : `${contentWidthMm}mm`};
+    line-height: 1.22;
+    width: 100%;
   }
   .bill-sheet {
-    width: ${isA4 ? "100%" : `${contentWidthMm}mm`};
+    width: ${isA4 ? "100%" : `${Math.min(contentWidthMm, 66)}mm`};
     max-width: 100%;
-    padding: ${isA4 ? "10mm" : "2mm 1.5mm"};
+    padding: ${isA4 ? "10mm" : "1.5mm 3mm"};
     margin: 0 auto;
     background: #FFFFFF;
   }
   .logo-wrap {
     text-align: center;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
   }
   .brand-logo {
-    width: ${isA4 ? "180px" : "54mm"};
+    width: ${isA4 ? "180px" : "28mm"};
     max-width: 100%;
     height: auto;
     display: block;
-    margin: 0 auto 4px;
+    margin: 0 auto 2px;
     image-rendering: pixelated;
   }
   .header-sub {
-    font-size: ${sz("11px", "10pt")};
+    font-size: ${sz("8px", "10pt")};
     font-weight: 700;
     text-align: center;
     margin-top: 2px;
   }
   .void-banner {
-    font-size: ${sz("16px", "15pt")};
+    font-size: ${sz("11px", "15pt")};
     font-weight: 900;
     text-align: center;
     border: 2px solid #000000;
     padding: 2px 0;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
     letter-spacing: 0.08em;
   }
   .rule-heavy {
     border: 0;
-    border-top: 1.5px solid #000000;
-    margin: 5px 0;
+    border-top: 1px solid #000000;
+    margin: 3px 0;
   }
   .meta-block {
-    font-size: ${sz("12px", "10.5pt")};
-    font-weight: 800;
-    margin: 4px 0 6px;
+    font-size: ${sz("8.5px", "10.5pt")};
+    font-weight: 700;
+    margin: 3px 0 4px;
   }
   .meta-row {
     display: flex;
     align-items: baseline;
-    line-height: 1.3;
-    margin-bottom: 1.5px;
+    line-height: 1.24;
+    margin-bottom: 1px;
   }
   .meta-label {
-    width: ${isA4 ? "95px" : "62px"};
+    width: ${isA4 ? "95px" : "46px"};
     flex-shrink: 0;
     font-weight: 800;
   }
   .meta-colon {
-    width: 10px;
+    width: 8px;
     flex-shrink: 0;
     text-align: center;
     font-weight: 800;
@@ -428,13 +428,13 @@ export function renderDirectPrintHtml(
     border-collapse: collapse;
     border-top: 1.5px solid #000000;
     border-bottom: 1.5px solid #000000;
-    margin: 5px 0;
+    margin: 3px 0;
   }
   table.bill-table thead th {
-    font-size: ${sz("11px", "10pt")};
+    font-size: ${sz("8px", "10pt")};
     font-weight: 900;
-    border-bottom: 1.5px solid #000000;
-    padding: 4px 1.5px;
+    border-bottom: 1px solid #000000;
+    padding: 2.5px 1.5px;
     text-align: left;
   }
   table.bill-table th.col-qty,
@@ -443,80 +443,80 @@ export function renderDirectPrintHtml(
     text-align: right;
   }
   table.bill-table tbody td {
-    font-size: ${sz("11px", "10pt")};
-    font-weight: 800;
-    padding: 3.5px 1.5px;
+    font-size: ${sz("8px", "10pt")};
+    font-weight: 700;
+    padding: 2px 1.5px;
     vertical-align: top;
     border-bottom: 1px solid #000000;
   }
-  .col-sl { width: 7%; text-align: left; }
-  .col-prod { width: 32%; text-align: left; word-break: break-word; overflow-wrap: anywhere; line-height: 1.24; }
-  .col-qty { width: 20%; text-align: right; white-space: nowrap; }
-  .col-rate { width: 20%; text-align: right; white-space: nowrap; }
-  .col-amt { width: 21%; text-align: right; white-space: nowrap; font-weight: 900; }
-  .totals-wrap { margin-top: 4px; }
+  .col-sl { width: 9%; text-align: left; }
+  .col-prod { width: 33%; text-align: left; word-break: break-word; overflow-wrap: anywhere; line-height: 1.2; }
+  .col-qty { width: 19%; text-align: right; white-space: nowrap; }
+  .col-rate { width: 19%; text-align: right; white-space: nowrap; }
+  .col-amt { width: 20%; text-align: right; white-space: nowrap; font-weight: 800; }
+  .totals-wrap { margin-top: 3px; }
   .totals-row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-size: ${sz("13px", "11.5pt")};
+    font-size: ${sz("9.5px", "11.5pt")};
     font-weight: 800;
-    margin: 2px 0;
+    margin: 1.5px 0;
   }
   .roundoff-row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-size: ${sz("11px", "10pt")};
-    font-weight: 800;
-    margin: 2px 0 3px;
+    font-size: ${sz("8px", "10pt")};
+    font-weight: 700;
+    margin: 1.5px 0 2px;
   }
   .grand-total-bar {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    gap: 4px 8px;
-    border-top: 2px solid #000000;
-    border-bottom: 2px solid #000000;
-    padding: 5px 0;
-    margin: 5px 0;
+    gap: 2px 6px;
+    border-top: 1.5px solid #000000;
+    border-bottom: 1.5px solid #000000;
+    padding: 3px 0;
+    margin: 3px 0;
   }
   .grand-left {
-    font-size: ${sz("11px", "10pt")};
+    font-size: ${sz("8px", "10pt")};
     font-weight: 800;
-    line-height: 1.25;
+    line-height: 1.2;
   }
   .grand-amount {
-    font-size: ${sz("17px", "16pt")};
+    font-size: ${sz("11px", "16pt")};
     font-weight: 900;
     white-space: nowrap;
   }
   .amount-pending-line {
-    font-size: ${sz("14px", "12pt")};
+    font-size: ${sz("9.5px", "12pt")};
     font-weight: 900;
     color: #000000;
-    margin: 3px 0;
+    margin: 2px 0;
   }
   .hsn-box {
     border: 1px solid #000000;
-    padding: 4px;
-    margin: 6px 0;
-    font-size: ${sz("11px", "10pt")};
-    font-weight: 800;
+    padding: 3px;
+    margin: 4px 0;
+    font-size: ${sz("8px", "10pt")};
+    font-weight: 700;
   }
   .hsn-box table { width: 100%; border-collapse: collapse; }
   .hsn-box th, .hsn-box td {
-    padding: 2px 3px;
+    padding: 1.5px 2px;
     border-bottom: 1px solid #000000;
     text-align: left;
   }
   .footer {
     text-align: center;
     border-top: 1px solid #000000;
-    padding-top: 5px;
-    margin-top: 6px;
-    font-size: ${sz("11px", "10pt")};
+    padding-top: 3px;
+    margin-top: 4px;
+    font-size: ${sz("8px", "10pt")};
     font-weight: 800;
     line-height: 1.32;
   }

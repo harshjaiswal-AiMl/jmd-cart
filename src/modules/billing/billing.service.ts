@@ -244,16 +244,20 @@ export class BillingService {
 
                 // Walk-in party lookup/creation & snapshots
         const normalizedMobile = normalizeIndianMobile(validated.customerPhone);
+        const enteredWalkInName = validated.customerName?.trim() || "";
         if (!effectivePartyId && normalizedMobile) {
           const existingParty = await tx.party.findFirst({
             where: { phone: normalizedMobile },
           });
           if (existingParty) {
-            effectivePartyId = existingParty.id;
+            // Only link existing party by mobile if no conflicting customer name was entered
+            if (!enteredWalkInName || enteredWalkInName.toLowerCase() === existingParty.name.toLowerCase()) {
+              effectivePartyId = existingParty.id;
+            }
           } else {
             const newParty = await tx.party.create({
               data: {
-                name: validated.customerName?.trim() || `Customer ${normalizedMobile}`,
+                name: enteredWalkInName || `Customer ${normalizedMobile}`,
                 phone: normalizedMobile,
                 address: validated.customerAddress?.trim() || null,
                 type: PartyType.CUSTOMER,

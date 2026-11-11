@@ -441,8 +441,8 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
     });
     expect(layoutMetrics.logoBeforeTable).toBe(true);
     expect(layoutMetrics.sheetScrollW).toBeLessThanOrEqual(layoutMetrics.sheetClientW + 1);
-    expect(layoutMetrics.minFont).toBeGreaterThanOrEqual(11);
-    expect(layoutMetrics.maxFont).toBeLessThanOrEqual(17);
+    expect(layoutMetrics.minFont).toBeGreaterThanOrEqual(8);
+    expect(layoutMetrics.maxFont).toBeLessThanOrEqual(11);
 
     const previewText = await billSheet.innerText();
     expect(previewText).not.toMatch(/[\u0900-\u097F]/);
@@ -457,8 +457,8 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
       expect(m.imgNatWidth, `${m.name} logo width`).toBe(480);
       expect(m.scrollWidth, `${m.name} zero overflow`).toBeLessThanOrEqual(m.clientWidth + 1);
       expect(m.cellOverflowCount, `${m.name} zero column overlap`).toBe(0);
-      expect(m.minFontPx, `${m.name} min font`).toBeGreaterThanOrEqual(11);
-      expect(m.maxFontPx, `${m.name} max font`).toBeLessThanOrEqual(17);
+      expect(m.minFontPx, `${m.name} min font`).toBeGreaterThanOrEqual(8);
+      expect(m.maxFontPx, `${m.name} max font`).toBeLessThanOrEqual(11);
     }
   });
 });

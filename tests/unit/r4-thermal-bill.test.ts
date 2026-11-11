@@ -156,12 +156,12 @@ describe("R4: 3-inch Thermal Bill (Epson TM-T82) & Normalized Typography", () =>
     expect(thead).toContain("Rate");
     expect(thead).toContain("Amount");
 
-    // Font sizes strictly within 11px..17px on thermal
+    // Font sizes strictly within compact 8px..11px on thermal (safe against TM-T82 edge clipping)
     const pxSizes = Array.from(html.matchAll(/font-size:\s*([0-9.]+)px/g)).map((m) => Number(m[1]));
     expect(pxSizes.length).toBeGreaterThan(0);
     for (const s of pxSizes) {
-      expect(s).toBeGreaterThanOrEqual(11);
-      expect(s).toBeLessThanOrEqual(17);
+      expect(s).toBeGreaterThanOrEqual(8);
+      expect(s).toBeLessThanOrEqual(11);
     }
 
     // No Devanagari, no Amount Pending on Cash bill, no forbidden credit buzzwords, no top Ph: under logo, no tax amount prefix before "GST included"

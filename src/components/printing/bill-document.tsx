@@ -82,17 +82,17 @@ export function BillDocument({
           : "mx-auto bg-white text-black print:m-0"
       }
       style={{
-        width: isA4 ? undefined : `${contentWidthMm}mm`,
+        width: isA4 ? undefined : `${Math.min(contentWidthMm, 66)}mm`,
         maxWidth: "100%",
-        padding: isA4 ? undefined : "2mm 1.5mm",
+        padding: isA4 ? undefined : "1.5mm 3mm",
         color: "#000000",
         backgroundColor: "#FFFFFF",
         fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
-        fontSize: sz("12px", "10.5pt"),
+        fontSize: sz("8.5px", "10.5pt"),
         fontWeight: 700,
         fontStyle: "normal",
         fontVariantNumeric: "tabular-nums",
-        lineHeight: 1.25,
+        lineHeight: 1.22,
         WebkitPrintColorAdjust: "exact",
         printColorAdjust: "exact",
       }}
@@ -103,7 +103,7 @@ export function BillDocument({
             @media print {
               @page {
                 size: ${isA4 ? "A4 portrait" : `${paperWidthMm}mm auto`};
-                margin: 0 !important;
+                margin: ${isA4 ? "0" : "1mm 3mm"} !important;
               }
               html, body {
                 margin: 0 !important;
@@ -120,8 +120,8 @@ export function BillDocument({
 
       {isCancelled && (
         <div
-          className="text-center border-2 border-black py-0.5 mb-1.5 uppercase tracking-widest"
-          style={{ fontSize: sz("16px", "15pt"), fontWeight: 900, color: "#000000" }}
+          className="text-center border-2 border-black py-0.5 mb-1 uppercase tracking-widest"
+          style={{ fontSize: sz("11px", "15pt"), fontWeight: 900, color: "#000000" }}
         >
           CANCELLED
         </div>
@@ -137,28 +137,28 @@ export function BillDocument({
       )}
 
       {/* 1. Centered 480px B&W Floyd-Steinberg Thermal Logo FIRST */}
-      <div className="text-center mb-1.5">
+      <div className="text-center mb-1">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/brand/jmd-cart-logo-thermal.png"
           alt="JMDCART"
           width={480}
           style={{
-            width: isA4 ? "180px" : "54mm",
+            width: isA4 ? "180px" : "28mm",
             maxWidth: "100%",
             height: "auto",
             display: "block",
-            margin: "0 auto 4px",
+            margin: "0 auto 2px",
             imageRendering: "pixelated",
           }}
         />
         {isGst && vm.business.address && (
-          <div style={{ fontSize: sz("11px", "10pt"), fontWeight: 700, color: "#000000" }}>
+          <div style={{ fontSize: sz("8px", "10pt"), fontWeight: 700, color: "#000000" }}>
             {vm.business.address}
           </div>
         )}
         {isGst && (vm.business.gstin || vm.business.fssai) && (
-          <div style={{ fontSize: sz("11px", "10pt"), fontWeight: 700, color: "#000000" }}>
+          <div style={{ fontSize: sz("8px", "10pt"), fontWeight: 700, color: "#000000" }}>
             {vm.business.gstin ? `GSTIN: ${vm.business.gstin}` : ""}
             {vm.business.gstin && vm.business.fssai ? " | " : ""}
             {vm.business.fssai ? `FSSAI: ${vm.business.fssai}` : ""}
@@ -166,22 +166,22 @@ export function BillDocument({
         )}
       </div>
 
-      <hr className="border-0 border-t-[1.5px] border-black my-1.5" />
+      <hr className="border-0 border-t-[1px] border-black my-1" />
 
       {/* 2. Header Block (Date, Bill No, Party, Mobile, Mode) */}
       <div
-        className="space-y-0.5 mb-1.5"
-        style={{ fontSize: sz("12px", "10.5pt"), fontWeight: 800, color: "#000000" }}
+        className="space-y-0.5 mb-1"
+        style={{ fontSize: sz("8.5px", "10.5pt"), fontWeight: 700, color: "#000000" }}
       >
         {headerRows.map((row) => (
-          <div key={row.label} className="flex items-baseline leading-snug">
+          <div key={row.label} className="flex items-baseline leading-tight">
             <span
               className="shrink-0"
-              style={{ width: isA4 ? "95px" : "62px", fontWeight: 800, color: "#000000" }}
+              style={{ width: isA4 ? "95px" : "46px", fontWeight: 800, color: "#000000" }}
             >
               {row.label}
             </span>
-            <span className="shrink-0 text-center" style={{ width: "10px", fontWeight: 800 }}>
+            <span className="shrink-0 text-center" style={{ width: "8px", fontWeight: 800 }}>
               :
             </span>
             <span className="flex-1 break-words" style={{ fontWeight: 800, color: "#000000" }}>
@@ -193,38 +193,38 @@ export function BillDocument({
 
       {/* 3. 5-Column Items Table: Sl No | Product | Qty | Rate | Amount */}
       <table
-        className="w-full border-collapse border-y-[1.5px] border-black my-1.5"
+        className="w-full border-collapse border-y-[1.5px] border-black my-1"
         style={{ tableLayout: "fixed" }}
       >
         <thead>
-          <tr className="border-b-[1.5px] border-black">
+          <tr className="border-b-[1px] border-black">
             <th
-              className="py-1 px-[1.5px] text-left"
-              style={{ width: "7%", fontSize: sz("11px", "10pt"), fontWeight: 900, color: "#000000" }}
+              className="py-0.5 px-[1.5px] text-left"
+              style={{ width: "9%", fontSize: sz("8px", "10pt"), fontWeight: 900, color: "#000000" }}
             >
               Sl No
             </th>
             <th
-              className="py-1 px-[1.5px] text-left"
-              style={{ width: "32%", fontSize: sz("11px", "10pt"), fontWeight: 900, color: "#000000" }}
+              className="py-0.5 px-[1.5px] text-left"
+              style={{ width: "33%", fontSize: sz("8px", "10pt"), fontWeight: 900, color: "#000000" }}
             >
               Product
             </th>
             <th
-              className="py-1 px-[1.5px] text-right whitespace-nowrap"
-              style={{ width: "20%", fontSize: sz("11px", "10pt"), fontWeight: 900, color: "#000000" }}
+              className="py-0.5 px-[1.5px] text-right whitespace-nowrap"
+              style={{ width: "19%", fontSize: sz("8px", "10pt"), fontWeight: 900, color: "#000000" }}
             >
               Qty
             </th>
             <th
-              className="py-1 px-[1.5px] text-right whitespace-nowrap"
-              style={{ width: "20%", fontSize: sz("11px", "10pt"), fontWeight: 900, color: "#000000" }}
+              className="py-0.5 px-[1.5px] text-right whitespace-nowrap"
+              style={{ width: "19%", fontSize: sz("8px", "10pt"), fontWeight: 900, color: "#000000" }}
             >
               Rate
             </th>
             <th
-              className="py-1 px-[1.5px] text-right whitespace-nowrap"
-              style={{ width: "21%", fontSize: sz("11px", "10pt"), fontWeight: 900, color: "#000000" }}
+              className="py-0.5 px-[1.5px] text-right whitespace-nowrap"
+              style={{ width: "20%", fontSize: sz("8px", "10pt"), fontWeight: 900, color: "#000000" }}
             >
               Amount
             </th>
@@ -234,17 +234,17 @@ export function BillDocument({
           {lineItems.map((item) => (
             <tr key={item.id} className="border-b border-black/30">
               <td
-                className="py-1 px-[1.5px] text-left align-top"
-                style={{ fontSize: sz("11px", "10pt"), fontWeight: 800, color: "#000000" }}
+                className="py-0.5 px-[1.5px] text-left align-top"
+                style={{ fontSize: sz("8px", "10pt"), fontWeight: 700, color: "#000000" }}
               >
                 {item.sl}
               </td>
               <td
-                className="py-1 px-[1.5px] text-left align-top"
+                className="py-0.5 px-[1.5px] text-left align-top"
                 style={{
-                  fontSize: sz("11px", "10pt"),
-                  fontWeight: 800,
-                  lineHeight: 1.25,
+                  fontSize: sz("8px", "10pt"),
+                  fontWeight: 700,
+                  lineHeight: 1.2,
                   color: "#000000",
                   wordBreak: "break-word",
                   overflowWrap: "anywhere",
@@ -253,20 +253,20 @@ export function BillDocument({
                 {item.fullName}
               </td>
               <td
-                className="py-1 px-[1.5px] text-right align-top whitespace-nowrap"
-                style={{ fontSize: sz("11px", "10pt"), fontWeight: 800, color: "#000000" }}
+                className="py-0.5 px-[1.5px] text-right align-top whitespace-nowrap"
+                style={{ fontSize: sz("8px", "10pt"), fontWeight: 700, color: "#000000" }}
               >
                 {item.qtyLabel}
               </td>
               <td
-                className="py-1 px-[1.5px] text-right align-top whitespace-nowrap"
-                style={{ fontSize: sz("11px", "10pt"), fontWeight: 800, color: "#000000" }}
+                className="py-0.5 px-[1.5px] text-right align-top whitespace-nowrap"
+                style={{ fontSize: sz("8px", "10pt"), fontWeight: 700, color: "#000000" }}
               >
                 {item.rateFormatted}
               </td>
               <td
-                className="py-1 px-[1.5px] text-right align-top whitespace-nowrap"
-                style={{ fontSize: sz("11px", "10pt"), fontWeight: 900, color: "#000000" }}
+                className="py-0.5 px-[1.5px] text-right align-top whitespace-nowrap"
+                style={{ fontSize: sz("8px", "10pt"), fontWeight: 800, color: "#000000" }}
               >
                 {item.amountFormatted}
               </td>
@@ -276,10 +276,10 @@ export function BillDocument({
       </table>
 
       {/* 4. Totals + Round-off + Grand Total */}
-      <div className="mt-1">
+      <div className="mt-0.5">
         <div
           className="flex justify-between items-baseline"
-          style={{ fontSize: sz("13px", "11.5pt"), fontWeight: 800, color: "#000000" }}
+          style={{ fontSize: sz("9.5px", "11.5pt"), fontWeight: 800, color: "#000000" }}
         >
           <span>Total</span>
           <span>₹{formatRupeesEN(subtotalPreRoundPaise)}</span>
@@ -288,7 +288,7 @@ export function BillDocument({
         {invoice.roundOffPaise !== 0 && (
           <div
             className="flex justify-between items-baseline mt-0.5"
-            style={{ fontSize: sz("11px", "10pt"), fontWeight: 800, color: "#000000" }}
+            style={{ fontSize: sz("8px", "10pt"), fontWeight: 700, color: "#000000" }}
           >
             <span>Round-off</span>
             <span>
@@ -298,18 +298,18 @@ export function BillDocument({
         )}
 
         <div
-          className="flex flex-wrap justify-between items-center gap-x-2 gap-y-0.5 border-y-[2px] border-black py-1.5 my-1.5"
+          className="flex flex-wrap justify-between items-center gap-x-2 gap-y-0.5 border-y-[1.5px] border-black py-1 my-1"
           style={{ color: "#000000" }}
         >
           <div
             className="leading-tight"
-            style={{ fontSize: sz("11px", "10pt"), fontWeight: 800, color: "#000000" }}
+            style={{ fontSize: sz("8px", "10pt"), fontWeight: 800, color: "#000000" }}
           >
             {leftGrandNote}
           </div>
           <div
             className="whitespace-nowrap"
-            style={{ fontSize: sz("17px", "16pt"), fontWeight: 900, color: "#000000" }}
+            style={{ fontSize: sz("11px", "16pt"), fontWeight: 900, color: "#000000" }}
           >
             Grand Total: ₹{formatRupeesEN(invoice.totalPaise)}
           </div>
@@ -320,10 +320,10 @@ export function BillDocument({
           <div
             data-testid="amount-pending-line"
             style={{
-              fontSize: sz("14px", "12pt"),
+              fontSize: sz("9.5px", "12pt"),
               fontWeight: 900,
               color: "#000000",
-              margin: "3px 0",
+              margin: "2px 0",
             }}
           >
             Amount Pending: ₹{formatRupeesEN(amountPendingPaise)}
@@ -334,10 +334,10 @@ export function BillDocument({
       {/* GST HSN Summary when GST invoice */}
       {isGst && (
         <div
-          className="border border-black p-1 my-1.5"
-          style={{ fontSize: sz("11px", "10pt"), fontWeight: 800, color: "#000000" }}
+          className="border border-black p-1 my-1"
+          style={{ fontSize: sz("8px", "10pt"), fontWeight: 700, color: "#000000" }}
         >
-          <div className="mb-1" style={{ fontWeight: 900 }}>
+          <div className="mb-0.5" style={{ fontWeight: 900 }}>
             GST &amp; HSN TAX SUMMARY
           </div>
           <table className="w-full border-collapse">
@@ -367,8 +367,8 @@ export function BillDocument({
 
       {/* 6. Centered Footer */}
       <div
-        className="text-center mt-1.5 pt-1.5 border-t border-black leading-snug"
-        style={{ fontSize: sz("11px", "10pt"), fontWeight: 800, color: "#000000" }}
+        className="text-center mt-1 pt-1 border-t border-black leading-tight"
+        style={{ fontSize: sz("8px", "10pt"), fontWeight: 800, color: "#000000" }}
       >
         <div>THANK YOU! VISIT AGAIN!</div>
         <div>CALL US FOR FREE DOOR DELIVERY</div>

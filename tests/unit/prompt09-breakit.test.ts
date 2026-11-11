@@ -308,5 +308,12 @@ describe("Prompt 09 Break-It Pass (Adversarial Hostile Cases R1-R6)", () => {
 
     const voidHtml = renderDirectPrintHtml(makeInvoice({ isCredit: false, isCancelled: true }), testBiz);
     expect(voidHtml).toContain("CANCELLED");
+
+    const editServiceSrc = fs.readFileSync(
+      path.resolve(process.cwd(), "src/modules/billing/invoice-edit.service.ts"),
+      "utf8"
+    );
+    expect(editServiceSrc).toContain("allowPartyChange");
+    expect(editServiceSrc).toContain("partyChangePermitted");
   });
 });

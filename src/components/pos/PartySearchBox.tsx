@@ -42,6 +42,7 @@ export function PartySearchBox<T extends SearchableParty>({
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [hasNavigated, setHasNavigated] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -96,12 +97,14 @@ export function PartySearchBox<T extends SearchableParty>({
   // Reset selectedIndex when results change
   useEffect(() => {
     setSelectedIndex(0);
+    setHasNavigated(false);
   }, [results]);
 
   const handleSelect = (party: T) => {
     onSelect(party);
     setIsOpen(false);
     setQuery("");
+    setHasNavigated(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -109,6 +112,7 @@ export function PartySearchBox<T extends SearchableParty>({
       if (e.key === "ArrowDown" || e.key === "Enter") {
         e.preventDefault();
         setIsOpen(true);
+        setHasNavigated(false);
       }
       return;
     }
@@ -117,12 +121,18 @@ export function PartySearchBox<T extends SearchableParty>({
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      setHasNavigated(true);
       setSelectedIndex((prev) => (prev + 1) % Math.max(1, totalOptions));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      setHasNavigated(true);
       setSelectedIndex((prev) => (prev - 1 + totalOptions) % Math.max(1, totalOptions));
     } else if (e.key === "Enter") {
       e.preventDefault();
+      if (selectedPartyId && !query.trim() && !hasNavigated) {
+        setIsOpen(false);
+        return;
+      }
       if (selectedIndex < results.length && results[selectedIndex]) {
         handleSelect(results[selectedIndex]);
       } else if (canAddParty && addPartyHandler && selectedIndex === results.length) {

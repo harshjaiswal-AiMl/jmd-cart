@@ -243,6 +243,7 @@ export function PosClient({
   const isAdmin = cashierRole === "SUPER_ADMIN" || cashierRole === "ADMIN";
   const isPrivilegedDateUser = isAdmin || cashierRole === "ACCOUNTS";
   const isEditMode = Boolean(initialEditInvoice);
+  const [isEditPartyLocked, setIsEditPartyLocked] = useState<boolean>(Boolean(initialEditInvoice));
   const [editReason, setEditReason] = useState("");
   const [showRevisionHistory, setShowRevisionHistory] = useState(false);
   const [showQuickAddModal, setShowQuickAddModal] = useState(false);
@@ -802,9 +803,9 @@ export function PosClient({
     }
   }, [products]);
 
-  // Save tabs to localStorage on change
+  // Save tabs to localStorage on change (never overwrite POS tabs during invoice edit mode)
   useEffect(() => {
-    if (!isStorageLoaded) return;
+    if (!isStorageLoaded || isEditMode) return;
     try {
       localStorage.setItem("jmd_pos_bill_tabs", JSON.stringify(tabs));
       localStorage.setItem("jmd_pos_active_tab_id", activeTabId);
@@ -2095,10 +2096,17 @@ export function PosClient({
             invoiceId: initialEditInvoice.id,
             expectedVersion: initialEditInvoice.version,
             reason: editReason.trim() || "POS voucher edit",
-            partyId: activeTab.partyId || null,
-            customerName: activeTab.partyId ? undefined : activeTab.walkInName?.trim() || undefined,
-            customerPhone: activeTab.partyId ? undefined : activeTab.walkInMobile?.trim() || undefined,
-            customerAddress: activeTab.partyId ? undefined : activeTab.walkInAddress?.trim() || undefined,
+            allowPartyChange: !isEditPartyLocked,
+            partyId: isEditPartyLocked ? (initialEditInvoice.partyId || null) : (activeTab.partyId || null),
+            customerName: isEditPartyLocked
+              ? (initialEditInvoice.customerName ?? undefined)
+              : (activeTab.partyId ? undefined : activeTab.walkInName?.trim() || undefined),
+            customerPhone: isEditPartyLocked
+              ? (initialEditInvoice.customerPhone ?? undefined)
+              : (activeTab.partyId ? undefined : activeTab.walkInMobile?.trim() || undefined),
+            customerAddress: isEditPartyLocked
+              ? (initialEditInvoice.customerAddress ?? undefined)
+              : (activeTab.partyId ? undefined : activeTab.walkInAddress?.trim() || undefined),
             invoiceDate: hasDateChanged ? activeTab.billDate : origBillDateStr,
             dateChangeReason: hasDateChanged ? editReason.trim() : undefined,
             items: editItems,
@@ -2506,11 +2514,19 @@ export function PosClient({
       } else if (e.altKey && (e.code === "KeyP" || e.key.toLowerCase() === "p")) {
         e.preventDefault();
         e.stopPropagation();
+        if (isEditMode && isEditPartyLocked) {
+          setErrorMessage("Customer is locked on this billed invoice. Click 'Change Party' to unlock if intentional.");
+          return;
+        }
         setPartyPopupReason("alt_p");
         setIsPartyPopupOpen(true);
       } else if (e.altKey && (e.code === "KeyN" || e.key.toLowerCase() === "n")) {
         e.preventDefault();
         e.stopPropagation();
+        if (isEditMode && isEditPartyLocked) {
+          setErrorMessage("Customer is locked on this billed invoice. Click 'Change Party' to unlock if intentional.");
+          return;
+        }
         setQuickCustomerModalOpen(true);
       } else if (e.altKey && (e.code === "KeyC" || e.key.toLowerCase() === "c")) {
         e.preventDefault();
@@ -2990,7 +3006,7 @@ export function PosClient({
               <span className="font-bold text-sm text-slate-900 truncate">
                 {selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale (Walk-in)")}
               </span>
-              {!selectedParty && (
+              {!selectedParty && !(isEditMode && isEditPartyLocked) && (
                 <button
                   type="button"
                   onClick={() => setCounterDetailsOpen(true)}
@@ -3078,21 +3094,42 @@ export function PosClient({
               </button>
             </div>
 
-            {/* Select / Change Party Button */}
-            <button
-              type="button"
-              data-testid="pos-party-trigger"
-              onClick={() => {
-                setPartyPopupReason("alt_p");
-                setIsPartyPopupOpen(true);
-              }}
-              className="h-7 px-2.5 rounded-lg bg-white hover:bg-amber-50 border border-[#790E11]/40 text-xs font-bold text-slate-800 flex items-center gap-1.5 shadow-2xs shrink-0 cursor-pointer"
-              title="Search or select party (Alt+P)"
-            >
-              <Edit3 className="w-3 h-3 text-[#790E11]" />
-              <span>Party</span>
-              <kbd className="text-[10px] bg-slate-100 text-slate-700 px-1 py-0.2 rounded font-mono font-bold">Alt+P</kbd>
-            </button>
+            {/* Select / Change Party Button (Locked by default in Edit Mode) */}
+            {isEditMode && isEditPartyLocked ? (
+              <button
+                type="button"
+                data-testid="pos-party-unlock"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "This bill's customer name is locked. Are you sure you want to change the customer on this finalized invoice?"
+                    )
+                  ) {
+                    setIsEditPartyLocked(false);
+                  }
+                }}
+                className="h-7 px-2.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-400 text-xs font-bold text-amber-950 flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
+                title="Customer name is locked on billed invoices. Click to unlock if you intentionally need to change it."
+              >
+                <span>🔒 Party Fixed</span>
+                <span className="underline text-[10px] ml-0.5">Change</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-testid="pos-party-trigger"
+                onClick={() => {
+                  setPartyPopupReason("alt_p");
+                  setIsPartyPopupOpen(true);
+                }}
+                className="h-7 px-2.5 rounded-lg bg-white hover:bg-amber-50 border border-[#790E11]/40 text-xs font-bold text-slate-800 flex items-center gap-1.5 shadow-2xs shrink-0 cursor-pointer"
+                title="Search or select party (Alt+P)"
+              >
+                <Edit3 className="w-3 h-3 text-[#790E11]" />
+                <span>Party</span>
+                <kbd className="text-[10px] bg-slate-100 text-slate-700 px-1 py-0.2 rounded font-mono font-bold">Alt+P</kbd>
+              </button>
+            )}
 
             {/* Recent Bills & Full History if party is selected */}
             {selectedParty && (
@@ -3187,9 +3224,11 @@ export function PosClient({
               <PartySearchBox
                 parties={localParties as any}
                 selectedPartyId={activeTab.partyId}
-                autoFocus={true}
+                autoFocus={!(isEditMode && isEditPartyLocked)}
+                disabled={isEditMode && isEditPartyLocked}
                 id="pos-party-search-input"
                 onSelect={(party) => {
+                  if (isEditMode && isEditPartyLocked) return;
                   updateActiveTab({
                     partyId: party.id,
                     tabTitle: party.name,
@@ -3233,9 +3272,11 @@ export function PosClient({
                   const updates: Partial<PosBillTab> = { walkInMobile: digits };
                   if (digits.length === 10) {
                     const match = localParties.find((p) => p.phone === digits);
-                    if (match) {
+                    if (match && !activeTab.walkInName?.trim()) {
                       updates.walkInName = match.name;
-                      if (match.address) updates.walkInAddress = match.address;
+                      if (match.address && !activeTab.walkInAddress?.trim()) {
+                        updates.walkInAddress = match.address;
+                      }
                     }
                   }
                   updateActiveTab(updates);

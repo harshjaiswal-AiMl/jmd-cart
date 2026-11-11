@@ -207,12 +207,12 @@ describe("G12: Busy-Style 2-Row Cash/UPI Thermal & Restored Credit Templates", (
     expect(html).toContain("115.00");
     expect(html).not.toContain("Disc%");
 
-    // Monochrome high-contrast typography & thermal rules (11px-17px)
+    // Monochrome compact typography & thermal safe-margin rules (8px-11px, 28mm logo)
     expect(html).toContain("#000000");
     expect(html).toContain("jmd-cart-logo-thermal.png");
-    expect(html).toContain("font-size: 17px");
+    expect(html).toContain("font-size: 11px");
     expect(html).toContain("@page {");
-    expect(html).toContain("margin: 0;");
+    expect(html).toContain("margin: 1mm 3mm;");
     expect(html).toContain("THANK YOU! VISIT AGAIN!");
     expect(html).toContain("CALL US FOR FREE DOOR DELIVERY");
     expect(html).toContain("GST included");
