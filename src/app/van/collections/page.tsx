@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { UserRole, LocationType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { partyService } from "@/modules/party/party.service";
+import { tHi } from "@/lib/i18n/messages/hi";
 import {
   VanCollectionsClient,
   SerializedParty,
@@ -51,6 +52,7 @@ export default async function VanCollectionsPage() {
   const serializedParties: SerializedParty[] = rawParties.map((p) => ({
     id: p.id,
     name: p.name,
+    nameHi: p.nameHi ?? null,
     phone: p.phone,
     address: p.address,
     type: p.type,
@@ -70,6 +72,7 @@ export default async function VanCollectionsPage() {
     receiptNo: c.receiptNo,
     partyId: c.partyId,
     partyName: c.partyName,
+    partyNameHi: c.partyNameHi ?? null,
     partyPhone: c.partyPhone,
     amountPaise: c.amountPaise,
     mode: c.mode,
@@ -87,9 +90,9 @@ export default async function VanCollectionsPage() {
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div>
-          <h1 className="text-xl font-black text-white">Route Collections</h1>
-          <p className="text-xs text-slate-400">
-            {van ? van.name : "Unassigned Van"} • Retailer Outstanding & Receipts
+          <h1 className="text-xl font-black text-white">{tHi("vanCollectionsTitle")}</h1>
+          <p className="text-sm text-slate-400">
+            {tHi("vanCollectionsSubtitle", { van: van ? van.name : tHi("unassignedVan") })}
           </p>
         </div>
       </div>

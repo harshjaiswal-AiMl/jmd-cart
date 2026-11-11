@@ -75,7 +75,7 @@ export function VanBottomNav() {
               >
                 <Icon className="w-5 h-5" />
               </div>
-              <span className="text-[11px] tracking-tight truncate max-w-[64px] text-center">
+              <span className="text-base tracking-tight truncate max-w-[64px] text-center">
                 {label}
               </span>
             </Link>

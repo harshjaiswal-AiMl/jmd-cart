@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
@@ -43,7 +44,9 @@ export function DataQualityClient({
 
   // Filter items
   const filteredItems = useMemo(() => {
+    const dqIds = searchTerm.trim() ? new Set(searchItems(searchTerm, report.items as any, { limit: report.items.length || 500 }).map((m) => m.id)) : null;
     return report.items.filter((item) => {
+      if (dqIds && !dqIds.has(item.id)) return false;
       // Must have at least one issue to be in data-quality audit view
       if (item.issues.length === 0) return false;
 
@@ -57,13 +60,7 @@ export function DataQualityClient({
       if (statusFilter === "INACTIVE" && item.active) return false;
 
       // Filter by search query
-      if (searchTerm.trim().length > 0) {
-        const term = searchTerm.toLowerCase().trim();
-        const matchesName = item.name.toLowerCase().includes(term);
-        const matchesShortCode = item.shortCode.toLowerCase().includes(term);
-        const matchesBrand = item.companyName?.toLowerCase().includes(term) ?? false;
-        if (!matchesName && !matchesShortCode && !matchesBrand) return false;
-      }
+
 
       return true;
     });

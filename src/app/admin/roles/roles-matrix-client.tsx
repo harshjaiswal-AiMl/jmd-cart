@@ -1,14 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { UserRole } from "@prisma/client";
 import { Permission, ROLE_PERMISSIONS } from "@/modules/auth/permissions";
-import { ShieldCheck, Check, X, Lock, Users, Info, ChevronRight } from "lucide-react";
+import { ShieldCheck, Check, X, RotateCcw, AlertTriangle, Lock } from "lucide-react";
+import type { RoleChangelogItem } from "@/modules/auth/role-matrix.service";
 
 interface RoleMatrixClientProps {
   userRole: UserRole;
   userCounts: Record<string, number>;
+  initialMatrix?: Record<UserRole, Permission[]>;
+  initialChangelog?: RoleChangelogItem[];
 }
+
+const SENSITIVE_KEYS = new Set<Permission>([
+  Permission.SYSTEM_ADMIN,
+  Permission.MANAGE_SETTINGS,
+  Permission.MANAGE_USERS,
+]);
+
+const SUPER_ADMIN_LOCKED_KEYS = new Set<Permission>([
+  Permission.SYSTEM_ADMIN,
+  Permission.MANAGE_SETTINGS,
+  Permission.MANAGE_USERS,
+]);
 
 const PERMISSION_GROUPS: Array<{
   group: string;
@@ -53,6 +68,13 @@ const PERMISSION_GROUPS: Array<{
     ],
   },
   {
+    group: "Sales & Billing",
+    permissions: [
+      { key: Permission.POS_DELETE_BILL, label: "Delete bill (POS)", desc: "Discard current unsaved bill in Shop POS (F8)" },
+      { key: Permission.INVOICE_VOID, label: "Delete (void) invoice", desc: "Void finalized invoice with stock/ledger reversal & reason" },
+    ],
+  },
+  {
     group: "Parties & Credit Control",
     permissions: [
       { key: Permission.VIEW_PARTIES, label: "View Parties", desc: "View retail/wholesale buyers and suppliers" },
@@ -82,6 +104,8 @@ const PERMISSION_GROUPS: Array<{
   },
 ];
 
+const ALL_PERMISSION_ROWS = PERMISSION_GROUPS.flatMap((g) => g.permissions);
+
 const DISPLAY_ROLES: Array<{ role: UserRole; label: string; badgeColor: string }> = [
   { role: UserRole.SUPER_ADMIN, label: "Super Admin", badgeColor: "bg-red-100 text-red-900 border-red-300" },
   { role: UserRole.ADMIN, label: "Admin", badgeColor: "bg-indigo-100 text-indigo-900 border-indigo-300" },
@@ -94,8 +118,157 @@ const DISPLAY_ROLES: Array<{ role: UserRole; label: string; badgeColor: string }
   { role: UserRole.DELIVERY, label: "Delivery", badgeColor: "bg-slate-100 text-slate-800 border-slate-300" },
 ];
 
-export function RolesMatrixClient({ userRole, userCounts }: RoleMatrixClientProps) {
+export function RolesMatrixClient({
+  userRole,
+  userCounts,
+  initialMatrix,
+  initialChangelog = [],
+}: RoleMatrixClientProps) {
+  const isEditable = userRole === UserRole.SUPER_ADMIN;
   const [activeTab, setActiveTab] = useState<"MATRIX" | "FIELD_RULES" | "CHANGELOG">("MATRIX");
+  const [matrix, setMatrix] = useState<Record<UserRole, Permission[]>>(
+    () => initialMatrix || (ROLE_PERMISSIONS as Record<UserRole, Permission[]>)
+  );
+  const [changelog, setChangelog] = useState<RoleChangelogItem[]>(initialChangelog);
+  const [savingCell, setSavingCell] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    undoPayload?: { targetRole: UserRole; permission: Permission; enabled: boolean };
+    isError?: boolean;
+  } | null>(null);
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    targetRole: UserRole;
+    roleLabel: string;
+    permission: Permission;
+    permLabel: string;
+    nextEnabled: boolean;
+  } | null>(null);
+
+  const cellRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (nextToast: typeof toast) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(nextToast);
+    if (nextToast) {
+      toastTimerRef.current = setTimeout(() => setToast(null), 5000);
+    }
+  };
+
+  const applyToggle = async (
+    targetRole: UserRole,
+    permission: Permission,
+    nextEnabled: boolean,
+    allowUndo = true
+  ) => {
+    if (!isEditable) return;
+    const prevPerms = matrix[targetRole] || [];
+    const cellId = `${targetRole}:${permission}`;
+
+    // Optimistic update
+    const nextPerms = nextEnabled
+      ? Array.from(new Set([...prevPerms, permission]))
+      : prevPerms.filter((p) => p !== permission);
+
+    setMatrix((prev) => ({
+      ...prev,
+      [targetRole]: nextPerms,
+    }));
+    setSavingCell(cellId);
+
+    try {
+      const res = await fetch("/api/admin/roles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetRole,
+          permission,
+          enabled: nextEnabled,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to save role permission");
+      }
+
+      if (data.matrix) {
+        setMatrix(data.matrix);
+      }
+      if (Array.isArray(data.changelog)) {
+        setChangelog(data.changelog);
+      }
+
+      showToast({
+        message: "Saved",
+        undoPayload: allowUndo
+          ? { targetRole, permission, enabled: !nextEnabled }
+          : undefined,
+      });
+    } catch (err: any) {
+      // Revert optimistic state on failure
+      setMatrix((prev) => ({
+        ...prev,
+        [targetRole]: prevPerms,
+      }));
+      showToast({
+        message: err?.message || "Failed to update permission",
+        isError: true,
+      });
+    } finally {
+      setSavingCell(null);
+    }
+  };
+
+  const handleCellClick = (
+    targetRole: UserRole,
+    roleLabel: string,
+    permission: Permission,
+    permLabel: string,
+    currentlyEnabled: boolean
+  ) => {
+    if (!isEditable) return;
+    if (
+      targetRole === UserRole.SUPER_ADMIN &&
+      SUPER_ADMIN_LOCKED_KEYS.has(permission)
+    ) {
+      return;
+    }
+
+    const nextEnabled = !currentlyEnabled;
+    if (SENSITIVE_KEYS.has(permission)) {
+      setPendingConfirm({
+        targetRole,
+        roleLabel,
+        permission,
+        permLabel,
+        nextEnabled,
+      });
+      return;
+    }
+
+    void applyToggle(targetRole, permission, nextEnabled, true);
+  };
+
+  const handleCellKeyDown = (
+    e: React.KeyboardEvent<HTMLButtonElement>,
+    rowIdx: number,
+    colIdx: number
+  ) => {
+    let nextRow = rowIdx;
+    let nextCol = colIdx;
+
+    if (e.key === "ArrowRight") nextCol = Math.min(DISPLAY_ROLES.length - 1, colIdx + 1);
+    else if (e.key === "ArrowLeft") nextCol = Math.max(0, colIdx - 1);
+    else if (e.key === "ArrowDown") nextRow = Math.min(ALL_PERMISSION_ROWS.length - 1, rowIdx + 1);
+    else if (e.key === "ArrowUp") nextRow = Math.max(0, rowIdx - 1);
+    else return;
+
+    e.preventDefault();
+    const targetBtn = cellRefs.current.get(`${nextRow}:${nextCol}`);
+    targetBtn?.focus();
+  };
+
+  let runningRowIdx = 0;
 
   return (
     <div className="space-y-6">
@@ -139,7 +312,7 @@ export function RolesMatrixClient({ userRole, userCounts }: RoleMatrixClientProp
 
         <div className="text-xs text-slate-500 flex items-center gap-1 font-mono">
           <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Role: {userRole} ({userRole === "SUPER_ADMIN" ? "Editable" : "Read-Only"})</span>
+          <span>Role: {userRole} ({isEditable ? "Editable" : "Read-Only"})</span>
         </div>
       </div>
 
@@ -171,30 +344,70 @@ export function RolesMatrixClient({ userRole, userCounts }: RoleMatrixClientProp
                         {grp.group}
                       </td>
                     </tr>
-                    {grp.permissions.map((perm) => (
-                      <tr key={perm.key} className="hover:bg-slate-50/70 transition">
-                        <td className="py-2.5 px-4">
-                          <div className="font-semibold text-slate-900">{perm.label}</div>
-                          <div className="text-[11px] text-slate-400 font-sans">{perm.desc}</div>
-                        </td>
-                        {DISPLAY_ROLES.map((r) => {
-                          const has = ROLE_PERMISSIONS[r.role]?.includes(perm.key);
-                          return (
-                            <td key={r.role} className="py-2.5 px-2 text-center">
-                              {has ? (
-                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-800">
-                                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 text-slate-300">
-                                  <X className="w-3 h-3 stroke-[2]" />
-                                </span>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                    {grp.permissions.map((perm) => {
+                      const rowIdx = runningRowIdx++;
+                      return (
+                        <tr key={perm.key} className="hover:bg-slate-50/70 transition">
+                          <td className="py-2.5 px-4">
+                            <div className="font-semibold text-slate-900">{perm.label}</div>
+                            <div className="text-[11px] text-slate-400 font-sans">{perm.desc}</div>
+                          </td>
+                          {DISPLAY_ROLES.map((r, colIdx) => {
+                            const has = (matrix[r.role] || []).includes(perm.key);
+                            const isLockedSafeguard =
+                              r.role === UserRole.SUPER_ADMIN &&
+                              SUPER_ADMIN_LOCKED_KEYS.has(perm.key);
+                            const isDisabled = !isEditable || isLockedSafeguard;
+                            const isSaving = savingCell === `${r.role}:${perm.key}`;
+
+                            return (
+                              <td key={r.role} className="py-2.5 px-2 text-center">
+                                <button
+                                  ref={(el) => {
+                                    cellRefs.current.set(`${rowIdx}:${colIdx}`, el);
+                                  }}
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={has}
+                                  aria-label={`${perm.label} for ${r.label}`}
+                                  data-role={r.role}
+                                  data-permission={perm.key}
+                                  disabled={isDisabled || isSaving}
+                                  onClick={() =>
+                                    handleCellClick(r.role, r.label, perm.key, perm.label, has)
+                                  }
+                                  onKeyDown={(e) => handleCellKeyDown(e, rowIdx, colIdx)}
+                                  title={
+                                    isLockedSafeguard
+                                      ? "Safeguard: Super Admin retains core system controls"
+                                      : !isEditable
+                                      ? "Read-Only (Super Admin required)"
+                                      : `Toggle ${perm.label} for ${r.label}`
+                                  }
+                                  className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition focus:outline-none focus:ring-2 focus:ring-[#12355B] focus:ring-offset-1 ${
+                                    has
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : "bg-slate-100 text-slate-400"
+                                  } ${
+                                    isDisabled
+                                      ? "opacity-75 cursor-not-allowed"
+                                      : "cursor-pointer hover:scale-110"
+                                  } ${isSaving ? "animate-pulse" : ""}`}
+                                >
+                                  {isLockedSafeguard ? (
+                                    <Lock className="w-3 h-3 stroke-[2.2]" />
+                                  ) : has ? (
+                                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  ) : (
+                                    <X className="w-3 h-3 stroke-[2]" />
+                                  )}
+                                </button>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
                   </React.Fragment>
                 ))}
               </tbody>
@@ -235,7 +448,44 @@ export function RolesMatrixClient({ userRole, userCounts }: RoleMatrixClientProp
 
       {activeTab === "CHANGELOG" && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-          <h2 className="text-base font-bold text-slate-900">Roles &amp; Permissions Changelog (Prompt #18)</h2>
+          <h2 className="text-base font-bold text-slate-900">Roles &amp; Permissions Changelog</h2>
+
+          {changelog.length > 0 && (
+            <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+              {changelog.map((item) => (
+                <div
+                  key={item.id}
+                  data-testid="role-changelog-entry"
+                  className="px-4 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2 bg-white"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-1.5 py-0.5 rounded font-bold text-[10px] uppercase ${
+                        item.afterEnabled
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-rose-100 text-rose-800"
+                      }`}
+                    >
+                      {item.afterEnabled ? "Granted" : "Revoked"}
+                    </span>
+                    <span className="font-bold text-slate-900">{item.role}</span>
+                    <span className="text-slate-400">·</span>
+                    <code className="font-mono text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded">
+                      {item.permission}
+                    </code>
+                    <span className="text-slate-500">
+                      ({item.beforeEnabled ? "ON" : "OFF"} → {item.afterEnabled ? "ON" : "OFF"})
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    By <strong className="text-slate-700">{item.actorName}</strong> ·{" "}
+                    {new Date(item.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="space-y-3 text-xs divide-y divide-slate-100">
             <div className="pt-2 space-y-1">
               <div className="font-bold text-purple-900 flex items-center gap-1.5">
@@ -267,6 +517,81 @@ export function RolesMatrixClient({ userRole, userCounts }: RoleMatrixClientProp
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Sensitive Permission Confirmation Modal */}
+      {pendingConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm Sensitive Permission Change"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        >
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h3 className="font-bold text-sm text-slate-900">
+                  Confirm Sensitive Permission Change
+                </h3>
+                <p className="text-xs text-slate-600">
+                  Are you sure you want to{" "}
+                  <strong>{pendingConfirm.nextEnabled ? "grant" : "revoke"}</strong>{" "}
+                  <strong>{pendingConfirm.permLabel}</strong> for role{" "}
+                  <strong>{pendingConfirm.roleLabel}</strong>?
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingConfirm(null)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = pendingConfirm;
+                  setPendingConfirm(null);
+                  void applyToggle(p.targetRole, p.permission, p.nextEnabled, true);
+                }}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#12355B] text-white hover:bg-[#0D2847]"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Toast with Undo */}
+      {toast && (
+        <div
+          role="status"
+          className={`fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-xl shadow-lg border flex items-center gap-3 text-xs font-bold ${
+            toast.isError
+              ? "bg-rose-900 text-white border-rose-700"
+              : "bg-slate-900 text-white border-slate-700"
+          }`}
+        >
+          <span>{toast.message}</span>
+          {toast.undoPayload && (
+            <button
+              type="button"
+              onClick={() => {
+                const u = toast.undoPayload!;
+                setToast(null);
+                void applyToggle(u.targetRole, u.permission, u.enabled, false);
+              }}
+              className="px-2 py-0.5 rounded bg-white/15 hover:bg-white/25 text-amber-300 flex items-center gap-1"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Undo</span>
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -1,14 +1,24 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, Calendar, RefreshCw, Banknote, Smartphone, CreditCard, Clock, Receipt } from "lucide-react";
+import { X, RefreshCw, Banknote, Smartphone, CreditCard, Clock, Trash2 } from "lucide-react";
 import { getPosTodaySalesSummaryAction } from "@/app/shop/pos/actions";
+import { cancelInvoiceAction } from "@/app/shop/invoices/actions";
+
+interface TodayBillRow {
+  id: string;
+  number: string;
+  customerName: string;
+  totalPaise: number;
+  mode: string;
+}
 
 interface PosTodaySalesModalProps {
   isOpen: boolean;
   onClose: () => void;
   locationId: string;
   locationName: string;
+  canVoidInvoice?: boolean;
 }
 
 export function PosTodaySalesModal({
@@ -16,6 +26,7 @@ export function PosTodaySalesModal({
   onClose,
   locationId,
   locationName,
+  canVoidInvoice = false,
 }: PosTodaySalesModalProps) {
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<{
@@ -25,7 +36,12 @@ export function PosTodaySalesModal({
     upiPaise: number;
     creditPaise: number;
     pendingCount: number;
+    recentBills?: TodayBillRow[];
   } | null>(null);
+  const [voidTarget, setVoidTarget] = useState<TodayBillRow | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+  const [voidError, setVoidError] = useState<string | null>(null);
+  const [voiding, setVoiding] = useState(false);
 
   const fetchSummary = async () => {
     setLoading(true);
@@ -39,11 +55,33 @@ export function PosTodaySalesModal({
   useEffect(() => {
     if (isOpen) {
       fetchSummary();
+      setVoidTarget(null);
+      setVoidReason("");
+      setVoidError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, locationId]);
 
   if (!isOpen) return null;
+
+  const handleConfirmVoid = async () => {
+    if (!voidTarget) return;
+    if (voidReason.trim().length < 5) {
+      setVoidError("Reason must be at least 5 characters");
+      return;
+    }
+    setVoiding(true);
+    setVoidError(null);
+    const res = await cancelInvoiceAction(voidTarget.id, voidReason.trim());
+    setVoiding(false);
+    if (res.success) {
+      setVoidTarget(null);
+      setVoidReason("");
+      await fetchSummary();
+    } else {
+      setVoidError(res.error || "Failed to void invoice");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
@@ -123,6 +161,69 @@ export function PosTodaySalesModal({
                   </div>
                 </div>
               </div>
+
+              {/* Recent Today Bills list */}
+              {summary.recentBills && summary.recentBills.length > 0 && (
+                <div className="border border-slate-200 rounded-xl overflow-hidden max-h-40 overflow-y-auto divide-y divide-slate-100 text-xs">
+                  {summary.recentBills.map((b) => (
+                    <div key={b.id} className="px-3 py-2 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 truncate">{b.number} · {b.customerName}</div>
+                        <div className="text-[10px] text-slate-500">{b.mode}</div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-mono font-bold text-slate-900">₹{(b.totalPaise / 100).toFixed(2)}</span>
+                        {canVoidInvoice && (
+                          <button
+                            type="button"
+                            data-testid="pos-today-void-btn"
+                            onClick={() => {
+                              setVoidTarget(b);
+                              setVoidReason("");
+                              setVoidError(null);
+                            }}
+                            title={`Void ${b.number}`}
+                            className="p-1 text-rose-600 hover:bg-rose-50 rounded"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {voidTarget && canVoidInvoice && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-2 text-xs">
+                  <div className="font-bold text-rose-900">Void {voidTarget.number}</div>
+                  <input
+                    type="text"
+                    value={voidReason}
+                    onChange={(e) => setVoidReason(e.target.value)}
+                    placeholder="Reason (min 5 chars)"
+                    className="w-full px-2.5 py-1.5 bg-white border border-rose-300 rounded-lg text-slate-900"
+                  />
+                  {voidError && <div className="text-rose-700 font-semibold">{voidError}</div>}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setVoidTarget(null)}
+                      className="px-2.5 py-1 rounded bg-white border border-slate-300 text-slate-700 font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={voiding}
+                      onClick={handleConfirmVoid}
+                      className="px-2.5 py-1 rounded bg-rose-700 text-white font-bold"
+                    >
+                      {voiding ? "Voiding..." : "Confirm Void"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Status footer */}
               {summary.pendingCount > 0 && (

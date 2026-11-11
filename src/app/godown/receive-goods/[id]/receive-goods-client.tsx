@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
@@ -56,18 +57,7 @@ function SearchableProductPicker({
 
   const selectedProduct = availableProducts.find((p) => p.id === selectedProductId);
 
-  const filtered = query.trim()
-    ? availableProducts
-        .filter((p) => {
-          const q = query.toLowerCase();
-          return (
-            p.name.toLowerCase().includes(q) ||
-            p.shortCode.toLowerCase().includes(q) ||
-            p.packLabel.toLowerCase().includes(q)
-          );
-        })
-        .slice(0, 50)
-    : availableProducts.slice(0, 50);
+  const filtered = query.trim() ? (searchItems(query, availableProducts as any, { limit: 50 }) as typeof availableProducts) : availableProducts.slice(0, 50);
 
   return (
     <div className="relative">

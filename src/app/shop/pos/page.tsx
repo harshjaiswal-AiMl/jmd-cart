@@ -4,6 +4,7 @@ import { UserRole, LocationType, PartyType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { settingsService } from "@/modules/settings/settings.service";
 import { previewNextInvoiceNumber } from "@/lib/invoice-number";
+import { hasPermission, Permission } from "@/modules/auth/permissions";
 import { PosClient } from "./pos-client";
 
 export default async function ShopPosPage({ searchParams }: { searchParams?: Promise<{ edit?: string; new?: string; showFinalized?: string }> }) {
@@ -217,6 +218,8 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
       }}
       businessDetails={businessDetails}
       initialStartNewBill={params?.new === "1"}
+      canDeleteBill={hasPermission(session.user.role as UserRole, Permission.POS_DELETE_BILL)}
+      canVoidInvoice={hasPermission(session.user.role as UserRole, Permission.INVOICE_VOID)}
     />
   );
 }

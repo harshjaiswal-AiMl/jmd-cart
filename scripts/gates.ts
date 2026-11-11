@@ -1,27 +1,33 @@
 import { execSync, spawn, ChildProcess } from "child_process";
 import fs from "fs";
 import path from "path";
+import sharp from "sharp";
+import { chromium } from "@playwright/test";
+import { PrismaClient } from "@prisma/client";
+import { setup as setupTestDb, teardown as teardownTestDb } from "../tests/global-setup";
+import { Permission, ROLE_PERMISSIONS } from "../src/modules/auth/permissions";
 
 interface GateResult {
-  id: string;
-  name: string;
+  gate: string;
   status: "PASS" | "FAIL";
-  measured: string;
-  target: string;
+  evidence: string;
   artifactPath: string;
 }
 
 const artifactsDir = path.resolve(process.cwd(), "artifacts");
-if (!fs.existsSync(artifactsDir)) {
-  fs.mkdirSync(artifactsDir, { recursive: true });
-}
+const baselineDir = path.join(artifactsDir, "baseline");
+const baselineScreenshotsDir = path.join(baselineDir, "screenshots");
+const currentScreenshotsDir = path.join(artifactsDir, "x1-screenshots");
 
-const LOCAL_DB_URL =
-  process.env.LOCAL_E2E_DATABASE_URL ||
-  "postgresql://postgres:postgres@localhost:5432/idms?schema=public";
+fs.mkdirSync(artifactsDir, { recursive: true });
+fs.mkdirSync(currentScreenshotsDir, { recursive: true });
 
+const TEST_DB_URL =
+  process.env.TEST_DATABASE_URL ||
+  "postgresql://postgres:postgres@localhost:5432/idms_test?schema=public";
 const AUTH_SECRET =
   process.env.AUTH_SECRET || "local-e2e-test-secret-key-at-least-32-chars";
+const BASE_URL = "http://127.0.0.1:3000";
 
 function runSync(
   cmd: string,
@@ -55,399 +61,348 @@ async function waitForHealth(url: string, timeoutMs = 45000): Promise<boolean> {
   return false;
 }
 
-function getBuildPosJsKb(): { posKb: number; posFirstLoadKb: number; maxRouteKb: number } {
-  // Parse Next.js app-build-manifest or latest build output if cached
-  const appBuildManifestPath = path.resolve(".next/app-build-manifest.json");
-  if (!fs.existsSync(appBuildManifestPath)) {
-    return { posKb: 0, posFirstLoadKb: 0, maxRouteKb: 0 };
+function checkPermissionSnapshotDiff(): { passed: boolean; evidence: string } {
+  const snapPath = path.join(baselineDir, "permissions-snapshot.json");
+  if (!fs.existsSync(snapPath)) {
+    return { passed: false, evidence: "Missing artifacts/baseline/permissions-snapshot.json" };
   }
+  const baseline = JSON.parse(fs.readFileSync(snapPath, "utf8"));
+  const allowedNewKeys = new Set(["pos.deleteBill", "invoice.void"]);
+  const diffs: string[] = [];
+
+  const curPerms = Object.values(Permission);
+  const newPerms = curPerms.filter((p) => !baseline.permissions.includes(p));
+  const removedPerms = baseline.permissions.filter((p: string) => !curPerms.includes(p as Permission));
+  for (const p of newPerms) {
+    if (!allowedNewKeys.has(p)) diffs.push(`Unexpected new permission: ${p}`);
+  }
+  for (const p of removedPerms) {
+    diffs.push(`Removed permission: ${p}`);
+  }
+
+  for (const [role, oldList] of Object.entries(baseline.rolePermissions as Record<string, string[]>)) {
+    const curList = (ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS] || []).filter(
+      (p) => !allowedNewKeys.has(p)
+    );
+    const oldSet = new Set(oldList);
+    const curSet = new Set(curList);
+    for (const p of oldList) {
+      if (!curSet.has(p as Permission)) diffs.push(`${role} lost ${p}`);
+    }
+    for (const p of curList) {
+      if (!oldSet.has(p)) diffs.push(`${role} gained unexpected ${p}`);
+    }
+  }
+
+  if (diffs.length > 0) {
+    return { passed: false, evidence: diffs.slice(0, 3).join("; ") };
+  }
+  return {
+    passed: true,
+    evidence: `Exact match across ${Object.keys(baseline.rolePermissions).length} roles (+${newPerms.length} R1 perms)`,
+  };
+}
+
+async function compareBaselineScreenshots(): Promise<{ passed: boolean; evidence: string }> {
+  if (!fs.existsSync(baselineScreenshotsDir)) {
+    return { passed: false, evidence: "Baseline screenshots missing" };
+  }
+  const files = fs.readdirSync(baselineScreenshotsDir).filter((f) => f.endsWith(".png"));
+  if (files.length < 12) {
+    return { passed: false, evidence: `Expected 12 baseline PNGs, found ${files.length}` };
+  }
+
+  const prisma = new PrismaClient({ datasources: { db: { url: TEST_DB_URL } } });
+  const firstProd = await prisma.product.findFirst({
+    where: { active: true },
+    orderBy: { name: "asc" },
+    select: { id: true },
+  });
+  await prisma.$disconnect();
+
+  const routes: Array<{ name: string; url: string }> = [
+    { name: "dashboard", url: "/admin" },
+    { name: "products", url: "/admin/catalog" },
+    { name: "invoices-list", url: "/shop/invoices" },
+    { name: "stock", url: "/godown/stock" },
+    { name: "parties", url: "/admin/parties" },
+    { name: "orders", url: "/admin/orders" },
+    { name: "dispatch", url: "/godown/dispatch" },
+    { name: "reports", url: "/reports" },
+    { name: "settings", url: "/admin/settings" },
+    { name: "storefront-home", url: "/" },
+    { name: "storefront-product", url: firstProd ? `/store/products/${firstProd.id}` : "/store" },
+    { name: "storefront-cart", url: "/store/cart" },
+  ];
+
+  const browser = await chromium.launch({ channel: "chrome", headless: true });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+
+  let maxDiffPct = 0;
+  let worstRoute = "";
+  const routeDiffs: Record<string, number> = {};
+
   try {
-    const manifest = JSON.parse(fs.readFileSync(appBuildManifestPath, "utf8"));
-    const pages: Record<string, string[]> = manifest.pages || {};
-    let posSizeBytes = 0;
-    let maxBytes = 0;
-    for (const [route, files] of Object.entries(pages)) {
-      let routeBytes = 0;
-      for (const f of files) {
-        if (!f.endsWith(".js")) continue;
-        const fp = path.resolve(".next", f);
-        if (fs.existsSync(fp)) {
-          // Raw size approx * 0.3 for gzip estimate when actual build log unavailable
-          routeBytes += fs.statSync(fp).size;
+    await page.goto(`${BASE_URL}/login`, { waitUntil: "load" });
+    const submit = page.locator('button[type="submit"]');
+    await submit.waitFor({ state: "visible" });
+    await page.fill('input[name="phone"]', "9876543210");
+    await page.fill('input[name="password"]', "admin123");
+    await submit.click();
+    await page.waitForURL("**/admin**", { timeout: 30000, waitUntil: "commit" });
+    await page.waitForLoadState("networkidle").catch(() => {});
+
+    for (const r of routes) {
+      await page.goto(`${BASE_URL}${r.url}`, { waitUntil: "load", timeout: 30000 });
+      await page.waitForLoadState("networkidle").catch(() => {});
+      await page.waitForTimeout(300);
+      const curPath = path.join(currentScreenshotsDir, `${r.name}.png`);
+      await page.screenshot({ path: curPath, fullPage: false });
+
+      const baseImg = await sharp(path.join(baselineScreenshotsDir, `${r.name}.png`))
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const curImg = await sharp(curPath)
+        .resize(baseImg.info.width, baseImg.info.height)
+        .ensureAlpha()
+        .raw()
+        .toBuffer();
+
+      const totalPixels = baseImg.info.width * baseImg.info.height;
+      let changedPixels = 0;
+      for (let i = 0; i < totalPixels; i++) {
+        const off = i * 4;
+        if (
+          Math.abs(baseImg.data[off] - curImg[off]) > 4 ||
+          Math.abs(baseImg.data[off + 1] - curImg[off + 1]) > 4 ||
+          Math.abs(baseImg.data[off + 2] - curImg[off + 2]) > 4
+        ) {
+          changedPixels++;
         }
       }
-      if (routeBytes > maxBytes) maxBytes = routeBytes;
-      if (route.includes("/shop/pos/page")) posSizeBytes = routeBytes;
+      const diffPct = Number(((changedPixels / totalPixels) * 100).toFixed(4));
+      routeDiffs[r.name] = diffPct;
+      if (diffPct > maxDiffPct) {
+        maxDiffPct = diffPct;
+        worstRoute = r.name;
+      }
     }
-    return {
-      posKb: Math.round((posSizeBytes * 0.28) / 1024),
-      posFirstLoadKb: Math.round((posSizeBytes * 0.32) / 1024),
-      maxRouteKb: Math.round((maxBytes * 0.28) / 1024),
-    };
-  } catch {
-    return { posKb: 0, posFirstLoadKb: 0, maxRouteKb: 0 };
+  } finally {
+    await browser.close();
   }
+
+  fs.writeFileSync(path.join(artifactsDir, "x1-screenshot-diff.json"), JSON.stringify(routeDiffs, null, 2));
+  const passed = maxDiffPct <= 0.1;
+  return {
+    passed,
+    evidence: `${routes.length} routes checked, max pixel diff ${maxDiffPct}% (${worstRoute || "none"}, target <= 0.1%)`,
+  };
 }
 
 async function main() {
-  const isVerifyMode = process.argv.includes("--repeat");
-  console.log("=== JMD Cart Looping Fix Protocol: Running pnpm gates ===");
-  console.log(`Mode: ${isVerifyMode ? "VERIFY (--repeat-each=5)" : "SINGLE PASS"}\n`);
+  const isRepeat = process.argv.includes("--repeat");
+  const needRebuild = process.argv.includes("--rebuild") || !fs.existsSync(path.resolve(".next/BUILD_ID"));
 
-  // 1. Typecheck
-  console.log("1/4 Running pnpm typecheck...");
+  console.log("=== Prompt 09 Gates Harness (Scope-Locked) ===");
   const typecheck = runSync("pnpm typecheck");
   fs.writeFileSync(path.join(artifactsDir, "typecheck.log"), typecheck.output, "utf8");
 
-  // 2. Unit & Integration tests
-  console.log("2/4 Running unit & integration test suites...");
-  const unitRes = runSync(
-    "pnpm exec vitest run tests/unit/pos-modal-keyboard.test.ts tests/unit/price-percent-link.test.ts tests/unit/smart-search.test.ts tests/unit/party-search.test.ts tests/unit/gst.test.ts tests/unit/pos-carton-godown-stock.test.ts tests/unit/prompt14-pos-van-upgrades.test.ts tests/unit/van-language.test.ts",
-    { VITEST_UNIT: "true" }
-  );
+  const lint = runSync("pnpm lint");
+  fs.writeFileSync(path.join(artifactsDir, "lint.log"), lint.output, "utf8");
+
+  const unitPureRes = runSync("pnpm exec vitest --config vitest.unit.config.ts run tests/unit/smart-search.test.ts tests/unit/party-search.test.ts tests/unit/search-everywhere.test.ts tests/unit/gst.test.ts", {
+    VITEST_UNIT: "true",
+  });
+  const unitPrompt09Res = runSync("pnpm exec vitest run tests/unit/r3-hindi-van.test.ts tests/unit/r4-thermal-bill.test.ts tests/unit/g12-bill-template.test.ts tests/unit/r6-search-parity.test.ts tests/unit/prompt09-breakit.test.ts", {
+    DATABASE_URL: TEST_DB_URL,
+  });
+  const unitRes = {
+    success: unitPureRes.success && unitPrompt09Res.success,
+    output: unitPureRes.output + "\n" + unitPrompt09Res.output,
+  };
   fs.writeFileSync(path.join(artifactsDir, "vitest-units.log"), unitRes.output, "utf8");
 
-  const isReportOnly = process.argv.includes("--report-only");
-  let speedReport: any = {};
-  let pwReport: any = { suites: [] };
-
-  if (isReportOnly) {
-    const pwJsonPath = path.join(artifactsDir, "playwright-gates-report.json");
-    if (fs.existsSync(pwJsonPath)) pwReport = JSON.parse(fs.readFileSync(pwJsonPath, "utf8"));
-    const speedJsonPath = path.join(artifactsDir, "speed-report.json");
-    if (fs.existsSync(speedJsonPath)) speedReport = JSON.parse(fs.readFileSync(speedJsonPath, "utf8"));
-  } else {
-  // 3. Ensure production build exists & start local server against local idms copy
-  if (!fs.existsSync(path.resolve(".next/BUILD_ID")) || process.argv.includes("--rebuild")) {
-    console.log("Building production bundle...");
+  if (needRebuild) {
     const buildRes = runSync("pnpm build", {
-      DATABASE_URL: LOCAL_DB_URL,
+      DATABASE_URL: TEST_DB_URL,
       AUTH_SECRET,
       NEXTAUTH_SECRET: AUTH_SECRET,
-      NEXTAUTH_URL: "http://127.0.0.1:3000",
+      NEXTAUTH_URL: BASE_URL,
     });
     fs.writeFileSync(path.join(artifactsDir, "build.log"), buildRes.output, "utf8");
     if (!buildRes.success) {
-      console.error("Build failed! See artifacts/build.log");
+      console.error("Build failed! Check artifacts/build.log");
       process.exit(1);
     }
   }
 
-  console.log("Starting local production server on http://127.0.0.1:3000 (local idms DB)...");
-  const serverProc: ChildProcess = spawn("cmd.exe", ["/c", "pnpm start -H 127.0.0.1 -p 3000"], {
-    env: {
-      ...process.env,
-      DATABASE_URL: LOCAL_DB_URL,
-      AUTH_SECRET,
-      NEXTAUTH_SECRET: AUTH_SECRET,
-      NEXTAUTH_URL: "http://127.0.0.1:3000",
-      PORT: "3000",
-    },
-    stdio: "ignore",
-  });
+  await setupTestDb();
 
-  const healthy = await waitForHealth("http://127.0.0.1:3000/api/health", 45000);
-  if (!healthy) {
-    serverProc.kill("SIGTERM");
-    console.error("Local production server failed to become healthy within 45s");
-    process.exit(1);
-  }
+  let serverProc: ChildProcess | null = null;
+  let pwReport: any = { suites: [] };
+  let x1ScreenshotDiff = { passed: false, evidence: "Not run" };
 
   try {
-    // 3b. Run Playwright E2E gates suite
-    console.log("3/4 Running Playwright UI gates suite (Chrome, video: on, trace: on)...");
-    const repeatFlag = isVerifyMode ? "--repeat-each=5" : "--repeat-each=1";
-    const pwCmd = `pnpm exec playwright test -c playwright.gates.config.ts ${repeatFlag}`;
-    const pwRes = runSync(pwCmd, {
-      PLAYWRIGHT_BASE_URL: "http://127.0.0.1:3000",
-      DATABASE_URL: LOCAL_DB_URL,
+    serverProc = spawn("cmd.exe", ["/c", "pnpm start -H 127.0.0.1 -p 3000"], {
+      env: {
+        ...process.env,
+        DATABASE_URL: TEST_DB_URL,
+        AUTH_SECRET,
+        NEXTAUTH_SECRET: AUTH_SECRET,
+        NEXTAUTH_URL: BASE_URL,
+        PORT: "3000",
+      },
+      stdio: "ignore",
     });
-    fs.writeFileSync(path.join(artifactsDir, "playwright-gates.log"), pwRes.output, "utf8");
 
-    const pwJsonPath = path.join(artifactsDir, "playwright-gates-report.json");
+    const healthy = await waitForHealth(`${BASE_URL}/api/health`, 45000);
+    if (!healthy) {
+      throw new Error("Server failed to become healthy within 45s");
+    }
+
+    const repeatFlag = isRepeat ? "--repeat-each=5" : "--repeat-each=1";
+    const pwRes = runSync(
+      `pnpm exec playwright test -c playwright.prompt09.config.ts ${repeatFlag}`,
+      {
+        PLAYWRIGHT_BASE_URL: BASE_URL,
+        DATABASE_URL: TEST_DB_URL,
+      }
+    );
+    fs.writeFileSync(path.join(artifactsDir, "prompt09-playwright.log"), pwRes.output, "utf8");
+
+    const pwJsonPath = path.join(artifactsDir, "prompt09-pw-report.json");
     if (fs.existsSync(pwJsonPath)) {
       pwReport = JSON.parse(fs.readFileSync(pwJsonPath, "utf8"));
     }
 
-    // 4. Run Speed & Lighthouse measurements
-    console.log("4/4 Running Speed & Lighthouse diagnostics...");
-    const speedRes = runSync("pnpm exec tsx scripts/measure-speed.ts", {
-      PLAYWRIGHT_BASE_URL: "http://127.0.0.1:3000",
-    });
-    fs.writeFileSync(path.join(artifactsDir, "speed-runner.log"), speedRes.output, "utf8");
-    const speedJsonPath = path.join(artifactsDir, "speed-report.json");
-    if (fs.existsSync(speedJsonPath)) {
-      speedReport = JSON.parse(fs.readFileSync(speedJsonPath, "utf8"));
-    }
-  } finally {
-    // Cleanly terminate next start process tree on Windows
-    try {
-      if (serverProc.pid) {
+    // Reset clean test fixture & restart server before X1 baseline screenshot diff
+    // so mutations from R1/R2/R5 tests do not skew unchanged UI screenshots.
+    if (serverProc?.pid) {
+      try {
         execSync(`taskkill /PID ${serverProc.pid} /T /F`, { stdio: "ignore" });
-      }
-    } catch {}
-  }
+      } catch {}
+      serverProc = null;
+    }
+    await setupTestDb();
+    serverProc = spawn("cmd.exe", ["/c", "pnpm start -H 127.0.0.1 -p 3000"], {
+      env: {
+        ...process.env,
+        DATABASE_URL: TEST_DB_URL,
+        AUTH_SECRET,
+        NEXTAUTH_SECRET: AUTH_SECRET,
+        NEXTAUTH_URL: BASE_URL,
+        PORT: "3000",
+      },
+      stdio: "ignore",
+    });
+    const healthyForX1 = await waitForHealth(`${BASE_URL}/api/health`, 45000);
+    if (!healthyForX1) {
+      throw new Error("Server failed to become healthy for X1 screenshot comparison");
+    }
+
+    x1ScreenshotDiff = await compareBaselineScreenshots();
+  } finally {
+    if (serverProc?.pid) {
+      try {
+        execSync(`taskkill /PID ${serverProc.pid} /T /F`, { stdio: "ignore" });
+      } catch {}
+    }
+    await teardownTestDb();
   }
 
-  // Helper to check status of a test title prefix from Playwright JSON report
-  const findPwTestStatus = (prefix: string): { passed: boolean; msg: string } => {
+  const findPw = (prefix: string): { passed: boolean; msg: string } => {
     const specs: any[] = [];
-    const walk = (suite: any) => {
-      for (const s of suite.specs || []) specs.push(s);
-      for (const child of suite.suites || []) walk(child);
+    const walk = (s: any) => {
+      for (const sp of s.specs || []) specs.push(sp);
+      for (const ch of s.suites || []) walk(ch);
     };
     for (const s of pwReport.suites || []) walk(s);
-
     const matched = specs.filter((s) => String(s.title).startsWith(prefix));
-    if (matched.length === 0) return { passed: false, msg: "Test not found" };
-    const total = matched.reduce((acc, s) => acc + (s.tests?.length || 0), 0);
-    const okCount = matched.reduce(
-      (acc, s) => acc + (s.tests?.filter((t: any) => t.status === "expected").length || 0),
+    if (matched.length === 0) return { passed: false, msg: "Playwright test not found" };
+    const total = matched.reduce((a, s) => a + (s.tests?.length || 0), 0);
+    const ok = matched.reduce(
+      (a, s) => a + (s.tests?.filter((t: any) => t.status === "expected").length || 0),
       0
     );
-    const passed = total > 0 && okCount === total;
-    const firstErr = matched[0]?.tests?.[0]?.results?.[0]?.error?.message?.split("\n")[0] || "";
+    const err = matched[0]?.tests?.[0]?.results?.[0]?.error?.message?.split("\n")[0] || "";
     return {
-      passed,
-      msg: passed ? `${okCount}/${total} Playwright runs PASS` : `${okCount}/${total} PASS (${firstErr.slice(0, 60)})`,
+      passed: total > 0 && ok === total,
+      msg: ok === total ? `${ok}/${total} Playwright PASS` : `${ok}/${total} PASS (${err.slice(0, 70)})`,
     };
   };
 
-  const results: GateResult[] = [];
+  const permDiff = checkPermissionSnapshotDiff();
 
-  // G1: Finalized modal keyboard control
-  const posClientCode = fs.readFileSync("src/app/shop/pos/pos-client.tsx", "utf8");
-  const g1HasSetting = posClientCode.includes("showFinalizedModal");
-  results.push({
-    id: "G1",
-    name: "Finalized modal keyboard",
-    status: g1HasSetting ? "PASS" : "FAIL",
-    measured: g1HasSetting ? "Setting present" : "Default modal not gated behind pos.showFinalizedModal",
-    target: "Keyboard control when enabled, default off",
-    artifactPath: "artifacts/playwright-gates.log",
-  });
+  const results: GateResult[] = [
+    {
+      gate: "X0 Baseline & Type/Lint",
+      status: typecheck.success && lint.success && unitRes.success && fs.existsSync(path.join(baselineDir, "permissions-snapshot.json")) ? "PASS" : "FAIL",
+      evidence: `typecheck=${typecheck.success ? "0 err" : "FAIL"}, lint=${lint.success ? "0 err" : "FAIL"}, unit=${unitRes.success ? "PASS" : "FAIL"}`,
+      artifactPath: "artifacts/typecheck.log",
+    },
+    {
+      gate: "R1 Roles Matrix Editable",
+      status: findPw("R1:").passed ? "PASS" : "FAIL",
+      evidence: findPw("R1:").msg,
+      artifactPath: "artifacts/prompt09-pw-report.json",
+    },
+    {
+      gate: "R2 Cashier Delete Bill / Void",
+      status: findPw("R2:").passed ? "PASS" : "FAIL",
+      evidence: findPw("R2:").msg,
+      artifactPath: "artifacts/prompt09-pw-report.json",
+    },
+    {
+      gate: "R5 POS Credit Default",
+      status: findPw("R5:").passed ? "PASS" : "FAIL",
+      evidence: findPw("R5:").msg,
+      artifactPath: "artifacts/prompt09-pw-report.json",
+    },
+    {
+      gate: "R6 One Product Search Engine",
+      status: findPw("R6:").passed && unitRes.success ? "PASS" : "FAIL",
+      evidence: `${findPw("R6:").msg}; unit=${unitRes.success ? "PASS" : "FAIL"}`,
+      artifactPath: "artifacts/prompt09-pw-report.json",
+    },
+    {
+      gate: "R3 Van App Fully Hindi",
+      status: findPw("R3:").passed ? "PASS" : "FAIL",
+      evidence: findPw("R3:").msg,
+      artifactPath: "artifacts/prompt09-pw-report.json",
+    },
+    {
+      gate: "R4 Thermal 3in Bill & Logo",
+      status: findPw("R4:").passed ? "PASS" : "FAIL",
+      evidence: findPw("R4:").msg,
+      artifactPath: "artifacts/prompt09-pw-report.json",
+    },
+    {
+      gate: "X1 Scope Lock (Perms + UI)",
+      status: permDiff.passed && x1ScreenshotDiff.passed ? "PASS" : "FAIL",
+      evidence: `${permDiff.evidence} | ${x1ScreenshotDiff.evidence}`,
+      artifactPath: "artifacts/x1-screenshot-diff.json",
+    },
+  ];
 
-  // G2: Alt+P party popup
-  const g2Pw = findPwTestStatus("G2:");
-  results.push({
-    id: "G2",
-    name: "Alt+P party popup",
-    status: g2Pw.passed ? "PASS" : "FAIL",
-    measured: g2Pw.msg,
-    target: "1 press opens centered Party popup with search focused",
-    artifactPath: "artifacts/playwright-gates-report.json",
-  });
-
-  // G13: New bill F3 & Alt+F3
-  const g13Pw = findPwTestStatus("G13:");
-  results.push({
-    id: "G13",
-    name: "New bill + Alt+F3 + Party popup",
-    status: g13Pw.passed ? "PASS" : "FAIL",
-    measured: g13Pw.msg,
-    target: "F3 & global Alt+F3 open new bill + Party popup",
-    artifactPath: "artifacts/playwright-gates-report.json",
-  });
-
-  // G3: F2 finish + direct print
-  const g3Pw = findPwTestStatus("G3:");
-  results.push({
-    id: "G3",
-    name: "F2 direct print + Split/Modes",
-    status: g3Pw.passed ? "PASS" : "FAIL",
-    measured: g3Pw.msg,
-    target: "F2 -> C/U/R/S -> Enter prints in hidden iframe, stays /shop/pos",
-    artifactPath: "artifacts/playwright-gates-report.json",
-  });
-
-  // G12: Bill template
-  const g12Pw = findPwTestStatus("G12:");
-  results.push({
-    id: "G12",
-    name: "Thermal & A5 Bill Templates",
-    status: g12Pw.passed ? "PASS" : "FAIL",
-    measured: g12Pw.msg,
-    target: "Sl/Product/Price/Amt 2-row Cash/UPI thermal, restored Credit A5/Thermal",
-    artifactPath: "artifacts/playwright-gates-report.json",
-  });
-
-  // G10: F8 delete + Invoice Void
-  const g10Pw = findPwTestStatus("G10:");
-  results.push({
-    id: "G10",
-    name: "F8 discard + Invoice delete/void",
-    status: g10Pw.passed ? "PASS" : "FAIL",
-    measured: g10Pw.msg,
-    target: "F8 discards bill, invoice void reverses stock+ledger",
-    artifactPath: "artifacts/playwright-gates-report.json",
-  });
-
-  // G11: Product search by weight & MRP
-  const g11Pw = findPwTestStatus("G11:");
-  results.push({
-    id: "G11",
-    name: "Search by weight & MRP",
-    status: g11Pw.passed ? "PASS" : "FAIL",
-    measured: g11Pw.msg,
-    target: "'100 gm 95', '135', '50g', 'meat 100' match accurately <150ms",
-    artifactPath: "artifacts/playwright-gates-report.json",
-  });
-
-  // G4: Catalog tier price + percent
-  const g4Pw = findPwTestStatus("G4:");
-  results.push({
-    id: "G4",
-    name: "Catalog price + percent link",
-    status: g4Pw.passed ? "PASS" : "FAIL",
-    measured: g4Pw.msg,
-    target: "Editable linked price+pct, PERCENT/RATE persistence, warnings",
-    artifactPath: "artifacts/playwright-gates-report.json",
-  });
-
-  // G5 & G9
-  const g5Pw = findPwTestStatus("G5 & G9:");
-  results.push({
-    id: "G5",
-    name: "Busy-style keyboard POS",
-    status: g5Pw.passed ? "PASS" : "FAIL",
-    measured: g5Pw.msg,
-    target: "Full bill without mouse, all fields editable, key bar",
-    artifactPath: "artifacts/playwright-gates-report.json",
-  });
-
-  // Speed Gates G6a-G6e, G7a-G7c
-  const lh = speedReport?.lighthouseHomeMedian || {};
-  const homeNet = speedReport?.storeHome || {};
-  const mgmt = speedReport?.management || {};
-  const liveTtfbMs = speedReport?.liveTtfb?.medianMs ?? 9999;
-
-  results.push({
-    id: "G6a",
-    name: "Store Home Mobile Perf",
-    status:
-      (lh.performanceScore || 0) >= 90 &&
-      (lh.fcpMs || 9999) <= 1800 &&
-      (lh.lcpMs || 9999) <= 2500
-        ? "PASS"
-        : "FAIL",
-    measured: `Perf ${lh.performanceScore || 0}, FCP ${lh.fcpMs || 0}ms, LCP ${lh.lcpMs || 0}ms, TBT ${lh.tbtMs || 0}ms`,
-    target: "Perf >= 90, FCP <= 1800ms, LCP <= 2500ms, TBT <= 200ms",
-    artifactPath: "artifacts/speed-report.json",
-  });
-
-  results.push({
-    id: "G6b",
-    name: "Store Payload & Main Thread",
-    status:
-      (homeNet.totalTransferKb || 9999) <= 1536 &&
-      (homeNet.imageTransferKb || 9999) <= 800 &&
-      (homeNet.totalRequests || 999) <= 60 &&
-      (homeNet.vitals?.imgsMissingWidthHeight ?? 1) === 0 &&
-      (lh.mainThreadMs || 9999) <= 4000
-        ? "PASS"
-        : "FAIL",
-    measured: `${homeNet.totalTransferKb || 0} KB total, ${homeNet.imageTransferKb || 0} KB imgs, ${homeNet.totalRequests || 0} reqs, ${homeNet.vitals?.imgsMissingWidthHeight || 0} missing dims, ${lh.mainThreadMs || 0}ms main-thread`,
-    target: "<= 1.5 MB, imgs <= 800 KB, <= 60 reqs, 0 missing dims, main <= 4s",
-    artifactPath: "artifacts/speed-report.json",
-  });
-
-  const bfcacheOk = Boolean(homeNet.bfcacheRestored) || !(speedReport?.lighthouseRuns?.[0]?.bfcacheFailed ?? true);
-  results.push({
-    id: "G6d",
-    name: "bfcache & Accessibility",
-    status:
-      (lh.accessibilityScore || 0) >= 95 && bfcacheOk
-        ? "PASS"
-        : "FAIL",
-    measured: `A11y ${lh.accessibilityScore || 0}, bfcache: ${bfcacheOk ? "PASS" : "BLOCKED"}`,
-    target: "bfcache PASS, Accessibility >= 95",
-    artifactPath: "artifacts/speed-report.json",
-  });
-
-  results.push({
-    id: "G6e",
-    name: "Store Live TTFB",
-    status: liveTtfbMs <= 400 ? "PASS" : "FAIL",
-    measured: `${liveTtfbMs} ms`,
-    target: "<= 400 ms median of 10",
-    artifactPath: "artifacts/speed-report.json",
-  });
-
-  results.push({
-    id: "G7a",
-    name: "Management First Usable",
-    status: (mgmt.loginToDashboardMs || 9999) <= 2500 ? "PASS" : "FAIL",
-    measured: `${mgmt.loginToDashboardMs || 0} ms`,
-    target: "<= 2500 ms",
-    artifactPath: "artifacts/speed-report.json",
-  });
-
-  results.push({
-    id: "G7b",
-    name: "Management Full Load",
-    status:
-      (mgmt.adminLoadMs || 9999) <= 4000 &&
-      (mgmt.posLoadMs || 9999) <= 3000 &&
-      (mgmt.catalogLoadMs || 9999) <= 3500
-        ? "PASS"
-        : "FAIL",
-    measured: `Dash ${mgmt.adminLoadMs || 0}ms, POS ${mgmt.posLoadMs || 0}ms, Cat ${mgmt.catalogLoadMs || 0}ms`,
-    target: "Dash <= 4s, POS <= 3s, Cat <= 3.5s",
-    artifactPath: "artifacts/speed-report.json",
-  });
-
-  const jsStats = getBuildPosJsKb();
-  results.push({
-    id: "G7c",
-    name: "Route JS Budget",
-    status: jsStats.posKb > 0 && jsStats.posKb <= 250 && jsStats.maxRouteKb <= 350 ? "PASS" : "FAIL",
-    measured: `POS ~${jsStats.posKb} KB, Max Route ~${jsStats.maxRouteKb} KB`,
-    target: "POS <= 250 KB gzip, Max Route <= 350 KB",
-    artifactPath: "artifacts/speed-report.json",
-  });
-
-  // G8: Carry-over defects
-  const g8Res = runSync(
-    "pnpm exec vitest run tests/unit/pos-carton-godown-stock.test.ts tests/unit/prompt14-pos-van-upgrades.test.ts tests/unit/datetime-timezone-matrix.test.ts",
-    { VITEST_UNIT: "true" }
-  );
-  fs.writeFileSync(path.join(artifactsDir, "g8-carryover.log"), g8Res.output, "utf8");
-  results.push({
-    id: "G8",
-    name: "Carry-over defects",
-    status: g8Res.success && typecheck.success ? "PASS" : "FAIL",
-    measured: g8Res.success && typecheck.success ? "Units, IST, round-off unit tests PASS" : "Tests/typecheck failed",
-    target: "All carry-over invariants verified",
-    artifactPath: "artifacts/g8-carryover.log",
-  });
-
-  results.push({
-    id: "G9",
-    name: "Redesign / Brand Light Theme",
-    status: g5Pw.passed ? "PASS" : "FAIL",
-    measured: g5Pw.passed ? "Cream #FEFDF7, Maroon #790E11, >=16px grid" : "Dark navy header or typography below spec",
-    target: "Cream #FEFDF7, Maroon #790E11, Inter+Poppins, >=16px grid",
-    artifactPath: "artifacts/playwright-gates-report.json",
-  });
-
-  // Print final table
-  console.log("\n======================== PROMPT 08 GATES REPORT ========================");
-  console.log("| gate id | PASS/FAIL | measured value | target | artifact path |");
-  console.log("|---|---|---|---|---|");
+  console.log("\n=================== PROMPT 09 GATES REPORT ===================");
+  console.log("| gate | PASS/FAIL | evidence | artifact path |");
+  console.log("|---|---|---|---|");
   for (const r of results) {
-    console.log(`| ${r.id} | **${r.status}** | ${r.measured} | ${r.target} | \`${r.artifactPath}\` |`);
+    console.log(`| ${r.gate} | **${r.status}** | ${r.evidence} | \`${r.artifactPath}\` |`);
   }
-  console.log("========================================================================\n");
+  console.log("==============================================================\n");
 
-  const latestPath = path.join(artifactsDir, "gates-latest.json");
-  fs.writeFileSync(latestPath, JSON.stringify(results, null, 2), "utf8");
-
-  const beforePath = path.join(artifactsDir, "gates-before.json");
+  const beforePath = path.join(baselineDir, "gates-before.json");
   if (!fs.existsSync(beforePath)) {
-    fs.writeFileSync(beforePath, JSON.stringify(results, null, 2), "utf8");
-    console.log("Saved initial Step 0 BASELINE to artifacts/gates-before.json");
+    fs.writeFileSync(beforePath, JSON.stringify(results, null, 2));
+    console.log("Saved initial Step 0 baseline table to artifacts/baseline/gates-before.json");
   }
-  process.exit(0);
+  fs.writeFileSync(path.join(artifactsDir, "gates-latest.json"), JSON.stringify(results, null, 2));
+  if (results.some((r) => r.status === "FAIL")) {
+    process.exit(1);
+  }
 }
 
 main().catch((err) => {

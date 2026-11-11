@@ -6,6 +6,8 @@ export const ALLOWED_GST_RATES_BP = [0, 500, 1200, 1800, 2800] as const;
 
 export const createProductSchema = z.object({
   name: z.string().min(2, "Product name must be at least 2 characters").max(150),
+  nameHi: z.string().trim().max(150).nullable().optional(),
+  nameHiSource: z.string().max(30).nullable().optional(),
   shortCode: z
     .string()
     .min(2, "Short code must be at least 2 characters")

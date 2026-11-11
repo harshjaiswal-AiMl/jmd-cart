@@ -140,11 +140,13 @@ export function PartiesClient({
   const [creditLimitRs, setCreditLimitRs] = useState("");
   const [creditDays, setCreditDays] = useState("");
   const [openingBalanceRs, setOpeningBalanceRs] = useState("");
+  const [nameHi, setNameHi] = useState("");
   const [tallyRef, setTallyRef] = useState("");
 
   const openAddModal = () => {
     setEditingParty(null);
     setName("");
+    setNameHi("");
     setType(
       typeFilter !== "ALL" && Object.values(PartyType).includes(typeFilter as PartyType)
         ? (typeFilter as PartyType)
@@ -166,6 +168,7 @@ export function PartiesClient({
   const openEditModal = (p: PartyWithOutstanding) => {
     setEditingParty(p);
     setName(p.name);
+    setNameHi(p.nameHi || "");
     setType(p.type);
     setPhone(p.phone || "");
     setEmail(p.email || "");
@@ -191,6 +194,7 @@ export function PartiesClient({
 
     const payload: CreatePartyInput = {
       name,
+      nameHi: nameHi.trim() || undefined,
       type,
       phone: phone || undefined,
       email: email || undefined,
@@ -689,6 +693,19 @@ export function PartiesClient({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Ramesh Kirana Store"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-medium text-gray-700 mb-1">
+                  Hindi Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={nameHi}
+                  onChange={(e) => setNameHi(e.target.value)}
+                  placeholder="जैसे: रमेश किराना स्टोर"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500"
                 />
               </div>

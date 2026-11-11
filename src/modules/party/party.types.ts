@@ -5,6 +5,8 @@ export const partyTypeSchema = z.nativeEnum(PartyType);
 
 export const createPartySchema = z.object({
   name: z.string().min(2, "Party name must be at least 2 characters").max(150),
+  nameHi: z.string().trim().max(150).nullable().optional().or(z.literal("")),
+  nameHiSource: z.string().max(30).nullable().optional(),
   type: partyTypeSchema.default(PartyType.CUSTOMER),
   phone: z
     .string()
@@ -82,6 +84,7 @@ export interface CollectionReceipt {
   receiptNo: string;
   partyId: string;
   partyName: string;
+  partyNameHi?: string | null;
   partyPhone: string | null;
   amountPaise: number;
   mode: "CASH" | "UPI" | "CARD";

@@ -22,6 +22,8 @@
 export interface SearchableProduct {
   id: string;
   name: string;
+  nameHi?: string | null;
+  searchAliases?: string[];
   shortCode: string;
   companyName?: string | null;
   categoryName?: string | null;
@@ -49,6 +51,9 @@ export interface SearchIndexItem {
   product: SearchableProduct;
   lowerName: string;
   nameWords: string[];
+  lowerNameHi: string;
+  nameHiWords: string[];
+  phoneticWords: string[];
   lowerCompany: string;
   companyWords: string[];
   lowerShortCode: string;
@@ -119,9 +124,90 @@ const UNIT_WORDS = new Set([
 /**
  * Normalise and combine query tokens so "0.4" + "kg" becomes "0.4kg", "1" + "ltr" becomes "1ltr".
  */
+const DEVANAGARI_CONSONANTS: Record<string, string> = {
+  क: "k", ख: "kh", ग: "g", घ: "gh", ङ: "n",
+  च: "ch", छ: "chh", ज: "j", झ: "jh", ञ: "n",
+  ट: "t", ठ: "th", ड: "d", ढ: "dh", ण: "n",
+  त: "t", थ: "th", द: "d", ध: "dh", न: "n",
+  प: "p", फ: "ph", ब: "b", भ: "bh", म: "m",
+  य: "y", र: "r", ल: "l", व: "v", श: "sh",
+  ष: "sh", स: "s", ह: "h", ळ: "l",
+};
+const DEVANAGARI_INDEP_VOWELS: Record<string, string> = {
+  अ: "a", आ: "a", इ: "i", ई: "i", उ: "u", ऊ: "u",
+  ऋ: "ri", ए: "e", ऐ: "ai", ओ: "o", औ: "au",
+};
+const DEVANAGARI_MATRAS: Record<string, string> = {
+  "ा": "a", "ि": "i", "ी": "i", "ु": "u", "ू": "u",
+  "ृ": "ri", "े": "e", "ै": "ai", "ो": "o", "ौ": "au",
+  "ॉ": "o", "ॅ": "e",
+};
+const DEVANAGARI_DIGITS: Record<string, string> = {
+  "०": "0", "१": "1", "२": "2", "३": "3", "४": "4",
+  "५": "5", "६": "6", "७": "7", "८": "8", "९": "9",
+};
+
+export function normalizeSearchText(text: string): string {
+  if (!text) return "";
+  return text
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\u093C/g, "") // strip Devanagari nukta so क़->क, ज़->ज
+    .replace(/[\u0901\u0902]/g, "ं")
+    .replace(/\u0966|\u0967|\u0968|\u0969|\u096A|\u096B|\u096C|\u096D|\u096E|\u096F/g, (d) => DEVANAGARI_DIGITS[d] || d)
+    .toLowerCase()
+    .trim();
+}
+
+export function devanagariToLatin(input: string): string {
+  const str = normalizeSearchText(input);
+  if (!/[\u0900-\u097F]/.test(str)) return str;
+  let out = "";
+  const chars = Array.from(str);
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    if (DEVANAGARI_INDEP_VOWELS[ch]) {
+      out += DEVANAGARI_INDEP_VOWELS[ch];
+      continue;
+    }
+    if (DEVANAGARI_CONSONANTS[ch]) {
+      out += DEVANAGARI_CONSONANTS[ch];
+      const next = chars[i + 1];
+      if (next === "्") {
+        i++;
+      } else if (next && DEVANAGARI_MATRAS[next]) {
+        out += DEVANAGARI_MATRAS[next];
+        i++;
+      } else if (next && next !== " " && !/[\s.,/-]/.test(next) && !DEVANAGARI_MATRAS[next] && next !== "ं") {
+        out += "a";
+      } else if (next === "ं") {
+        out += "an";
+        i++;
+      }
+      continue;
+    }
+    if (ch === "ं") { out += "n"; continue; }
+    if (DEVANAGARI_MATRAS[ch]) { out += DEVANAGARI_MATRAS[ch]; continue; }
+    if (ch !== "्") out += ch;
+  }
+  return out;
+}
+
+export function foldHinglishPhonetic(token: string): string {
+  const lat = devanagariToLatin(token)
+    .replace(/aa+/g, "a")
+    .replace(/ee+/g, "i")
+    .replace(/oo+/g, "u")
+    .replace(/ph/g, "f")
+    .replace(/w/g, "v")
+    .replace(/iya/g, "ia")
+    .replace(/bhujia|bhujiya/g, "bhujia");
+  return lat;
+}
+
 export function tokenizeQuery(rawQuery: string): string[] {
   // Replace punctuation like *, /, ,, - with spaces so "bhuj/400" -> "bhuj 400"
-  const cleaned = rawQuery.replace(/[*,\/]/g, " ").trim().toLowerCase();
+  const cleaned = normalizeSearchText(rawQuery).replace(/[*,\/]/g, " ").trim();
   if (!cleaned) return [];
 
   const rawTokens = cleaned.split(/\s+/).filter(Boolean);
@@ -209,10 +295,19 @@ function isOneEditAway(s1: string, s2: string): boolean {
  */
 export function buildProductSearchIndex(products: SearchableProduct[]): SearchIndexItem[] {
   return products.map((p) => {
-    const lowerName = (p.name || "").toLowerCase().trim();
+    const lowerName = normalizeSearchText(p.name || "");
     const nameWords = lowerName.split(/[\s\-_/]+/).filter(Boolean);
     const lowerCompany = (p.companyName || "").toLowerCase().trim();
     const companyWords = lowerCompany.split(/[\s\-_/]+/).filter(Boolean);
+    const lowerNameHi = normalizeSearchText(p.nameHi || "");
+    const nameHiWords = lowerNameHi ? lowerNameHi.split(/[\s\-_/]+/).filter(Boolean) : [];
+    const aliasWords = (p.searchAliases || []).flatMap((a) => normalizeSearchText(a).split(/[\s\-_/]+/)).filter(Boolean);
+    const phoneticWords = Array.from(new Set([
+      ...nameWords.map(foldHinglishPhonetic),
+      ...nameHiWords.map(foldHinglishPhonetic),
+      ...aliasWords.map(foldHinglishPhonetic),
+      ...companyWords.map(foldHinglishPhonetic),
+    ].filter((w) => w.length >= 2)));
     const lowerShortCode = (p.shortCode || "").toLowerCase().trim();
 
     // Determine weight
@@ -243,6 +338,8 @@ export function buildProductSearchIndex(products: SearchableProduct[]): SearchIn
     // Tokens to index
     const searchableTokens: string[] = [
       ...nameWords,
+      ...nameHiWords,
+      ...phoneticWords,
       ...companyWords,
       lowerShortCode,
       weightDisplay.toLowerCase(),
@@ -258,6 +355,9 @@ export function buildProductSearchIndex(products: SearchableProduct[]): SearchIn
       product: p,
       lowerName,
       nameWords,
+      lowerNameHi,
+      nameHiWords,
+      phoneticWords,
       lowerCompany,
       companyWords,
       lowerShortCode,
@@ -398,6 +498,23 @@ export function searchItems(
             tokenMatched = true;
             tokenScore += 25;
             break;
+          }
+        }
+      }
+
+      // 4b. Hindi name or phonetic Hinglish / Devanagari match
+      if (!tokenMatched) {
+        if (item.lowerNameHi && (item.nameHiWords.some((w) => w.startsWith(qTok)) || item.lowerNameHi.includes(qTok))) {
+          tokenMatched = true;
+          tokenScore += 42;
+        } else {
+          const qPhonetic = foldHinglishPhonetic(qTok);
+          if (
+            qPhonetic.length >= 2 &&
+            item.phoneticWords.some((pw) => pw.startsWith(qPhonetic) || (qPhonetic.length >= 4 && pw.includes(qPhonetic)) || (pw.length >= 4 && qPhonetic.length >= 4 && isOneEditAway(qPhonetic, pw)))
+          ) {
+            tokenMatched = true;
+            tokenScore += 32;
           }
         }
       }

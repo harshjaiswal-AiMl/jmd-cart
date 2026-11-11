@@ -3,6 +3,7 @@
 import React from "react";
 import { Globe } from "lucide-react";
 import { useVanLanguage } from "@/lib/i18n/van-language-context";
+import { tHi } from "@/lib/i18n/messages/hi";
 
 interface VanLanguageToggleProps {
   className?: string;
@@ -33,35 +34,14 @@ export function VanLanguageToggle({
     );
   }
 
-  // Default: Segmented dual toggle with English and हिंदी side-by-side
+  void setLanguage;
   return (
-    <div
-      className={`inline-flex items-center rounded-xl bg-slate-100/90 dark:bg-slate-800 p-0.5 border border-slate-300/80 shadow-2xs select-none ${className}`}
-      role="group"
-      aria-label="Select Language"
+    <span
+      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500 text-slate-950 border border-amber-400 text-sm font-black shadow-2xs select-none ${className}`}
+      aria-label={tHi("langName")}
     >
-      <button
-        type="button"
-        onClick={() => setLanguage("en")}
-        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-          language === "en"
-            ? "bg-[#12355B] text-white shadow-xs font-black"
-            : "text-slate-600 hover:text-slate-900"
-        }`}
-      >
-        <span>English</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => setLanguage("hi")}
-        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-          language === "hi"
-            ? "bg-amber-500 text-slate-950 shadow-xs font-black"
-            : "text-slate-600 hover:text-slate-900"
-        }`}
-      >
-        <span>हिंदी</span>
-      </button>
-    </div>
+      <Globe className="w-4 h-4 opacity-80" />
+      <span>{tHi("langName")}</span>
+    </span>
   );
 }

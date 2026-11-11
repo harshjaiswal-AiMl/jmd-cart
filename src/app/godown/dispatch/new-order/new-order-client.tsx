@@ -89,6 +89,7 @@ export function NewOrderClient({ parties, products, deliveryStaff, userRole }: P
         badge: p.inStock ? `In Stock (${p.totalStock ?? ""} pcs)` : "Out of stock",
         badgeColor: p.inStock ? ("green" as const) : ("red" as const),
         inStock: p.inStock,
+        searchProduct: { id: p.id, name: p.name, shortCode: (p as any).shortCode || p.id, companyName: (p as any).company?.name, mrpPaise: p.mrpPaise, packSize: p.packSize, shopStockQty: p.totalStock ?? (p.inStock ? 1 : 0) },
       })),
     [products]
   );

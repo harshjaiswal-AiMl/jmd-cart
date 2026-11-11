@@ -1,4 +1,5 @@
 "use client";
+import { searchItems, SearchableProduct } from "@/lib/search/smart-search";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { Search, ChevronDown, Check, X } from "lucide-react";
@@ -10,6 +11,7 @@ export interface SearchableSelectOption {
   badge?: string;
   badgeColor?: "green" | "gray" | "blue" | "red" | "amber";
   inStock?: boolean;
+  searchProduct?: SearchableProduct;
 }
 
 export interface SearchableSelectProps {
@@ -80,11 +82,19 @@ export function SearchableSelect({
     let list = options;
 
     if (search.trim()) {
-      const tokens = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
-      list = list.filter((opt) => {
-        const text = `${opt.label} ${opt.subLabel || ""} ${opt.badge || ""}`.toLowerCase();
-        return tokens.every((tok) => text.includes(tok));
-      });
+      const searchableProducts: SearchableProduct[] = list.map((opt) =>
+        opt.searchProduct ?? {
+          id: opt.value,
+          name: opt.label,
+          shortCode: opt.subLabel || opt.value,
+          companyName: opt.badge || undefined,
+          shopStockQty: opt.inStock ? 1 : 0,
+          godownStockQty: opt.inStock ? 1 : 0,
+        }
+      );
+      const ranked = searchItems(search, searchableProducts, { limit: Math.max(list.length, 50) });
+      const byId = new Map(list.map((opt) => [opt.value, opt]));
+      return ranked.map((r) => byId.get(r.id)).filter((x): x is SearchableSelectOption => Boolean(x));
     }
 
     if (autoSortInStock) {

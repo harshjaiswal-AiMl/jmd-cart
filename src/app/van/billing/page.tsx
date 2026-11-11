@@ -6,6 +6,7 @@ import { vanService } from "@/modules/van/van.service";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { VanBillingClient } from "./van-billing-client";
+import { tHi } from "@/lib/i18n/messages/hi";
 
 export const dynamic = "force-dynamic";
 
@@ -52,27 +53,27 @@ export default async function VanBillingPage() {
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-black text-white">Van Sales Billing</h1>
-            <p className="text-xs text-slate-400">
-              {van ? van.name : "Unassigned Van"} • Route Retail & Counter Sales
+            <h1 className="text-xl font-black text-white">{tHi("vanBillingTitle")}</h1>
+            <p className="text-sm text-slate-400">
+              {tHi("vanBillingSubtitle", { van: van ? van.name : tHi("unassignedVan") })}
             </p>
           </div>
         </div>
 
         <div className="bg-amber-950/40 border border-amber-800/80 rounded-2xl p-6 text-center text-amber-200 space-y-3">
           <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto" />
-          <h3 className="font-bold text-base text-white">Morning Load Required</h3>
-          <p className="text-xs text-amber-300/90 max-w-md mx-auto">
+          <h3 className="font-bold text-lg text-white">{tHi("morningLoadRequiredTitle")}</h3>
+          <p className="text-sm text-amber-300/90 max-w-md mx-auto">
             {!van
-              ? "No delivery vehicle is currently assigned to your staff profile."
-              : `Van ${van.name} has no active morning load sheet dispatched today. You cannot create bills until Godown dispatches stock.`}
+              ? tHi("noVanAssignedMsg")
+              : tHi("morningLoadRequiredDesc", { van: van.name })}
           </p>
           <div className="pt-2">
             <Link
               href="/van"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold"
             >
-              Return to Van Dashboard
+              {tHi("backToVan")}
             </Link>
           </div>
         </div>
@@ -103,6 +104,7 @@ export default async function VanBillingPage() {
       return {
         id: item.product.id,
         name: item.product.name,
+        nameHi: item.product.nameHi ?? null,
         shortCode: item.product.shortCode,
         weight: item.product.weight?.trim() || null,
         packSize: item.product.packSize,
@@ -127,6 +129,7 @@ export default async function VanBillingPage() {
     select: {
       id: true,
       name: true,
+      nameHi: true,
       type: true,
       phone: true,
       address: true,
@@ -148,6 +151,7 @@ export default async function VanBillingPage() {
     return {
       id: p.id,
       name: p.name,
+      nameHi: p.nameHi ?? null,
       type: p.type,
       phone: p.phone,
       address: p.address,
@@ -168,18 +172,18 @@ export default async function VanBillingPage() {
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h1 className="text-xl font-black text-slate-900">Van Sales Counter</h1>
-            <p className="text-xs text-slate-500">
-              {van.name} • Load Sheet #{stockSummary.activeVanDay.issueSheetNo}
+            <h1 className="text-xl font-black text-slate-900">{tHi("vanBillingTitle")}</h1>
+            <p className="text-sm text-slate-500">
+              {tHi("loadSheetBadge", { van: van.name, sheet: stockSummary.activeVanDay.issueSheetNo })}
             </p>
           </div>
         </div>
 
         <Link
           href="/van/bills"
-          className="text-xs font-bold text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs"
+          className="text-sm font-bold text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-xs"
         >
-          View Invoices
+          {tHi("todaysBillsLink")}
         </Link>
       </div>
 

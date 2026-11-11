@@ -80,6 +80,7 @@ export type ReconcileVanDayInput = z.infer<typeof reconcileVanDaySchema>;
 export interface VanReconciliationLine {
   productId: string;
   productName: string;
+  productNameHi?: string | null;
   shortCode: string;
   packSize: number;
   mrpPaise: number;

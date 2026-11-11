@@ -69,8 +69,8 @@ export function VanMobileHomeClient({
             <Store className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-black text-sm text-slate-900">{t("vanCounterTitle")}</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">{t("vanCounterDesc")}</p>
+            <h3 className="font-black text-base text-slate-900">{t("vanCounterTitle")}</h3>
+            <p className="text-sm text-slate-500 mt-0.5">{t("vanCounterDesc")}</p>
           </div>
         </Link>
 
@@ -82,8 +82,8 @@ export function VanMobileHomeClient({
             <RotateCcw className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-black text-sm text-slate-900">{t("todaysBillsTitle")}</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">{t("todaysBillsDesc")}</p>
+            <h3 className="font-black text-base text-slate-900">{t("todaysBillsTitle")}</h3>
+            <p className="text-sm text-slate-500 mt-0.5">{t("todaysBillsDesc")}</p>
           </div>
         </Link>
 
@@ -95,8 +95,8 @@ export function VanMobileHomeClient({
             <Calculator className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-black text-sm text-slate-900">{t("cashCollectionsTitle")}</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">{t("cashCollectionsDesc")}</p>
+            <h3 className="font-black text-base text-slate-900">{t("cashCollectionsTitle")}</h3>
+            <p className="text-sm text-slate-500 mt-0.5">{t("cashCollectionsDesc")}</p>
           </div>
         </Link>
 
@@ -108,8 +108,8 @@ export function VanMobileHomeClient({
             <Truck className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-black text-sm text-slate-900">{t("dayEndCloseTitle")}</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">{t("dayEndCloseDesc")}</p>
+            <h3 className="font-black text-base text-slate-900">{t("dayEndCloseTitle")}</h3>
+            <p className="text-sm text-slate-500 mt-0.5">{t("dayEndCloseDesc")}</p>
           </div>
         </Link>
       </div>

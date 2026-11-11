@@ -9,6 +9,7 @@ import {
 import { formatInvoiceForEscPos } from "@/lib/escpos-invoice";
 import { getInvoiceForPrintAction } from "@/app/van/billing/actions";
 import { BluetoothPrinterModal } from "./bluetooth-printer-modal";
+import { tHi } from "@/lib/i18n/messages/hi";
 import { Printer, RefreshCw, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
 
 interface BluetoothPrintButtonProps {
@@ -77,7 +78,7 @@ export function BluetoothPrintButton({
 
       setFeedback({
         type: "success",
-        message: `Printed #${invoiceNumber || res.invoice.number} on ${printerInfo.deviceName || "Printer"}!`,
+        message: tHi("btPrintedSuccess", { number: invoiceNumber || res.invoice.number, device: printerInfo.deviceName || tHi("btPrinterBtn") }),
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Print failed";
@@ -108,7 +109,7 @@ export function BluetoothPrintButton({
           ) : (
             <Printer className="w-3.5 h-3.5" />
           )}
-          <span>Print</span>
+          <span>{tHi("btPrintBtn")}</span>
         </button>
 
         <BluetoothPrinterModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
@@ -134,15 +135,15 @@ export function BluetoothPrintButton({
           {isPrinting ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>Printing Receipt...</span>
+              <span>{tHi("btPrintingText")}</span>
             </>
           ) : (
             <>
               <Printer className="w-4 h-4" />
               <span>
                 {isConnected
-                  ? `Print Receipt (${printerInfo.deviceName || "Bluetooth"})`
-                  : "Print via Bluetooth"}
+                  ? tHi("btPrintOnDeviceBtn", { device: printerInfo.deviceName || "Bluetooth" })
+                  : tHi("btPrintViaBtn")}
               </span>
             </>
           )}

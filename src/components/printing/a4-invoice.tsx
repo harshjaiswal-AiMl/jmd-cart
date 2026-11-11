@@ -63,20 +63,20 @@ export function A4Invoice({
   const amountInWords = paiseToIndianWords(invoice.totalPaise);
 
   return (
-    <div className="a4-invoice-container bg-white text-slate-900 font-sans p-6 max-w-[210mm] mx-auto text-xs leading-normal border border-slate-300 print:border-none print:p-0">
+    <div className="a4-invoice-container bg-white text-slate-900 font-sans p-6 max-w-[210mm] mx-auto text-[11pt] leading-normal border border-slate-300 print:border-none print:p-0">
       {/* Top Banner / Copy Type */}
       <div className="flex justify-between items-center border-b border-slate-300 pb-2 mb-3">
-        <span className="text-[10px] font-semibold tracking-wider text-slate-500 uppercase">
+        <span className="text-[10pt] font-semibold tracking-wider text-slate-500 uppercase">
           Tax Invoice (Under Section 31 of CGST Act)
         </span>
-        <span className="text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+        <span className="text-[10pt] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
           {copyTitle}
         </span>
       </div>
 
       {/* E-Invoice IRN & QR Banner (when generated) */}
       {invoice.irn && (
-        <div className="mb-3 p-2 bg-emerald-50 border border-emerald-300 rounded flex justify-between items-center text-[10px]">
+        <div className="mb-3 p-2 bg-emerald-50 border border-emerald-300 rounded flex justify-between items-center text-[10pt]">
           <div className="space-y-0.5">
             <span className="font-bold text-emerald-800 uppercase tracking-wide block">
               Govt. E-Invoice Portal (IRN Generated)
@@ -88,11 +88,11 @@ export function A4Invoice({
           {invoice.qr && (
             <div className="ml-4 shrink-0 text-center">
               <div className="w-12 h-12 bg-white border border-emerald-400 rounded flex items-center justify-center p-0.5 shadow-xs">
-                <span className="font-mono text-[8px] text-emerald-800 font-bold leading-tight">
+                <span className="font-mono text-[10pt] text-emerald-800 font-bold leading-tight">
                   NIC QR
                 </span>
               </div>
-              <span className="text-[8px] text-emerald-700 block mt-0.5">Signed QR</span>
+              <span className="text-[10pt] text-emerald-700 block mt-0.5">Signed QR</span>
             </div>
           )}
         </div>
@@ -101,16 +101,16 @@ export function A4Invoice({
       {/* Header: Company & Invoice Info */}
       <div className="grid grid-cols-2 gap-4 border-b border-slate-300 pb-4 mb-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-[16pt] font-bold tracking-tight text-slate-900">
             {business.legalName}
           </h1>
           {business.tradeName && business.tradeName !== business.legalName && (
-            <p className="text-xs font-semibold text-slate-700">
+            <p className="text-[11pt] font-semibold text-slate-700">
               ({business.tradeName})
             </p>
           )}
           <p className="text-slate-600 mt-1">{business.address}</p>
-          <div className="grid grid-cols-2 gap-x-2 mt-1.5 text-[11px] text-slate-700">
+          <div className="grid grid-cols-2 gap-x-2 mt-1.5 text-[10.5pt] text-slate-700">
             <p>
               <strong className="text-slate-900">GSTIN:</strong> {business.gstin || "N/A"}
             </p>
@@ -127,10 +127,10 @@ export function A4Invoice({
         </div>
 
         <div className="bg-slate-50 p-3 rounded border border-slate-200 flex flex-col justify-between">
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
+          <div className="grid grid-cols-2 gap-2 text-[10.5pt]">
             <div>
               <span className="text-slate-500 block">Invoice Number</span>
-              <span className="font-bold text-sm text-slate-900 font-mono">
+              <span className="font-bold text-[11.5pt] text-slate-900 font-mono">
                 {invoice.number}
               </span>
             </div>
@@ -176,11 +176,11 @@ export function A4Invoice({
 
       {/* Bill To / Consignee */}
       <div className="border border-slate-200 rounded p-2.5 mb-3 bg-slate-50">
-        <span className="font-bold text-slate-700 block uppercase text-[10px] tracking-wider mb-1">
+        <span className="font-bold text-slate-700 block uppercase text-[10pt] tracking-wider mb-1">
           Billed To / Buyer Details
         </span>
         {invoice.party ? (
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
+          <div className="grid grid-cols-2 gap-2 text-[10.5pt]">
             <div>
               <p className="font-bold text-slate-900 text-xs">
                 {invoice.party.name}
@@ -198,7 +198,7 @@ export function A4Invoice({
             </div>
           </div>
         ) : (
-          <div className="text-[11px] text-slate-700">
+          <div className="text-[10.5pt] text-slate-700">
             <span className="font-semibold text-slate-900">
               Walk-in Retail Customer (Cash / Counter Sale)
             </span>
@@ -208,7 +208,7 @@ export function A4Invoice({
       </div>
 
       {/* Item Table */}
-      <table className="w-full border-collapse border border-slate-300 text-[10px] mb-3">
+      <table className="w-full border-collapse border border-slate-300 text-[10pt] mb-3">
         <thead>
           <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
             <th className="border-r border-slate-300 p-1.5 w-7 text-center">#</th>
@@ -241,7 +241,7 @@ export function A4Invoice({
                   <span className="font-semibold text-slate-900 block">
                     {item.product.name}
                   </span>
-                  <span className="text-slate-500 text-[9px] font-mono">
+                  <span className="text-slate-500 text-[10pt] font-mono">
                     [{item.product.shortCode}] {item.product.packLabel}
                   </span>
                 </td>
@@ -294,7 +294,7 @@ export function A4Invoice({
             <td className="border-r border-slate-300 p-1.5 text-right font-mono">
               ₹{((invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise) / 100).toFixed(2)}
             </td>
-            <td className="p-1.5 text-right font-mono text-sm">
+            <td className="p-1.5 text-right font-mono text-[11.5pt]">
               ₹{((invoice.subtotalPaise - invoice.discountPaise) / 100).toFixed(2)}
             </td>
           </tr>
@@ -305,10 +305,10 @@ export function A4Invoice({
       <div className="grid grid-cols-12 gap-3 mb-3 print-page-break-avoid">
         {/* Tax Summary Breakdown */}
         <div className="col-span-7 border border-slate-300 rounded p-2">
-          <span className="font-bold text-slate-800 block text-[10px] uppercase mb-1.5">
+          <span className="font-bold text-slate-800 block text-[10pt] uppercase mb-1.5">
             GST Tax Computation Summary
           </span>
-          <table className="w-full border-collapse border border-slate-200 text-[9px]">
+          <table className="w-full border-collapse border border-slate-200 text-[10pt]">
             <thead>
               <tr className="bg-slate-100 font-bold text-slate-700">
                 <th className="border border-slate-200 p-1 text-left">Rate</th>
@@ -362,7 +362,7 @@ export function A4Invoice({
           </table>
 
           {/* Payments Info */}
-          <div className="mt-2 text-[10px] bg-slate-50 p-1.5 rounded border border-slate-200">
+          <div className="mt-2 text-[10pt] bg-slate-50 p-1.5 rounded border border-slate-200">
             <span className="font-bold text-slate-700 block mb-1">
               Payment Breakdown:
             </span>
@@ -383,7 +383,7 @@ export function A4Invoice({
 
         {/* Grand Total Box */}
         <div className="col-span-5 border border-slate-300 rounded p-2.5 flex flex-col justify-between bg-slate-50">
-          <div className="space-y-1 text-[11px]">
+          <div className="space-y-1 text-[10.5pt]">
             <div className="flex justify-between text-slate-600">
               <span>Gross MRP Subtotal:</span>
               <span className="font-mono">₹{(invoice.subtotalPaise / 100).toFixed(2)}</span>
@@ -412,7 +412,7 @@ export function A4Invoice({
                 <span className="font-mono">₹{(invoice.igstPaise / 100).toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-slate-500 text-[10px]">
+            <div className="flex justify-between text-slate-500 text-[10pt]">
               <span>Round Off:</span>
               <span className="font-mono">
                 {invoice.roundOffPaise >= 0 ? "+" : ""}
@@ -422,10 +422,10 @@ export function A4Invoice({
           </div>
 
           <div className="border-t border-slate-300 pt-1.5 mt-2 flex justify-between items-baseline">
-            <span className="text-xs font-bold text-slate-900 uppercase">
+            <span className="text-[11pt] font-bold text-slate-900 uppercase">
               Grand Total:
             </span>
-            <span className="text-base font-extrabold text-slate-900 font-mono">
+            <span className="text-[15pt] font-extrabold text-slate-900 font-mono">
               ₹{(invoice.totalPaise / 100).toFixed(2)}
             </span>
           </div>
@@ -433,14 +433,14 @@ export function A4Invoice({
       </div>
 
       {/* Amount in words */}
-      <div className="border border-slate-300 rounded p-2 mb-3 bg-slate-50 text-[11px] print-page-break-avoid">
+      <div className="border border-slate-300 rounded p-2 mb-3 bg-slate-50 text-[10.5pt] print-page-break-avoid">
         <span className="font-bold text-slate-700">Amount Chargeable (in words): </span>
         <span className="font-semibold text-slate-900 italic">{amountInWords}</span>
       </div>
 
       {/* Bank & Remittance details */}
       {business.bankDetails && (
-        <div className="border border-slate-200 rounded p-2 mb-3 text-[10px] grid grid-cols-2 gap-2 bg-white print-page-break-avoid">
+        <div className="border border-slate-200 rounded p-2 mb-3 text-[10pt] grid grid-cols-2 gap-2 bg-white print-page-break-avoid">
           <div>
             <span className="font-bold text-slate-700 block uppercase mb-0.5">
               Bank Remittance Details
@@ -461,7 +461,7 @@ export function A4Invoice({
                 <strong className="font-mono">{business.upiId}</strong>
               </p>
             )}
-            <p className="text-slate-500 text-[9px] mt-0.5">
+            <p className="text-slate-500 text-[10pt] mt-0.5">
               Please quote invoice number during NEFT/RTGS/UPI transfers.
             </p>
           </div>
@@ -469,12 +469,12 @@ export function A4Invoice({
       )}
 
       {/* Footer / Terms & Signatures */}
-      <div className="grid grid-cols-2 gap-4 border-t border-slate-300 pt-3 text-[10px] print-page-break-avoid">
+      <div className="grid grid-cols-2 gap-4 border-t border-slate-300 pt-3 text-[10pt] print-page-break-avoid">
         <div>
           <span className="font-bold text-slate-800 block uppercase mb-1">
             Terms & Conditions
           </span>
-          <ol className="list-decimal list-inside space-y-0.5 text-slate-600 text-[9px]">
+          <ol className="list-decimal list-inside space-y-0.5 text-slate-600 text-[10pt]">
             <li>Goods once sold will not be accepted back or exchanged after delivery.</li>
             <li>Interest @ 18% p.a. will be charged if payment is not cleared on due date.</li>
             <li>Subject to Saharsa (Bihar) Jurisdiction only.</li>
@@ -484,17 +484,17 @@ export function A4Invoice({
 
         <div className="flex flex-col justify-between items-end text-right">
           <div>
-            <span className="text-[10px] font-bold text-slate-800 block">
+            <span className="text-[10pt] font-bold text-slate-800 block">
               For {business.legalName}
             </span>
-            <span className="text-slate-500 text-[9px]">
+            <span className="text-slate-500 text-[10pt]">
               Billed by: {invoice.creator?.name || "Counter Cashier"}
             </span>
           </div>
 
           <div className="pt-8">
             <div className="border-t border-slate-400 w-36 inline-block"></div>
-            <span className="block text-[9px] text-slate-600 font-semibold mt-0.5">
+            <span className="block text-[10pt] text-slate-600 font-semibold mt-0.5">
               Authorized Signatory
             </span>
           </div>

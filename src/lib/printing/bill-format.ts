@@ -52,10 +52,10 @@ export function getBillLineItemDisplay(
   const isCarton = (explicitCartonUnit || inferredCartonUnit) && packSize > 1;
 
   const qtyValue = isCarton ? item.qty / packSize : item.qty;
-  const qtyDisplay = qtyValue.toFixed(2);
+  const qtyDisplay = Number.isInteger(qtyValue) ? String(qtyValue) : qtyValue.toFixed(2);
   const unitDisplay = isCarton
     ? normalizeUnitDisplay(rawUnit, item.product?.packLabel)
-    : "Pcs.";
+    : "Pcs";
   const ratePaise = isCarton ? item.unitPricePaise * packSize : item.unitPricePaise;
   const amountPaise = item.taxablePaise + item.taxPaise;
 

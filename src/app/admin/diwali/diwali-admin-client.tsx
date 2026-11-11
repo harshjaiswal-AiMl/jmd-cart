@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
@@ -86,13 +87,9 @@ export function DiwaliAdminClient({
       list = list.filter((p) => p.categoryId === selectedCategoryFilter);
     }
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.shortCode.toLowerCase().includes(q) ||
-          p.company?.name.toLowerCase().includes(q)
-      );
+      const matched = searchItems(searchQuery, list.map((p) => ({ ...p, companyName: p.company?.name })), { limit: list.length || 500 });
+      const map = new Map(list.map((p) => [p.id, p]));
+      list = matched.map((m) => map.get(m.id)).filter((x): x is (typeof list)[number] => Boolean(x));
     }
     return list.slice(0, 50);
   }, [availableProducts, selectedCategoryFilter, searchQuery]);

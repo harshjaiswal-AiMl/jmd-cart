@@ -12,9 +12,12 @@
  * 5. Substring / Typo tolerance (Rank 5)
  */
 
+import { normalizeSearchText, foldHinglishPhonetic } from "./smart-search";
+
 export interface SearchableParty {
   id: string;
   name: string;
+  nameHi?: string | null;
   phone?: string | null;
   address?: string | null;
   city?: string | null;
@@ -31,7 +34,7 @@ export interface SearchableParty {
  * Normalizes string for token matching
  */
 function normalizeText(text: string): string {
-  return text.toLowerCase().trim().replace(/['"`]/g, "");
+  return normalizeSearchText(text).replace(/['"`]/g, "");
 }
 
 /**
@@ -91,7 +94,12 @@ export function searchParties<T extends SearchableParty>(
     }
 
     const partyNameLower = normalizeText(party.name);
-    const partyWords = partyNameLower.split(/\s+/).filter(Boolean);
+    const partyNameHiLower = party.nameHi ? normalizeText(party.nameHi) : "";
+    const partyWords = [
+      ...partyNameLower.split(/\s+/),
+      ...partyNameHiLower.split(/\s+/),
+    ].filter(Boolean);
+    const foldedWords = partyWords.map(foldHinglishPhonetic);
     const phoneDigits = party.phone ? party.phone.replace(/\D/g, "") : "";
     const addressLower = party.address ? normalizeText(party.address) : "";
     const cityLower = party.city ? normalizeText(party.city) : "";
@@ -120,12 +128,15 @@ export function searchParties<T extends SearchableParty>(
         tokenScore = Math.max(tokenScore, 1000 - (partyNameLower.length - token.length));
       }
 
-      // 2. Word in party name starts with token (e.g. "sh" matches "Shiv", "Shree", "Kumar Shahwaz")
+      // 2. Word in party name or Hindi transliterated name starts with token
       if (!tokenMatched) {
-        for (const word of partyWords) {
-          if (word.startsWith(token)) {
+        const foldedTok = foldHinglishPhonetic(token);
+        for (let i = 0; i < partyWords.length; i++) {
+          const word = partyWords[i];
+          const fWord = foldedWords[i];
+          if (word.startsWith(token) || (foldedTok.length >= 2 && fWord.startsWith(foldedTok))) {
             tokenMatched = true;
-            tokenScore = Math.max(tokenScore, 800 - (word.length - token.length));
+            tokenScore = Math.max(tokenScore, 800 - Math.max(0, word.length - token.length));
           }
         }
       }
@@ -168,8 +179,8 @@ export function searchParties<T extends SearchableParty>(
         }
       }
 
-      // 7. Substring match in name (only for tokens of length >= 3 to avoid noise like "di" matching "aadil")
-      if (!tokenMatched && token.length >= 3 && partyNameLower.includes(token)) {
+      // 7. Substring match in English or transliterated Hindi name
+      if (!tokenMatched && token.length >= 3 && (partyNameLower.includes(token) || (partyNameHiLower && partyNameHiLower.includes(token)))) {
         tokenMatched = true;
         tokenScore = Math.max(tokenScore, 200);
       }

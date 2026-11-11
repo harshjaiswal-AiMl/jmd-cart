@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { OrderSummary, OrderStatus, PaymentMode } from "@/modules/order/order.types";
+import { tHi } from "@/lib/i18n/messages/hi";
 import { recordDeliveryPaymentAction } from "@/app/admin/orders/actions";
 import {
   Package,
@@ -59,7 +60,7 @@ export function VanHandedOverDeliveries({
     if (!selectedOrder) return;
 
     if (paymentMode === PaymentMode.UPI && !paymentReference.trim()) {
-      if (!confirm("UPI Transaction reference is empty. Continue without entering UTR / ID?")) {
+      if (!confirm(tHi("upiMissingConfirm"))) {
         return;
       }
     }
@@ -73,11 +74,11 @@ export function VanHandedOverDeliveries({
       });
 
       if (res.success) {
-        alert(`Order #${selectedOrder.orderNumber} successfully marked as DELIVERED!`);
+        alert(tHi("deliverySuccessAlert", { orderNumber: selectedOrder.orderNumber }));
         setSelectedOrder(null);
         window.location.reload();
       } else {
-        alert(res.error || "Failed to complete delivery");
+        alert(res.error || tHi("deliveryFailedError"));
       }
     });
   };
@@ -174,13 +175,13 @@ export function VanHandedOverDeliveries({
             <Package className="w-10 h-10 text-slate-300 mx-auto" />
             <p className="text-sm font-bold text-slate-700">
               {activeTab === "pending"
-                ? "No pending customer deliveries handed over right now."
-                : "No customer deliveries marked as completed yet."}
+                ? tHi("noPendingDeliveries")
+                : tHi("noCompletedDeliveries")}
             </p>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               {activeTab === "pending"
-                ? "When the Godown team dispatches and hands over customer delivery orders to you, they will appear here instantly."
-                : "Completed deliveries will be archived here for your daily cash reconciliation."}
+                ? tHi("pendingDeliveriesHint")
+                : tHi("completedDeliveriesHint")}
             </p>
           </div>
         ) : (
@@ -216,10 +217,10 @@ export function VanHandedOverDeliveries({
                             : "bg-slate-100 text-slate-700"
                         }`}
                       >
-                        {order.status}
+                        {order.status === OrderStatus.DELIVERED ? tHi("orderStatusDelivered") : order.status === OrderStatus.CANCELLED ? tHi("orderStatusCancelled") : order.status === OrderStatus.DISPATCHED ? tHi("orderStatusDispatched") : tHi("orderStatusPending")}
                       </span>
-                      <span className="text-[11px] text-slate-500">
-                        {order.items.length} item{order.items.length > 1 ? "s" : ""}
+                      <span className="text-xs text-slate-500">
+                        {order.items.length} {tHi("itemsWord")}
                       </span>
                     </div>
 
@@ -249,8 +250,8 @@ export function VanHandedOverDeliveries({
                   {/* Amount & Actions */}
                   <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                     <div className="text-left sm:text-right">
-                      <div className="text-[10px] uppercase font-bold text-slate-500">
-                        Amount to Collect
+                      <div className="text-xs font-bold text-slate-500">
+                        {tHi("cashToCollect")}
                       </div>
                       <div className="text-base font-black text-emerald-700 font-mono">
                         ₹{(order.totalPaise / 100).toLocaleString("en-IN", {
@@ -268,7 +269,7 @@ export function VanHandedOverDeliveries({
                           className="px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition flex items-center gap-1.5"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Deliver</span>
+                          <span>{tHi("deliverBtn")}</span>
                         </button>
                       )}
 
@@ -306,18 +307,18 @@ export function VanHandedOverDeliveries({
                 {isExpanded && (
                   <div className="p-4 pt-0 border-t border-slate-100 bg-white/70">
                     <div className="mt-3">
-                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
-                        Handed-Over Delivery Products ({order.items.length})
+                      <p className="text-xs font-bold text-slate-500 mb-2">
+                        {tHi("handedOverProductsCount", { count: order.items.length })}
                       </p>
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs">
                           <thead>
                             <tr className="border-b border-slate-100 text-slate-400 text-left font-semibold">
-                              <th className="pb-2">Product</th>
-                              <th className="pb-2 text-center">Pack / Size</th>
-                              <th className="pb-2 text-right">Quantity</th>
-                              <th className="pb-2 text-right">Rate</th>
-                              <th className="pb-2 text-right">Total</th>
+                              <th className="pb-2">{tHi("colProduct")}</th>
+                              <th className="pb-2 text-center">{tHi("colPackSize")}</th>
+                              <th className="pb-2 text-right">{tHi("colQty")}</th>
+                              <th className="pb-2 text-right">{tHi("colRate")}</th>
+                              <th className="pb-2 text-right">{tHi("colTotal")}</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -333,8 +334,8 @@ export function VanHandedOverDeliveries({
                                 </td>
                                 <td className="py-2 px-2 text-center text-slate-500">
                                   {item.packSize > 1
-                                    ? `${item.packSize} pcs/crt`
-                                    : "Loose"}
+                                    ? `${item.packSize} ${tHi("pcsPerCtnShort")}`
+                                    : tHi("looseWord")}
                                 </td>
                                 <td className="py-2 px-2 text-right font-bold text-slate-900">
                                   {item.cartons > 0 && (
@@ -365,7 +366,7 @@ export function VanHandedOverDeliveries({
 
                       {order.customerNotes && (
                         <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-600">
-                          <strong className="text-slate-800">Delivery Notes:</strong>{" "}
+                          <strong className="text-slate-800">{tHi("deliveryNotesLabel")}:</strong>{" "}
                           {order.customerNotes}
                         </div>
                       )}
@@ -385,10 +386,10 @@ export function VanHandedOverDeliveries({
             <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-black text-white">
-                  Confirm Doorstep Delivery
+                  {tHi("confirmDoorstepTitle")}
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Order #{selectedOrder.orderNumber} • {selectedOrder.customerName}
+                  {tHi("orderBadgePrefix")} #{selectedOrder.orderNumber} • {selectedOrder.customerName}
                 </p>
               </div>
               <button
@@ -403,8 +404,8 @@ export function VanHandedOverDeliveries({
             <div className="p-4 sm:p-6 space-y-4">
               {/* Amount to collect banner */}
               <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-                <span className="text-xs text-emerald-400 uppercase font-bold tracking-wider block">
-                  Amount to Collect
+                <span className="text-xs text-emerald-400 font-bold block">
+                  {tHi("cashToCollect")}
                 </span>
                 <span className="text-3xl font-black text-white font-mono mt-1 block">
                   ₹{(selectedOrder.totalPaise / 100).toFixed(2)}
@@ -414,7 +415,7 @@ export function VanHandedOverDeliveries({
               {/* Payment Mode Selector */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-300">
-                  Payment Mode Received
+                  {tHi("paymentModeReceived")}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
@@ -427,7 +428,7 @@ export function VanHandedOverDeliveries({
                     }`}
                   >
                     <Banknote className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span className="text-xs">Cash Received</span>
+                    <span className="text-xs">{tHi("cashReceivedBtn")}</span>
                   </button>
 
                   <button
@@ -440,7 +441,7 @@ export function VanHandedOverDeliveries({
                     }`}
                   >
                     <QrCode className="w-4 h-4 text-blue-400 shrink-0" />
-                    <span className="text-xs">UPI / Online</span>
+                    <span className="text-xs">{tHi("upiOnlineBtn")}</span>
                   </button>
                 </div>
               </div>
@@ -449,13 +450,13 @@ export function VanHandedOverDeliveries({
               {paymentMode === PaymentMode.UPI && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-slate-300">
-                    UPI Transaction ID / UTR (Optional)
+                    {tHi("upiUtrLabel")}
                   </label>
                   <input
                     type="text"
                     value={paymentReference}
                     onChange={(e) => setPaymentReference(e.target.value)}
-                    placeholder="e.g. 403819284918"
+                    placeholder={tHi("upiUtrPlaceholder")}
                     className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 font-mono"
                   />
                 </div>
@@ -464,13 +465,13 @@ export function VanHandedOverDeliveries({
               {/* Delivery Notes */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-300">
-                  Delivery Notes (Optional)
+                  {tHi("deliveryNotesOptional")}
                 </label>
                 <input
                   type="text"
                   value={deliveryNotes}
                   onChange={(e) => setDeliveryNotes(e.target.value)}
-                  placeholder="e.g. Delivered to shop owner in person"
+                  placeholder={tHi("deliveryNotesPlaceholder")}
                   className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -484,7 +485,7 @@ export function VanHandedOverDeliveries({
                 disabled={isPending}
                 className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white"
               >
-                Cancel
+                {tHi("cancelBtn")}
               </button>
               <button
                 type="button"
@@ -492,7 +493,7 @@ export function VanHandedOverDeliveries({
                 disabled={isPending}
                 className="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 disabled:opacity-50"
               >
-                {isPending ? "Confirming..." : "Confirm Delivery & Mark Done"}
+                {isPending ? tHi("confirmingDeliveryText") : tHi("confirmDeliveryBtn")}
               </button>
             </div>
           </div>

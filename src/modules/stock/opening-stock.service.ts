@@ -1,3 +1,4 @@
+import { searchProducts as sharedSearchProducts } from "@/lib/search/product-search.server";
 import { prisma } from "@/lib/prisma";
 import { UserRole, LocationType, MovementType } from "@prisma/client";
 import { auditService } from "@/modules/audit/audit.service";
@@ -55,18 +56,18 @@ export class OpeningStockService {
       ...(shopLoc ? [shopLoc.id] : []),
     ];
 
-    const [products, companies, categories] = await Promise.all([
+    let searchIdFilter: string[] | null = null;
+    if (params?.search?.trim()) {
+      const sr = await sharedSearchProducts({ q: params.search, companyId: params.companyId, categoryId: params.categoryId, limit: 5000, offset: 0 });
+      searchIdFilter = sr.matchedIds;
+    }
+    const [productsRaw, companies, categories] = await Promise.all([
       prisma.product.findMany({
         where: {
           active: true,
           ...(params?.companyId ? { companyId: params.companyId } : {}),
           ...(params?.categoryId ? { categoryId: params.categoryId } : {}),
-          ...(params?.search ? {
-            OR: [
-              { name: { contains: params.search, mode: "insensitive" } },
-              { shortCode: { contains: params.search, mode: "insensitive" } },
-            ],
-          } : {}),
+          ...(searchIdFilter ? { id: { in: searchIdFilter } } : {}),
         },
         include: {
           company: { select: { id: true, name: true } },
@@ -80,6 +81,8 @@ export class OpeningStockService {
       prisma.company.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
       prisma.category.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     ]);
+
+    const products = searchIdFilter ? (() => { const m = new Map(productsRaw.map((p) => [p.id, p])); return searchIdFilter.map((id) => m.get(id)).filter((x): x is NonNullable<typeof x> => Boolean(x)); })() : productsRaw;
 
     let totalOpeningPcs = 0;
     let totalOpeningCartons = 0;

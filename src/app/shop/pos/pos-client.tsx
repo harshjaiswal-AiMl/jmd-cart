@@ -207,6 +207,8 @@ interface PosClientProps {
   posSettings?: PosOperationalSettings;
   businessDetails?: BusinessDetails;
   initialStartNewBill?: boolean;
+  canDeleteBill?: boolean;
+  canVoidInvoice?: boolean;
 }
 
 export function PosClient({
@@ -226,12 +228,15 @@ export function PosClient({
   posSettings,
   businessDetails,
   initialStartNewBill = false,
+  canDeleteBill = false,
+  canVoidInvoice = false,
 }: PosClientProps) {
   const effectivePosSettings: PosOperationalSettings = {
     showFinalizedModal: posSettings?.showFinalizedModal ?? false,
     askPartyOnNewBill: posSettings?.askPartyOnNewBill ?? true,
     quickFinish: posSettings?.quickFinish ?? false,
     managerCanDelete: posSettings?.managerCanDelete ?? false,
+    creditAllParties: posSettings?.creditAllParties ?? true,
   };
   const router = useRouter();
   // Admin check for backdated billing
@@ -2479,11 +2484,13 @@ export function PosClient({
         e.preventDefault();
         e.stopPropagation();
         if (isEditMode && initialEditInvoice) {
+          if (!canVoidInvoice) return;
           setVoidEditReason("");
           setVoidEditError(null);
           setVoidEditModalOpen(true);
           return;
         }
+        if (!canDeleteBill) return;
         if (activeTab.cart.length === 0) {
           updateActiveTab({ partyId: "", remarks: "", orderDiscountPercent: "0", walkInName: "", walkInMobile: "", walkInAddress: "" });
           setToastMsg("Empty bill cleared");
@@ -2519,13 +2526,14 @@ export function PosClient({
         }
       } else if (e.altKey && (e.code === "KeyR" || e.key.toLowerCase() === "r")) {
         e.preventDefault();
-        if (selectedParty?.creditEnabled) {
+        const creditAllowed = Boolean(selectedParty) && (effectivePosSettings.creditAllParties || selectedParty?.creditEnabled);
+        if (creditAllowed) {
           updateActiveTab({ paymentMode: PaymentMode.CREDIT, paymentCollected: false });
           if (effectivePosSettings.quickFinish && activeTab.cart.length > 0) {
             handleFinalizeBill(undefined, "thermal", "CREDIT");
           }
         } else {
-          setErrorMessage(selectedParty ? "No credit enabled for this party." : "Select a credit-enabled party first (Alt+P).");
+          setErrorMessage(selectedParty ? "No credit for this party." : "Select a party for credit.");
         }
       } else if (e.altKey && e.key.toLowerCase() === "d") {
         e.preventDefault();
@@ -2636,6 +2644,8 @@ export function PosClient({
     lastPrintedInvoice,
     triggerDirectIframePrint,
     isEditMode,
+    canDeleteBill,
+    canVoidInvoice,
   ]);
 
   // Voucher lines preview memo for SaveVoucherDialog
@@ -4290,23 +4300,25 @@ export function PosClient({
           >
             F7 Repeat
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (isEditMode && initialEditInvoice) {
-                setVoidEditReason("");
-                setVoidEditError(null);
-                setVoidEditModalOpen(true);
-              } else if (activeTab.cart.length === 0) {
-                updateActiveTab({ partyId: "", remarks: "", orderDiscountPercent: "0", walkInName: "", walkInMobile: "", walkInAddress: "" });
-              } else {
-                setDiscardConfirmOpen(true);
-              }
-            }}
-            className="bg-rose-900/70 hover:bg-rose-800 px-2 py-0.5 rounded border border-rose-300/40 text-white transition cursor-pointer"
-          >
-            F8 Del Bill
-          </button>
+          {((isEditMode && canVoidInvoice) || (!isEditMode && canDeleteBill)) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (isEditMode && initialEditInvoice) {
+                  setVoidEditReason("");
+                  setVoidEditError(null);
+                  setVoidEditModalOpen(true);
+                } else if (activeTab.cart.length === 0) {
+                  updateActiveTab({ partyId: "", remarks: "", orderDiscountPercent: "0", walkInName: "", walkInMobile: "", walkInAddress: "" });
+                } else {
+                  setDiscardConfirmOpen(true);
+                }
+              }}
+              className="bg-rose-900/70 hover:bg-rose-800 px-2 py-0.5 rounded border border-rose-300/40 text-white transition cursor-pointer"
+            >
+              F8 Del Bill
+            </button>
+          )}
           <button
             type="button"
             onClick={handleDeleteHighlightedOrLastLine}
@@ -4631,6 +4643,7 @@ export function PosClient({
         onClose={() => setShowTodaySalesModal(false)}
         locationId={locationId}
         locationName={locationName}
+        canVoidInvoice={canVoidInvoice}
       />
 
       <RevisionHistoryModal
@@ -4650,7 +4663,7 @@ export function PosClient({
         onCancel={() => setIsSaveConfirmOpen(false)}
         partyName={selectedParty ? selectedParty.name : (activeTab.walkInName || "Counter Sale (Walk-in)")}
         hasLinkedParty={Boolean(selectedParty)}
-        creditEnabled={Boolean(selectedParty?.creditEnabled)}
+        creditEnabled={Boolean(selectedParty) && (effectivePosSettings.creditAllParties || selectedParty?.creditEnabled)}
         creditLimitPaise={selectedParty?.creditLimitPaise ?? 0}
         currentOutstandingPaise={selectedParty?.currentOutstandingPaise ?? 0}
         documentType={activeTab.documentType ?? "RETAIL"}

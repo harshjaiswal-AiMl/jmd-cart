@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getRoleMatrixSnapshot } from "@/modules/auth/role-matrix.service";
 import { RolesMatrixClient } from "./roles-matrix-client";
 
 export const dynamic = "force-dynamic";
@@ -18,11 +19,13 @@ export default async function RolesMatrixPage() {
     redirect("/login");
   }
 
-  // Count users per role
-  const users = await prisma.user.groupBy({
-    by: ["role"],
-    _count: { id: true },
-  });
+  const [users, snapshot] = await Promise.all([
+    prisma.user.groupBy({
+      by: ["role"],
+      _count: { id: true },
+    }),
+    getRoleMatrixSnapshot(),
+  ]);
 
   const userCounts: Record<string, number> = {};
   for (const u of users) {
@@ -39,7 +42,12 @@ export default async function RolesMatrixPage() {
           </p>
         </div>
 
-        <RolesMatrixClient userRole={role} userCounts={userCounts} />
+        <RolesMatrixClient
+          userRole={role}
+          userCounts={userCounts}
+          initialMatrix={snapshot.matrix}
+          initialChangelog={snapshot.changelog}
+        />
       </div>
     </div>
   );

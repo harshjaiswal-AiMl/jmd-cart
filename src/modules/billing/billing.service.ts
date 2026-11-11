@@ -14,6 +14,7 @@ import { getNextSequenceNumber } from "@/lib/invoice-number";
 import { stockService } from "@/modules/stock/stock.service";
 import { pricingService } from "@/modules/pricing/pricing.service";
 import { auditService } from "@/modules/audit/audit.service";
+import { assertPermissionAsync } from "@/modules/auth/role-matrix.service";
 import {
   assertPermission,
   hasPermission,
@@ -172,20 +173,51 @@ export class BillingService {
         throw new Error("Specified customer party does not exist");
       }
 
+      const posOps = validated.channel === "SHOP" ? await settingsService.getPosOperationalSettings() : null;
+      const allowShopCreditAll = validated.channel === "SHOP" && Boolean(posOps?.creditAllParties);
       const creditStatus = await partyRepository.checkPartyCreditStatus(
         validated.partyId,
-        balanceDuePaise
+        balanceDuePaise,
+        undefined,
+        { allowCredit: allowShopCreditAll }
       );
 
       if (!creditStatus.canProceedWithoutOverride) {
         creditBreachReasons = creditStatus.breachReasons;
-        // User instruction: Allow credit sales directly for all parties without blocking; update ledger seamlessly.
-        creditOverrideApplied = true;
-        creditOverrideBy = actorId ?? null;
-        creditOverrideReason =
-          validated.creditOverride?.reason ||
-          validated.notes ||
-          "Direct Party Credit Allowed";
+        const callerCanOverride = hasPermission(
+          role,
+          Permission.OVERRIDE_CREDIT_LIMIT
+        );
+
+        if (callerCanOverride) {
+          creditOverrideApplied = true;
+          creditOverrideBy = actorId ?? null;
+          creditOverrideReason =
+            validated.creditOverride?.reason ||
+            validated.notes ||
+            "Authorized by Super Admin";
+        } else if (validated.creditOverride) {
+          const approver = await prisma.user.findUnique({
+            where: { id: validated.creditOverride.approvedByUserId },
+          });
+          if (!approver || !approver.active) {
+            throw new ForbiddenError(
+              "Credit override approver account is invalid or inactive"
+            );
+          }
+          if (!hasPermission(approver.role, Permission.OVERRIDE_CREDIT_LIMIT)) {
+            throw new ForbiddenError(
+              `User '${approver.name}' (${approver.role}) does not have permission to override credit limits`
+            );
+          }
+          creditOverrideApplied = true;
+          creditOverrideBy = approver.id;
+          creditOverrideReason = validated.creditOverride.reason;
+        } else {
+          throw new Error(
+            `Credit sale blocked for '${party.name}': ${creditStatus.breachReasons.join("; ")}. Owner override required.`
+          );
+        }
       }
     }
 
@@ -678,7 +710,7 @@ export class BillingService {
     actorId?: string,
     ip?: string
   ): Promise<{ invoice: InvoiceWithDetails; creditNoteId: string }> {
-    assertPermission(role, Permission.BILL_CANCEL);
+    await assertPermissionAsync(role, Permission.INVOICE_VOID);
     const validated = cancelInvoiceInputSchema.parse(input);
 
     const existing = await this.repo.findById(validated.invoiceId);

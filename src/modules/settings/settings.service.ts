@@ -20,6 +20,7 @@ import {
   AllSettings,
 } from "./settings.types";
 import { assertPermission, Permission } from "@/modules/auth/permissions";
+import { assertPermissionAsync } from "@/modules/auth/role-matrix.service";
 import { auditService } from "@/modules/audit/audit.service";
 
 export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
@@ -54,6 +55,8 @@ export const DEFAULT_INVOICE_PRINT_SETTINGS: InvoicePrintSettings = {
   footerDeliveryText: "CALL US FOR FREE DOOR DELIVERY",
   footerDeliveryPhone: "7979749009",
   defaultFormat: "thermal_80",
+  paperWidthMm: 80,
+  contentWidthMm: 72,
 };
 
 export const DEFAULT_BUSINESS_DETAILS: BusinessDetails = {
@@ -366,8 +369,17 @@ export class SettingsService {
   }
 
   async getInvoicePrintSettings(): Promise<InvoicePrintSettings> {
-    const data = await settingsRepository.getSetting<InvoicePrintSettings>("invoice_print_settings");
-    return data ? { ...DEFAULT_INVOICE_PRINT_SETTINGS, ...data } : DEFAULT_INVOICE_PRINT_SETTINGS;
+    const [data, paperWidthMm, contentWidthMm] = await Promise.all([
+      settingsRepository.getSetting<InvoicePrintSettings>("invoice_print_settings"),
+      settingsRepository.getSetting<number>("print.paperWidthMm"),
+      settingsRepository.getSetting<number>("print.contentWidthMm"),
+    ]);
+    return {
+      ...DEFAULT_INVOICE_PRINT_SETTINGS,
+      ...(data || {}),
+      ...(typeof paperWidthMm === "number" && paperWidthMm > 0 ? { paperWidthMm } : {}),
+      ...(typeof contentWidthMm === "number" && contentWidthMm > 0 ? { contentWidthMm } : {}),
+    };
   }
 
   async updateInvoicePrintSettings(
@@ -433,20 +445,44 @@ export class SettingsService {
     askPartyOnNewBill: boolean;
     quickFinish: boolean;
     managerCanDelete: boolean;
+    creditAllParties: boolean;
   }> {
-    const [showFinalizedModal, askPartyOnNewBill, quickFinish, managerCanDelete] =
+    const [showFinalizedModal, askPartyOnNewBill, quickFinish, managerCanDelete, creditAllParties] =
       await Promise.all([
         settingsRepository.getSetting<boolean>("pos.showFinalizedModal"),
         settingsRepository.getSetting<boolean>("pos.askPartyOnNewBill"),
         settingsRepository.getSetting<boolean>("pos.quickFinish"),
         settingsRepository.getSetting<boolean>("invoice.managerCanDelete"),
+        settingsRepository.getSetting<boolean>("pos.creditAllParties"),
       ]);
     return {
       showFinalizedModal: Boolean(showFinalizedModal ?? false),
       askPartyOnNewBill: Boolean(askPartyOnNewBill ?? true),
       quickFinish: Boolean(quickFinish ?? false),
       managerCanDelete: Boolean(managerCanDelete ?? false),
+      creditAllParties: creditAllParties === null || creditAllParties === undefined ? true : Boolean(creditAllParties),
     };
+  }
+
+  async updatePosCreditAllParties(
+    actorRole: UserRole,
+    actorId: string | null,
+    enabled: boolean,
+    ip?: string
+  ): Promise<boolean> {
+    await assertPermissionAsync(actorRole, Permission.MANAGE_SETTINGS);
+    const before = (await this.getPosOperationalSettings()).creditAllParties;
+    await settingsRepository.setSetting("pos.creditAllParties", Boolean(enabled));
+    await auditService.log({
+      actorId: actorId ?? null,
+      action: "SETTINGS_POS_CREDIT_UPDATED",
+      entity: "Setting",
+      entityId: "pos.creditAllParties",
+      before: { creditAllParties: before },
+      after: { creditAllParties: Boolean(enabled) },
+      ip,
+    });
+    return Boolean(enabled);
   }
 
   async getProductTierModes(): Promise<

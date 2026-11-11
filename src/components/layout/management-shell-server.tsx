@@ -4,6 +4,7 @@ import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { LocationType, MovementType, OrderStatus, UserRole } from "@prisma/client";
+import { ensureRolePermissionsLoaded } from "@/modules/auth/role-matrix.service";
 import { ManagementShell } from "./management-shell";
 
 const getCachedShellData = unstable_cache(
@@ -76,8 +77,12 @@ export async function ManagementShellServer({
   }
 
   const isGodownOnly = session.user.role === UserRole.GODOWN;
-  const { pendingOrders, autoConverted, locations, lowStock, quickProducts } =
-    await getCachedShellData(isGodownOnly);
+  const [shellData, roleMatrix] = await Promise.all([
+    getCachedShellData(isGodownOnly),
+    ensureRolePermissionsLoaded(),
+  ]);
+  const { pendingOrders, autoConverted, locations, lowStock, quickProducts } = shellData;
+  const userPermissions = roleMatrix[session.user.role as UserRole] || [];
 
   async function handleSignOut() {
     "use server";
@@ -91,6 +96,7 @@ export async function ManagementShellServer({
           id: session.user.id,
           name: session.user.name || "Staff User",
           role: session.user.role,
+          permissions: userPermissions,
         }}
         badges={{
           pendingOrders,

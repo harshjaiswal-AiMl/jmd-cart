@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import React, { useState, useMemo, useTransition } from "react";
 import {
@@ -64,14 +65,10 @@ export function OpeningStockClient({
 
   // Filtered Items
   const filteredItems = useMemo(() => {
+    const searchSet = search.trim() ? new Set(searchItems(search, items as any, { limit: items.length || 500 }).map((m) => m.id)) : null;
     return items.filter((item) => {
-      if (search) {
-        const q = search.toLowerCase();
-        const matchesName = item.name.toLowerCase().includes(q);
-        const matchesCode = item.shortCode.toLowerCase().includes(q);
-        const matchesCompany = item.companyName?.toLowerCase().includes(q);
-        if (!matchesName && !matchesCode && !matchesCompany) return false;
-      }
+      if (searchSet && !searchSet.has(item.id)) return false;
+
       if (selectedCompanyId) {
         const comp = companies.find((c) => c.id === selectedCompanyId);
         if (comp && item.companyName !== comp.name) return false;
@@ -760,11 +757,8 @@ export function OpeningStockClient({
               >
                 <option value="">-- Choose a Product --</option>
                 {allProductsList
-                  .filter((p) => {
-                    if (!addSearch) return true;
-                    const q = addSearch.toLowerCase();
-                    return p.name.toLowerCase().includes(q) || p.shortCode.toLowerCase().includes(q);
-                  })
+
+                  .filter((p, _i, arr) => !addSearch.trim() || new Set(searchItems(addSearch, arr as any, { limit: 100 }).map((m) => m.id)).has(p.id))
                   .slice(0, 100)
                   .map((p) => (
                     <option key={p.id} value={p.id}>

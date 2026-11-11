@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { VanLanguage, VAN_TRANSLATIONS, VanTranslationStrings } from "./van-translations";
+import { hiMessages, HiMessageKey } from "./messages/hi";
 
 const STORAGE_KEY = "jmd_van_lang";
 const LANG_CHANGE_EVENT = "jmd_van_lang_change";
@@ -10,21 +11,21 @@ interface VanLanguageContextValue {
   language: VanLanguage;
   setLanguage: (lang: VanLanguage) => void;
   toggleLanguage: () => void;
-  t: (key: keyof VanTranslationStrings, params?: Record<string, string | number>) => string;
+  t: (key: keyof VanTranslationStrings | HiMessageKey, params?: Record<string, string | number>) => string;
 }
 
 const VanLanguageContext = createContext<VanLanguageContextValue | null>(null);
 
 export function VanLanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<VanLanguage>("en");
+  const [language, setLanguageState] = useState<VanLanguage>("hi");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "hi" || stored === "en") {
-        setLanguageState(stored);
+      if (stored === "hi") {
+        setLanguageState("hi");
       }
     } catch {
       // localStorage may fail in private mode
@@ -61,9 +62,14 @@ export function VanLanguageProvider({ children }: { children: React.ReactNode })
   }, [language, setLanguage]);
 
   const t = useCallback(
-    (key: keyof VanTranslationStrings, params?: Record<string, string | number>): string => {
-      const strings = VAN_TRANSLATIONS[language] || VAN_TRANSLATIONS.en;
-      let text = strings[key] || VAN_TRANSLATIONS.en[key] || String(key);
+    (key: keyof VanTranslationStrings | HiMessageKey, params?: Record<string, string | number>): string => {
+      const strings = VAN_TRANSLATIONS[language] || VAN_TRANSLATIONS.hi;
+      let text =
+        (language === "hi" && key in hiMessages ? hiMessages[key as HiMessageKey] : undefined) ||
+        strings[key as keyof VanTranslationStrings] ||
+        (key in hiMessages ? hiMessages[key as HiMessageKey] : undefined) ||
+        VAN_TRANSLATIONS.en[key as keyof VanTranslationStrings] ||
+        String(key);
       if (params) {
         Object.entries(params).forEach(([k, v]) => {
           text = text.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
@@ -96,11 +102,15 @@ export function useVanLanguage() {
   if (!context) {
     // Fallback if rendered outside provider
     return {
-      language: "en" as VanLanguage,
+      language: "hi" as VanLanguage,
       setLanguage: () => {},
       toggleLanguage: () => {},
-      t: (key: keyof VanTranslationStrings, params?: Record<string, string | number>) => {
-        let text = VAN_TRANSLATIONS.en[key] || String(key);
+      t: (key: keyof VanTranslationStrings | HiMessageKey, params?: Record<string, string | number>) => {
+        let text =
+          (key in hiMessages ? hiMessages[key as HiMessageKey] : undefined) ||
+          VAN_TRANSLATIONS.hi[key as keyof VanTranslationStrings] ||
+          VAN_TRANSLATIONS.en[key as keyof VanTranslationStrings] ||
+          String(key);
         if (params) {
           Object.entries(params).forEach(([k, v]) => {
             text = text.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));

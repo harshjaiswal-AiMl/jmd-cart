@@ -124,6 +124,9 @@ export function normalizeHeaderName(header: string): string {
   if (["name", "productname", "itemname", "product", "item"].includes(clean)) {
     return "name";
   }
+  if (["namehi", "hindiname", "productnamehi", "producthindiname"].includes(clean)) {
+    return "nameHi";
+  }
   if (["shortcode", "itemcode", "code", "sku", "productcode", "id"].includes(clean)) {
     return "shortCode";
   }

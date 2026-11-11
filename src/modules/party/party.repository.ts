@@ -78,6 +78,8 @@ export class PartyRepository {
       const party = await client.party.create({
         data: {
           name: data.name.trim(),
+          nameHi: data.nameHi?.trim() || null,
+          nameHiSource: data.nameHiSource ?? (data.nameHi?.trim() ? "MANUAL" : null),
           type: data.type ?? PartyType.CUSTOMER,
           phone: data.phone?.trim() || null,
           email: data.email?.trim() || null,
@@ -125,6 +127,11 @@ export class PartyRepository {
 
       const updateData: Prisma.PartyUpdateInput = {};
       if (data.name !== undefined) updateData.name = data.name.trim();
+      if (data.nameHi !== undefined) {
+        const trimmedHi = data.nameHi?.trim() || null;
+        updateData.nameHi = trimmedHi;
+        updateData.nameHiSource = data.nameHiSource ?? (trimmedHi ? "MANUAL" : null);
+      }
       if (data.type !== undefined) updateData.type = data.type;
       if (data.phone !== undefined) updateData.phone = data.phone?.trim() || null;
       if (data.email !== undefined) updateData.email = data.email?.trim() || null;
@@ -417,6 +424,7 @@ export class PartyRepository {
       receiptNo: p.receiptNo!,
       partyId: p.partyId!,
       partyName: p.party?.name || "Customer",
+      partyNameHi: p.party?.nameHi || null,
       partyPhone: p.party?.phone || null,
       amountPaise: p.amountPaise,
       mode: p.mode as "CASH" | "UPI" | "CARD",
@@ -452,6 +460,7 @@ export class PartyRepository {
       receiptNo: p.receiptNo,
       partyId: p.partyId || "",
       partyName: p.party?.name || "Customer",
+      partyNameHi: p.party?.nameHi || null,
       partyPhone: p.party?.phone || null,
       amountPaise: p.amountPaise,
       mode: p.mode as "CASH" | "UPI" | "CARD",
@@ -469,7 +478,8 @@ export class PartyRepository {
   async checkPartyCreditStatus(
     partyId: string,
     additionalDebitPaise: number = 0,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
+    options?: { allowCredit?: boolean }
   ): Promise<PartyCreditStatus> {
     const client = tx || prisma;
     const party = await client.party.findUnique({
@@ -481,15 +491,16 @@ export class PartyRepository {
 
     const outstandingPaise = await this.getPartyOutstanding(partyId, client);
     const effectiveOutstandingPaise = outstandingPaise + additionalDebitPaise;
-    const availableCreditPaise = Math.max(0, party.creditLimitPaise - outstandingPaise);
+    const availableCreditPaise = party.creditLimitPaise > 0 ? Math.max(0, party.creditLimitPaise - outstandingPaise) : 0;
 
     const breachReasons: string[] = [];
+    const effectiveCreditEnabled = Boolean(options?.allowCredit) || party.creditEnabled;
 
-    if (!party.creditEnabled) {
+    if (!effectiveCreditEnabled) {
       breachReasons.push(`Party '${party.name}' is not authorized for credit billing`);
     }
 
-    const isLimitExceeded = party.creditEnabled && effectiveOutstandingPaise > party.creditLimitPaise;
+    const isLimitExceeded = effectiveCreditEnabled && party.creditLimitPaise > 0 && effectiveOutstandingPaise > party.creditLimitPaise;
     const limitExceededByPaise = isLimitExceeded
       ? effectiveOutstandingPaise - party.creditLimitPaise
       : 0;
@@ -532,7 +543,7 @@ export class PartyRepository {
       }
     }
 
-    const canProceedWithoutOverride = party.creditEnabled && !isLimitExceeded && !hasOverdueInvoices;
+    const canProceedWithoutOverride = effectiveCreditEnabled && !isLimitExceeded && !hasOverdueInvoices;
 
     return {
       partyId: party.id,

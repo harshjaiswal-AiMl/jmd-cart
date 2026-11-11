@@ -25,6 +25,8 @@ export enum Permission {
   POS_HOLD_RESUME = "POS_HOLD_RESUME",
   POS_CASH_CLOSE = "POS_CASH_CLOSE",
   BILL_CANCEL = "BILL_CANCEL", // Admin only
+  POS_DELETE_BILL = "pos.deleteBill",
+  INVOICE_VOID = "invoice.void",
 
   // Van Sales & Cash Handover
   VAN_BILL = "VAN_BILL",
@@ -239,11 +241,27 @@ export const ROLE_ALLOWED_ROUTES: Record<UserRole, string[]> = {
   CUSTOMER: ["/store"],
 };
 
+// Optional runtime override map refreshed from DB Setting ("rbac.rolePermissions")
+let runtimeRolePermissions: Partial<Record<UserRole, Permission[]>> | null = null;
+
+export function setRuntimeRolePermissions(
+  override: Partial<Record<UserRole, Permission[]>> | null
+): void {
+  runtimeRolePermissions = override;
+}
+
+export function getEffectiveRolePermissions(role: UserRole): Permission[] {
+  if (runtimeRolePermissions && runtimeRolePermissions[role]) {
+    return runtimeRolePermissions[role]!;
+  }
+  return ROLE_PERMISSIONS[role] || [];
+}
+
 /**
  * Check if a role possesses a specific permission.
  */
 export function hasPermission(role: UserRole, permission: Permission): boolean {
-  const allowed = ROLE_PERMISSIONS[role];
+  const allowed = getEffectiveRolePermissions(role);
   return allowed ? allowed.includes(permission) : false;
 }
 
@@ -269,6 +287,11 @@ export function canAccessRoute(role: UserRole, pathname: string): boolean {
   // System notifications, alerts and push subscriptions are accessible to all authenticated users
   if (pathname.startsWith("/api/notifications")) {
     return true;
+  }
+
+  // Invoice API endpoints mirror /shop/invoices route access; fine-grained actions enforce matrix permissions server-side
+  if (pathname.startsWith("/api/invoices/")) {
+    return canAccessRoute(role, "/shop/invoices");
   }
 
   // GODOWN cannot access /admin/catalog/import or /admin/catalog/price-lists

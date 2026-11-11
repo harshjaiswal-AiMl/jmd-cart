@@ -9,6 +9,7 @@ import {
   DeliverySettingsForm,
   PaymentModeSettingsForm,
   EInvoiceSettingsForm,
+  ShopPosCreditSettingsForm,
 } from "./settings-forms";
 import { MessagingSettingsForm } from "./messaging-settings-form";
 
@@ -23,7 +24,10 @@ export default async function AdminSettingsPage() {
     redirect("/login");
   }
 
-  const settings = await settingsService.getAllSettings();
+  const [settings, posSettings] = await Promise.all([
+    settingsService.getAllSettings(),
+    settingsService.getPosOperationalSettings(),
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 md:p-8">
@@ -43,6 +47,7 @@ export default async function AdminSettingsPage() {
           <DiscountLimitsForm initialData={settings.roleDiscountLimits} />
           <VerificationSettingsForm initialData={settings.verificationSettings} />
           <EInvoiceSettingsForm initialData={settings.eInvoiceSettings} />
+          <ShopPosCreditSettingsForm initialCreditAllParties={posSettings.creditAllParties} />
         </div>
       </div>
     </div>

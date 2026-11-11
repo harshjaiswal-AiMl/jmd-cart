@@ -177,7 +177,7 @@ export function SamplePreviewClient({ business }: SamplePreviewClientProps) {
   const [format, setFormat] = useState<"thermal" | "a5">("thermal");
 
   return (
-    <div className="min-h-screen bg-slate-100 py-6 px-4 print:p-0 print:bg-white font-sans">
+    <div className="min-h-screen bg-slate-100 py-6 px-1 sm:px-4 print:p-0 print:bg-white font-sans">
       {/* Top Controls Toolbar (Hidden during browser printing) */}
       <div className="no-print max-w-4xl mx-auto mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">

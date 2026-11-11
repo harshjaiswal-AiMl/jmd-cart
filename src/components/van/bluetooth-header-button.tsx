@@ -6,6 +6,7 @@ import {
   BluetoothPrinterInfo,
 } from "@/lib/bluetooth-printer";
 import { BluetoothPrinterModal } from "./bluetooth-printer-modal";
+import { tHi } from "@/lib/i18n/messages/hi";
 import { Printer } from "lucide-react";
 
 export function BluetoothHeaderButton() {
@@ -45,7 +46,7 @@ export function BluetoothHeaderButton() {
           }`}
         />
         <span className="hidden sm:inline text-[11px]">
-          {isConnected ? printerInfo.deviceName?.split(" ")[0] || "Printer" : "Printer"}
+          {isConnected ? printerInfo.deviceName?.split(" ")[0] || tHi("btPrinterBtn") : tHi("btPrinterBtn")}
         </span>
       </button>
 

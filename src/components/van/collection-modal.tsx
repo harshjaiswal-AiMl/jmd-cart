@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { recordCollectionAction } from "@/app/van/collections/actions";
 import { BluetoothCollectionPrintButton } from "./bluetooth-collection-print-button";
+import { tHi } from "@/lib/i18n/messages/hi";
 import {
   X,
   Banknote,
@@ -17,6 +18,7 @@ interface CollectionModalProps {
   party: {
     id: string;
     name: string;
+    nameHi?: string | null;
     phone?: string | null;
     outstandingPaise: number;
   } | null;
@@ -57,7 +59,7 @@ export function CollectionModal({
 
     const amountRupees = parseFloat(amountStr);
     if (isNaN(amountRupees) || amountRupees <= 0) {
-      setError("Please enter a valid amount greater than ₹0.");
+      setError(tHi("invalidAmountError"));
       return;
     }
 
@@ -85,7 +87,7 @@ export function CollectionModal({
       });
       onSuccess?.();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Error recording collection");
+      setError(err instanceof Error ? err.message : tHi("collectionRecordFailedError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -109,8 +111,8 @@ export function CollectionModal({
               <Wallet className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-black text-white">Record Payment Collection</h2>
-              <p className="text-xs text-slate-400">On-Route / Ledger Receipt</p>
+              <h2 className="text-base font-black text-white">{tHi("recordCollectionTitle")}</h2>
+              <p className="text-xs text-slate-400">{tHi("recordCollectionSub")}</p>
             </div>
           </div>
           <button
@@ -126,14 +128,14 @@ export function CollectionModal({
           {/* Party Info Card */}
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">Customer / Retailer</p>
-              <h3 className="text-sm font-black text-white mt-0.5">{party.name}</h3>
+              <p className="text-xs text-slate-400 font-medium">{tHi("registeredParty")}</p>
+              <h3 className="text-base font-black text-white mt-0.5">{party.nameHi || party.name}</h3>
               {party.phone && (
                 <p className="text-xs text-slate-400 mt-0.5">Ph: {party.phone}</p>
               )}
             </div>
             <div className="text-right">
-              <p className="text-xs text-slate-400 font-medium">Current Due</p>
+              <p className="text-xs text-slate-400 font-medium">{tHi("currentDueLabel")}</p>
               <p
                 className={`text-base font-black ${
                   party.outstandingPaise > 0 ? "text-amber-400" : "text-emerald-400"
@@ -151,18 +153,18 @@ export function CollectionModal({
                 <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
-                <h3 className="text-base font-bold text-white">Collection Successful!</h3>
+                <h3 className="text-base font-bold text-white">{tHi("collectionSuccessTitle")}</h3>
                 <p className="text-xs font-mono font-bold text-emerald-300">
-                  Receipt #{completedReceipt.receiptNo}
+                  {tHi("receiptWord")} #{completedReceipt.receiptNo}
                 </p>
                 <div className="pt-2 text-xs text-slate-300 flex justify-between px-4 border-t border-emerald-500/20">
-                  <span>Collected:</span>
+                  <span>{tHi("collectedAmountWord")}</span>
                   <strong className="text-white">
                     ₹{(completedReceipt.amountPaise / 100).toFixed(2)}
                   </strong>
                 </div>
                 <div className="text-xs text-slate-300 flex justify-between px-4">
-                  <span>Remaining Due:</span>
+                  <span>{tHi("remainingDueWord")}</span>
                   <strong className="text-amber-300">
                     ₹{(completedReceipt.currentOutstandingPaise / 100).toFixed(2)}
                   </strong>
@@ -181,7 +183,7 @@ export function CollectionModal({
                 onClick={handleClose}
                 className="w-full py-2.5 rounded-2xl text-xs font-bold bg-slate-800 text-white hover:bg-slate-700 transition"
               >
-                Done / Close
+                {tHi("doneBtn")}
               </button>
             </div>
           ) : (
@@ -189,7 +191,7 @@ export function CollectionModal({
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Payment Mode */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300">Payment Tender</label>
+                <label className="text-xs font-bold text-slate-300">{tHi("paymentTenderLabel")}</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -201,7 +203,7 @@ export function CollectionModal({
                     }`}
                   >
                     <Banknote className="w-4 h-4" />
-                    <span>Cash</span>
+                    <span>{tHi("tenderCash")}</span>
                   </button>
                   <button
                     type="button"
@@ -213,14 +215,14 @@ export function CollectionModal({
                     }`}
                   >
                     <Smartphone className="w-4 h-4" />
-                    <span>UPI / QR</span>
+                    <span>{tHi("tenderUpi")}</span>
                   </button>
                 </div>
               </div>
 
               {/* Amount Input */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300">Amount Received (₹)</label>
+                <label className="text-xs font-bold text-slate-300">{tHi("amountRupeesLabel")}</label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
                     ₹
@@ -246,7 +248,7 @@ export function CollectionModal({
                     onClick={() => handleQuickAmount(party.outstandingPaise / 100)}
                     className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20"
                   >
-                    Full: ₹{(party.outstandingPaise / 100).toFixed(0)}
+                    {tHi("fullDueChip", { amt: (party.outstandingPaise / 100).toFixed(0) })}
                   </button>
                 )}
                 <button
@@ -281,12 +283,12 @@ export function CollectionModal({
 
               {/* Notes Input */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-300">Notes / Reference (Optional)</label>
+                <label className="text-xs font-bold text-slate-300">{tHi("notesLabel")}</label>
                 <input
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g. UPI Ref / Cash at shop"
+                  placeholder={tHi("notesPlaceholder")}
                   className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
@@ -307,10 +309,10 @@ export function CollectionModal({
                 {isSubmitting ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Recording Collection...</span>
+                    <span>{tHi("recordingCollectionText")}</span>
                   </>
                 ) : (
-                  <span>Confirm Collection & Issue Receipt</span>
+                  <span>{tHi("saveReceiptBtn")}</span>
                 )}
               </button>
             </form>

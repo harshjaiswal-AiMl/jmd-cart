@@ -1,3 +1,4 @@
+import { searchProducts as sharedSearchProducts } from "@/lib/search/product-search.server";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PostMovementInput, StockMovementResult } from "./stock.types";
@@ -186,16 +187,16 @@ export class StockRepository {
       where.companyId = filters.companyId;
     }
 
+    let matchedIdOrder: string[] | null = null;
     if (filters.search && filters.search.trim().length > 0) {
-      const tokens = filters.search.trim().split(/\s+/).filter(Boolean);
-      where.AND = tokens.map((tok) => ({
-        OR: [
-          { name: { contains: tok, mode: "insensitive" } },
-          { shortCode: { contains: tok, mode: "insensitive" } },
-          { weight: { contains: tok, mode: "insensitive" } },
-          { company: { name: { contains: tok, mode: "insensitive" } } },
-        ],
-      }));
+      const sr = await sharedSearchProducts({
+        q: filters.search,
+        companyId: filters.companyId,
+        limit: 5000,
+        offset: 0,
+      });
+      matchedIdOrder = sr.matchedIds;
+      where.id = { in: matchedIdOrder };
     }
 
     const locations = await client.location.findMany({
@@ -203,7 +204,7 @@ export class StockRepository {
       orderBy: { name: "asc" },
     });
 
-    const products = await client.product.findMany({
+    const productsRaw = await client.product.findMany({
       where,
       include: {
         company: true,
@@ -214,6 +215,7 @@ export class StockRepository {
       },
       orderBy: { name: "asc" },
     });
+    const products = matchedIdOrder ? (() => { const m = new Map(productsRaw.map((p) => [p.id, p])); return matchedIdOrder.map((id) => m.get(id)).filter((x): x is NonNullable<typeof x> => Boolean(x)); })() : productsRaw;
 
     let items: import("./stock.types").ProductStockBalanceItem[] = products.map((p) => {
       const balanceMap = new Map<string, number>();

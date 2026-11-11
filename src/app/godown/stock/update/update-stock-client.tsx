@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -110,6 +111,7 @@ export function UpdateStockClient({
         badge: currentBal > 0 ? `Current: ${currentBal} pcs` : "0 pcs",
         badgeColor: currentBal > 0 ? ("green" as const) : ("gray" as const),
         inStock: currentBal > 0,
+        searchProduct: { id: prod.id, name: prod.name, shortCode: prod.shortCode, companyName: prod.companyName, weight: prod.weight, mrpPaise: (prod as any).mrpPaise ?? null, shopStockQty: currentBal },
       };
     });
   }, [products, locationId]);
@@ -278,15 +280,12 @@ export function UpdateStockClient({
   }, [companies, products]);
 
   const filteredProducts = useMemo(() => {
+    const searchIds = tableSearch.trim() ? new Set(searchItems(tableSearch, products as any, { limit: products.length || 500 }).map((m) => m.id)) : null;
     return products.filter((p) => {
+      if (searchIds && !searchIds.has(p.id)) return false;
       if (showOnlyModified && !isRowModified(p)) return false;
       if (tableCompanyFilter && p.companyId !== tableCompanyFilter) return false;
-      if (tableSearch.trim()) {
-        const tokens = tableSearch.toLowerCase().trim().split(/\s+/).filter(Boolean);
-        const searchStr = `${p.name} ${p.shortCode} ${p.weight || ""} ${p.companyName || ""}`.toLowerCase();
-        const matchesAll = tokens.every((tok) => searchStr.includes(tok));
-        if (!matchesAll) return false;
-      }
+
       return true;
     });
   }, [products, tableSearch, tableCompanyFilter, showOnlyModified, tableEdits, godownLocation?.id, shopLocation?.id]);

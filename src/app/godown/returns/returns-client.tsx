@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -58,16 +59,13 @@ export function ReturnsClient({
   });
 
   // Filter stock-wise report rows
-  const filteredStockRows = (safeStockReport.rows || []).filter((row) => {
-    if (search.trim()) {
-      const q = search.toLowerCase().trim();
-      const matchName = row.productName?.toLowerCase().includes(q) ?? false;
-      const matchCode = row.shortCode?.toLowerCase().includes(q) ?? false;
-      const matchComp = row.companyName?.toLowerCase().includes(q) ?? false;
-      if (!matchName && !matchCode && !matchComp) return false;
-    }
-    return true;
-  });
+  const filteredStockRows = !search.trim()
+    ? safeStockReport.rows || []
+    : (() => {
+        const rows = safeStockReport.rows || [];
+        const ids = new Set(searchItems(search, rows.map((r) => ({ id: r.productId || r.shortCode, name: r.productName, shortCode: r.shortCode, companyName: r.companyName })), { limit: rows.length || 500 }).map((m) => m.id));
+        return rows.filter((r) => ids.has(r.productId || r.shortCode));
+      })();
 
   const handleExportStockWiseCSV = () => {
     const headers = [

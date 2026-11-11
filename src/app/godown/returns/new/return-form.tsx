@@ -89,6 +89,7 @@ export function ReturnForm({ suppliers, locations, products }: Props) {
         badge: bal > 0 ? `In Stock (${bal} pcs)` : "Out of stock",
         badgeColor: bal > 0 ? ("green" as const) : ("red" as const),
         inStock: bal > 0,
+        searchProduct: { id: p.id, name: p.name, shortCode: p.shortCode, companyName: p.company?.name, mrpPaise: p.mrpPaise, packSize: p.packSize, shopStockQty: bal },
       };
     });
   }, [products, locationId]);

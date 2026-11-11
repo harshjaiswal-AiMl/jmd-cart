@@ -169,4 +169,41 @@ describe("G10: Invoice Void / Cancel Ledger & Stock Reversal", () => {
     );
     expect(await getPartyNetBalance(creditPartyId)).toBe(0);
   });
+
+  it("reverses UPI invoice net balance and stock cleanly, enforces SHOP invoice.void permission, and rejects double void", async () => {
+    const preStock = await prisma.stockBalance.findUnique({ where: { productId_locationId: { productId: prodId, locationId: locId } } });
+    const inv = await billingService.finalizeInvoice(
+      UserRole.SUPER_ADMIN,
+      {
+        channel: "SHOP",
+        locationId: locId,
+        partyId: cashPartyId,
+        items: [{ productId: prodId, qty: 3 }],
+        payments: [{ mode: PaymentMode.UPI, amountPaise: 25500 }],
+        idempotencyKey: `g10_upi_${runId}`,
+      },
+      actorId
+    );
+    const midStock = await prisma.stockBalance.findUnique({ where: { productId_locationId: { productId: prodId, locationId: locId } } });
+    expect(midStock?.qty).toBe((preStock?.qty ?? 0) - 3);
+    expect(await getPartyNetBalance(cashPartyId)).toBe(0);
+
+    await expect(
+      billingService.cancelInvoice(UserRole.SHOP, { invoiceId: inv.id, reason: "Unauthorized attempt" }, actorId)
+    ).rejects.toThrow();
+
+    const voidRes = await billingService.cancelInvoice(
+      UserRole.SUPER_ADMIN,
+      { invoiceId: inv.id, reason: "Wrong UPI entry R2" },
+      actorId
+    );
+    expect(voidRes.invoice.status).toBe(InvoiceStatus.CANCELLED);
+    const postStock = await prisma.stockBalance.findUnique({ where: { productId_locationId: { productId: prodId, locationId: locId } } });
+    expect(postStock?.qty).toBe(preStock?.qty ?? 0);
+    expect(await getPartyNetBalance(cashPartyId)).toBe(0);
+
+    await expect(
+      billingService.cancelInvoice(UserRole.SUPER_ADMIN, { invoiceId: inv.id, reason: "Double void attempt" }, actorId)
+    ).rejects.toThrow();
+  });
 });

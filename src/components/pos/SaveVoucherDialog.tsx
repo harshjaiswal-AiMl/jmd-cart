@@ -87,7 +87,7 @@ export function SaveVoucherDialog({
 
   // Compute Credit availability reason
   const creditDisabledReason = (() => {
-    if (!hasLinkedParty) return "Select party for Credit";
+    if (!hasLinkedParty) return "Select a party for credit";
     if (!creditEnabled) return "No credit for this party";
     if (creditLimitPaise > 0) {
       const projected = currentOutstandingPaise + totalAmountPaise;
