@@ -180,7 +180,7 @@ export function searchParties<T extends SearchableParty>(
       }
 
       // 7. Substring match in English or transliterated Hindi name
-      if (!tokenMatched && token.length >= 2 && (partyNameLower.includes(token) || (partyNameHiLower && partyNameHiLower.includes(token)))) {
+      if (!tokenMatched && token.length >= 3 && (partyNameLower.includes(token) || (partyNameHiLower && partyNameHiLower.includes(token)))) {
         tokenMatched = true;
         tokenScore = Math.max(tokenScore, 200);
       }
