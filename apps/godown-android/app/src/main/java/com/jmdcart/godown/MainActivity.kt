@@ -1,5 +1,6 @@
 package com.jmdcart.godown
 
+import android.app.AlarmManager
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -171,6 +172,18 @@ class MainActivity : AppCompatActivity() {
             }
 
             @JavascriptInterface
+            fun openAppSettings() {
+                try {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.parse("package:${this@MainActivity.packageName}")
+                    }
+                    this@MainActivity.startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            @JavascriptInterface
             fun testAlert() {
                 ContinuousRingtoneService.startRinging(
                     this@MainActivity,
@@ -231,7 +244,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 2. Battery Optimization Exemption
+        // 2. Battery Optimization Exemption (Crucial for background waking when phone is locked)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!DeviceRegistrationManager.isBatteryOptimizationIgnored(this)) {
                 try {
@@ -245,13 +258,43 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 3. Android 14+ Full Screen Intent Permission
+        // 3. Android 14+ Full Screen Intent Permission (Crucial for incoming call popup over lockscreen)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             if (!DeviceRegistrationManager.canUseFullScreenIntent(this)) {
                 try {
                     val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
                         data = Uri.parse("package:$packageName")
                     }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+        }
+
+        // 4. Android 12+ Exact Alarm Permission (Ensures hardware RTC wakeups in deep sleep)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val alarmManager = getSystemService(AlarmManager::class.java)
+                if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
+                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                }
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+
+        // 5. Draw Over Other Apps / Overlay Permission (Required on Xiaomi/Vivo/Oppo for lockscreen popups)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(this)) {
+                try {
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    )
                     startActivity(intent)
                 } catch (e: Exception) {
                     // ignore

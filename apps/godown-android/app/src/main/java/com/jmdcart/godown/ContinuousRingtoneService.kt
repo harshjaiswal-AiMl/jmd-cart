@@ -33,7 +33,8 @@ class ContinuousRingtoneService : Service() {
     }
 
     companion object {
-        const val CHANNEL_ID = "jmd_order_ring_channel"
+        // v3 channel ensures devices migrate away from any old silent (sound=null) channel!
+        const val CHANNEL_ID = "jmd_order_ring_channel_v3"
         const val NOTIFICATION_ID = 9001
         const val EXTRA_ORDER_ID = "order_id"
         const val EXTRA_ORDER_NUMBER = "order_number"
@@ -144,7 +145,7 @@ class ContinuousRingtoneService : Service() {
 
         // 1. Build full-screen intent to wake phone and show incoming call activity
         val fullScreenIntent = Intent(this, IncomingOrderCallActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtras(intent)
         }
         val fullScreenPendingIntent = PendingIntent.getActivity(
@@ -166,22 +167,31 @@ class ContinuousRingtoneService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // 2. Start Foreground Notification with CATEGORY_ALARM and high priority
+        val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+
+        // 2. Start Foreground Notification with CATEGORY_CALL / CATEGORY_ALARM, MAX priority and sound
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("🚨 INCOMING GODOWN ORDER: $orderNumber")
             .setContentText("$customerName • $amount")
             .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setFullScreenIntent(fullScreenPendingIntent, true)
+            .setSound(soundUri)
             .addAction(android.R.drawable.ic_lock_idle_alarm, "Snooze 5 Min", snoozePendingIntent)
             .setOngoing(true)
             .setAutoCancel(false)
             .build()
 
+        // Insistent flag tells Android OS to loop ringtone natively until opened/cancelled
+        notification.flags = notification.flags or Notification.FLAG_INSISTENT
+
         startForeground(NOTIFICATION_ID, notification)
 
-        // 3. Play continuous looping alarm sound and vibration
+        // 3. Play continuous looping alarm sound and vibration as well
         startLoopingSoundAndVibration()
 
         // 4. Reset 2-minute safety timeout
@@ -221,8 +231,8 @@ class ContinuousRingtoneService : Service() {
 
         try {
             if (mediaPlayer == null) {
-                val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
                     ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
                 mediaPlayer = MediaPlayer().apply {
@@ -330,6 +340,25 @@ class ContinuousRingtoneService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(NotificationManager::class.java)
+
+            // Clean up previous silent channel so it doesn't block heads-up notifications
+            try {
+                manager.deleteNotificationChannel("jmd_order_ring_channel")
+                manager.deleteNotificationChannel("jmd_order_ring_channel_v2")
+            } catch (e: Exception) {
+                // ignore
+            }
+
+            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+
+            val audioAttributes = AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .build()
+
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.channel_ring_name),
@@ -338,10 +367,10 @@ class ContinuousRingtoneService : Service() {
                 description = getString(R.string.channel_ring_desc)
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                 enableVibration(true)
-                // Let MediaPlayer handle sound playback directly to prevent doubled sound
-                setSound(null, null)
+                vibrationPattern = longArrayOf(0, 1000, 1000)
+                setSound(soundUri, audioAttributes)
+                setBypassDnd(true)
             }
-            val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
     }

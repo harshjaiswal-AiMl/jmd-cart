@@ -6,8 +6,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -24,21 +26,28 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Always-On Native Background Alert Watcher Daemon.
- * Runs continuously in the background even when app is killed/swiped away.
- * Ensures the device wakes up, turns on screen, and rings like a telephone call on new orders.
+ * Uses both background scheduled executor AND hardware RTC AlarmManager
+ * so that polling NEVER stops even when the phone screen is locked or in deep sleep.
  */
 class GodownAlertWatcherService : Service() {
 
     private var scheduler: ScheduledExecutorService? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var cpuWakeLock: PowerManager.WakeLock? = null
+    private var isScreenReceiverRegistered = false
 
     companion object {
         private const val TAG = "JMDGodownWatcher"
         const val WATCHER_CHANNEL_ID = "jmd_godown_watcher_channel"
         const val WATCHER_NOTIFICATION_ID = 8001
+        const val ACTION_ALARM_POLL = "com.jmdcart.godown.ACTION_ALARM_POLL"
         private const val POLL_INTERVAL_SECONDS = 8L
+        private const val RTC_WAKEUP_INTERVAL_SECONDS = 12L
+        private const val ALARM_REQUEST_CODE = 9005
         private const val DEFAULT_BASE_URL = "https://management.jmdcart.com"
+
+        @Volatile
+        var isScreenOn = true
 
         // In-memory cache of snoozed order IDs and expiry timestamps (prevents race-condition re-ringing)
         private val localSnoozedOrders = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -73,6 +82,81 @@ class GodownAlertWatcherService : Service() {
                 context.startService(intent)
             }
         }
+
+        /**
+         * Schedules hardware RTC wake-up through AlarmManager.
+         * Wakes CPU from Linux suspend / deep sleep when phone is locked.
+         */
+        fun scheduleNextRtcWakeup(context: Context, delaySeconds: Long = RTC_WAKEUP_INTERVAL_SECONDS) {
+            try {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+                val intent = Intent(context, AlarmPollReceiver::class.java).apply {
+                    action = ACTION_ALARM_POLL
+                }
+                val pendingIntent = PendingIntent.getBroadcast(
+                    context,
+                    ALARM_REQUEST_CODE,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                val triggerAtMillis = SystemClock.elapsedRealtime() + (delaySeconds * 1000L)
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        if (alarmManager.canScheduleExactAlarms()) {
+                            alarmManager.setExactAndAllowWhileIdle(
+                                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                                triggerAtMillis,
+                                pendingIntent
+                            )
+                        } else {
+                            val showIntent = Intent(context, MainActivity::class.java)
+                            val showPendingIntent = PendingIntent.getActivity(
+                                context, 1008, showIntent,
+                                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                            )
+                            val alarmClockInfo = AlarmManager.AlarmClockInfo(
+                                System.currentTimeMillis() + (delaySeconds * 1000L),
+                                showPendingIntent
+                            )
+                            alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                        }
+                    } else {
+                        alarmManager.setExactAndAllowWhileIdle(
+                            AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                            triggerAtMillis,
+                            pendingIntent
+                        )
+                    }
+                } else {
+                    alarmManager.setExact(
+                        AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                        triggerAtMillis,
+                        pendingIntent
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Failed to schedule RTC wakeup", e)
+            }
+        }
+    }
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    isScreenOn = false
+                    // When phone screen turns off, schedule hardware RTC wake-up immediately!
+                    context?.let { scheduleNextRtcWakeup(it, 4L) }
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    isScreenOn = true
+                    // Screen turned on -> trigger immediate poll!
+                    scheduler?.execute { pollPendingAlerts() }
+                }
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -82,7 +166,7 @@ class GodownAlertWatcherService : Service() {
         createNotificationChannel()
         startForeground(WATCHER_NOTIFICATION_ID, buildOngoingNotification())
 
-        // Acquire partial CPU wake lock to ensure background thread execution even when phone is locked
+        // Acquire partial CPU wake lock to assist background thread execution
         try {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             cpuWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "jmdcart:watcher_cpu_wake")
@@ -91,19 +175,41 @@ class GodownAlertWatcherService : Service() {
             android.util.Log.e(TAG, "Failed to acquire CPU wake lock", e)
         }
 
+        // Register screen state changes to adapt polling mode
+        try {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+            }
+            registerReceiver(screenReceiver, filter)
+            isScreenReceiverRegistered = true
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         startPollingLoop()
+        scheduleNextRtcWakeup(this, 10L)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_ALARM_POLL) {
+            // Wakeup triggered by hardware RTC alarm
+            scheduler?.execute {
+                try {
+                    pollPendingAlerts()
+                } finally {
+                    scheduleNextRtcWakeup(this@GodownAlertWatcherService)
+                }
+            }
+            return START_STICKY
+        }
+
         // Ensure polling loop is running
         startPollingLoop()
-        // Return START_STICKY so Android OS auto-recreates the service if killed for memory
+        scheduleNextRtcWakeup(this)
         return START_STICKY
     }
 
-    /**
-     * When user swipes app away from Recents, schedule instant restart via AlarmManager
-     */
     override fun onTaskRemoved(rootIntent: Intent?) {
         try {
             val restartServiceIntent = Intent(applicationContext, GodownAlertWatcherService::class.java).also {
@@ -194,8 +300,6 @@ class GodownAlertWatcherService : Service() {
                 if (unhandledAlerts.length() > 0) {
                     // Check if MainActivity is currently in the foreground (user is actively using the app)
                     if (MainActivity.isAppInForeground) {
-                        // User is actively inside the Godown order dashboard!
-                        // Do NOT hijack the screen with a jarring call popup every few seconds!
                         if (ContinuousRingtoneService.isCurrentlyRinging) {
                             ContinuousRingtoneService.muteSoundOnly(this)
                         }
@@ -206,14 +310,11 @@ class GodownAlertWatcherService : Service() {
                     // Check if IncomingOrderCallActivity is ALREADY active on screen:
                     val existingCallActivity = IncomingOrderCallActivity.currentInstance
                     if (existingCallActivity != null && !existingCallActivity.isFinishing) {
-                        // Just update the list without re-launching or flashing the activity!
                         existingCallActivity.updateOrders(unhandledAlerts)
                     } else if (!ContinuousRingtoneService.isCurrentlyRinging) {
-                        // Launch call screen ONLY when not already open and not already ringing!
                         triggerCallScreen(unhandledAlerts)
                     }
                 } else if (ContinuousRingtoneService.isCurrentlyRinging) {
-                    // All pending orders resolved or snoozed! Silence ringtone
                     ContinuousRingtoneService.stopRinging(this)
                     IncomingOrderCallActivity.currentInstance?.finish()
                 }
@@ -239,13 +340,13 @@ class GodownAlertWatcherService : Service() {
         val amountStr = if (amountPaise > 0) "₹" + String.format("%,.2f", amountPaise / 100.0) else ""
         val packagingStr = "📦 $cartonCount Cartons • $looseCount Loose Pieces (Total: $totalPieces Pcs)"
 
-        // 1. Acquire WakeLock to turn on screen even when locked
+        // 1. Acquire WakeLock to turn ON the screen even when locked
         try {
             val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
             if (wakeLock == null || !wakeLock!!.isHeld) {
                 @Suppress("DEPRECATION")
                 wakeLock = pm.newWakeLock(
-                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
                     "jmdcart:incoming_order_wake"
                 )
                 wakeLock?.acquire(30000)
@@ -254,7 +355,7 @@ class GodownAlertWatcherService : Service() {
             e.printStackTrace()
         }
 
-        // 2. Start Continuous Ringtone & Vibration
+        // 2. Start Continuous Ringtone & Full-Screen Notification
         ContinuousRingtoneService.startRinging(
             this,
             orderId,
@@ -266,10 +367,10 @@ class GodownAlertWatcherService : Service() {
             alertsArray.toString()
         )
 
-        // 3. Directly launch IncomingOrderCallActivity over lockscreen
+        // 3. Directly launch IncomingOrderCallActivity over lockscreen as well
         try {
             val callIntent = Intent(this, IncomingOrderCallActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 putExtra(ContinuousRingtoneService.EXTRA_ORDER_ID, orderId)
                 putExtra(ContinuousRingtoneService.EXTRA_ORDER_NUMBER, orderNumber)
                 putExtra(ContinuousRingtoneService.EXTRA_CUSTOMER_NAME, customerName)
@@ -321,6 +422,16 @@ class GodownAlertWatcherService : Service() {
     override fun onDestroy() {
         scheduler?.shutdownNow()
         scheduler = null
+
+        if (isScreenReceiverRegistered) {
+            try {
+                unregisterReceiver(screenReceiver)
+                isScreenReceiverRegistered = false
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+
         try {
             if (wakeLock?.isHeld == true) {
                 wakeLock?.release()
