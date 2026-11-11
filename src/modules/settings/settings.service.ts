@@ -55,6 +55,8 @@ export const DEFAULT_INVOICE_PRINT_SETTINGS: InvoicePrintSettings = {
   footerDeliveryText: "CALL US FOR FREE DOOR DELIVERY",
   footerDeliveryPhone: "7979749009",
   defaultFormat: "thermal_80",
+  paperWidthMm: 80,
+  contentWidthMm: 72,
 };
 
 export const DEFAULT_BUSINESS_DETAILS: BusinessDetails = {
@@ -367,8 +369,17 @@ export class SettingsService {
   }
 
   async getInvoicePrintSettings(): Promise<InvoicePrintSettings> {
-    const data = await settingsRepository.getSetting<InvoicePrintSettings>("invoice_print_settings");
-    return data ? { ...DEFAULT_INVOICE_PRINT_SETTINGS, ...data } : DEFAULT_INVOICE_PRINT_SETTINGS;
+    const [data, paperWidthMm, contentWidthMm] = await Promise.all([
+      settingsRepository.getSetting<InvoicePrintSettings>("invoice_print_settings"),
+      settingsRepository.getSetting<number>("print.paperWidthMm"),
+      settingsRepository.getSetting<number>("print.contentWidthMm"),
+    ]);
+    return {
+      ...DEFAULT_INVOICE_PRINT_SETTINGS,
+      ...(data || {}),
+      ...(typeof paperWidthMm === "number" && paperWidthMm > 0 ? { paperWidthMm } : {}),
+      ...(typeof contentWidthMm === "number" && contentWidthMm > 0 ? { contentWidthMm } : {}),
+    };
   }
 
   async updateInvoicePrintSettings(

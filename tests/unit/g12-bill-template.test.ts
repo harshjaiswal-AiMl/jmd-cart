@@ -191,46 +191,40 @@ describe("G12: Busy-Style 2-Row Cash/UPI Thermal & Restored Credit Templates", (
     });
     const html = renderDirectPrintHtml(cashInvoice, mockBusiness, "thermal");
 
-    // Extract <thead> columns inside table.bill-table
+    // Extract <thead> columns inside table.bill-table (R4 5-column Epson TM-T82 format)
     const theadMatch = html.match(/<table class="bill-table">[\s\S]*?<thead>([\s\S]*?)<\/thead>/);
     const thMatches = theadMatch?.[1].match(/<th[^>]*>.*?<\/th>/g) || [];
-    expect(thMatches.length).toBe(4);
-    expect(thMatches.join(" ")).toContain("Sl");
+    expect(thMatches.length).toBe(5);
+    expect(thMatches.join(" ")).toContain("Sl No");
     expect(thMatches.join(" ")).toContain("Product");
-    expect(thMatches.join(" ")).toContain("Price");
-    expect(thMatches.join(" ")).toContain("Amt.");
+    expect(thMatches.join(" ")).toContain("Qty");
+    expect(thMatches.join(" ")).toContain("Rate");
+    expect(thMatches.join(" ")).toContain("Amount");
 
-    // 2 rows per item (Sl + Product row, then Qty/Unit + Price + Amt. row) without MRP/Disc% clutter
-    expect(html).toContain("6.00");
-    expect(html).toContain("Pcs.");
-    expect(html).toContain("2.00");
-    expect(html).toContain("Crt");
+    expect(html).toContain("6 Pcs");
+    expect(html).toContain("2 Crt");
     expect(html).toContain("45.00");
-    expect(html).toContain("115.00"); // 5.75 * 20
+    expect(html).toContain("115.00");
     expect(html).not.toContain("Disc%");
 
-    // Dark high-contrast typography & thermal rules
+    // Monochrome high-contrast typography & thermal rules (11px-17px)
     expect(html).toContain("#000000");
-    expect(html).toContain("font-size: 22px");
-    expect(html).toContain("font-size: 26px");
-    expect(html).toContain("font-weight: 900");
+    expect(html).toContain("jmd-cart-logo-thermal.png");
+    expect(html).toContain("font-size: 17px");
     expect(html).toContain("@page {");
     expect(html).toContain("margin: 0;");
-    expect(html).toContain("In Words:");
     expect(html).toContain("THANK YOU! VISIT AGAIN!");
     expect(html).toContain("CALL US FOR FREE DOOR DELIVERY");
-    expect(html).toContain("A unit of Jai Mata Di");
     expect(html).toContain("GST included");
   });
 
-  it("renders pre-G12 Credit Thermal & A5 Demand Bill templates for Credit invoices without dues text on thermal", () => {
+  it("renders R4 Credit Thermal (plain bold Amount Pending without DUES/stamp) & A5 Demand Bill templates", () => {
     const htmlThermal = renderDirectPrintHtml(makeInvoice(), mockBusiness, "thermal");
     const bodyOnly = htmlThermal.replace(/<style[\s\S]*?<\/style>/gi, "");
     expect(bodyOnly).not.toMatch(/\b(dues|outstanding|previous balance|credit limit|stamp)\b/i);
     expect(bodyOnly).toContain("CREDIT");
     expect(bodyOnly).toContain("Gupta Kirana");
-    expect(bodyOnly).toContain("MRP");
-    expect(bodyOnly).toContain("Disc%");
+    expect(bodyOnly).toContain("Amount Pending: ₹");
 
     const htmlA5 = renderDirectPrintHtml(makeInvoice(), mockBusiness, "a4");
     expect(htmlA5).toContain("size: A5 portrait");
@@ -266,7 +260,7 @@ describe("G12: Busy-Style 2-Row Cash/UPI Thermal & Restored Credit Templates", (
     expect(html).toContain("GST &amp; HSN TAX SUMMARY");
     expect(html).toContain("2106 (5%)");
     expect(html).toContain("CANCELLED");
-    expect(html).toContain("font-size: 13pt");
-    expect(html).toContain("font-size: 22pt");
+    expect(html).toContain("font-size: 11.5pt");
+    expect(html).toContain("font-size: 16pt");
   });
 });

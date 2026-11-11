@@ -101,6 +101,8 @@ export const invoicePrintSettingsSchema = z.object({
   footerDeliveryText: z.string().default("CALL US FOR FREE DOOR DELIVERY"),
   footerDeliveryPhone: z.string().default("7979749009"),
   defaultFormat: z.enum(["thermal_80", "thermal_58", "a5", "a4"]).default("thermal_80"),
+  paperWidthMm: z.number().int().min(48).max(120).default(80),
+  contentWidthMm: z.number().int().min(40).max(110).default(72),
 });
 
 export type InvoicePrintSettings = z.infer<typeof invoicePrintSettingsSchema>;

@@ -385,10 +385,11 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
     expect(printBody).not.toMatch(/[\u0900-\u097F]/);
   });
 
-  test("R4: Thermal bill has 480px logo first, date & party next, 5 columns, and 11-17px typography without overflow", async ({
+  test("R4: Thermal bill has 480px logo first, date & party next, 5 columns, Credit-only plain Amount Pending, 11-17px typography, zero overflow, and 576px/80mm artifacts", async ({
     page,
   }) => {
     await loginAs(page, "9876543210", "admin123", "**/admin**");
+    await page.setViewportSize({ width: 288, height: 1000 });
     await page.goto("/shop/invoices/sample/preview", { waitUntil: "load" });
     const billSheet = page.locator('[data-testid="bill-document"]').first();
     await expect(billSheet).toBeVisible({ timeout: 10000 });
@@ -398,7 +399,56 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
     const natWidth = await logoImg.evaluate((el: HTMLImageElement) => el.naturalWidth);
     expect(natWidth).toBe(480);
 
-    const thCount = await billSheet.locator("table thead th").count();
-    expect(thCount).toBe(5);
+    // 5 columns: Sl No | Product | Qty | Rate | Amount
+    const thTexts = await billSheet.locator("table thead th").allInnerTexts();
+    expect(thTexts.length).toBe(5);
+    expect(thTexts.join("|")).toContain("Sl No");
+    expect(thTexts.join("|")).toContain("Product");
+    expect(thTexts.join("|")).toContain("Qty");
+    expect(thTexts.join("|")).toContain("Rate");
+    expect(thTexts.join("|")).toContain("Amount");
+
+    // Verify zero horizontal overflow and strict 11-17px computed font sizes
+    const layoutMetrics = await page.evaluate(() => {
+      const sheet = document.querySelector('[data-testid="bill-document"]') as HTMLElement;
+      const logoRect = sheet.querySelector("img")!.getBoundingClientRect();
+      const tableRect = sheet.querySelector("table")!.getBoundingClientRect();
+      const sizes: number[] = [];
+      const walk = (el: Element) => {
+        if (el.textContent && el.textContent.trim().length > 0 && el.children.length === 0) {
+          sizes.push(parseFloat(window.getComputedStyle(el).fontSize));
+        }
+        for (const ch of Array.from(el.children)) walk(ch);
+      };
+      walk(sheet);
+      return {
+        logoBeforeTable: logoRect.top < tableRect.top,
+        sheetScrollW: sheet.scrollWidth,
+        sheetClientW: sheet.clientWidth,
+        minFont: Math.min(...sizes),
+        maxFont: Math.max(...sizes),
+      };
+    });
+    expect(layoutMetrics.logoBeforeTable).toBe(true);
+    expect(layoutMetrics.sheetScrollW).toBeLessThanOrEqual(layoutMetrics.sheetClientW + 1);
+    expect(layoutMetrics.minFont).toBeGreaterThanOrEqual(11);
+    expect(layoutMetrics.maxFont).toBeLessThanOrEqual(17);
+
+    const previewText = await billSheet.innerText();
+    expect(previewText).not.toMatch(/[\u0900-\u097F]/);
+    expect(previewText).not.toMatch(/\b(DUES|OUTSTANDING|BALANCE|STAMP)\b/i);
+    expect(previewText).not.toContain("Amount Pending:");
+
+    // Generate all 6 PNGs (576px width) and 80mm PDFs into artifacts/r4-bills/
+    const { renderR4ThermalArtifacts } = await import("../../scripts/render-r4-bills");
+    const fxMetrics = await renderR4ThermalArtifacts("http://127.0.0.1:3000");
+    expect(fxMetrics.length).toBe(5);
+    for (const m of fxMetrics) {
+      expect(m.imgNatWidth, `${m.name} logo width`).toBe(480);
+      expect(m.scrollWidth, `${m.name} zero overflow`).toBeLessThanOrEqual(m.clientWidth + 1);
+      expect(m.cellOverflowCount, `${m.name} zero column overlap`).toBe(0);
+      expect(m.minFontPx, `${m.name} min font`).toBeGreaterThanOrEqual(11);
+      expect(m.maxFontPx, `${m.name} max font`).toBeLessThanOrEqual(17);
+    }
   });
 });
