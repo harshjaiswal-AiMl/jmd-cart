@@ -247,3 +247,13 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
   - [x] G4: Linked Price + Percent inputs per A/B/C tier with persisted `PERCENT`/`RATE` modes and `>=50%` / tier-order validation warnings.
   - [x] G5 & G9: Keyboard-only 5-item POS billing (`>=16px` grid, 3px `#790E11` active outline, `#FEFDF7` cream / `#790E11` maroon / `#FDAF18` amber light theme, bottom key legend bar).
   - [x] G6 & G7: Eliminated infinite image `onError` retries, blocking Google Fonts CSS, mount IP geo calls, festive infinite CSS loops, and off-screen RSC prefetches; fixed Lighthouse A11y contrast & tap targets.
+
+- 2026-11-11: Prompt #09 Complete (Scope-Locked) — R1–R6 + X0/X1:
+  - [x] X0 Baseline: Synced branch `feat/prompt-09-scope-locked` cleanly from main (`5b2c61d`), froze permission snapshot (`artifacts/baseline/permissions-snapshot.json`) and 12 UI baseline screenshots (`artifacts/baseline/screenshots/`).
+  - [x] R1 Roles Matrix Editable: Made `/admin/roles` editable via accessible switches (Space/Enter/Arrows) with Undo toast, audit changelog, immediate permission resolution cache invalidation, Super Admin safeguards, and Sales & Billing group (`pos.deleteBill`, `invoice.void`).
+  - [x] R2 Cashier Bill Delete / Void: Wired POS `F8` bill discard to `pos.deleteBill` and invoice void (`CANCELLED`, `SALE_CANCEL`, counter-entries, GSTR-1 warning) to `invoice.void` with server 403 enforcement.
+  - [x] R5 Shop POS Credit Default: Added `pos.creditAllParties` (default on) allowing credit at Shop POS for every named party without rewriting party rows, blocking walk-in, and enforcing `creditLimitPaise > 0`.
+  - [x] R6 One Product Search Engine: Standardized on shared `smart-search.ts` / `product-search.server.ts` + shared `ProductSearchCombobox` across Shop POS, Purchase, Audit, Stock Transfer, Admin Catalog, Ctrl+K, and Storefront.
+  - [x] R3 Hindi Van App: Localized `/van`, `/van/*`, `/app/van` into everyday Hindi (Western `0-9`, `₹`, `dd-mm-yyyy`), self-hosted Noto Sans Devanagari (`>= 16px`), nullable `name_hi`/`name_hi_source`, English print guarantee, and generated `artifacts/hindi-names-review.csv` (927 products, 1,730 parties).
+  - [x] R4 3-inch Thermal Bill & Logo: Unified 80mm/72mm thermal bill for Epson TM-T82 with centered 480px pure 1-bit Floyd-Steinberg B&W logo, 5-column layout, Credit-only plain bold `Amount Pending: ₹X`, normalized `11-17px` (`10-16pt` A4) type, and rendered 6 PNG/PDF artifacts (`artifacts/r4-bills/`).
+  - [x] X1 Scope Lock & Gates: Audited permission snapshot diff (10 roles exact match, +2 R1 rows only) and 12-route baseline screenshot diff (`0%` max pixel diff); 3 consecutive `pnpm gates` PASS.

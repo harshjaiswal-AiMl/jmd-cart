@@ -215,7 +215,7 @@ async function main() {
   const unitPureRes = runSync("pnpm exec vitest --config vitest.unit.config.ts run tests/unit/smart-search.test.ts tests/unit/party-search.test.ts tests/unit/search-everywhere.test.ts tests/unit/gst.test.ts", {
     VITEST_UNIT: "true",
   });
-  const unitPrompt09Res = runSync("pnpm exec vitest run tests/unit/r3-hindi-van.test.ts tests/unit/r4-thermal-bill.test.ts tests/unit/g12-bill-template.test.ts tests/unit/r6-search-parity.test.ts", {
+  const unitPrompt09Res = runSync("pnpm exec vitest run tests/unit/r3-hindi-van.test.ts tests/unit/r4-thermal-bill.test.ts tests/unit/g12-bill-template.test.ts tests/unit/r6-search-parity.test.ts tests/unit/prompt09-breakit.test.ts", {
     DATABASE_URL: TEST_DB_URL,
   });
   const unitRes = {
