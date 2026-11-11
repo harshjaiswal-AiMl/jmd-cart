@@ -1284,3 +1284,77 @@ export async function updateProductMasterFromPosAction(input: {
     return { success: false, error: err?.message || "Failed to update product details." };
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Split a revision snapshot into a brand-new invoice for a different party
+// ─────────────────────────────────────────────────────────────────────────────
+export async function splitInvoiceFromRevisionAction(input: {
+  revisionId: string;
+  locationId: string;
+  targetPartyId?: string | null;
+  targetCustomerName?: string;
+  snapshotTarget?: "before" | "after";
+}): Promise<{ success: boolean; newInvoiceId?: string; newInvoiceNumber?: string; error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { success: false, error: "Unauthorized" };
+
+  try {
+    // 1. Load the revision
+    const revision = await prisma.invoiceRevision.findUnique({
+      where: { id: input.revisionId },
+      select: { beforeSnapshot: true, afterSnapshot: true },
+    });
+    if (!revision) return { success: false, error: "Revision not found" };
+
+    const snap: any =
+      (input.snapshotTarget === "after" ? revision.afterSnapshot : revision.beforeSnapshot) ??
+      revision.beforeSnapshot;
+    if (!snap?.items || !Array.isArray(snap.items) || snap.items.length === 0) {
+      return { success: false, error: "Snapshot has no items to split" };
+    }
+
+    // 2. Map snapshot items → finalize input items
+    const items = (snap.items as any[]).map((it: any) => ({
+      productId: it.productId as string,
+      qty: it.qty as number,
+      unitLabel: it.unitLabel as string | undefined,
+      unitPriceOverridePaise: it.unitPricePaise as number | undefined,
+      originalMrpPaise: it.mrpPaise as number | undefined,
+    }));
+
+    // 3. Build payment using original payment mode from snapshot (default CASH)
+    const origInvoice: any = snap.invoice ?? {};
+    const totalPaise: number = origInvoice.totalPaise ?? 0;
+    const origPayments: any[] = Array.isArray(snap.payments) ? snap.payments : [];
+    const payments: Array<{ mode: "CASH" | "UPI" | "CARD" | "CREDIT"; amountPaise: number }> =
+      origPayments.length > 0
+        ? origPayments.map((p: any) => ({ mode: p.mode ?? "CASH", amountPaise: p.amountPaise ?? totalPaise }))
+        : [{ mode: "CASH", amountPaise: totalPaise }];
+
+    // 4. Finalize new invoice
+    const invoice = await billingService.finalizeInvoice(
+      session.user.role,
+      {
+        channel: InvoiceChannel.SHOP,
+        locationId: input.locationId,
+        partyId: input.targetPartyId ?? null,
+        customerName: input.targetCustomerName,
+        orderDiscountBp: origInvoice.discountBp ?? 0,
+        isInterState: origInvoice.isInterState ?? false,
+        documentType: (origInvoice.documentType ?? "RETAIL") as "RETAIL" | "GST",
+        pricingTier: origInvoice.pricingTier ?? "AUTO",
+        items,
+        payments,
+        paymentStatus: payments[0]?.mode === "CREDIT" ? "PENDING" : "PAID",
+        idempotencyKey: `split-${input.revisionId}-${Date.now()}`,
+        notes: `Split from revision ${input.revisionId}`,
+      },
+      session.user.id
+    );
+
+    return { success: true, newInvoiceId: invoice.id, newInvoiceNumber: invoice.number };
+  } catch (err: any) {
+    console.error("[splitInvoiceFromRevisionAction error]:", err);
+    return { success: false, error: err?.message || "Failed to split invoice from revision" };
+  }
+}
