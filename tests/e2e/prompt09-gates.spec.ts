@@ -170,7 +170,7 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
         finishDialog.locator('button:has-text("Save & Print")').click(),
       ]);
       await expect(finishDialog).toHaveCount(0, { timeout: 10000 });
-      await expect(page.locator("tbody tr[data-line-id]")).toHaveCount(0, { timeout: 10000 });
+      await expect(page.locator('text=/Saved INV\\//i')).toBeVisible({ timeout: 10000 });
 
       await page.goto("/shop/invoices", { waitUntil: "load" });
       const invIdAttr = await page.locator('a[href^="/shop/invoices/"]').first().getAttribute("href");
