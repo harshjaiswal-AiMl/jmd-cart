@@ -1,6 +1,9 @@
 package com.jmdcart.godown
 
 import android.app.AlarmManager
+import android.content.ComponentName
+import android.content.Context
+import androidx.appcompat.app.AlertDialog
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -34,6 +37,11 @@ class MainActivity : AppCompatActivity() {
         isAppInForeground = true
         // If ringtone was buzzing while opening app, silence sound
         ContinuousRingtoneService.muteSoundOnly(this)
+
+        // Check if OEM guidance dialog should be shown after system popups finish
+        if (isNotificationPermissionGranted() && DeviceRegistrationManager.isBatteryOptimizationIgnored(this)) {
+            showOemGuidanceDialog()
+        }
     }
 
     override fun onPause() {
@@ -236,15 +244,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isNotificationPermissionGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
     private fun checkNotificationAndBatteryPermissions() {
-        // 1. Android 13+ Notification Permission
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        // Step 1: Request Notification permission first (Native system popup on Android 13+)
+        if (!isNotificationPermissionGranted()) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
             }
+        } else {
+            // Notifications already granted -> proceed to battery optimization
+            checkBatteryOptimizationSetup()
         }
+    }
 
-        // 2. Battery Optimization Exemption (Crucial for background waking when phone is locked)
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 101) {
+            // Once user answers notification popup -> automatically trigger battery popup
+            checkBatteryOptimizationSetup()
+        }
+    }
+
+    private fun checkBatteryOptimizationSetup() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!DeviceRegistrationManager.isBatteryOptimizationIgnored(this)) {
                 try {
@@ -254,52 +282,99 @@ class MainActivity : AppCompatActivity() {
                     startActivity(intent)
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    showOemGuidanceDialog()
                 }
+            } else {
+                showOemGuidanceDialog()
             }
+        } else {
+            showOemGuidanceDialog()
+        }
+    }
+
+    private fun showOemGuidanceDialog() {
+        val prefs = DeviceRegistrationManager.getPrefs(this)
+        if (prefs.getBoolean("oem_guide_shown", false)) return
+
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        val isOemPhone = manufacturer.contains("xiaomi") || manufacturer.contains("redmi") ||
+                         manufacturer.contains("poco") || manufacturer.contains("vivo") ||
+                         manufacturer.contains("iqoo") || manufacturer.contains("oppo") ||
+                         manufacturer.contains("realme")
+
+        if (!isOemPhone) {
+            // For Pixel, Samsung, Motorola - standard permissions are sufficient!
+            prefs.edit().putBoolean("oem_guide_shown", true).apply()
+            return
         }
 
-        // 3. Android 14+ Full Screen Intent Permission (Crucial for incoming call popup over lockscreen)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            if (!DeviceRegistrationManager.canUseFullScreenIntent(this)) {
-                try {
-                    val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
-                        data = Uri.parse("package:$packageName")
-                    }
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    // ignore
-                }
+        AlertDialog.Builder(this)
+            .setTitle("📞 Phone Band Rehne Pe Call Setup")
+            .setMessage("Phone band ya lock rehne par bhi naye dispatch order ki telephone ring aane ke liye:\n\n1. 'Autostart' ko ON karein\n2. 'Show on Lock Screen' ko Allow karein\n\nNeeche button dabakar seedha phone setting kholiye.")
+            .setPositiveButton("Open Settings") { dialog, _ ->
+                prefs.edit().putBoolean("oem_guide_shown", true).apply()
+                dialog.dismiss()
+                openOemPermissions(this)
             }
-        }
+            .setNegativeButton("Theek Hai") { dialog, _ ->
+                prefs.edit().putBoolean("oem_guide_shown", true).apply()
+                dialog.dismiss()
+            }
+            .setCancelable(false)
+            .show()
+    }
 
-        // 4. Android 12+ Exact Alarm Permission (Ensures hardware RTC wakeups in deep sleep)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    private fun openOemPermissions(context: Context) {
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        if (manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco")) {
             try {
-                val alarmManager = getSystemService(AlarmManager::class.java)
-                if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
-                    val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                        data = Uri.parse("package:$packageName")
-                    }
-                    startActivity(intent)
+                val intent = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
+                    setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity")
+                    putExtra("extra_pkgname", context.packageName)
                 }
+                context.startActivity(intent)
+                return
             } catch (e: Exception) {
-                // ignore
+                try {
+                    val intent = Intent().apply {
+                        component = ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")
+                    }
+                    context.startActivity(intent)
+                    return
+                } catch (e2: Exception) {
+                    // fallback
+                }
+            }
+        } else if (manufacturer.contains("vivo") || manufacturer.contains("iqoo")) {
+            try {
+                val intent = Intent().apply {
+                    component = ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.PurviewTabActivity")
+                }
+                context.startActivity(intent)
+                return
+            } catch (e: Exception) {
+                // fallback
+            }
+        } else if (manufacturer.contains("oppo") || manufacturer.contains("realme") || manufacturer.contains("oneplus")) {
+            try {
+                val intent = Intent().apply {
+                    component = ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.PermissionManagerActivity")
+                }
+                context.startActivity(intent)
+                return
+            } catch (e: Exception) {
+                // fallback
             }
         }
 
-        // 5. Draw Over Other Apps / Overlay Permission (Required on Xiaomi/Vivo/Oppo for lockscreen popups)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (!Settings.canDrawOverlays(this)) {
-                try {
-                    val intent = Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    )
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    // ignore
-                }
+        // Universal Fallback: Application Details Settings
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:${context.packageName}")
             }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
