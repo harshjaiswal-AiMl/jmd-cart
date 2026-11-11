@@ -205,6 +205,7 @@ export function buildInvoiceViewModel(
   const creditPayment = payments.find((p) => p.mode === "CREDIT");
   const isCredit =
     !!creditPayment ||
+    invoice.paymentStatus === "PENDING" ||
     invoice.paymentStatus === "PARTIAL" ||
     (invoice.paymentStatus as string) === "UNPAID";
 
@@ -429,10 +430,10 @@ export function buildInvoiceViewModel(
     isCash,
     isNonCash: !isCash,
     isCredit,
-    paymentStatus: invoice.paymentStatus || (invoice.totalPaise > payments.reduce((s, p) => s + p.amountPaise, 0) ? "PENDING" : "PAID"),
-    isPaymentPending: (invoice.paymentStatus === "PENDING" || invoice.paymentStatus === "PARTIAL" || (invoice.paymentStatus as any) === "UNPAID") && (invoice.totalPaise - payments.reduce((s, p) => s + p.amountPaise, 0) > 0),
-    pendingAmountPaise: Math.max(0, invoice.totalPaise - payments.reduce((s, p) => s + p.amountPaise, 0)),
-    pendingAmountFormatted: (Math.max(0, invoice.totalPaise - payments.reduce((s, p) => s + p.amountPaise, 0)) / 100).toFixed(2),
+    paymentStatus: invoice.paymentStatus || (invoice.totalPaise > payments.filter((p) => p.mode !== "CREDIT").reduce((s, p) => s + p.amountPaise, 0) ? "PENDING" : "PAID"),
+    isPaymentPending: (invoice.paymentStatus === "PENDING" || invoice.paymentStatus === "PARTIAL" || (invoice.paymentStatus as any) === "UNPAID") && (invoice.totalPaise - payments.filter((p) => p.mode !== "CREDIT").reduce((s, p) => s + p.amountPaise, 0) > 0),
+    pendingAmountPaise: Math.max(0, invoice.totalPaise - payments.filter((p) => p.mode !== "CREDIT").reduce((s, p) => s + p.amountPaise, 0)),
+    pendingAmountFormatted: (Math.max(0, invoice.totalPaise - payments.filter((p) => p.mode !== "CREDIT").reduce((s, p) => s + p.amountPaise, 0)) / 100).toFixed(2),
 
     customer: {
       name: custName,

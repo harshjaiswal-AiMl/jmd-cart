@@ -174,20 +174,36 @@ describe("R4: 3-inch Thermal Bill (Epson TM-T82) & Normalized Typography", () =>
     expect(body).not.toMatch(/\d+(?:\.\d+)?\s+GST included/);
   });
 
-  it("Credit thermal bill includes plain bold 'Amount Pending: ₹X' below Grand Total without box/stamp/DUES/OUTSTANDING/BALANCE", () => {
-    const html = renderDirectPrintHtml(
+  it("Credit thermal bill (Full Credit payments=[] PENDING and Partial Credit PARTIAL) prints Mode CREDIT and plain bold 'Amount Pending: ₹X' below Grand Total", () => {
+    const fullCreditHtml = renderDirectPrintHtml(
       makeSampleInvoice({
         paymentStatus: PaymentStatus.PENDING,
-        payments: [{ id: "pay-cr", mode: PaymentMode.CREDIT, amountPaise: 50000 }],
+        payments: [],
       }),
       mockBusiness,
       "thermal"
     );
-    const body = html.replace(/<style[\s\S]*?<\/style>/gi, "");
-    expect(body).toContain("Amount Pending: ₹500.00");
-    expect(body.indexOf("Amount Pending:")).toBeGreaterThan(body.indexOf("Grand Total:"));
-    expect(body).not.toMatch(/\b(DUES|OUTSTANDING|BALANCE|STAMP)\b/i);
-    expect(html).not.toMatch(/[\u0900-\u097F]/);
+    const fullBody = fullCreditHtml.replace(/<style[\s\S]*?<\/style>/gi, "");
+    expect(fullBody).toContain("CREDIT");
+    expect(fullBody).not.toContain(">CASH<");
+    expect(fullBody).toContain("Amount Pending: ₹500.00");
+    expect(fullBody.indexOf("Amount Pending:")).toBeGreaterThan(fullBody.indexOf("Grand Total:"));
+    expect(fullBody).not.toMatch(/\b(DUES|OUTSTANDING|BALANCE|STAMP)\b/i);
+    expect(fullCreditHtml).not.toMatch(/[\u0900-\u097F]/);
+
+    const partialCreditHtml = renderDirectPrintHtml(
+      makeSampleInvoice({
+        paymentStatus: PaymentStatus.PARTIAL,
+        payments: [{ id: "pay-cash-part", mode: PaymentMode.CASH, amountPaise: 20000 }],
+      }),
+      mockBusiness,
+      "thermal"
+    );
+    const partialBody = partialCreditHtml.replace(/<style[\s\S]*?<\/style>/gi, "");
+    expect(partialBody).toContain("CREDIT");
+    expect(partialBody).not.toContain(">CASH<");
+    expect(partialBody).toContain("Amount Pending: ₹300.00");
+    expect(partialBody.indexOf("Amount Pending:")).toBeGreaterThan(partialBody.indexOf("Grand Total:"));
   });
 
   it("Voided thermal bill prints CANCELLED cleanly", () => {

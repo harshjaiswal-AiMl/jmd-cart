@@ -755,9 +755,33 @@ export function PosClient({
         selectedTierMode: "AUTO",
         cart: editCart,
         orderDiscountPercent: "0",
-        paymentMode: initialEditInvoice.payments?.find((p: any) => p.mode === "CREDIT")?.mode || initialEditInvoice.payments?.[0]?.mode || PaymentMode.CASH,
-        splitCashPaise: "",
-        splitUpiPaise: "",
+        paymentMode:
+          initialEditInvoice.paymentStatus === "PENDING" ||
+          (initialEditInvoice.paymentStatus as string) === "UNPAID"
+            ? PaymentMode.CREDIT
+            : initialEditInvoice.paymentStatus === "PARTIAL"
+            ? ("SPLIT" as any)
+            : initialEditInvoice.payments?.find((p: any) => p.mode === "CREDIT")?.mode ||
+              initialEditInvoice.payments?.[0]?.mode ||
+              PaymentMode.CASH,
+        splitCashPaise:
+          initialEditInvoice.paymentStatus === "PARTIAL"
+            ? (() => {
+                const cashP = (initialEditInvoice.payments || [])
+                  .filter((p: any) => p.mode === "CASH")
+                  .reduce((s: number, p: any) => s + (p.amountPaise || 0), 0);
+                return cashP > 0 ? (cashP / 100).toString() : "";
+              })()
+            : "",
+        splitUpiPaise:
+          initialEditInvoice.paymentStatus === "PARTIAL"
+            ? (() => {
+                const upiP = (initialEditInvoice.payments || [])
+                  .filter((p: any) => p.mode === "UPI")
+                  .reduce((s: number, p: any) => s + (p.amountPaise || 0), 0);
+                return upiP > 0 ? (upiP / 100).toString() : "";
+              })()
+            : "",
         remarks: initialEditInvoice.notes || "",
         documentType: initialEditInvoice.documentType || "RETAIL",
         isHeld: false,
@@ -4053,7 +4077,7 @@ export function PosClient({
 
                 <button
                   type="button"
-                  onClick={() => updateActiveTab({ paymentMode: PaymentMode.CREDIT })}
+                  onClick={() => updateActiveTab({ paymentMode: PaymentMode.CREDIT, paymentCollected: false })}
                   className={`py-1.5 px-2 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                     activeTab.paymentMode === PaymentMode.CREDIT
                       ? "bg-slate-900 text-white shadow-xs"

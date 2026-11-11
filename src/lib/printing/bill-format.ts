@@ -22,7 +22,14 @@ export function formatRupeesEN(paise: number): string {
 
 export function resolveBillModeLabel(invoice: InvoiceWithDetails): string {
   const modes = (invoice.payments || []).map((p) => p.mode);
-  if (modes.includes("CREDIT")) return "CREDIT";
+  if (
+    modes.includes("CREDIT") ||
+    invoice.paymentStatus === "PENDING" ||
+    invoice.paymentStatus === "PARTIAL" ||
+    (invoice.paymentStatus as string) === "UNPAID"
+  ) {
+    return "CREDIT";
+  }
   if (modes.length > 1 && modes.includes("CASH") && modes.includes("UPI")) {
     return "SPLIT (CASH + UPI)";
   }
