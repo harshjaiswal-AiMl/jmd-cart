@@ -323,7 +323,7 @@ export function renderDirectPrintHtml(
 
   const leftGrandNote = isGst
     ? `Total Pcs: ${escapeHtml(vm.totals.totalPiecesFormatted)}`
-    : `${vm.totals.totalTaxPaise > 0 ? `${escapeHtml(vm.totals.totalTaxRupees)} ` : ""}GST included`;
+    : "GST included";
 
   const sz = (thermalPx: string, a4Pt: string) => (isA4 ? a4Pt : thermalPx);
 
@@ -374,11 +374,6 @@ export function renderDirectPrintHtml(
     display: block;
     margin: 0 auto 4px;
     image-rendering: pixelated;
-  }
-  .header-phone {
-    font-size: ${sz("12px", "11pt")};
-    font-weight: 800;
-    text-align: center;
   }
   .header-sub {
     font-size: ${sz("11px", "10pt")};
@@ -533,7 +528,6 @@ export function renderDirectPrintHtml(
 
   <div class="logo-wrap">
     <img src="/brand/jmd-cart-logo-thermal.png" alt="JMDCART" width="480" class="brand-logo" />
-    <div class="header-phone">Ph: ${escapeHtml(phoneDisplay)}</div>
     ${
       isGst && vm.business.address
         ? `<div class="header-sub">${escapeHtml(vm.business.address)}</div>`

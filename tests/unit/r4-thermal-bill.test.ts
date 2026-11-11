@@ -164,11 +164,14 @@ describe("R4: 3-inch Thermal Bill (Epson TM-T82) & Normalized Typography", () =>
       expect(s).toBeLessThanOrEqual(17);
     }
 
-    // No Devanagari, no Amount Pending on Cash bill, no forbidden credit buzzwords
+    // No Devanagari, no Amount Pending on Cash bill, no forbidden credit buzzwords, no top Ph: under logo, no tax amount prefix before "GST included"
     const body = html.replace(/<style[\s\S]*?<\/style>/gi, "");
     expect(body).not.toMatch(/[\u0900-\u097F]/);
     expect(body).not.toContain("Amount Pending:");
     expect(body).not.toMatch(/\b(DUES|OUTSTANDING|BALANCE|STAMP)\b/i);
+    expect(body).not.toContain("Ph:");
+    expect(body).toContain("GST included");
+    expect(body).not.toMatch(/\d+(?:\.\d+)?\s+GST included/);
   });
 
   it("Credit thermal bill includes plain bold 'Amount Pending: ₹X' below Grand Total without box/stamp/DUES/OUTSTANDING/BALANCE", () => {

@@ -69,7 +69,7 @@ export function BillDocument({
   const lineItems = invoice.items.map((item, idx) => getBillLineItemDisplay(item, idx));
   const leftGrandNote = isGst
     ? `Total Pcs: ${vm.totals.totalPiecesFormatted}`
-    : `${vm.totals.totalTaxPaise > 0 ? `${vm.totals.totalTaxRupees} ` : ""}GST included`;
+    : "GST included";
 
   const sz = (thermalPx: string, a4Pt: string) => (isA4 ? a4Pt : thermalPx);
 
@@ -152,9 +152,6 @@ export function BillDocument({
             imageRendering: "pixelated",
           }}
         />
-        <div style={{ fontSize: sz("12px", "11pt"), fontWeight: 800, color: "#000000" }}>
-          Ph: {phoneDisplay}
-        </div>
         {isGst && vm.business.address && (
           <div style={{ fontSize: sz("11px", "10pt"), fontWeight: 700, color: "#000000" }}>
             {vm.business.address}
