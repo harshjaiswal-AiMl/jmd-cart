@@ -1,3 +1,4 @@
+import { searchProducts as sharedSearchProducts } from "@/lib/search/product-search.server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { pricingService, resolvePrice } from "@/modules/pricing/pricing.service";
@@ -125,77 +126,26 @@ export class StoreService {
       buyerApproved = false,
     } = query;
 
-    // 1. Build product SQL filters (excluding unpriced items from public storefront)
-    const whereParts: Prisma.Sql[] = [
-      Prisma.sql`p.active = true`,
-      Prisma.sql`(COALESCE(p.mrp_paise, 0) > 0 OR COALESCE(p.price_c_paise, 0) > 0)`,
-    ];
-
-    if (companyId) {
-      whereParts.push(Prisma.sql`(
-        p.company_id = ${companyId}
-        OR EXISTS (
-          SELECT 1 FROM companies c WHERE c.id = p.company_id AND c.name ILIKE ${companyId}
-        )
-      )`);
-    }
-    if (categoryId) {
-      whereParts.push(Prisma.sql`(
-        p.category_id = ${categoryId}
-        OR EXISTS (
-          SELECT 1 FROM categories cat WHERE cat.id = p.category_id AND cat.name ILIKE ${categoryId}
-        )
-      )`);
-    }
-    if (inStockOnly) {
-      whereParts.push(Prisma.sql`(${stockRankSql("STOREFRONT")}) = 1`);
-    }
-
-    if (query.productIds && query.productIds.length > 0) {
-      const idClauses = query.productIds.map((id) => Prisma.sql`${id}`);
-      whereParts.push(Prisma.sql`p.id IN (${Prisma.join(idClauses, ", ")})`);
-    }
-
-    if (q && q.trim().length > 0) {
-      const tokens = q.trim().split(/\s+/).filter(Boolean);
-      if (tokens.length > 0) {
-        const tokenConditions = tokens.map((token) => {
-          const pattern = `%${token}%`;
-          return Prisma.sql`(
-            p.short_code ILIKE ${pattern}
-            OR p.name ILIKE ${pattern}
-            OR COALESCE(p.weight, '') ILIKE ${pattern}
-            OR EXISTS (
-              SELECT 1 FROM companies c WHERE c.id = p.company_id AND c.name ILIKE ${pattern}
-            )
-            OR EXISTS (
-              SELECT 1 FROM categories cat WHERE cat.id = p.category_id AND cat.name ILIKE ${pattern}
-            )
-          )`;
-        });
-        whereParts.push(Prisma.sql`(${Prisma.join(tokenConditions, " AND ")})`);
-      }
-    }
-
-    const whereSql = Prisma.join(whereParts, " AND ");
-
-    // 2. Fetch product IDs ordered by in_stock_rank DESC, name ASC BEFORE pagination in database
-    const [{ productIds, totalCount }, allSlabs] = await Promise.all([
-      queryRankedProductIds("STOREFRONT", {
-        whereSql,
+    const [{ matchedIds, total }, allSlabs] = await Promise.all([
+      sharedSearchProducts({
+        q,
+        companyId,
+        categoryId,
+        productIds: query.productIds,
+        storefrontOnly: true,
+        requireInStock: inStockOnly,
         limit,
         offset,
       }),
       pricingService.getSlabs(),
     ]);
 
-    if (productIds.length === 0) {
-      return { products: [], total: totalCount };
+    if (matchedIds.length === 0) {
+      return { products: [], total };
     }
 
-    // 3. Fetch product details and maintain exact database ranking
     const productsRaw = await prisma.product.findMany({
-      where: { id: { in: productIds } },
+      where: { id: { in: matchedIds } },
       include: {
         company: true,
         category: true,
@@ -204,12 +154,10 @@ export class StoreService {
         },
       },
     });
-
     const productMap = new Map<string, any>(productsRaw.map((p: any) => [p.id, p]));
-    const products = productIds
+    const products = matchedIds
       .map((id) => productMap.get(id))
       .filter((p: any): p is NonNullable<any> => Boolean(p));
-
 
     // 3. Transform products into storefront view models
     const activeSlabs = allSlabs.filter((s) => s.active);
@@ -327,7 +275,7 @@ export class StoreService {
     return {
       products: items,
 
-      total: totalCount,
+      total,
     };
   }
 

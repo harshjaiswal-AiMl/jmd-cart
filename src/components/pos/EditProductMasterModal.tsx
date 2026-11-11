@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import React, { useState, useEffect, useRef } from "react";
 import { X, Save, Edit3, Camera, UploadCloud, Search, CheckCircle2 } from "lucide-react";
@@ -309,13 +310,7 @@ export function EditProductMasterModal({
   };
 
   // Search filter for switcher
-  const filteredProducts = productSearch.trim()
-    ? allProducts.filter((p) =>
-        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-        (p.shortCode && p.shortCode.toLowerCase().includes(productSearch.toLowerCase())) ||
-        (p.weight && p.weight.toLowerCase().includes(productSearch.toLowerCase()))
-      ).slice(0, 8)
-    : [];
+  const filteredProducts = productSearch.trim() ? (searchItems(productSearch, allProducts as any, { limit: 8 }) as typeof allProducts) : [];
 
   if (!isOpen) return null;
 

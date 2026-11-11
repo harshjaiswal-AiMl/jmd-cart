@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -110,19 +111,10 @@ export function ReportsClient({
     new Set(stockData.items.map((i) => i.companyName))
   ).sort();
 
+  const stockSearchSet = stockSearch.trim() ? new Set(searchItems(stockSearch, stockData.items.map((i) => ({ ...i, id: i.productId })), { limit: stockData.items.length || 500 }).map((m) => m.id)) : null;
   const filteredStockItems = stockData.items.filter((item) => {
-    if (
-      stockCompanyFilter !== "ALL" &&
-      item.companyName !== stockCompanyFilter
-    ) {
-      return false;
-    }
-    if (stockSearch.trim()) {
-      const q = stockSearch.toLowerCase().trim();
-      const matchName = item.name.toLowerCase().includes(q);
-      const matchCode = item.shortCode.toLowerCase().includes(q);
-      if (!matchName && !matchCode) return false;
-    }
+    if (stockCompanyFilter !== "ALL" && item.companyName !== stockCompanyFilter) return false;
+    if (stockSearchSet && !stockSearchSet.has(item.productId)) return false;
     return true;
   });
 

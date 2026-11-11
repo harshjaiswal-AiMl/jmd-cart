@@ -1,3 +1,4 @@
+import { searchProducts as sharedSearchProducts } from "@/lib/search/product-search.server";
 import { prisma } from "@/lib/prisma";
 import { MovementType, InvoiceChannel } from "@prisma/client";
 import { startOfIstDay, endOfIstDay } from "@/lib/datetime";
@@ -74,12 +75,9 @@ export class ItemStockStatementService {
     const productWhere: Record<string, unknown> = { active: true };
     if (filters.companyId) productWhere.companyId = filters.companyId;
     if (filters.categoryId) productWhere.categoryId = filters.categoryId;
-    if (filters.search) {
-      const q = filters.search.trim().toLowerCase();
-      productWhere.OR = [
-        { name: { contains: q, mode: "insensitive" } },
-        { shortCode: { contains: q, mode: "insensitive" } },
-      ];
+    if (filters.search?.trim()) {
+      const sr = await sharedSearchProducts({ q: filters.search, companyId: filters.companyId, categoryId: filters.categoryId, limit: 5000, offset: 0 });
+      productWhere.id = { in: sr.matchedIds };
     }
 
     const products = await prisma.product.findMany({

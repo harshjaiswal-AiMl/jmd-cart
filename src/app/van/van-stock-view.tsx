@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import React, { useState } from "react";
 import { Search, Package, Box, Layers, ArrowUpRight } from "lucide-react";
@@ -34,15 +35,13 @@ export function VanStockView({
   const { t } = useVanLanguage();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filtered = inventory.filter((item) => {
-    if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      item.product.name.toLowerCase().includes(term) ||
-      item.product.shortCode.toLowerCase().includes(term) ||
-      (item.product.company?.name && item.product.company.name.toLowerCase().includes(term))
-    );
-  });
+  const filtered = !searchTerm.trim()
+    ? inventory
+    : (() => {
+        const hits = searchItems(searchTerm, inventory.map((item) => ({ id: item.product.id, name: item.product.name, nameHi: (item.product as any).nameHi, shortCode: item.product.shortCode, companyName: item.product.company?.name })), { limit: inventory.length || 500 });
+        const byId = new Map(inventory.map((i) => [i.product.id, i]));
+        return hits.map((h) => byId.get(h.id)).filter((x): x is (typeof inventory)[number] => Boolean(x));
+      })();
 
   return (
     <div className="space-y-4">

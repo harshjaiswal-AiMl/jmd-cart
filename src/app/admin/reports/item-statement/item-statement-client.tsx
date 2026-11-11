@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import React, { useState, useMemo, useTransition } from "react";
 import Link from "next/link";
@@ -53,7 +54,9 @@ export function ItemStatementClient({
 
   // Local filtering across the fetched dataset
   const filteredRows = useMemo(() => {
+    const searchIds = search.trim() ? new Set(searchItems(search, report.rows.map((r) => ({ id: r.productId, name: r.productName, shortCode: r.shortCode, companyName: r.companyName })), { limit: report.rows.length || 500 }).map((m) => m.id)) : null;
     return report.rows.filter((row) => {
+      if (searchIds && !searchIds.has(row.productId)) return false;
       if (companyId !== "ALL" && row.companyName !== companyId) return false;
       if (categoryId !== "ALL" && row.categoryName !== categoryId) return false;
       if (onlyWithMovement && row.totalSoldQty === 0 && row.purchasedQty === 0 && row.transfersInQty === 0) {
@@ -68,13 +71,7 @@ export function ItemStatementClient({
         if (selectedWeightChip === "1kg" && !row.weightDisplay.toLowerCase().includes("kg") && !row.weightDisplay.includes("1000")) return false;
       }
 
-      if (search.trim()) {
-        const q = search.trim().toLowerCase();
-        const nameMatch = row.productName.toLowerCase().includes(q);
-        const codeMatch = row.shortCode.toLowerCase().includes(q);
-        const companyMatch = row.companyName.toLowerCase().includes(q);
-        if (!nameMatch && !codeMatch && !companyMatch) return false;
-      }
+
 
       return true;
     });

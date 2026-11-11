@@ -1,3 +1,4 @@
+import { searchItems } from "@/lib/search/smart-search";
 import { prisma } from "@/lib/prisma";
 import { BillScanLineMatchStatus } from "@prisma/client";
 
@@ -174,6 +175,8 @@ export class ProductMatcher {
       hsn: string;
     }>
   ): MatchResult {
+    const smartMatches = searchItems(parsedName, products.map((p) => ({ id: p.id, name: p.name, shortCode: p.shortCode, mrpPaise: p.mrpPaise, packSize: p.packSize, packLabel: p.packLabel })), { limit: 15 });
+    const smartRankMap = new Map(smartMatches.map((m, idx) => [m.id, idx]));
     const scored: MatchCandidate[] = [];
 
     for (const p of products) {
@@ -182,6 +185,11 @@ export class ProductMatcher {
       // Bonus if short code matches
       if (normalizeText(parsedName).includes(p.shortCode.toLowerCase())) {
         score = Math.min(1.0, score + 0.3);
+      }
+
+      const smartIdx = smartRankMap.get(p.id);
+      if (smartIdx !== undefined) {
+        score = Math.min(1.0, score + Math.max(0.1, 0.35 - smartIdx * 0.03));
       }
 
       // Bonus if HSN matches

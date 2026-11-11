@@ -278,11 +278,8 @@ export function ProMobileClient({
   };
 
   const catalogFilteredProducts = useMemo(() => {
-    const q = catalogSearch.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter((p) =>
-      p.name.toLowerCase().includes(q) || (p.shortCode && p.shortCode.toLowerCase().includes(q))
-    );
+    if (!catalogSearch.trim()) return products;
+    return searchItems(catalogSearch, products as any, { limit: products.length || 500 }) as unknown as ProProduct[];
   }, [products, catalogSearch]);
 
   const [parties, setParties] = useState<ProParty[]>(initialParties);

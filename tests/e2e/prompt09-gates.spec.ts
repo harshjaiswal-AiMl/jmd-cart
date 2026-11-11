@@ -275,18 +275,56 @@ test.describe("Prompt 09 Scope-Locked Gates (R1-R6)", () => {
     }
   });
 
-  test("R6: Shared product search returns consistent results across POS and Catalog", async ({
+  test("R6: Shared product search returns consistent results across POS, Catalog, and Storefront APIs", async ({
     page,
   }) => {
     await loginAs(page, "9876543210", "admin123", "**/admin**");
     await page.goto("/shop/pos", { waitUntil: "load" });
+    const popup = page.locator('[data-testid="pos-party-popup"]');
+    if (await popup.isVisible().catch(() => false)) {
+      await page.keyboard.press("Escape");
+    }
 
+    // Weight conversion + typo tolerance + MRP in Shop POS
     const search = page.locator("#pos-item-search");
     await expect(search).toBeVisible({ timeout: 15000 });
-    await search.fill("bikaji");
-    await page.waitForTimeout(300);
-    const posDropdown = await page.locator('[data-testid="pos-search-results"]').innerText();
-    expect(posDropdown.toLowerCase()).toContain("bikaji");
+    await search.fill("1000g bikaji");
+    await page.waitForTimeout(250);
+    const dd1 = await page.locator('[data-testid="pos-search-results"]').innerText();
+    expect(dd1).toContain("Bikaji Bhujia 1kg");
+
+    await search.fill("bikji");
+    await page.waitForTimeout(250);
+    const dd2 = await page.locator('[data-testid="pos-search-results"]').innerText();
+    expect(dd2).toContain("Bikaji Bhujia 1kg");
+
+    await search.fill("250");
+    await page.waitForTimeout(250);
+    const dd3 = await page.locator('[data-testid="pos-search-results"]').innerText();
+    expect(dd3).toContain("Bikaji Bhujia 1kg");
+
+    // Storefront search APIs use the exact same shared engine & ranking
+    for (const q of ["1000g bikaji", "bikji", "250"]) {
+      const webRes = await page.request.get(`/api/store/search?q=${encodeURIComponent(q)}`);
+      expect(webRes.status()).toBe(200);
+      const webJson = await webRes.json();
+      expect(webJson.products?.length).toBeGreaterThanOrEqual(1);
+      expect(webJson.products[0].name).toContain("Bikaji Bhujia 1kg");
+
+      const mobRes = await page.request.get(`/api/store/v1/search?q=${encodeURIComponent(q)}`);
+      expect(mobRes.status()).toBe(200);
+      const mobJson = await mobRes.json();
+      expect(mobJson.products?.length).toBeGreaterThanOrEqual(1);
+      expect(mobJson.products[0].id).toBe(webJson.products[0].id);
+    }
+
+    // Admin Catalog search box uses same weight conversion / typo tolerance
+    await page.goto("/admin/catalog", { waitUntil: "load" });
+    const catInput = page.locator('input[placeholder*="Search" i]').first();
+    await expect(catInput).toBeVisible({ timeout: 10000 });
+    await catInput.fill("1000g bikji");
+    await page.waitForTimeout(250);
+    await expect(page.locator("text=Bikaji Bhujia 1kg").first()).toBeVisible({ timeout: 5000 });
   });
 
   test("R3: Van app routes render Hindi UI cleanly and bills stay English", async ({

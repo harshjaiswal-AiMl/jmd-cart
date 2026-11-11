@@ -1,4 +1,5 @@
 "use client";
+import { searchItems } from "@/lib/search/smart-search";
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -167,13 +168,11 @@ export function EditVanIssueClient({ vanDay, products }: EditVanIssueClientProps
 
   // Products available to add (not currently in loadLines)
   const availableToAdd = useMemo(() => {
-    return products
-      .filter((p) => !loadLines[p.id])
-      .filter((p) => {
-        if (!search.trim()) return true;
-        const q = search.toLowerCase();
-        return p.name.toLowerCase().includes(q) || p.shortCode.toLowerCase().includes(q);
-      })
+    const eligible = products.filter((p) => !loadLines[p.id]);
+    if (search.trim()) {
+      return searchItems(search, eligible.map((p) => ({ ...p, godownStockQty: p.godownQty })), { limit: eligible.length || 500 }) as unknown as typeof products;
+    }
+    return eligible
       .sort((a, b) => {
         const aStock = a.godownQty > 0 ? 1 : 0;
         const bStock = b.godownQty > 0 ? 1 : 0;
