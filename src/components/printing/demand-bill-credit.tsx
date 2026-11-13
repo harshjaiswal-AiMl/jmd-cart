@@ -114,19 +114,7 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
 
           {/* Table of Goods with DUES Watermark */}
           <div className="relative">
-            {/* Authentic DUES Rubber Stamp Watermark */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden z-10">
-              <div
-                className="border-[3px] sm:border-[4px] border-dashed border-[#7e22ce] text-[#7e22ce] px-3 py-1 sm:px-5 sm:py-1.5 rounded-lg font-black tracking-widest text-2xl sm:text-4xl uppercase opacity-60 print:opacity-40 shadow-inner transform -rotate-12"
-                style={{
-                  fontFamily: "Impact, 'Arial Black', sans-serif",
-                  letterSpacing: "0.2em",
-                  textShadow: "0 0 1px rgba(126, 34, 206, 0.4)",
-                }}
-              >
-                DUES
-              </div>
-            </div>
+            
 
             <table className="demand-bill-table w-full text-[10px] sm:text-xs print:text-[9.5px] border-collapse table-fixed">
               <thead>
@@ -191,7 +179,7 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
                     Total :
                   </td>
                   <td className="border-r border-black py-1 px-1 text-right font-mono">
-                    {vm.totalPieces.toFixed(2)}
+                    {vm.totalQuantityFormatted}
                   </td>
                   <td className="border-r border-black py-1 px-1 text-center">
                     &nbsp;
@@ -201,7 +189,7 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
                   </td>
                   <td className="py-1 px-1 text-right font-mono font-bold">
                     <div className="flex items-baseline justify-end gap-1 flex-wrap">
-                      {vm.gstIncluded && (
+                      {(invoice.documentType === "GST" && vm.gstIncluded) && (
                         <span className="text-[8px] font-normal text-slate-500 lowercase italic">
                           (gst inc.)
                         </span>
@@ -220,7 +208,7 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
               <span className="font-bold">Rupees : </span>
               <span className="font-semibold italic text-gray-800 break-words">{vm.amountInWords}</span>
             </div>
-            {vm.gstIncluded && (
+            {(invoice.documentType === "GST" && vm.gstIncluded) && (
               <span className="text-[9px] text-gray-600 italic">
                 GST included
               </span>
@@ -230,7 +218,7 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
           {/* Signatures section */}
           <div className="grid grid-cols-2 border-t border-black h-14 sm:h-16 text-[10px] sm:text-xs print:text-[9px]">
             <div className="p-1.5 border-r border-black flex flex-col justify-end italic text-gray-800">
-              Receiver&apos;s Signature
+              Receiver&apos;s Signatory
             </div>
             <div className="p-1.5 flex flex-col justify-end items-end italic text-gray-800">
               Authorised Signatory

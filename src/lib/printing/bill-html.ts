@@ -20,12 +20,16 @@ function escapeHtml(text: string): string {
 }
 
 function isCreditInvoice(invoice: InvoiceWithDetails): boolean {
-  return (
-    (invoice.payments || []).some((p) => p.mode === "CREDIT") ||
-    invoice.paymentStatus === "PENDING" ||
-    invoice.paymentStatus === "PARTIAL" ||
-    (invoice.paymentStatus as string) === "UNPAID"
-  );
+  const payments = invoice.payments || [];
+  const hasCredit = payments.some((p) => p.mode === "CREDIT");
+  if (hasCredit) return true;
+  const hasCashOrUpi = payments.some((p) => p.mode === "CASH" || p.mode === "UPI" || p.mode === "CARD");
+  if (!hasCashOrUpi && (invoice.paymentStatus === "PENDING" || (invoice.paymentStatus as string) === "UNPAID")) {
+    return true;
+  }
+  const nonCreditPaid = payments.filter((p) => p.mode !== "CREDIT").reduce((s, p) => s + p.amountPaise, 0);
+  const remaining = Math.max(0, invoice.totalPaise - nonCreditPaid);
+  return hasCashOrUpi && remaining > 500 && Boolean(invoice.partyId);
 }
 
 /**
@@ -208,7 +212,7 @@ function renderCreditDemandA5Html(
       <tfoot>
         <tr>
           <td colspan="2" style="text-align:right">Total :</td>
-          <td style="text-align:right">${escapeHtml(vm.totalPieces.toFixed(2))}</td>
+          <td style="text-align:right">${escapeHtml(vm.totalQuantityFormatted)}</td>
           <td></td>
           <td></td>
           <td style="text-align:right">${escapeHtml(vm.payableFormatted)}</td>
@@ -218,11 +222,11 @@ function renderCreditDemandA5Html(
 
     <div class="words-bar">
       <div><strong>Rupees :</strong> ${escapeHtml(vm.amountInWords)}</div>
-      ${vm.gstIncluded ? `<span style="font-size:10pt">GST included</span>` : ""}
+      ${(invoice.documentType === "GST" && vm.gstIncluded) ? `<span style="font-size:10pt">GST included</span>` : ""}
     </div>
 
     <div class="sig-row">
-      <div>Receiver's Signature</div>
+      <div>Receiver's Signatory</div>
       <div>Authorised Signatory</div>
     </div>
   </div>
@@ -244,13 +248,13 @@ function renderCreditDemandA5Html(
 export function renderDirectPrintHtml(
   invoice: InvoiceWithDetails,
   business: BusinessDetails,
-  format: "thermal" | "a4" = "thermal",
+  format: "thermal" | "a4" | "a5" = "thermal",
   options?: { paperWidthMm?: number; contentWidthMm?: number }
 ): string {
   const vm = buildInvoiceViewModel(invoice, business);
   const creditBill = isCreditInvoice(invoice);
 
-  if (creditBill && format === "a4") {
+  if (format === "a5" || (creditBill && format === "a4")) {
     return renderCreditDemandA5Html(invoice, vm);
   }
 
@@ -600,6 +604,11 @@ export function renderDirectPrintHtml(
         </div>`
       : ""
   }
+
+  <div style="display:flex;justify-content:space-between;margin:12px 0 6px;font-size:8.5px;font-weight:700;">
+    <div>Receiver's Signatory</div>
+    <div>Authorised Signatory</div>
+  </div>
 
   <div class="footer">
     <div>THANK YOU! VISIT AGAIN!</div>

@@ -1,4 +1,5 @@
 import { InvoiceWithDetails } from "@/modules/billing/billing.types";
+import { normalizeUnitCode } from "@/modules/catalog/units";
 
 export interface BillLineItemDisplay {
   id: string;
@@ -21,20 +22,48 @@ export function formatRupeesEN(paise: number): string {
 }
 
 export function resolveBillModeLabel(invoice: InvoiceWithDetails): string {
-  const modes = (invoice.payments || []).map((p) => p.mode);
+  const payments = invoice.payments || [];
+  const modes = payments.map((p) => p.mode);
+  const hasCash = modes.includes("CASH");
+  const hasUpi = modes.includes("UPI");
+  const hasCard = modes.includes("CARD");
+  const hasCredit = modes.includes("CREDIT");
+
+  const nonCreditPaid = payments
+    .filter((p) => p.mode !== "CREDIT")
+    .reduce((s, p) => s + p.amountPaise, 0);
+  const remaining = Math.max(0, invoice.totalPaise - nonCreditPaid);
+
+  if (hasCash && hasUpi) {
+    if (remaining > 500 && Boolean(invoice.partyId)) {
+      return "SPLIT";
+    }
+    return "SPLIT (CASH + UPI)";
+  }
   if (
-    modes.includes("CREDIT") ||
-    invoice.paymentStatus === "PENDING" ||
-    invoice.paymentStatus === "PARTIAL" ||
-    (invoice.paymentStatus as string) === "UNPAID"
+    hasCredit ||
+    (!hasCash && !hasUpi && !hasCard && (invoice.paymentStatus === "PENDING" || (invoice.paymentStatus as string) === "UNPAID"))
   ) {
     return "CREDIT";
   }
-  if (modes.length > 1 && modes.includes("CASH") && modes.includes("UPI")) {
-    return "SPLIT (CASH + UPI)";
+  if (hasUpi) {
+    if (remaining > 500 && Boolean(invoice.partyId)) {
+      return "SPLIT (UPI + CREDIT)";
+    }
+    return "UPI";
   }
-  if (modes.includes("UPI")) return "UPI";
-  if (modes.includes("CARD")) return "CARD";
+  if (hasCard) {
+    if (remaining > 500 && Boolean(invoice.partyId)) {
+      return "SPLIT (CARD + CREDIT)";
+    }
+    return "CARD";
+  }
+  if (hasCash) {
+    if (remaining > 500 && Boolean(invoice.partyId)) {
+      return "SPLIT (CASH + CREDIT)";
+    }
+    return "CASH";
+  }
   return "CASH";
 }
 
@@ -42,7 +71,10 @@ function normalizeUnitDisplay(rawUnit: string, packLabel?: string | null): strin
   const label = (packLabel || rawUnit || "Crt").trim();
   const lower = label.toLowerCase();
   if (lower === "carton" || lower === "ctn" || lower === "crt") return "Crt";
-  if (lower === "bag") return "Bag";
+  if (lower === "bag" || lower === "beg") return "Bag";
+  if (lower === "hanger" || lower === "hgr") return "Hgr";
+  if (lower === "jar") return "Jar";
+  if (lower === "dozen" || lower === "dzn") return "Dzn";
   return label;
 }
 
@@ -52,17 +84,16 @@ export function getBillLineItemDisplay(
 ): BillLineItemDisplay {
   const packSize = Math.max(1, item.product?.packSize || 1);
   const rawUnit = (item.unitLabel || "").trim();
-  const explicitCartonUnit =
-    rawUnit === "Carton" || rawUnit === "Ctn" || rawUnit === "Crt" || rawUnit === "Bag";
-  const inferredCartonUnit =
-    !rawUnit && packSize > 1 && item.qty >= packSize && item.qty % packSize === 0;
-  const isCarton = (explicitCartonUnit || inferredCartonUnit) && packSize > 1;
+  const canonicalUnit = normalizeUnitCode(rawUnit);
+  const isCarton = (canonicalUnit === "Carton" || canonicalUnit === "Bag") && packSize > 1;
 
   const qtyValue = isCarton ? item.qty / packSize : item.qty;
   const qtyDisplay = Number.isInteger(qtyValue) ? String(qtyValue) : qtyValue.toFixed(2);
   const unitDisplay = isCarton
     ? normalizeUnitDisplay(rawUnit, item.product?.packLabel)
-    : "Pcs";
+    : canonicalUnit === "Pcs"
+    ? "Pcs"
+    : canonicalUnit;
   const ratePaise = isCarton ? item.unitPricePaise * packSize : item.unitPricePaise;
   const amountPaise = item.taxablePaise + item.taxPaise;
 

@@ -14,6 +14,8 @@ export enum Permission {
 
   // Stock & Godown
   STOCK_RECEIVE = "STOCK_RECEIVE",
+  GRN_ADD_PRODUCT = "grn.addProduct",
+  GRN_EDIT_PRODUCT = "grn.editProduct",
   STOCK_TRANSFER = "STOCK_TRANSFER",
   STOCK_CARTON_BREAK = "STOCK_CARTON_BREAK",
   STOCK_AUDIT = "STOCK_AUDIT",
@@ -80,6 +82,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MANAGE_PRODUCTS,
     Permission.IMPORT_PRODUCTS,
     Permission.STOCK_RECEIVE,
+    Permission.GRN_ADD_PRODUCT,
+    Permission.GRN_EDIT_PRODUCT,
     Permission.STOCK_TRANSFER,
     Permission.STOCK_CARTON_BREAK,
     Permission.STOCK_AUDIT,

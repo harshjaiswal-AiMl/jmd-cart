@@ -73,8 +73,15 @@ export class PurchaseService {
       },
     });
 
-    // 2. Post stock ledger movements for every received item
+    // 2. Post stock ledger movements and sync MRP if provided
     for (const item of purchase.items) {
+      const origInput = parsed.items.find((p) => p.productId === item.productId);
+      if (origInput?.mrpPaise && origInput.mrpPaise > 0) {
+        await prisma.product.update({
+          where: { id: item.productId },
+          data: { mrpPaise: origInput.mrpPaise },
+        }).catch(() => {});
+      }
       await stockService.postMovement({
         type: MovementType.PURCHASE_RECEIPT,
         productId: item.productId,

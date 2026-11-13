@@ -8,6 +8,7 @@ export const purchaseItemInputSchema = z.object({
   acceptedQty: z.number().int().optional().nullable(),
   varianceReason: z.string().optional().nullable(),
   ratePaise: z.number().int().positive("Purchase rate must be greater than zero"),
+  mrpPaise: z.number().int().optional().nullable(),
   gstRateBp: z.number().int().min(0, "GST rate cannot be negative").default(0),
 });
 

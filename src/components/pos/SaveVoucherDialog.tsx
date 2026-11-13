@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Printer, X, AlertCircle, AlertTriangle, CreditCard } from "lucide-react";
 import { paiseToIndianWords } from "@/lib/number-to-words";
+import { formatUnitTotals } from "@/modules/catalog/units";
 
 export interface VoucherPreviewLine {
   id: string;
@@ -19,7 +20,7 @@ export interface VoucherPreviewLine {
 }
 
 export type DialogPaymentMode = "CASH" | "UPI" | "CREDIT" | "SPLIT";
-export type PrintPaperFormat = "thermal" | "a4";
+export type PrintPaperFormat = "thermal" | "a5" | "a4";
 
 export interface SaveVoucherDialogProps {
   isOpen: boolean;
@@ -85,6 +86,28 @@ export function SaveVoucherDialog({
 
   const [printFormat, setPrintFormat] = useState<PrintPaperFormat>("thermal");
 
+  const selectFormat = (fmt: PrintPaperFormat) => {
+    setPrintFormat(fmt);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(`jmd_pos_print_fmt_${paymentMode}`, fmt);
+      } catch {}
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(`jmd_pos_print_fmt_${paymentMode}`) as PrintPaperFormat | null;
+        if (saved && (saved === "thermal" || saved === "a5" || saved === "a4")) {
+          setPrintFormat(saved);
+        } else {
+          setPrintFormat("thermal");
+        }
+      } catch {}
+    }
+  }, [isOpen, paymentMode]);
+
   // Compute Credit availability reason
   const creditDisabledReason = (() => {
     if (!hasLinkedParty) return "Select a party for credit";
@@ -100,18 +123,7 @@ export function SaveVoucherDialog({
   })();
 
   const isCreditDisabled = Boolean(creditDisabledReason);
-
-  // Determine whether [A] A4 toggle is allowed: Credit bills and GST bills allow A4 (default Thermal)
-  const canToggleA4 = paymentMode === "CREDIT" || documentType === "GST";
-
-  useEffect(() => {
-    // Cash & UPI retail bills are always Thermal
-    if (!canToggleA4) {
-      setPrintFormat("thermal");
-    } else if (isOpen) {
-      setPrintFormat("thermal");
-    }
-  }, [canToggleA4, isOpen]);
+  const canToggleA4 = true;
 
   // Calculate Split amounts
   const parsedCashPaise = Math.max(0, Math.round((parseFloat(splitCashRupees || "0") || 0) * 100));
@@ -180,7 +192,7 @@ export function SaveVoucherDialog({
         }
         e.preventDefault();
         e.stopPropagation();
-        onConfirm(canToggleA4 ? printFormat : "thermal");
+        onConfirm(printFormat);
         return;
       }
 
@@ -212,10 +224,22 @@ export function SaveVoucherDialog({
           onPaymentModeChange?.("SPLIT");
           return;
         }
-        if (k === "a" && canToggleA4) {
+        if (k === "t") {
           e.preventDefault();
           e.stopPropagation();
-          setPrintFormat((prev) => (prev === "thermal" ? "a4" : "thermal"));
+          selectFormat("thermal");
+          return;
+        }
+        if (e.key === "5") {
+          e.preventDefault();
+          e.stopPropagation();
+          selectFormat("a5");
+          return;
+        }
+        if (e.key === "4" || k === "a") {
+          e.preventDefault();
+          e.stopPropagation();
+          selectFormat("a4");
           return;
         }
         if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -517,25 +541,50 @@ export function SaveVoucherDialog({
               </div>
             )}
 
-            {/* Format selector ONLY when Credit or GST bill */}
-            {canToggleA4 && (
-              <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 text-xs">
-                <span className="font-bold text-slate-700">
-                  Print Format (Default: Thermal 3&quot;, press <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded font-mono font-bold">A</kbd> for {paymentMode === "CREDIT" ? "A5 Demand Bill" : "A4"}):
-                </span>
+            {/* Print format selector */}
+            <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 text-xs flex-wrap gap-2">
+              <span className="font-bold text-slate-700">
+                Print Format:
+              </span>
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setPrintFormat((p) => (p === "thermal" ? "a4" : "thermal"))}
-                  className={`px-3 py-1 rounded-lg font-bold border text-xs cursor-pointer transition ${
-                    printFormat === "a4"
-                      ? "bg-[#790E11] text-white border-[#790E11]"
-                      : "bg-slate-100 text-slate-800 border-slate-300"
+                  onClick={() => selectFormat("thermal")}
+                  className={`px-2.5 py-1 rounded-lg font-bold border text-xs cursor-pointer transition flex items-center gap-1 ${
+                    printFormat === "thermal"
+                      ? "bg-[#790E11] text-white border-[#790E11] shadow-xs"
+                      : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
                   }`}
                 >
-                  {printFormat === "a4" ? (paymentMode === "CREDIT" ? "A5 Demand Bill [A]" : "A4 Sheet [A]") : "Thermal 3\" [A]"}
+                  <Printer className="w-3 h-3" />
+                  <span>Thermal [T]</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectFormat("a5")}
+                  className={`px-2.5 py-1 rounded-lg font-bold border text-xs cursor-pointer transition flex items-center gap-1 ${
+                    printFormat === "a5"
+                      ? "bg-[#12355B] text-white border-[#12355B] shadow-xs"
+                      : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <Printer className="w-3 h-3" />
+                  <span>A5 [5]</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectFormat("a4")}
+                  className={`px-2.5 py-1 rounded-lg font-bold border text-xs cursor-pointer transition flex items-center gap-1 ${
+                    printFormat === "a4"
+                      ? "bg-[#12355B] text-white border-[#12355B] shadow-xs"
+                      : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <Printer className="w-3 h-3" />
+                  <span>A4 [4]</span>
                 </button>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Summary Card */}
@@ -562,7 +611,7 @@ export function SaveVoucherDialog({
 
             <div className="border-t border-slate-200 pt-2 flex justify-between items-baseline">
               <div>
-                <span className="text-slate-900 font-bold text-sm">Grand Total ({itemsCount} lines, {totalQtyPcs} pcs):</span>
+                <span className="text-slate-900 font-bold text-sm">Grand Total ({itemsCount} lines, {formatUnitTotals(lines)}):</span>
               </div>
               <span className="text-xl font-mono font-black text-[#790E11]">
                 ₹{(totalAmountPaise / 100).toFixed(2)}
@@ -589,7 +638,7 @@ export function SaveVoucherDialog({
           </button>
           <button
             type="button"
-            onClick={() => !splitInvalid && onConfirm(canToggleA4 ? printFormat : "thermal")}
+            onClick={() => !splitInvalid && onConfirm(printFormat)}
             disabled={isSaving || splitInvalid}
             className="px-5 py-2 bg-[#790E11] hover:bg-[#5E0A0D] disabled:opacity-50 text-white text-xs font-bold rounded-xl transition flex items-center gap-2 cursor-pointer"
           >

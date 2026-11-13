@@ -63,7 +63,10 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
       if (datePreset === "CUSTOM" && customDate) {
         if (invDateStr !== customDate) return false;
       } else if (datePreset === "TODAY") {
-        if (invTime < todayStart || invTime > todayEnd) return false;
+        const createdTime = new Date(inv.createdAt).getTime();
+        const isInvToday = invTime >= todayStart && invTime <= todayEnd;
+        const isCreatedTodayPostDated = createdTime >= todayStart && createdTime <= todayEnd && invTime > todayEnd;
+        if (!isInvToday && !isCreatedTodayPostDated) return false;
       } else if (datePreset === "YESTERDAY") {
         if (invTime < yesterdayStart || invTime > yesterdayEnd) return false;
       } else if (datePreset === "THIS_WEEK") {
