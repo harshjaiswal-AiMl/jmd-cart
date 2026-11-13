@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { X, Plus, AlertTriangle, Package } from "lucide-react";
 import { posQuickAddProductAction } from "@/app/shop/pos/actions";
 
@@ -129,9 +129,7 @@ export function QuickAddProductModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  if (!isOpen) return null;
-
-    const handleQuickSave = async () => {
+  const handleQuickSave = useCallback(async () => {
     const pSize = Math.max(1, parseInt(packSize, 10) || 1);
     const mrp = parseFloat(mrpRs) || 0;
     const rateA = parseFloat(priceARs) || mrp;
@@ -194,7 +192,38 @@ export function QuickAddProductModal({
     } else {
       setErrorMsg(res.error || "Failed to save product");
     }
-  };
+  }, [
+    packSize,
+    mrpRs,
+    priceARs,
+    priceBRs,
+    priceCRs,
+    name,
+    stockCartons,
+    stockLoose,
+    companyName,
+    weight,
+    hsn,
+    gstRatePercent,
+    locationId,
+    onProductSavedOnly,
+    onProductCreated,
+    closeAfterSave,
+    onClose,
+  ]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        e.stopPropagation();
+        void handleQuickSave();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [isOpen, handleQuickSave]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,18 +274,7 @@ export function QuickAddProductModal({
     }
   };
 
-    useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        e.stopPropagation();
-        handleQuickSave();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [isOpen, name, companyName, weight, packSize, mrpRs, priceARs, priceBRs, priceCRs, stockCartons, stockLoose, closeAfterSave]);
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
