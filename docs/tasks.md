@@ -263,3 +263,37 @@ Legend: S = under half a day, M = about a day, L = 2+ days.
   - [x] R2 Product-Wise Stock Movement Ledger: Created full chronological running balance ledger service (`stock-ledger.service.ts`) and interactive UI (`/godown/stock/ledger` and `/godown/stock/[productId]`) with location tabs (Godown, Shop, Vans, All), date presets, movement-type filters, 4 KPI cards, "Matches current stock" reconciliation check (with red alert on difference), Excel CSV export, and printable A4 view. 4/4 unit tests passing (`tests/unit/r2-product-ledger.test.ts`).
   - [x] R3 Overall Day Dispatch View: Built warehouse day dispatch dashboard (`/godown/dispatch/day`) aggregating out movements across Online/Manual Orders, Sales Vans, Shop Transfers, Counter Pickups, and Company Returns for any IST day with 30s auto-refresh, 9 KPI cards, product-wise destination matrix, collapsible detail sections, exceptions panel (failed deliveries, short picks, unreconciled vans, pending orders), and automated integrity cross-check ensuring matrix total equals stock ledger out movements with 0 difference. 3/3 unit tests passing (`tests/unit/r3-day-dispatch.test.ts`).
   - [x] R1 Purchase GRN Redesign (Shop POS Twin): Redesigned the Purchase GRN entry screen (`/godown/purchases/new`) as the exact twin of the Shop POS layout and color system. Features cream background `#FAFAF7`, maroon header badges `#790E11`, orange `+ New (F3)` button, supplier bar in POS party position (`Alt+P`), full-width product search with `All products (Alt+B)` toggle, 12-row min table grid (`# | ITEM DESCRIPTION | QTY | UNIT | MRP | PURCHASE RATE | DISC % | GST % | AMOUNT | ACT`) with maroon outline on light amber active cell, product diagnostics status line with `[F8 Info]`, right panel with dark maroon `NET PAYABLE` hero card (`#FDAF18` numbers), sticky action buttons `Confirm & Post Stock (F2)`, `Hold (F4)`, `New (F3)`, bottom key legend bar, and dialogs (Supplier search popup, F2 confirm & post summary, Alt+N Quick Add Product, Alt+M Product Master, F5 Held GRN drawer). 5/5 unit tests and 3/3 integration tests passing. Zero schema migrations required.
+
+
+- 2026-11-14: Prompt #26 Complete — Purchase / GRN: Up-Down-Left-Right Arrow-Key Control Everywhere (No Mouse), Shop POS Search Inside GRN, Bigger Bill No., and Useful GRN Extras:
+  - [x] Part 0: Sync gate passed against Cloud Run 100% traffic revision `jmd-cart-00108-8l4` (`7f233ca`).
+  - [x] Part A: Shared Keyboard Navigation Layer (`src/lib/keyboard/navigation.ts`, `src/components/common/keyboard/AccessibleInputs.tsx`):
+    - `useRovingFocus` and `useListboxKeyboard` for listboxes, modals, and tab bars.
+    - Two-mode spreadsheet grid position math (`calculateNextGridPosition`) and caret boundary detection (`isAtCaretBoundary`).
+    - `AccessibleDateInput` with `+`/`-` day stepping and vertical arrow field navigation.
+    - `AccessibleUnitSelect` listbox replacing native select with single-letter shortcuts (`C`, `P`, `D`, `B`, `J`, `H`).
+    - `AccessibleNumberInput` with spinners hidden, auto-evaluating safe arithmetic, and vertical arrow navigation.
+    - Region jump shortcuts (`Alt+1` Header, `Alt+2` Grid, `Alt+3` Summary, `Alt+4` Post).
+  - [x] Part B: Shop POS Search Inside GRN (`src/lib/search/smart-search.ts`):
+    - Integrated multi-token prefix matching (`bhuj 400`), weight normalization, and fuzzy fallback with `context: "purchase"`.
+    - Zero-stock items are not penalized in purchase context (stock penalty 0 vs -500 in POS).
+    - Supplier brand boost (+300 score) prioritizing products from selected supplier company.
+    - Fast scanner burst detection.
+    - Full arrow-key up/down navigation in Supplier Modal (`Alt+P`) and Product dropdown with junk supplier badge.
+  - [x] Part C: Bigger Bill No. & High-Contrast Header:
+    - Bill No input sized prominently (220px x 40px, 16px bold).
+    - Real-time duplicate bill number check (`checkDuplicateSupplierBillAction`) warning when supplier invoice already exists.
+    - High-contrast header labels (>= 12px, font-bold).
+  - [x] Part D: P0 Extra Features:
+    - Rate intelligence with last purchase rate display and >5% variance warning.
+    - Selling price helper (`Alt+U`) previewing updated retail margins (off by default, preview-only).
+    - Supplier bill total cross-check field with difference calculation.
+    - Additional charges lines (freight, loading, insurance).
+    - Suggested reorder items drawer (`Alt+R`).
+    - Repeat previous GRN lines (`Alt+L`).
+    - Auto-save local draft & recovery prompt.
+    - Total weight calculation (kg).
+    - Invoice photo/PDF attachment helper (`Alt+A`).
+    - Safe inline math parsing (`evaluateMathExpression`).
+    - Full undo/redo history (`Ctrl+Z`, `Ctrl+Y`).
+  - [x] Part E & F: All unit tests (keyboard navigation, purchase search parity, no-mouse reachability, GRN calculation extras) and integration tests passing.
