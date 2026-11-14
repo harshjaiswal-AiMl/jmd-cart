@@ -82,6 +82,13 @@ export default async function ProductStockLedgerPage({ params }: PageProps) {
 
           <div className="flex items-center gap-2">
             <Link
+              href={`/godown/stock/ledger?productId=${product.id}`}
+              className="px-3.5 py-2 text-xs font-bold rounded-lg text-white shadow-sm transition"
+              style={{ backgroundColor: "#790E11" }}
+            >
+              📊 Full Product Ledger →
+            </Link>
+            <Link
               href="/godown/operations"
               className="px-3.5 py-2 text-xs font-medium rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
             >

@@ -214,6 +214,15 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...GODOWN_AND_ADMIN, UserRole.SHOP],
   },
   {
+    id: "inv-product-ledger",
+    group: "Inventory",
+    label: "Product Ledger",
+    icon: "BookOpen",
+    href: "/godown/stock/ledger",
+    roles: [...GODOWN_AND_ADMIN, UserRole.SHOP, UserRole.ACCOUNTS],
+    requiredPermission: Permission.STOCK_VIEW,
+  },
+  {
     id: "inv-opening-stock",
     group: "Inventory",
     label: "Opening Stock (18-Oct)",

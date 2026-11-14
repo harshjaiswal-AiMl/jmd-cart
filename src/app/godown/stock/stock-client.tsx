@@ -344,12 +344,20 @@ export function StockClient({
                         )}
                       </td>
 
-                      <td className="px-4 py-3.5 text-right">
+                      <td className="px-4 py-3.5 text-right flex items-center justify-end gap-2">
+                        <Link
+                          href={`/godown/stock/ledger?productId=${item.productId}`}
+                          className="inline-flex items-center px-2.5 py-1.5 text-xs font-bold text-white rounded transition-colors shadow-xs"
+                          style={{ backgroundColor: "#790E11" }}
+                          title="View chronological running balance and stock reconciliation"
+                        >
+                          Ledger →
+                        </Link>
                         <Link
                           href={`/godown/stock/${item.productId}`}
-                          className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                          className="inline-flex items-center px-2 py-1 text-xs font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors"
                         >
-                          Movement Ledger →
+                          Details
                         </Link>
                       </td>
                     </tr>

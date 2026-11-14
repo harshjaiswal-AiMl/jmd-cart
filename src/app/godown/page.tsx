@@ -14,6 +14,12 @@ export default async function GodownDashboardPage() {
       color: "bg-teal-50 text-teal-800 border-teal-200",
     },
     {
+      title: "Product Stock Ledger",
+      desc: "Chronological running balance, movement audit trail, In/Out breakdown, and live stock reconciliation.",
+      href: "/godown/stock/ledger",
+      color: "bg-rose-50 text-rose-800 border-rose-200",
+    },
+    {
       title: "Update Stock (Opening / Count / Adjust)",
       desc: "Enter opening stock, physical stock count, +/- adjustments, or bulk CSV upload without a GRN.",
       href: "/godown/stock/update",
@@ -62,6 +68,13 @@ export default async function GodownDashboardPage() {
             className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-3.5 py-2.5 rounded-xl transition"
           >
             ← Management Hub
+          </Link>
+          <Link
+            href="/godown/stock/ledger"
+            className="text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition hover:opacity-95"
+            style={{ backgroundColor: "#790E11" }}
+          >
+            📊 Product Ledger
           </Link>
           <Link
             href="/godown/stock/update"
