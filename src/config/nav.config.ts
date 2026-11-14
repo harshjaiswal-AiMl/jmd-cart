@@ -172,6 +172,14 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [...GODOWN_AND_ADMIN],
   },
   {
+    id: "dispatch-day",
+    group: "Orders & Dispatch",
+    label: "Day Dispatch",
+    icon: "Calendar",
+    href: "/godown/dispatch/day",
+    roles: [...GODOWN_AND_ADMIN, UserRole.ACCOUNTS],
+  },
+  {
     id: "dispatch-create-order",
     group: "Orders & Dispatch",
     label: "+ Create Order",
