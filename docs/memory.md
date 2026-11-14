@@ -991,3 +991,14 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
      - Zero database schema migrations.
      - `pnpm typecheck` passed (0 errors).
      - All 21 tests in unit and integration test suites passed.
+
+## Production Deployment Revision: `jmd-cart-00108-8l4` (2026-11-14)
+- **Git Commit**: `7f233ca` (Branch `main`, synced with `origin/main`).
+- **Cloud Run Service**: `jmd-cart` in `asia-south1`.
+- **Revision**: `jmd-cart-00108-8l4` serving **100%** of live traffic.
+- **Image Digest**: `asia-south1-docker.pkg.dev/jmd-cart/jmd-cart/jmd-cart@sha256:1807ca047fe77df8051dd401280f4ea691feb2fe81aa1ddd2e0ec85c8006f136`.
+- **Verification**:
+  - `https://management.jmdcart.com/api/health` -> `status=ok, db=ok`.
+  - `https://jmdcart.com/api/health` -> `status=ok, db=ok`.
+  - Smoke tests: **34 PASS, 0 FAIL** (`scripts/smoke-prod.ts`).
+  - Cloud Logging: **0 errors** recorded on new revision.
