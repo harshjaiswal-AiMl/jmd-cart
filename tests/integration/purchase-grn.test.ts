@@ -149,10 +149,10 @@ describe("Task 1.7: Purchase & Goods Receipt Note (GRN) Service", () => {
       expect(audit?.actorId).toBe(godownUser.id);
     });
 
-    it("should enforce RBAC: reject purchase recording by Shop staff", async () => {
+    it("should enforce RBAC: reject purchase recording by unauthorized staff", async () => {
       const purchaseData = {
         supplierId: supplier.id,
-        billNo: `SHOP-ATTEMPT-${Date.now()}`,
+        billNo: `UNAUTH-ATTEMPT-${Date.now()}`,
         locationId: godownLocation.id,
         items: [
           {
@@ -166,7 +166,7 @@ describe("Task 1.7: Purchase & Goods Receipt Note (GRN) Service", () => {
 
       await expect(
         purchaseService.recordPurchaseReceive(
-          shopUser.role, // SHOP role does not have STOCK_RECEIVE
+          UserRole.DELIVERY, // DELIVERY role does not have STOCK_RECEIVE
           shopUser.id,
           purchaseData
         )

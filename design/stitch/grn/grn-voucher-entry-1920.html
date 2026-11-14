@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purchase GRN - Twin of Shop POS (1920x1080)</title>
+  <style>
+    :root {
+      --bg: #FAFAF7;
+      --card-bg: #FFFFFF;
+      --maroon: #790E11;
+      --orange: #FC830D;
+      --amber: #FDAF18;
+      --green: #075828;
+      --error: #D32F2F;
+      --border: #E2E8F0;
+      --text: #0F172A;
+      --text-muted: #64748B;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: Inter, Poppins, system-ui, sans-serif; }
+    body { background: var(--bg); color: var(--text); font-size: 14px; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+    
+    /* Top Bar */
+    header {
+      background: #FFFFFF; border-bottom: 1px solid var(--border); padding: 8px 16px;
+      display: flex; align-items: center; justify-content: space-between; height: 48px;
+    }
+    .badge-grn {
+      background: var(--maroon); color: #fff; font-weight: 900; font-size: 11px;
+      padding: 3px 8px; border-radius: 4px; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .btn-orange-f3 {
+      background: var(--orange); color: #000; font-weight: 800; font-size: 12px;
+      padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer;
+    }
+    .btn-top {
+      background: #fff; border: 1px solid #CBD5E1; color: var(--text); font-weight: 700;
+      font-size: 12px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+    }
+
+    /* Info Row */
+    .info-row {
+      background: #FFFFFF; border-bottom: 1px solid var(--border); padding: 6px 16px;
+      display: flex; align-items: center; gap: 12px; height: 44px;
+    }
+    .supplier-bar {
+      flex: 1; display: flex; align-items: center; gap: 8px;
+      background: #F1F5F9; padding: 3px 10px; border-radius: 6px; border: 1px solid #CBD5E1;
+    }
+
+    /* Search Bar */
+    .search-row {
+      background: #FAFAF7; border-bottom: 1px solid var(--border); padding: 6px 16px;
+      display: flex; align-items: center; gap: 12px; height: 44px;
+    }
+    .search-input {
+      flex: 1; padding: 6px 12px; border: 1px solid #CBD5E1; border-radius: 6px; font-size: 13px;
+    }
+
+    /* Main Area: Grid (Left) + Totals Panel (Right) */
+    .main-body { flex: 1; display: flex; overflow: hidden; }
+    .grid-pane { flex: 1; display: flex; flex-direction: column; overflow-y: auto; background: #fff; border-right: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+    th {
+      background: #F8FAFC; padding: 8px 12px; font-size: 11px; font-weight: 800;
+      text-transform: uppercase; color: #475569; border-bottom: 2px solid #CBD5E1; border-right: 1px solid #E2E8F0;
+      position: sticky; top: 0;
+    }
+    td { padding: 6px 12px; border-bottom: 1px solid #F1F5F9; border-right: 1px solid #F1F5F9; }
+    .cell-active { outline: 2px solid var(--maroon); background: #FEF3C7; }
+
+    /* Right Panel */
+    .right-pane { width: 340px; background: #FFFFFF; display: flex; flex-direction: column; justify-content: space-between; border-left: 1px solid var(--border); }
+    .totals-stack { padding: 16px; space-y: 12px; overflow-y: auto; }
+    .net-payable-card {
+      background: var(--maroon); color: #fff; padding: 16px; border-radius: 12px;
+      border: 2px solid var(--amber); margin-top: 12px;
+    }
+    .net-payable-num { font-size: 32px; font-weight: 900; color: var(--amber); font-family: monospace; }
+    .post-btn-f2 {
+      background: var(--maroon); color: #fff; font-size: 14px; font-weight: 800;
+      padding: 12px; width: 100%; border-radius: 8px; border: none; cursor: pointer;
+    }
+
+    /* Legend Bar */
+    footer {
+      background: var(--maroon); color: #fff; padding: 6px 16px; font-size: 11px;
+      font-family: monospace; font-weight: 700; display: flex; gap: 8px; border-top: 2px solid var(--amber);
+      align-items: center; overflow-x: auto;
+    }
+    .k-hint { background: rgba(255,255,255,0.15); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); }
+  </style>
+</head>
+<body>
+  <!-- Breadcrumb & Top Bar -->
+  <header>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <span style="color:#64748B; font-size:12px;">Purchases / Record GRN</span>
+      <span class="badge-grn">PURCHASE GRN</span>
+      <span style="font-size:11px; font-weight:700; background:#E2E8F0; padding:2px 6px; border-radius:4px;">GODOWN RECEIPT</span>
+      <span style="font-size:11px; color:#64748B;">Receiver: Sachin Prakash</span>
+      <span style="background:var(--maroon); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px;">Bikaji Foods Ltd</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <button class="btn-orange-f3">+ New (F3)</button>
+      <button class="btn-top">Hold (F4)</button>
+      <button class="btn-top">Held (F5)</button>
+      <button class="btn-top">+ Product (Alt+N)</button>
+      <button class="btn-top">Master (Alt+M)</button>
+      <button class="btn-top">Today (Alt+T)</button>
+      <button class="btn-top">Purchases</button>
+      <button class="btn-top">Stock</button>
+      <button class="btn-top">Dashboard</button>
+    </div>
+  </header>
+
+  <!-- Info Row -->
+  <div class="info-row">
+    <div style="font-size:11px; font-family:monospace; font-weight:700;">DATE: <strong>14-Nov-2026</strong></div>
+    <div style="font-size:11px; font-family:monospace; font-weight:700; background:#E2E8F0; padding:2px 6px; border-radius:4px;">
+      GRN NO: <strong>GRN/26-27/000108</strong> (Auto)
+    </div>
+    <div class="supplier-bar">
+      <span style="font-weight:700; font-size:12px;">Supplier: Bikaji Foods International Ltd</span>
+      <span style="color:#075828; font-weight:700; font-size:11px;">Payable: ₹1,42,850.00</span>
+      <button class="btn-top" style="padding:2px 8px; font-size:11px;">Supplier (Alt+P)</button>
+    </div>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <span style="font-size:11px; font-weight:700; color:#64748B;">Inv No:</span>
+      <input type="text" placeholder="BILL-7892" style="width:100px; padding:3px 6px; font-size:12px; border:1px solid #CBD5E1; border-radius:4px;" />
+      <span style="font-size:11px; font-weight:700; color:#64748B;">Bill Date:</span>
+      <input type="date" value="2026-11-14" style="padding:2px 6px; font-size:12px; border:1px solid #CBD5E1; border-radius:4px;" />
+      <span style="font-size:11px; font-weight:700; color:#64748B;">Destination:</span>
+      <strong style="font-size:12px;">Main Godown</strong>
+    </div>
+    <div style="margin-left:auto;">
+      <input type="text" placeholder="Narration / Remarks..." style="width:160px; padding:3px 6px; font-size:12px; border:1px solid #CBD5E1; border-radius:4px;" />
+    </div>
+  </div>
+
+  <!-- Search Bar Row -->
+  <div class="search-row">
+    <input type="text" class="search-input" placeholder="Scan or search a product (Ctrl+K / F1) (e.g. 'bhuj 400', 'bisk 50')" />
+    <label style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:4px; cursor:pointer;">
+      <input type="checkbox" /> All products (Alt+B)
+    </label>
+  </div>
+
+  <!-- Main Body -->
+  <div class="main-body">
+    <!-- Grid -->
+    <div class="grid-pane">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px; text-align:center;">#</th>
+            <th>ITEM DESCRIPTION</th>
+            <th style="width:80px; text-align:center;">QTY</th>
+            <th style="width:110px; text-align:center;">UNIT</th>
+            <th style="width:90px; text-align:right;">MRP</th>
+            <th style="width:110px; text-align:right;">PURCHASE RATE</th>
+            <th style="width:80px; text-align:center;">DISC %</th>
+            <th style="width:80px; text-align:center;">GST %</th>
+            <th style="width:110px; text-align:right;">AMOUNT</th>
+            <th style="width:60px; text-align:center;">ACT</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="text-align:center; font-family:monospace;">1</td>
+            <td style="font-weight:700;">Bikaji Bhujia 1kg (Carton of 20)</td>
+            <td style="text-align:center; font-family:monospace;" class="cell-active"><strong>5</strong></td>
+            <td style="text-align:center;">Carton</td>
+            <td style="text-align:right; font-family:monospace;">₹250.00</td>
+            <td style="text-align:right; font-family:monospace;"><strong>₹3,500.00</strong></td>
+            <td style="text-align:center; font-family:monospace;">0%</td>
+            <td style="text-align:center; font-family:monospace;">12%</td>
+            <td style="text-align:right; font-family:monospace; font-weight:700;">₹19,600.00</td>
+            <td style="text-align:center;">🗑️</td>
+          </tr>
+          <tr>
+            <td style="text-align:center; font-family:monospace;">2</td>
+            <td style="font-weight:700;">MDH Deggi Mirch 100g (Carton of 60)</td>
+            <td style="text-align:center; font-family:monospace;">10</td>
+            <td style="text-align:center;">Carton</td>
+            <td style="text-align:right; font-family:monospace;">₹95.00</td>
+            <td style="text-align:right; font-family:monospace;">₹4,200.00</td>
+            <td style="text-align:center; font-family:monospace;">2%</td>
+            <td style="text-align:center; font-family:monospace;">5%</td>
+            <td style="text-align:right; font-family:monospace; font-weight:700;">₹43,218.00</td>
+            <td style="text-align:center;">🗑️</td>
+          </tr>
+          <!-- Empty Rows -->
+          <tr><td style="text-align:center; color:#CBD5E1;">3</td><td colspan="9" style="color:#94A3B8; font-style:italic;">Scan or search a product (Ctrl+K / F1)</td></tr>
+          <tr><td style="text-align:center; color:#CBD5E1;">4</td><td colspan="9"></td></tr>
+          <tr><td style="text-align:center; color:#CBD5E1;">5</td><td colspan="9"></td></tr>
+          <tr><td style="text-align:center; color:#CBD5E1;">6</td><td colspan="9"></td></tr>
+          <tr><td style="text-align:center; color:#CBD5E1;">7</td><td colspan="9"></td></tr>
+          <tr><td style="text-align:center; color:#CBD5E1;">8</td><td colspan="9"></td></tr>
+          <tr><td style="text-align:center; color:#CBD5E1;">9</td><td colspan="9"></td></tr>
+          <tr><td style="text-align:center; color:#CBD5E1;">10</td><td colspan="9"></td></tr>
+          <tr><td style="text-align:center; color:#CBD5E1;">11</td><td colspan="9"></td></tr>
+          <tr><td style="text-align:center; color:#CBD5E1;">12</td><td colspan="9"></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-pane">
+      <div class="totals-stack">
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:#475569;">
+          <span>Bill Discount:</span>
+          <span><input type="number" value="0" style="width:50px; text-align:right;" /> %</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:#475569; margin-top:8px;">
+          <span>Subtotal:</span>
+          <span style="font-family:monospace; font-weight:700;">₹59,500.00</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:#075828; margin-top:4px;">
+          <span>Discount:</span>
+          <span style="font-family:monospace; font-weight:700;">-₹840.00</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:#475569; margin-top:4px;">
+          <span>Taxable Value:</span>
+          <span style="font-family:monospace; font-weight:700;">₹58,660.00</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:#475569; margin-top:4px;">
+          <span>GST Total:</span>
+          <span style="font-family:monospace; font-weight:700;">₹4,158.00</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:#64748B; margin-top:4px; border-top:1px solid #E2E8F0; padding-top:4px;">
+          <span>Round-off:</span>
+          <span style="font-family:monospace;">+₹0.00</span>
+        </div>
+
+        <!-- Net Payable Hero Card -->
+        <div class="net-payable-card">
+          <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:800; letter-spacing:0.05em;">
+            <span style="color:#FEF3C7;">NET PAYABLE</span>
+            <span style="background:rgba(255,255,255,0.2); color:var(--amber); padding:2px 6px; border-radius:4px;">PURCHASE</span>
+          </div>
+          <div class="net-payable-num">₹62,818.00</div>
+          <p style="font-size:11px; color:#FEF3C7; margin-top:6px; border-top:1px solid rgba(255,255,255,0.2); padding-top:4px;">
+            Sixty-Two Thousand Eight Hundred Eighteen Rupees Only
+          </p>
+        </div>
+
+        <div style="font-size:11px; color:#64748B; margin-top:12px;">
+          <div>Stock will be posted to: <strong>Main Godown</strong></div>
+          <div>Status (Auto): <strong style="color:#075828;">Draft Ready</strong></div>
+        </div>
+        <div style="margin-top:8px;">
+          <textarea placeholder="Remarks / LR No / Vehicle No..." style="width:100%; height:40px; font-size:11px; border:1px solid #CBD5E1; border-radius:6px; padding:4px;"></textarea>
+        </div>
+      </div>
+
+      <div style="padding:12px; border-top:1px solid #E2E8F0; background:#FAFAF7;">
+        <button class="post-btn-f2">Confirm &amp; Post Stock (F2)</button>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+          <button class="btn-top" style="padding:8px;">Hold (F4)</button>
+          <button class="btn-top" style="padding:8px;">New (F3)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Legend Footer Bar -->
+  <footer>
+    <span class="k-hint">F2 Post</span>
+    <span class="k-hint">F3 New</span>
+    <span class="k-hint">F4 Hold</span>
+    <span class="k-hint">F5 Held</span>
+    <span class="k-hint">F6 Add row</span>
+    <span class="k-hint">F7 Repeat line</span>
+    <span class="k-hint">F8 Delete GRN</span>
+    <span class="k-hint">F9 Delete row</span>
+    <span class="k-hint">Alt+P Supplier</span>
+    <span class="k-hint">Alt+N New product</span>
+    <span class="k-hint">Alt+M Modify product</span>
+    <span class="k-hint">Alt+B All products</span>
+    <span class="k-hint">Alt+E Change item</span>
+    <span class="k-hint">Ctrl+Z Undo</span>
+    <span class="k-hint">Esc Back</span>
+  </footer>
+</body>
+</html>

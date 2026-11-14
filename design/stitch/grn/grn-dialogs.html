@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Purchase GRN Dialogs Reference - Stitch S1b</title>
+  <style>
+    :root {
+      --maroon: #790E11; --orange: #FC830D; --amber: #FDAF18; --green: #075828; --error: #D32F2F;
+    }
+    body { font-family: Inter, Poppins, system-ui, sans-serif; background: #FAFAF7; padding: 24px; color: #0F172A; }
+    .card { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; margin-bottom: 24px; max-width: 600px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    h2 { font-size: 16px; font-weight: 800; color: var(--maroon); border-bottom: 1px solid #E2E8F0; padding-bottom: 8px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <!-- 1. Supplier Popup (Alt+P) -->
+  <div class="card">
+    <h2>1. Supplier Search Overlay (Alt+P)</h2>
+    <input type="text" placeholder="Type supplier name, brand or phone... (↑/↓ to navigate, Enter to select)" style="width:100%; padding:10px; border:2px solid var(--maroon); border-radius:8px; font-size:14px; margin-bottom:12px;" />
+    <div style="border:1px solid #E2E8F0; border-radius:8px; overflow:hidden;">
+      <div style="padding:10px; background:#FEF3C7; border-bottom:1px solid #CBD5E1; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <strong>Bikaji Foods International Ltd</strong>
+          <span style="font-size:11px; background:var(--maroon); color:#fff; padding:2px 6px; border-radius:4px; margin-left:6px;">Brand Supplier</span>
+          <div style="font-size:12px; color:#64748B;">Ph: 01512499999 • Bikaner, Rajasthan</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:800; color:var(--maroon); font-size:13px;">Payable: ₹1,42,850.00</div>
+          <span style="font-size:11px; color:#64748B;">[Enter]</span>
+        </div>
+      </div>
+      <div style="padding:10px; border-bottom:1px solid #E2E8F0; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <strong>MDH Spices Ltd</strong>
+          <span style="font-size:11px; background:#E2E8F0; color:#334155; padding:2px 6px; border-radius:4px; margin-left:6px;">Brand Supplier</span>
+          <div style="font-size:12px; color:#64748B;">Ph: 01128542301 • New Delhi</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-weight:800; color:#0F172A; font-size:13px;">Payable: ₹88,200.00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Confirm and Post Stock Popup (F2) -->
+  <div class="card">
+    <h2>2. Confirm and Post Stock Popup (F2 / Enter)</h2>
+    <p style="font-size:13px; color:#475569; margin-bottom:12px;">Review purchase receipt and verify catalog MRP updates:</p>
+    <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:12px;">
+      <tr style="background:#F1F5F9; font-weight:700;">
+        <th style="padding:6px; text-align:left;">Item</th>
+        <th style="padding:6px; text-align:center;">Qty</th>
+        <th style="padding:6px; text-align:right;">Purchase Rate</th>
+        <th style="padding:6px; text-align:right;">Catalog MRP</th>
+        <th style="padding:6px; text-align:center;">Update MRP</th>
+      </tr>
+      <tr style="border-bottom:1px solid #E2E8F0;">
+        <td style="padding:6px;">Bikaji Bhujia 1kg</td>
+        <td style="padding:6px; text-align:center;">5 Ctn (100 pcs)</td>
+        <td style="padding:6px; text-align:right;">₹175.00/pc</td>
+        <td style="padding:6px; text-align:right;">₹250.00</td>
+        <td style="padding:6px; text-align:center;"><input type="checkbox" checked /></td>
+      </tr>
+      <tr style="border-bottom:1px solid #E2E8F0;">
+        <td style="padding:6px;">MDH Deggi Mirch 100g</td>
+        <td style="padding:6px; text-align:center;">10 Ctn (600 pcs)</td>
+        <td style="padding:6px; text-align:right;">₹70.00/pc</td>
+        <td style="padding:6px; text-align:right;">₹95.00</td>
+        <td style="padding:6px; text-align:center;"><input type="checkbox" checked /></td>
+      </tr>
+    </table>
+    <div style="background:#F8FAFC; padding:10px; border-radius:8px; font-size:12px; margin-bottom:12px;">
+      <div>Stock Location: <strong>Main Godown</strong> (+700 total pieces)</div>
+      <div>Supplier Payable Credit: <strong>₹62,818.00</strong> (Bikaji Foods Ltd)</div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+      <button style="padding:8px 16px; border:1px solid #CBD5E1; background:#fff; border-radius:6px; font-weight:700;">Back [Esc]</button>
+      <button style="padding:8px 16px; border:none; background:var(--maroon); color:#fff; border-radius:6px; font-weight:800;">Post Goods Receipt [Enter]</button>
+    </div>
+  </div>
+
+  <!-- 3. Quick-Add Product Dialog (Alt+N) -->
+  <div class="card">
+    <h2>3. Quick-Add Product Dialog (Alt+N)</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:12px;">
+      <div>
+        <label style="font-weight:700; display:block; margin-bottom:4px;">Product Name *</label>
+        <input type="text" placeholder="e.g. Parle-G Gold 250g" style="width:100%; padding:6px; border:1px solid #CBD5E1; border-radius:4px;" />
+      </div>
+      <div>
+        <label style="font-weight:700; display:block; margin-bottom:4px;">Company / Brand *</label>
+        <input type="text" placeholder="e.g. Parle" style="width:100%; padding:6px; border:1px solid #CBD5E1; border-radius:4px;" />
+      </div>
+      <div>
+        <label style="font-weight:700; display:block; margin-bottom:4px;">MRP (₹) *</label>
+        <input type="number" placeholder="50.00" style="width:100%; padding:6px; border:1px solid #CBD5E1; border-radius:4px;" />
+      </div>
+      <div>
+        <label style="font-weight:700; display:block; margin-bottom:4px;">Pack Size (Pcs per Carton) *</label>
+        <input type="number" placeholder="24" style="width:100%; padding:6px; border:1px solid #CBD5E1; border-radius:4px;" />
+      </div>
+      <div>
+        <label style="font-weight:700; display:block; margin-bottom:4px;">GST Rate (%)</label>
+        <select style="width:100%; padding:6px; border:1px solid #CBD5E1; border-radius:4px;">
+          <option>5%</option>
+          <option>12%</option>
+          <option>18%</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-weight:700; display:block; margin-bottom:4px;">HSN Code</label>
+        <input type="text" placeholder="1905" style="width:100%; padding:6px; border:1px solid #CBD5E1; border-radius:4px;" />
+      </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+      <button style="padding:6px 12px; border:1px solid #CBD5E1; background:#fff; border-radius:6px; font-weight:700;">Cancel [Esc]</button>
+      <button style="padding:6px 14px; border:none; background:var(--orange); color:#000; border-radius:6px; font-weight:800;">Save &amp; Add Line [Enter]</button>
+    </div>
+  </div>
+
+  <!-- 4. Held GRNs Drawer (F5) -->
+  <div class="card">
+    <h2>4. Held GRNs Drawer (F5)</h2>
+    <div style="space-y:8px;">
+      <div style="padding:10px; background:#F8FAFC; border:1px solid #CBD5E1; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-weight:800;">Bikaji Foods Ltd (Inv: BKJ-901)</div>
+          <div style="font-size:11px; color:#64748B;">4 items • ₹45,200.00 • Held 12 mins ago</div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button style="background:var(--maroon); color:#fff; border:none; padding:4px 10px; border-radius:4px; font-weight:700; font-size:12px;">Resume</button>
+          <button style="background:#fff; border:1px solid #CBD5E1; color:#D32F2F; padding:4px 8px; border-radius:4px; font-weight:700; font-size:12px;">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
