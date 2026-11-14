@@ -46,3 +46,4 @@ ocr-samples/
 # Artifacts
 artifacts/
 
+.incident/

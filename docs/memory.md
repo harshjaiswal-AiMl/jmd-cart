@@ -899,3 +899,18 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
 - **R3 (Hindi Van App)**: Nullable `name_hi` / `name_hi_source` added via `20261111000000_add_hindi_names`; self-hosted Noto Sans Devanagari woff2; everyday Hindi UI (`hiMessages`) keeps Western numerals `0-9`, `₹`, and `dd-mm-yyyy`; printed bills remain 100% English (`[^\u0900-\u097F]`). Review sheet generated in `artifacts/hindi-names-review.csv` (`927` active products, `1,730` active parties).
 - **R4 (3-inch Thermal Bill)**: Unified `bill-document.tsx` & `bill-html.ts` onto Epson TM-T82 `80mm` / `72mm` layout with centered `480px` Floyd-Steinberg B&W bitmap (`public/brand/jmd-cart-logo-thermal.png`), 5 columns (`7% / 32% / 20% / 20% / 21%`), Credit-only plain bold `Amount Pending: ₹X` (no box/border/stamp/DUES/OUTSTANDING/BALANCE), `11-17px` thermal & `10-16pt` A4 type; 6 PNGs (`576px` wide) & 6 PDFs (`80mm`) rendered to `artifacts/r4-bills/`.
 - **Gotchas**: On Windows `pnpm v11`, running `next build` a second time on the same `node_modules` can lose the `next` `./impl` hardlink (`Error: Cannot find module './impl'`). Fix reliably via `Remove-Item -Recurse -Force node_modules; pnpm install --frozen-lockfile --force; pnpm exec prisma generate` before building. Also pre-existing repo integration tests written before `allow_negative_stock` (`20261102120000`) and Shop/RBAC updates fail in full `vitest run` (`21` legacy files + `billing-service.test.ts:221` which tests old non-credit rejection overridden by R5).
+
+## Incident Report: Rollback of Revision jmd-cart-00104-4sv (Prompt #24)
+- **Date**: 14-Nov-2026 07:35 IST
+- **Incident Summary**: Revision jmd-cart-00104-4sv was deployed containing POS, GRN, unit, and print updates. Owner reported issues shown in screenshot (character encoding corruption showing â‚¹ and Â·, cartoon mascot overlay, UI anomalies).
+- **Evidence Collected**:
+  - Exported revision specs: .incident/rev-00103-utf8.yaml and .incident/rev-00104-utf8.yaml
+  - Config diff: .incident/diff.txt shows zero config/env/secret/resource drift. Revisions differ only in name and image digest.
+  - Cloud Logging: No unhandled 5xx server exceptions; issue was client-side character encoding / rendering and UI behavior in POS.
+  - Database Migrations: Zero migrations applied between 00103 and 00104. Database schema remained 100% backward compatible.
+- **Actions Taken**:
+  1. Traffic shifted immediately to 100% jmd-cart-00103-bpx (jmd-cart-00104-4sv set to 0%).
+  2. Production smoke tests run on 00103: 34 PASS / 0 FAIL.
+  3. Safety branch rchive/rev-00104-changes created and pushed to origin to preserve all work.
+  4. Commits 55088d3 and 1bb3b69 reverted on main and pushed to origin/main. git diff 0a98e9f HEAD is 100% empty (exact match to 00103).
+- **Status of Revision 00104**: 0% traffic, ready for deletion pending user explicit confirmation (CONFIRM DELETE 00104).
