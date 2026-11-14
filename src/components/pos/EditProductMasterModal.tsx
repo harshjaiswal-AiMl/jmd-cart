@@ -278,14 +278,6 @@ export function EditProductMasterModal({
 
       const packSizeNum = parseInt(packSize, 10) || 1;
 
-      if (selectedProduct && name.trim() !== selectedProduct.name.trim()) {
-        const ok = window.confirm(`Rename product from "${selectedProduct.name}" to "${name.trim()}"?`);
-        if (!ok) {
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
       const res = await updateProductMasterFromPosAction({
         productId: selectedProduct.id,
         name: name.trim(),

@@ -6,15 +6,12 @@ import { recordPurchaseAction, PurchaseActionResult } from "../actions";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SearchableSelect } from "@/components/common/SearchableSelect";
-import { QuickAddProductModal } from "@/components/pos/QuickAddProductModal";
-import { EditProductMasterModal } from "@/components/pos/EditProductMasterModal";
 import { searchItems } from "@/lib/search/smart-search";
 
 interface PurchaseItemState {
   productId: string;
   qty: number;
   rateRupees: number;
-  mrpRupees: number;
   gstRateBp: number;
 }
 
@@ -178,42 +175,6 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
   const [supplierId, setSupplierId] = useState<string>(suppliers[0]?.id || "");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [showAllProducts, setShowAllProducts] = useState(false);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [editMasterProduct, setEditMasterProduct] = useState<any | null>(null);
-  const [activeRowIdx, setActiveRowIdx] = useState<number>(0);
-
-
-
-  const handleCellKeyDown = (e: React.KeyboardEvent, rowIdx: number, field: "qty" | "rate" | "mrp" | "gst") => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      if (field === "qty") {
-        document.querySelector<HTMLElement>(`[data-cell="${rowIdx}-rate"]`)?.focus();
-      } else if (field === "rate") {
-        document.querySelector<HTMLElement>(`[data-cell="${rowIdx}-mrp"]`)?.focus();
-      } else if (field === "mrp") {
-        document.querySelector<HTMLElement>(`[data-cell="${rowIdx}-gst"]`)?.focus();
-      } else if (field === "gst") {
-        if (rowIdx === items.length - 1) {
-          addItem();
-          setTimeout(() => {
-            document.querySelector<HTMLElement>(`[data-cell="${rowIdx + 1}-qty"]`)?.focus();
-          }, 50);
-        } else {
-          document.querySelector<HTMLElement>(`[data-cell="${rowIdx + 1}-qty"]`)?.focus();
-        }
-      }
-    } else if (e.key === "Enter" && e.shiftKey) {
-      e.preventDefault();
-      if (field === "gst") {
-        document.querySelector<HTMLElement>(`[data-cell="${rowIdx}-mrp"]`)?.focus();
-      } else if (field === "mrp") {
-        document.querySelector<HTMLElement>(`[data-cell="${rowIdx}-rate"]`)?.focus();
-      } else if (field === "rate") {
-        document.querySelector<HTMLElement>(`[data-cell="${rowIdx}-qty"]`)?.focus();
-      }
-    }
-  };
 
   const [billNo, setBillNo] = useState("");
   const [billDate, setBillDate] = useState(new Date().toISOString().split("T")[0]);
@@ -236,30 +197,10 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
     {
       productId: availableProducts[0]?.id || products[0]?.id || "",
       qty: 10,
-      rateRupees: availableProducts[0] ? Math.round(availableProducts[0].mrpPaise * 0.7) / 100 : 50,
-      mrpRupees: availableProducts[0] ? (availableProducts[0].mrpPaise / 100) : 0,
+      rateRupees: availableProducts[0] ? (availableProducts[0].mrpPaise * 0.7) / 100 : 50,
       gstRateBp: availableProducts[0]?.gstRateBp || 500,
     },
   ]);
-
-  // Global Alt+N and Alt+M hotkeys for GRN
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && (e.code === "KeyN" || e.key.toLowerCase() === "n")) {
-        e.preventDefault();
-        setShowQuickAdd(true);
-      } else if (e.altKey && (e.code === "KeyM" || e.key.toLowerCase() === "m")) {
-        e.preventDefault();
-        const curItem = items[activeRowIdx];
-        if (curItem) {
-          const curProd = products.find((p) => p.id === curItem.productId);
-          if (curProd) setEditMasterProduct(curProd);
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeRowIdx, items, products]);
 
   const [state, formAction] = useFormState<PurchaseActionResult | undefined, FormData>(
     async (prev, formData) => {
@@ -281,7 +222,6 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
         productId: prodId,
         gstRateBp: prod ? prod.gstRateBp : copy[index].gstRateBp,
         rateRupees: prod ? Math.round(prod.mrpPaise * 0.7) / 100 : copy[index].rateRupees,
-        mrpRupees: prod ? (prod.mrpPaise / 100) : copy[index].mrpRupees,
       };
       return copy;
     });
@@ -302,8 +242,7 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
       {
         productId: defaultProd?.id || "",
         qty: 10,
-        rateRupees: defaultProd ? Math.round(defaultProd.mrpPaise * 0.7) / 100 : 50,
-        mrpRupees: defaultProd ? (defaultProd.mrpPaise / 100) : 0,
+        rateRupees: defaultProd ? (defaultProd.mrpPaise * 0.7) / 100 : 50,
         gstRateBp: defaultProd?.gstRateBp || 500,
       },
     ]);
@@ -352,7 +291,6 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
       productId: it.productId,
       qty: Number(it.qty),
       ratePaise: Math.round(Number(it.rateRupees) * 100),
-      mrpPaise: Math.round(Number(it.mrpRupees) * 100),
       gstRateBp: Number(it.gstRateBp),
     })),
   };
@@ -472,35 +410,13 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const cur = items[activeRowIdx];
-                  const curProd = products.find((p) => p.id === cur?.productId);
-                  if (curProd) setEditMasterProduct(curProd);
-                }}
-                className="px-2.5 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-300 flex items-center gap-1 cursor-pointer"
-                title="Edit Master Product [Alt+M]"
-              >
-                <span>Edit Product [Alt+M]</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowQuickAdd(true)}
-                className="px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors border border-emerald-300 flex items-center gap-1 cursor-pointer"
-                title="Quick Add New Product [Alt+N]"
-              >
-                <span>+ New Product [Alt+N]</span>
-              </button>
-              <button
-                type="button"
-                onClick={addItem}
-                className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 cursor-pointer"
-              >
-                + Add Another Item
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={addItem}
+              className="px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+            >
+              + Add Another Item
+            </button>
           </div>
 
           <div className="overflow-x-auto border border-gray-200 rounded-xl min-h-[360px] pb-36">
@@ -508,11 +424,10 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
               <thead className="bg-gray-50 text-gray-600 text-xs font-semibold uppercase tracking-wider text-left">
                 <tr>
                   <th className="px-4 py-3">Product (Searchable)</th>
-                  <th className="px-4 py-3 w-28 text-right">Qty (Pcs)</th>
-                  <th className="px-4 py-3 w-32 text-right">Rate (₹)</th>
-                  <th className="px-4 py-3 w-32 text-right">MRP (₹)</th>
+                  <th className="px-4 py-3 w-32 text-right">Quantity (Pcs)</th>
+                  <th className="px-4 py-3 w-36 text-right">Purchase Rate (₹)</th>
                   <th className="px-4 py-3 w-28 text-center">GST Slab</th>
-                  <th className="px-4 py-3 w-32 text-right">Line Total (₹)</th>
+                  <th className="px-4 py-3 w-36 text-right">Line Total (₹)</th>
                   <th className="px-2 py-3 w-12 text-center"></th>
                 </tr>
               </thead>
@@ -530,79 +445,32 @@ export function PurchaseForm({ suppliers, locations, products }: PurchaseFormPro
                           onChange={(prodId) => handleProductChange(idx, prodId)}
                         />
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-4 py-2 text-right">
                         <input
                           type="number"
                           min="1"
-                          data-cell={`${idx}-qty`}
                           value={it.qty}
-                          onFocus={() => setActiveRowIdx(idx)}
-                          onKeyDown={(e) => handleCellKeyDown(e, idx, "qty")}
                           onChange={(e) =>
                             handleFieldChange(idx, "qty", parseInt(e.target.value, 10) || 1)
                           }
                           className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-right font-bold"
                         />
                       </td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="px-4 py-2 text-right">
                         <input
                           type="number"
                           step="0.01"
                           min="0"
-                          data-cell={`${idx}-rate`}
                           value={it.rateRupees}
-                          onFocus={() => setActiveRowIdx(idx)}
-                          onKeyDown={(e) => handleCellKeyDown(e, idx, "rate")}
                           onChange={(e) =>
                             handleFieldChange(idx, "rateRupees", parseFloat(e.target.value) || 0)
                           }
                           className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-right font-mono"
                         />
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex flex-col items-end">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            data-cell={`${idx}-mrp`}
-                            value={it.mrpRupees}
-                            onFocus={() => setActiveRowIdx(idx)}
-                            onKeyDown={(e) => handleCellKeyDown(e, idx, "mrp")}
-                            onChange={(e) =>
-                              handleFieldChange(idx, "mrpRupees", parseFloat(e.target.value) || 0)
-                            }
-                            className="w-full px-2 py-1.5 border border-gray-300 rounded text-sm text-right font-mono"
-                          />
-                          <div className="flex items-center gap-1 mt-0.5">
-                            {(() => {
-                              const prod = products.find((p) => p.id === it.productId);
-                              const isChanged = prod && it.mrpRupees > 0 && Math.round(it.mrpRupees * 100) !== prod.mrpPaise;
-                              const isRateOverMrp = it.mrpRupees > 0 && it.rateRupees > it.mrpRupees;
-                              return (
-                                <>
-                                  {isChanged && (
-                                    <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800">
-                                      changed
-                                    </span>
-                                  )}
-                                  {isRateOverMrp && (
-                                    <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-rose-100 text-rose-700">
-                                      Rate &gt; MRP!
-                                    </span>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-center">
+                      <td className="px-4 py-2 text-center">
                         <select
-                          data-cell={`${idx}-gst`}
                           value={it.gstRateBp}
-                          onFocus={() => setActiveRowIdx(idx)}
-                          onKeyDown={(e) => handleCellKeyDown(e, idx, "gst")}
                           onChange={(e) =>
                             handleFieldChange(idx, "gstRateBp", parseInt(e.target.value, 10))
                           }

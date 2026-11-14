@@ -881,7 +881,7 @@ export async function posQuickAddProductAction(input: {
           priceBPaise: input.priceBPaise ?? input.priceCPaise,
           hsn: input.hsn?.trim() || "21069099",
           gstRateBp: input.gstRateBp ?? 500,
-          needsReview: false,
+          needsReview: true,
           active: true,
         },
       });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { X, Plus, AlertTriangle, Package } from "lucide-react";
 import { posQuickAddProductAction } from "@/app/shop/pos/actions";
 
@@ -8,7 +8,6 @@ interface QuickAddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProductCreated: (newProduct: any, initialQtyPcs: number) => void;
-  onProductSavedOnly?: (newProduct: any) => void;
   companies: Array<{ id: string; name: string }>;
   locationId: string;
   initialSearchName?: string;
@@ -18,13 +17,11 @@ export function QuickAddProductModal({
   isOpen,
   onClose,
   onProductCreated,
-  onProductSavedOnly,
   companies,
   locationId,
   initialSearchName = "",
 }: QuickAddProductModalProps) {
   const [name, setName] = useState(initialSearchName);
-  const [closeAfterSave, setCloseAfterSave] = useState(false);
   const [companyName, setCompanyName] = useState("");
   const [weight, setWeight] = useState("");
   const [packSize, setPackSize] = useState("1");
@@ -131,71 +128,6 @@ export function QuickAddProductModal({
 
   if (!isOpen) return null;
 
-    const handleQuickSave = async () => {
-    const pSize = Math.max(1, parseInt(packSize, 10) || 1);
-    const mrp = parseFloat(mrpRs) || 0;
-    const rateA = parseFloat(priceARs) || mrp;
-    const rateB = parseFloat(priceBRs) || mrp;
-    const rateC = parseFloat(priceCRs) || mrp;
-
-    if (!name.trim()) {
-      setErrorMsg("Please enter product name");
-      return;
-    }
-    if (mrp <= 0) {
-      setErrorMsg("Please enter a valid MRP greater than 0");
-      return;
-    }
-
-    const ctn = parseInt(stockCartons, 10) || 0;
-    const loose = parseInt(stockLoose, 10) || 0;
-    const initialQty = ctn * pSize + loose;
-
-    setIsSubmitting(true);
-    setErrorMsg(null);
-
-    const res = await posQuickAddProductAction({
-      name: name.trim(),
-      companyName: companyName.trim(),
-      weight: weight.trim(),
-      packSize: pSize,
-      mrpPaise: Math.round(mrp * 100),
-      priceAPaise: Math.round(rateA * 100),
-      priceBPaise: Math.round(rateB * 100),
-      priceCPaise: Math.round(rateC * 100),
-      hsn: hsn.trim() || "21069099",
-      gstRateBp: Math.round((parseFloat(gstRatePercent) || 5) * 100),
-      initialStockQty: initialQty,
-      locationId,
-    });
-
-    setIsSubmitting(false);
-
-    if (res.success && res.product) {
-      if (onProductSavedOnly) {
-        onProductSavedOnly(res.product);
-      } else {
-        onProductCreated(res.product, 0);
-      }
-      if (closeAfterSave) {
-        onClose();
-      } else {
-        setName("");
-        setMrpRs("");
-        setPriceARs("");
-        setPriceBRs("");
-        setPriceCRs("");
-        setDiscAPercent("");
-        setDiscBPercent("");
-        setDiscCPercent("");
-        setStockCartons("0");
-        setStockLoose("0");
-      }
-    } else {
-      setErrorMsg(res.error || "Failed to save product");
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -244,19 +176,6 @@ export function QuickAddProductModal({
       setErrorMsg(res.error || "Failed to add product");
     }
   };
-
-    useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        e.stopPropagation();
-        handleQuickSave();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [isOpen, name, companyName, weight, packSize, mrpRs, priceARs, priceBRs, priceCRs, stockCartons, stockLoose, closeAfterSave]);
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
@@ -541,42 +460,23 @@ export function QuickAddProductModal({
             </p>
           </div>
 
-          <div className="pt-2 flex items-center justify-between gap-2 flex-wrap">
-            <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={closeAfterSave}
-                onChange={(e) => setCloseAfterSave(e.target.checked)}
-                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-              />
-              <span>Close after save</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isSubmitting}
-                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl transition"
-              >
-                Cancel [Esc]
-              </button>
-              <button
-                type="button"
-                onClick={handleQuickSave}
-                disabled={isSubmitting}
-                className="px-4 py-2 text-xs font-bold bg-slate-800 hover:bg-slate-900 text-white rounded-xl shadow-sm transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-              >
-                <span>{isSubmitting ? "Saving..." : "Quick Save [Ctrl+S]"}</span>
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>{isSubmitting ? "Creating..." : "Add to Bill Immediately [Enter]"}</span>
-              </button>
-            </div>
+          <div className="pt-2 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSubmitting}
+              className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl transition"
+            >
+              Cancel [Esc]
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{isSubmitting ? "Creating..." : "Add to Bill Immediately [Enter]"}</span>
+            </button>
           </div>
         </form>
       </div>

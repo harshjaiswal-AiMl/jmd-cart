@@ -59,7 +59,6 @@ import { PartySearchBox } from "@/components/pos/PartySearchBox";
 import { PartySearchModal } from "@/components/pos/PartySearchModal";
 import { SaveVoucherDialog, type DialogPaymentMode, type PrintPaperFormat } from "@/components/pos/SaveVoucherDialog";
 import { renderDirectPrintHtml } from "@/lib/printing/bill-html";
-import { UnitCode, getUnitMultiplier, formatUnitTotals } from "@/modules/catalog/units";
 import type { BusinessDetails, PosOperationalSettings } from "@/modules/settings/settings.types";
 import { QuickAddProductModal } from "@/components/pos/QuickAddProductModal";
 import { EditProductMasterModal } from "@/components/pos/EditProductMasterModal";
@@ -157,7 +156,7 @@ export interface PosCartLine {
   productId: string;
   product: ProductCatalogItem;
   qty: number;
-  unit: UnitCode;
+  unit: "Pcs" | "Carton" | "Dozen" | "Bag";
   lineDiscountPercent: number;
   customRatePaise?: number | null;
   customRateInput?: string;
@@ -270,20 +269,6 @@ export function PosClient({
   const [counterDetailsOpen, setCounterDetailsOpen] = useState(false);
   const [counterDetailsSaveParty, setCounterDetailsSaveParty] = useState(false);
   const [showTodaySalesModal, setShowTodaySalesModal] = useState(false);
-
-  // Undo queue for cart mutations (last 20 states)
-  const [cartUndoStack, setCartUndoStack] = useState<Array<any[]>>([]);
-
-  const pushCartUndo = useCallback((prevCart: any[]) => {
-    setCartUndoStack((stack) => [...stack.slice(-19), JSON.parse(JSON.stringify(prevCart))]);
-  }, []);
-
-
-
-  // Alt+E item replacement state
-  const [swapLineId, setSwapLineId] = useState<string | null>(null);
-  const [swapSearchQuery, setSwapSearchQuery] = useState("");
-  const swapSearchInputRef = useRef<HTMLInputElement>(null);
   const [shortStockCorrection, setShortStockCorrection] = useState<{
     productId: string;
     productName: string;
@@ -508,26 +493,6 @@ export function PosClient({
     lineId: string,
     currentQty?: number
   ) => {
-    // Alt+E on any cell opens replacement search
-    if (e.altKey && (e.code === "KeyE" || e.key.toLowerCase() === "e")) {
-      e.preventDefault();
-      e.stopPropagation();
-      setSwapLineId(lineId);
-      setSwapSearchQuery("");
-      setTimeout(() => swapSearchInputRef.current?.focus(), 30);
-      return;
-    }
-
-    // Hotkeys for unit selector
-    if (currentField === "unit") {
-      const k = e.key.toLowerCase();
-      if (k === "p") { e.preventDefault(); updateLineUnit(lineId, "Pcs"); return; }
-      if (k === "c") { e.preventDefault(); updateLineUnit(lineId, "Carton"); return; }
-      if (k === "d") { e.preventDefault(); updateLineUnit(lineId, "Dozen"); return; }
-      if (k === "b") { e.preventDefault(); updateLineUnit(lineId, "Bag"); return; }
-      if (k === "j") { e.preventDefault(); updateLineUnit(lineId, "Jar"); return; }
-      if (k === "h") { e.preventDefault(); updateLineUnit(lineId, "Hanger"); return; }
-    }
     const currentIdx = POS_FIELD_ORDER.indexOf(currentField);
     const targetEl = e.target as HTMLElement;
     const row = targetEl.closest("tr");
@@ -903,20 +868,6 @@ export function PosClient({
     },
     [activeTab.id]
   );
-
-  const handleUndoCart = useCallback(() => {
-    setCartUndoStack((stack) => {
-      if (stack.length === 0) return stack;
-      const nextStack = [...stack];
-      const previousCart = nextStack.pop();
-      if (previousCart) {
-        updateActiveTab({ cart: previousCart });
-        setToastMsg("Undo (Ctrl+Z) applied");
-        setTimeout(() => setToastMsg(null), 1500);
-      }
-      return nextStack;
-    });
-  }, [updateActiveTab]);
 
   // Selected party details
   const selectedParty = useMemo(() => {
@@ -1352,8 +1303,7 @@ export function PosClient({
   ]);
 
   // Add Item to active cart
-  const addItemToCart = (product: ProductCatalogItem, unit: UnitCode = "Pcs", qty: number = 1): string => {
-    pushCartUndo(activeTab.cart);
+  const addItemToCart = (product: ProductCatalogItem, unit: "Pcs" | "Carton" | "Dozen" | "Bag" = "Pcs", qty: number = 1): string => {
     const packSize = Math.max(1, product.packSize);
     const bagSize = (product as any).bagSize || packSize;
     const multiplier = unit === "Carton" ? packSize : unit === "Bag" ? bagSize : unit === "Dozen" ? 12 : 1;
@@ -1404,7 +1354,6 @@ export function PosClient({
   };
 
   const updateLineQty = (lineId: string, newQty: number) => {
-    pushCartUndo(activeTab.cart);
     if (newQty <= 0) {
       removeLine(lineId);
       return;
@@ -1637,8 +1586,7 @@ export function PosClient({
     }
   };
 
-  const updateLineUnit = (lineId: string, newUnit: UnitCode) => {
-    pushCartUndo(activeTab.cart);
+  const updateLineUnit = (lineId: string, newUnit: "Pcs" | "Carton" | "Dozen" | "Bag") => {
     updateActiveTab({
       cart: activeTab.cart.map((item) => {
         if (item.id !== lineId) return item;
@@ -1696,7 +1644,6 @@ export function PosClient({
   };
 
   const handleDeleteHighlightedOrLastLine = () => {
-    pushCartUndo(activeTab.cart);
     if (activeTab.cart.length === 0) return;
     if (highlightedProductId) {
       const idx = activeTab.cart.findIndex((i) => i.productId === highlightedProductId);
@@ -2045,24 +1992,6 @@ export function PosClient({
   ) => {
     if (activeTab.cart.length === 0) return;
     setErrorMessage(null);
-
-    // Prompt #10 R1: Strict Finish row validation
-    for (let i = 0; i < activeTab.cart.length; i++) {
-      const line = activeTab.cart[i];
-      const rowNum = i + 1;
-      if (!line.product || !line.product.id) {
-        setErrorMessage(`Row ${rowNum}: Product is missing or invalid.`);
-        return;
-      }
-      if (!line.product.name || !line.product.name.trim()) {
-        setErrorMessage(`Row ${rowNum}: Product name is required.`);
-        return;
-      }
-      if (!line.qty || line.qty <= 0) {
-        setErrorMessage(`Row ${rowNum}: Quantity must be greater than 0.`);
-        return;
-      }
-    }
 
     const syncedServerTotalPaise =
       pricingResult && Array.isArray(pricingResult.lines) && pricingResult.lines.length === activeTab.cart.length
@@ -2620,20 +2549,6 @@ export function PosClient({
       } else if (e.key === "F9") {
         e.preventDefault();
         handleDeleteHighlightedOrLastLine();
-      } else if (e.altKey && (e.code === "KeyI" || e.key.toLowerCase() === "i")) {
-        e.preventDefault();
-        e.stopPropagation();
-        router.push("/shop/invoices");
-        return;
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
-        const target = e.target as HTMLElement | null;
-        const isInput = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
-        if (!isInput) {
-          e.preventDefault();
-          e.stopPropagation();
-          handleUndoCart();
-          return;
-        }
       } else if (e.altKey && (e.code === "KeyP" || e.key.toLowerCase() === "p")) {
         e.preventDefault();
         e.stopPropagation();
@@ -3809,35 +3724,17 @@ export function PosClient({
 
                         <td className="py-1.5 px-2 border-r border-slate-100">
                           <div className="flex items-center gap-1.5">
-                            <div
+                            <input
+                              type="text"
                               data-pos-field="name"
-                              tabIndex={0}
-                              onFocus={() => setHighlightedProductId(line.productId)}
+                              value={line.customNameInput !== undefined ? line.customNameInput : line.product.name}
+                              onChange={(e) => updateLineProductName(line.id, e.target.value)}
+                              onBlur={() => persistProductNameChange(line.id)}
+                              onFocus={(e) => e.target.select()}
                               onKeyDown={(e) => handlePosCellKeyDown(e, "name", index, line.id)}
-                              title={`${line.product.name} (Alt+E: Replace item, F9: Delete row)`}
-                              className="flex-1 min-h-[38px] px-2 py-1 flex items-center justify-between text-base font-bold text-slate-900 bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none cursor-default transition-colors select-none"
-                            >
-                              <span className="truncate">
-                                {line.product.name}
-                                {line.product.weight && !line.product.name.toLowerCase().includes(line.product.weight.toLowerCase()) && (
-                                  <span className="text-slate-500 font-normal ml-1">({line.product.weight})</span>
-                                )}
-                              </span>
-                              <button
-                                type="button"
-                                tabIndex={-1}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSwapLineId(line.id);
-                                  setSwapSearchQuery("");
-                                  setTimeout(() => swapSearchInputRef.current?.focus(), 30);
-                                }}
-                                title="Change item [Alt+E]"
-                                className="text-[10px] font-bold text-slate-500 hover:text-blue-700 px-1.5 py-0.5 rounded bg-slate-100 hover:bg-blue-100 transition shrink-0 ml-1.5"
-                              >
-                                Alt+E
-                              </button>
-                            </div>
+                              title="Product Name (Editable - permanently updates product in catalog)"
+                              className="flex-1 min-h-[38px] px-2 py-1 text-base font-bold text-slate-900 bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none transition-colors"
+                            />
                             {!isStockSufficient && (
                               <span className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded shrink-0">
                                 Low ({isCarton ? `${availableCartons} ctn` : `${line.product.shopStockQty ?? 0} pcs`})
@@ -3870,16 +3767,14 @@ export function PosClient({
                             data-pos-field="unit"
                             aria-label={`Unit for ${line.product.name}`}
                             value={line.unit}
-                            onChange={(e) => updateLineUnit(line.id, e.target.value as UnitCode)}
+                            onChange={(e) => updateLineUnit(line.id, e.target.value as "Pcs" | "Carton" | "Dozen" | "Bag")}
                             onKeyDown={(e) => handlePosCellKeyDown(e, "unit", index, line.id)}
-                            className="w-32 min-h-[38px] px-1.5 py-1 text-base font-semibold bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none cursor-pointer transition-colors"
+                            className="w-28 min-h-[38px] px-1.5 py-1 text-base font-semibold bg-transparent hover:bg-slate-100/60 rounded border border-transparent hover:border-slate-300 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none cursor-pointer transition-colors"
                           >
                             <option value="Pcs">Pcs</option>
                             <option value="Carton">Carton (Crt)</option>
                             <option value="Dozen">Dozen (12)</option>
                             <option value="Bag">Bag (Beg)</option>
-                            <option value="Jar">Jar</option>
-                            <option value="Hanger">Hanger (60)</option>
                           </select>
                         </td>
 

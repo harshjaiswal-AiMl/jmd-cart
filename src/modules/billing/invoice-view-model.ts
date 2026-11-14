@@ -2,7 +2,6 @@ import { InvoiceWithDetails } from "./billing.types";
 import { BusinessDetails } from "../settings/settings.types";
 import { amountInWords } from "@/lib/number-to-words";
 import { getIstParts } from "@/lib/datetime";
-import { formatUnitTotals, getUnitMultiplier } from "@/modules/catalog/units";
 
 export interface InvoiceViewModelOptions {
   showAgentCode?: boolean;
@@ -101,7 +100,6 @@ export interface InvoiceViewModel {
     itemsCount: number;
     totalPieces: number;
     totalPiecesFormatted: string;
-    totalQuantityFormatted: string;
     subtotalRupees: string;
     subtotalPaise: number;
     discountRupees: string;
@@ -120,7 +118,6 @@ export interface InvoiceViewModel {
   };
 
   totalPieces: number;
-  totalQuantityFormatted: string;
   amountInWords: string;
   payableFormatted: string;
   gstIncluded: boolean;
@@ -203,44 +200,32 @@ export function buildInvoiceViewModel(
   const cleanInvoiceNumber =
     invoice.number.replace(/^INV-[0-9]+-0*/, "") || invoice.number;
 
-  // Determine non-cash mode strictly from payment transactions
+  // Determine non-cash mode
   const payments = invoice.payments || [];
   const creditPayment = payments.find((p) => p.mode === "CREDIT");
-  const hasCashOrUpi = payments.some((p) => p.mode === "CASH" || p.mode === "UPI" || p.mode === "CARD");
-  const nonCreditPaidPaise = payments
-    .filter((p) => p.mode !== "CREDIT")
-    .reduce((s, p) => s + p.amountPaise, 0);
-  const remainingPaise = Math.max(0, invoice.totalPaise - nonCreditPaidPaise);
-
   const isCredit =
     !!creditPayment ||
-    (!hasCashOrUpi && (invoice.paymentStatus === "PENDING" || (invoice.paymentStatus as string) === "UNPAID")) ||
-    (hasCashOrUpi && remainingPaise > 500 && Boolean(invoice.partyId));
+    invoice.paymentStatus === "PENDING" ||
+    invoice.paymentStatus === "PARTIAL" ||
+    (invoice.paymentStatus as string) === "UNPAID";
 
-  const isCash = !isCredit && (payments.length === 0 || payments.every((p) => p.mode === "CASH" || p.mode === "CARD"));
+  const isCash =
+    !isCredit &&
+    (payments.length === 0 ||
+      payments.every((p) => p.mode === "CASH" || p.mode === "CARD"));
 
   let nonCashBadge: string | null = null;
   let paymentMode = "CASH";
 
   if (isCredit) {
-    if (hasCashOrUpi && remainingPaise > 0) {
-      nonCashBadge = "SPLIT SALE";
-      paymentMode = "SPLIT";
-    } else {
-      nonCashBadge = "CREDIT SALE";
-      paymentMode = "CREDIT";
-    }
-  } else if (payments.some((p) => p.mode === "UPI") && payments.some((p) => p.mode === "CASH")) {
-    nonCashBadge = "SPLIT (CASH + UPI)";
-    paymentMode = "SPLIT";
+    nonCashBadge = "CREDIT SALE";
+    paymentMode = "CREDIT";
   } else if (payments.some((p) => p.mode === "UPI")) {
     nonCashBadge = "UPI SALE";
     paymentMode = "UPI";
   } else if (payments.some((p) => p.mode === "CARD")) {
     nonCashBadge = "CARD SALE";
     paymentMode = "CARD";
-  } else {
-    paymentMode = "CASH";
   }
 
   // Customer block rows (3 rows: Name, Mobile, Address - omit empty)
@@ -425,16 +410,6 @@ export function buildInvoiceViewModel(
     }
   );
   const wordsAmount = amountInWords(invoice.totalPaise);
-  const totalQuantityFormatted = formatUnitTotals(
-    invoice.items.map((it) => {
-      const mult = getUnitMultiplier((it as any).unitLabel, it.product);
-      const isFullUnit = mult > 1 && it.qty >= mult && it.qty % mult === 0;
-      return {
-        qty: isFullUnit ? it.qty / mult : it.qty,
-        unitLabel: isFullUnit ? (it as any).unitLabel : "Pcs",
-      };
-    })
-  );
 
   return {
     invoiceId: invoice.id,
@@ -455,10 +430,10 @@ export function buildInvoiceViewModel(
     isCash,
     isNonCash: !isCash,
     isCredit,
-    paymentStatus: isCredit ? (remainingPaise === invoice.totalPaise ? "PENDING" : "PARTIAL") : "PAID",
-    isPaymentPending: isCredit && remainingPaise > 500,
-    pendingAmountPaise: isCredit && remainingPaise > 500 ? remainingPaise : 0,
-    pendingAmountFormatted: ((isCredit && remainingPaise > 500 ? remainingPaise : 0) / 100).toFixed(2),
+    paymentStatus: invoice.paymentStatus || (invoice.totalPaise > payments.filter((p) => p.mode !== "CREDIT").reduce((s, p) => s + p.amountPaise, 0) ? "PENDING" : "PAID"),
+    isPaymentPending: (invoice.paymentStatus === "PENDING" || invoice.paymentStatus === "PARTIAL" || (invoice.paymentStatus as any) === "UNPAID") && (invoice.totalPaise - payments.filter((p) => p.mode !== "CREDIT").reduce((s, p) => s + p.amountPaise, 0) > 0),
+    pendingAmountPaise: Math.max(0, invoice.totalPaise - payments.filter((p) => p.mode !== "CREDIT").reduce((s, p) => s + p.amountPaise, 0)),
+    pendingAmountFormatted: (Math.max(0, invoice.totalPaise - payments.filter((p) => p.mode !== "CREDIT").reduce((s, p) => s + p.amountPaise, 0)) / 100).toFixed(2),
 
     customer: {
       name: custName,
@@ -483,7 +458,6 @@ export function buildInvoiceViewModel(
       itemsCount: items.length,
       totalPieces,
       totalPiecesFormatted: totalPieces.toFixed(2),
-      totalQuantityFormatted,
       subtotalRupees: (subtotalCalculatedPaise / 100).toFixed(2),
       subtotalPaise: subtotalCalculatedPaise,
       discountRupees: (invoice.discountPaise / 100).toFixed(2),
@@ -502,7 +476,6 @@ export function buildInvoiceViewModel(
     },
 
     totalPieces,
-    totalQuantityFormatted,
     amountInWords: wordsAmount,
     payableFormatted: payableRupeesFormatted,
     gstIncluded: isGstIncluded,

@@ -148,20 +148,16 @@ export class BillingService {
     // so full Cash/UPI sales never degrade to ₹1 PARTIAL / CREDIT due to bp round-off drift.
     let effectivePayments = validated.payments.map((p) => ({ ...p }));
     const rawTotalPaidPaise = effectivePayments.reduce((sum, p) => sum + p.amountPaise, 0);
-    const isSingleNonCredit =
-      effectivePayments.length === 1 &&
-      (effectivePayments[0].mode === "CASH" || effectivePayments[0].mode === "UPI" || effectivePayments[0].mode === "CARD");
-
     if (
-      isSingleNonCredit ||
-      (validated.paymentStatus === "PAID" && effectivePayments.length === 1 && effectivePayments[0].mode !== "CREDIT") ||
-      (rawTotalPaidPaise > 0 && Math.abs(orderPricing.totalPaise - rawTotalPaidPaise) <= 500 && !effectivePayments.some((p) => p.mode === "CREDIT") && !validated.partyId)
+      validated.paymentStatus === "PAID" &&
+      effectivePayments.length === 1 &&
+      effectivePayments[0].mode !== "CREDIT" &&
+      rawTotalPaidPaise > 0 &&
+      Math.abs(orderPricing.totalPaise - rawTotalPaidPaise) <= 500
     ) {
-      if (effectivePayments.length === 1) {
-        effectivePayments = [
-          { ...effectivePayments[0], amountPaise: orderPricing.totalPaise },
-        ];
-      }
+      effectivePayments = [
+        { ...effectivePayments[0], amountPaise: orderPricing.totalPaise },
+      ];
     }
 
     const totalPaidPaise = effectivePayments.reduce(

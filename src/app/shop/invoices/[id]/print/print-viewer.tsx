@@ -173,21 +173,9 @@ export function PrintViewer({
                       ? "bg-white text-purple-900 shadow-sm font-bold border border-purple-400"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
-                  title="A5 Demand Bill format"
+                  title="Demand Bill format"
                 >
-                  <span>📄 A5 Demand Bill</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormat("a5")}
-                  className={`px-3 py-1.5 rounded-md transition flex items-center gap-1 ${
-                    format === "a5"
-                      ? "bg-white text-rose-800 shadow-sm font-bold border border-rose-400"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                  title="A5 Standard Invoice"
-                >
-                  <span>📄 A5 Invoice</span>
+                  <span>📋 Demand Bill</span>
                 </button>
               </>
             )}
