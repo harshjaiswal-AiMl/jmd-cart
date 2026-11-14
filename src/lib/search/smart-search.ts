@@ -384,6 +384,8 @@ export function searchItems(
     limit?: number;
     requireInStock?: boolean;
     counterLocation?: "SHOP" | "GODOWN" | "VAN";
+    context?: "pos" | "purchase" | "general";
+    supplierCompanyId?: string | null;
   }
 ): SearchableProduct[] {
   const rawQuery = query.trim().toLowerCase();
@@ -556,11 +558,22 @@ export function searchItems(
         itemScore += 100;
       }
 
+      // Supplier brand boost
+      if (options?.supplierCompanyId && item.product.companyId === options.supplierCompanyId) {
+        itemScore += 300;
+      }
+
       // Stock preference: in-stock items boosted, out-of-stock items penalized
-      if (item.inStock) {
-        itemScore += 500;
+      if (options?.context === "purchase") {
+        if (item.inStock) {
+          itemScore += 50;
+        }
       } else {
-        itemScore -= 500; // Out-of-stock items ranked last
+        if (item.inStock) {
+          itemScore += 500;
+        } else {
+          itemScore -= 500; // Out-of-stock items ranked last
+        }
       }
 
       matches.push({ item, score: itemScore });

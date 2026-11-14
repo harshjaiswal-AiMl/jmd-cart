@@ -1002,3 +1002,29 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - `https://jmdcart.com/api/health` -> `status=ok, db=ok`.
   - Smoke tests: **34 PASS, 0 FAIL** (`scripts/smoke-prod.ts`).
   - Cloud Logging: **0 errors** recorded on new revision.
+
+
+## Prompt #26: Purchase / GRN Arrow-Key Control Everywhere, Shared Search & Extras (2026-11-14)
+- **Branch**: `feat/prompt-26-grn-keyboard-search-extras`
+- **Baseline Git State**: `bc89d24`
+- **Cloud Run Baseline**: `jmd-cart-00108-8l4` (100% traffic, commit `7f233ca`)
+
+### Step 1: Read, Map & Baseline Findings
+1. **GRN Search Today vs Shop POS Search**:
+   - *GRN Today*: Used in-line `.filter()` matching `p.name.includes`, `p.shortCode.includes`, or `p.company.name.includes`. Did NOT tokenize ("bhuj 400" failed), had no weight normalization, no typo tolerance, no phonetic Hindi matching, and dropdown lacked last purchase rate.
+   - *Shop POS Search*: Uses shared `searchItems` / `buildProductSearchIndex` with multi-token parsing, unit extraction (`0.4 kg` -> `400g`), token highlighting (`splitHighlightSegments`), and score-based ranking.
+   - *Target for GRN*: Share `searchItems` with `context = 'purchase'`. Display **last purchase rate** and date instead of selling price; do not penalize zero stock items (normal during inbound receiving); add supplier brand boosting.
+2. **Keyboard Map Today (Where Mouse Was Required)**:
+   - *Supplier Dialog (`Alt+P`)*: Search input autofocuses, but pressing `↑`/`↓` did not navigate the supplier list. Mouse was required to click a supplier.
+   - *Header Fields*: `Date` is native `<input type="date">` where `↑`/`↓` steps day/month/year; no arrow navigation between Date -> Supplier -> Bill No -> Bill Date -> Dest -> Note -> Item Search. Mouse or Tab was required.
+   - *Bill No*: Tiny box (~112px wide, ~24px tall) with small font (~12px), faint placeholder, no duplicate check.
+   - *Voucher Grid*: Native number inputs and native `<select>` for units. `↑`/`↓` in number input changed the number value instead of moving rows. In unit `<select>`, `↑`/`↓` changed unit instead of navigating cells. `←`/`→` was trapped in text carets. No spreadsheet Navigate Mode vs Edit Mode.
+   - *Right Panel & Summary*: Unreachable by arrows from grid.
+   - *Toolbar / Action Buttons*: No roving tabindex for New, Hold, Held, + Product, Master, Purchases, Stock, Dashboard.
+3. **Visual Baseline**:
+   - Saved baseline screenshots from live app to `tests/baseline/grn2/`:
+     - `tests/baseline/grn2/grn-supplier-modal-baseline.png` (Supplier modal open with junk supplier `vbn`)
+     - `tests/baseline/grn2/grn-screen-baseline.png` (Voucher entry screen with tiny Bill No)
+4. **Feature Parity & Golden Fixtures**:
+   - Existing calculations (taxable, tax, round-off, ratePaise conversion), stock ledger movements (`PURCHASE_RECEIPT`), supplier ledger posting (`LedgerKind.INVOICE`), and audit logging remain 100% intact.
+   - All 21 existing unit/integration tests must continue passing.
