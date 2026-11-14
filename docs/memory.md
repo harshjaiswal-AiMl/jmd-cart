@@ -956,3 +956,38 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   - Zero business logic changes in `purchaseService` or `stockService`.
   - Typecheck: 0 errors (`tsc --noEmit`).
   - Next.js Build: 117/117 static & dynamic pages compiled cleanly (`pnpm build`).
+
+
+## Prompt #11: Purchase GRN like Shop POS, Product Ledger, Day Dispatch, Agent Code (2026-11-14)
+- **Branch**: `feat/prompt-11-grn-ledger-dispatch-agent`
+- **Scope Lock (4 Items Only)**:
+  1. **R4 (Agent Code Entry on Shop POS Bill)**:
+     - POS right panel contains dedicated Agent Code field (`Alt+A`) under Bill Date with suggestions dropdown and recent codes.
+     - Cashier's own agent code defaults or last used PC code.
+     - Preserved across invoice revisions and displayed in Shop Invoices list (`Agent` column).
+     - Controlled by `pos.agentRequired` setting.
+     - Tested with 6 unit tests passing (`tests/unit/r4-pos-agent-code.test.ts`).
+  2. **R2 (Product-Wise Stock Movement Ledger in Godown Manager App)**:
+     - Created `stock-ledger.service.ts` computing running balances chronologically.
+     - Routes `/godown/stock/ledger` and `/godown/stock/[productId]`.
+     - Location tabs (Godown, Shop, Vans, All), date range presets (Today, 7 days, 30 days, This FY), movement-type filter chips.
+     - 4 KPI cards (Opening, Total In, Total Out, Closing).
+     - Live reconciliation banner (`Matches current stock` green check or red discrepancy alert).
+     - CSV export and print view.
+     - Tested with 4 unit tests passing (`tests/unit/r2-product-ledger.test.ts`).
+  3. **R3 (Overall Day Dispatch View in Godown Manager App)**:
+     - Created `day-dispatch.service.ts` aggregating outgoing movements for any IST day.
+     - Route `/godown/dispatch/day`.
+     - Live indicator with 30s auto-refresh, 9 KPI cards, product-wise destination matrix, collapsible destination sections, exceptions panel (failed deliveries, short picks, unreconciled vans, pending orders).
+     - Automated integrity check ensuring matrix total equals stock ledger out movements with 0 difference.
+     - CSV export and print view.
+     - Tested with 3 unit tests passing (`tests/unit/r3-day-dispatch.test.ts`).
+  4. **R1 (Purchase GRN Redesign as Twin of Shop POS)**:
+     - Redesigned `/godown/purchases/new/purchase-form.tsx` to match Shop POS brand colors (cream background `#FAFAF7`, maroon `#790E11`, orange `#FC830D`, amber `#FDAF18`, green `#075828`, red `#D32F2F`).
+     - Layout structure: 48px top bar, 44px info row with supplier bar (`Alt+P`), full-width product search with `All products (Alt+B)` toggle, 12-row minimum grid with maroon/amber active cell, status line with `[F8 Info]`, right panel with dark maroon `NET PAYABLE` hero card, sticky actions (`Confirm & Post Stock (F2)`, `Hold (F4)`, `New (F3)`), and bottom key legend bar.
+     - Dialogs: Supplier search modal (`Alt+P`), Confirm & Post popup (`F2`), Held GRNs drawer (`F5`), Quick Add Product modal (`Alt+N`), Product Master edit modal (`Alt+M`).
+     - Tested with 5 unit tests (`tests/unit/r1-purchase-grn-pos-twin.test.ts`) and 3 integration tests (`tests/integration/purchase-grn.test.ts`).
+  5. **Verification & Guardrails**:
+     - Zero database schema migrations.
+     - `pnpm typecheck` passed (0 errors).
+     - All 21 tests in unit and integration test suites passed.
