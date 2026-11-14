@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { BillMessagingCard } from "@/components/billing/bill-messaging-card";
 
 import { categorizeWeightBand, STANDARD_WEIGHT_BANDS, WeightBand } from "@/lib/weight";
@@ -65,7 +65,7 @@ import { EditProductMasterModal } from "@/components/pos/EditProductMasterModal"
 import { StockCorrectionModal } from "@/components/pos/StockCorrectionModal";
 import { PosTodaySalesModal } from "@/components/pos/PosTodaySalesModal";
 import { RevisionHistoryModal } from "@/components/pos/RevisionHistoryModal";
-import { saveInvoiceRevisionAction, revertInvoiceRevisionAction, splitInvoiceFromRevisionAction } from "./actions";
+import { saveInvoiceRevisionAction, revertInvoiceRevisionAction } from "./actions";
 import { cancelInvoiceAction } from "../invoices/actions";
 import { toIstDateString } from "@/lib/datetime";
 import { SearchIndexItem, buildProductSearchIndex, searchItems, splitHighlightSegments } from "@/lib/search/smart-search";
@@ -1023,7 +1023,7 @@ export function PosClient({
       ...localParties.map((party) => ({
         value: party.id,
         label: party.name,
-        subLabel: `${party.phone ? `Ph: ${party.phone} Â· ` : ""}${party.type}`,
+        subLabel: `${party.phone ? `Ph: ${party.phone} · ` : ""}${party.type}`,
         badge: party.creditEnabled ? "Credit Approved" : undefined,
         badgeColor: party.creditEnabled ? ("green" as const) : undefined,
       })),
@@ -2300,7 +2300,7 @@ export function PosClient({
 
         // Reset bill for next customer cleanly on /shop/pos and prompt Party if setting enabled
         handleCloseTab(activeTab.id);
-        setToastMsg(`Saved ${invoice.number} Â· â‚¹${(invoice.totalPaise / 100).toFixed(2)}`);
+        setToastMsg(`Saved ${invoice.number} · ₹${(invoice.totalPaise / 100).toFixed(2)}`);
         setTimeout(() => setToastMsg(null), 4000);
         if (effectivePosSettings.askPartyOnNewBill) {
           setPartyPopupReason("new_bill");
@@ -2847,7 +2847,7 @@ export function PosClient({
             <span className="bg-[#790E11] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
               {locationName}
             </span>
-            <span className="text-slate-400 text-xs hidden md:inline">Â·</span>
+            <span className="text-slate-400 text-xs hidden md:inline">·</span>
             <span className="text-slate-700 text-xs hidden md:inline font-semibold">
               Cashier: <strong className="text-slate-900">{cashierName}</strong>
             </span>
@@ -2987,10 +2987,10 @@ export function PosClient({
               Editing Invoice
             </span>
             <span className="font-black text-sm font-mono">
-              {initialEditInvoice.number} Â· Rev {initialEditInvoice.version || 1}
+              {initialEditInvoice.number} · Rev {initialEditInvoice.version || 1}
             </span>
             <span className="text-xs font-semibold bg-amber-400/80 px-2 py-0.5 rounded">
-              Original: â‚¹{((initialEditInvoice.totalPaise || 0) / 100).toFixed(2)} ({initialEditInvoice.items?.length || 0} items)
+              Original: ₹{((initialEditInvoice.totalPaise || 0) / 100).toFixed(2)} ({initialEditInvoice.items?.length || 0} items)
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -3038,7 +3038,7 @@ export function PosClient({
         <div className="flex items-center gap-2 flex-1 min-w-[300px] max-w-3xl">
           <div className="flex items-center gap-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 px-2.5 py-1 rounded flex-1 transition-all">
             <div className="w-5 h-5 rounded bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
-              <span className="text-[11px]">ðŸ‘¤</span>
+              <span className="text-[11px]">👤</span>
             </div>
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <span className="font-bold text-sm text-slate-900 truncate">
@@ -3071,11 +3071,11 @@ export function PosClient({
               }`}>
                 {selectedParty
                   ? selectedParty.currentOutstandingPaise > 0
-                    ? `Due: â‚¹${(selectedParty.currentOutstandingPaise / 100).toFixed(2)}`
+                    ? `Due: ₹${(selectedParty.currentOutstandingPaise / 100).toFixed(2)}`
                     : selectedParty.currentOutstandingPaise < 0
-                    ? `Adv: â‚¹${(Math.abs(selectedParty.currentOutstandingPaise) / 100).toFixed(2)}`
-                    : "Clear Bal: â‚¹0"
-                  : "Bal: â‚¹0"}
+                    ? `Adv: ₹${(Math.abs(selectedParty.currentOutstandingPaise) / 100).toFixed(2)}`
+                    : "Clear Bal: ₹0"
+                  : "Bal: ₹0"}
               </span>
             </div>
 
@@ -3149,7 +3149,7 @@ export function PosClient({
                 className="h-7 px-2.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-400 text-xs font-bold text-amber-950 flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer"
                 title="Customer name is locked on billed invoices. Click to unlock if you intentionally need to change it."
               >
-                <span>ðŸ”’ Party Fixed</span>
+                <span>🔒 Party Fixed</span>
                 <span className="underline text-[10px] ml-0.5">Change</span>
               </button>
             ) : (
@@ -3201,7 +3201,7 @@ export function PosClient({
                                 <p className="text-[10px] text-slate-500">{inv.finalizedAt ? new Date(inv.finalizedAt).toLocaleDateString("en-IN") : "Draft"}</p>
                               </div>
                               <div className="text-right">
-                                <p className="font-bold text-slate-900">â‚¹{(inv.totalPaise / 100).toFixed(2)}</p>
+                                <p className="font-bold text-slate-900">₹{(inv.totalPaise / 100).toFixed(2)}</p>
                                 <span className="text-[9px] font-bold px-1.5 py-0.2 bg-slate-200 rounded text-slate-700">{inv.channel}</span>
                               </div>
                             </div>
@@ -3254,7 +3254,7 @@ export function PosClient({
               onClick={() => setIsPartyCardExpanded(false)}
               className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1"
             >
-              <span>Done / Collapse â–²</span>
+              <span>Done / Collapse ▲</span>
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -3405,7 +3405,7 @@ export function PosClient({
                     : "bg-slate-200 text-slate-500 cursor-default"
                 }`}
               >
-                {isSavingInlineParty ? "Saving..." : partySaveSuccess ? "âœ“ Saved!" : "ðŸ’¾ Save"}
+                {isSavingInlineParty ? "Saving..." : partySaveSuccess ? "✓ Saved!" : "💾 Save"}
               </button>
             </div>
           )}
@@ -3490,7 +3490,7 @@ export function PosClient({
                     onClick={() => setItemSearchTerm("")}
                     className="p-1 text-slate-400 hover:text-slate-600 text-xs font-black mr-1"
                   >
-                    âœ•
+                    ✕
                   </button>
                 )}
                 <span className="hidden sm:inline-block font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
@@ -3513,7 +3513,7 @@ export function PosClient({
                   const weightText = p.weight ? ` ${p.weight}` : (p.weightValue ? ` ${p.weightValue}${p.weightUnit || "g"}` : "");
                   const fullTitle = `${p.name}${weightText}`;
                   const segments = splitHighlightSegments(fullTitle, itemSearchTerm);
-                  const mrpRupeesStr = p.mrpPaise && p.mrpPaise > 0 ? `MRP â‚¹${(p.mrpPaise / 100).toFixed(0)}` : null;
+                  const mrpRupeesStr = p.mrpPaise && p.mrpPaise > 0 ? `MRP ₹${(p.mrpPaise / 100).toFixed(0)}` : null;
 
                   return (
                     <div
@@ -3600,7 +3600,7 @@ export function PosClient({
                                 isHighlighted ? "text-emerald-200" : "text-emerald-700"
                               }`}
                             >
-                              Rate â‚¹{(price / 100).toFixed(2)}
+                              Rate ₹{(price / 100).toFixed(2)}
                             </span>
                           ) : (
                             <span className="text-[11px] text-amber-400 font-semibold shrink-0">
@@ -3626,8 +3626,8 @@ export function PosClient({
                         }`}
                       >
                         <span className="font-sans font-semibold">{p.companyName || "Generic"}</span>
-                        <span>Â· {p.packSize} pcs/ctn</span>
-                        <span>Â· Shop:{p.shopStockQty ?? 0} Gdn:{p.godownStockQty ?? 0}</span>
+                        <span>· {p.packSize} pcs/ctn</span>
+                        <span>· Shop:{p.shopStockQty ?? 0} Gdn:{p.godownStockQty ?? 0}</span>
                       </div>
                     </div>
                   );
@@ -3646,9 +3646,9 @@ export function PosClient({
                     <th className="py-2 px-2 w-20 text-center border-r border-slate-200">Qty</th>
                     <th className="py-2 px-2 w-24 text-center border-r border-slate-200">Unit</th>
                     <th className="py-2 px-2 w-26 text-right border-r border-slate-200">List Price</th>
-                    <th className="py-2 px-2 w-28 text-right border-r border-slate-200">Rate (â‚¹)</th>
+                    <th className="py-2 px-2 w-28 text-right border-r border-slate-200">Rate (₹)</th>
                     <th className="py-2 px-2 w-20 text-center border-r border-slate-200">Disc %</th>
-                    <th className="py-2 px-3 w-32 text-right border-r border-slate-200">Amount (â‚¹)</th>
+                    <th className="py-2 px-3 w-32 text-right border-r border-slate-200">Amount (₹)</th>
                     <th className="py-2 px-2 w-14 text-center">Act</th>
                   </tr>
                 </thead>
@@ -3782,7 +3782,7 @@ export function PosClient({
                         <td className="py-1.5 px-1.5 text-right border-r border-slate-100">
                           <div className="flex flex-col items-end">
                             <div className="relative inline-flex items-center justify-end w-24">
-                              <span className="absolute left-1.5 text-slate-500 font-mono text-xs pointer-events-none font-bold">â‚¹</span>
+                              <span className="absolute left-1.5 text-slate-500 font-mono text-xs pointer-events-none font-bold">₹</span>
                               <input
                                 type="text" inputMode="decimal"
                                 value={
@@ -3808,7 +3808,7 @@ export function PosClient({
                         {/* Rate */}
                         <td className="py-1.5 px-1.5 text-right border-r border-slate-100">
                           <div className="relative inline-flex items-center justify-end w-26">
-                            <span className="absolute left-1.5 text-slate-500 font-mono text-xs pointer-events-none font-bold">â‚¹</span>
+                            <span className="absolute left-1.5 text-slate-500 font-mono text-xs pointer-events-none font-bold">₹</span>
                             <input
                               type="text" inputMode="decimal"
                               value={line.customRateInput !== undefined ? line.customRateInput : (ratePerUnitPaise > 0 ? (ratePerUnitPaise / 100).toFixed(2) : "")}
@@ -3847,10 +3847,10 @@ export function PosClient({
                           </div>
                         </td>
 
-                        {/* Amount (â‚¹) */}
+                        {/* Amount (₹) */}
                         <td className="py-1.5 px-1.5 text-right border-r border-slate-100">
                           <div className="relative inline-flex items-center justify-end w-28">
-                            <span className="absolute left-1.5 text-slate-500 font-mono text-xs pointer-events-none font-bold">â‚¹</span>
+                            <span className="absolute left-1.5 text-slate-500 font-mono text-xs pointer-events-none font-bold">₹</span>
                             <input
                               type="text"
                               inputMode="decimal"
@@ -3866,7 +3866,7 @@ export function PosClient({
                               onChange={(e) => updateLineAmount(line.id, e.target.value)}
                               onFocus={(e) => e.target.select()}
                               onKeyDown={(e) => handlePosCellKeyDown(e, "amount", index, line.id)}
-                              title="Line Amount (â‚¹). Changing this derives rate and discount %."
+                              title="Line Amount (₹). Changing this derives rate and discount %."
                               className="w-full min-h-[38px] pl-5 pr-1.5 py-1 text-right font-mono font-black text-base rounded border border-transparent hover:border-slate-300 bg-transparent hover:bg-slate-100/60 text-slate-900 focus:bg-[#FEF3C7] focus:text-slate-950 focus:outline-[3px] focus:outline-[#790E11] outline-none transition-colors"
                             />
                           </div>
@@ -3950,7 +3950,7 @@ export function PosClient({
                 <span className="text-slate-400">|</span>
                 <span className="text-slate-700 text-[11px]">
                   Last rate: <strong className="font-bold text-blue-900">
-                    {lastItemPurchase ? `â‚¹${(lastItemPurchase.ratePaise / 100).toFixed(2)}` : `â‚¹${((highlightedProduct.priceAPaise || highlightedProduct.mrpPaise || 0) / 100).toFixed(2)}`}
+                    {lastItemPurchase ? `₹${(lastItemPurchase.ratePaise / 100).toFixed(2)}` : `₹${((highlightedProduct.priceAPaise || highlightedProduct.mrpPaise || 0) / 100).toFixed(2)}`}
                   </strong>
                 </span>
               </div>
@@ -3983,7 +3983,7 @@ export function PosClient({
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <span className="font-semibold leading-relaxed">{errorMessage}</span>
                 </div>
-                <button onClick={() => setErrorMessage(null)} className="text-xs font-black text-rose-600 hover:text-rose-900 p-0.5">âœ•</button>
+                <button onClick={() => setErrorMessage(null)} className="text-xs font-black text-rose-600 hover:text-rose-900 p-0.5">✕</button>
               </div>
             )}
 
@@ -4013,28 +4013,28 @@ export function PosClient({
             <div className="space-y-1.5 p-3 rounded-xl bg-white border border-slate-200 text-xs shadow-2xs">
               <div className="flex justify-between text-slate-600 font-medium text-[11px]">
                 <span>Subtotal (MRP):</span>
-                <span className="font-mono font-bold text-slate-800">â‚¹{(subtotalMrpPaise / 100).toFixed(2)}</span>
+                <span className="font-mono font-bold text-slate-800">₹{(subtotalMrpPaise / 100).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-emerald-700 font-bold text-[11px]">
                 <span>Savings / Discount:</span>
-                <span className="font-mono text-emerald-700">-â‚¹{(totalDiscountPaise / 100).toFixed(2)}</span>
+                <span className="font-mono text-emerald-700">-₹{(totalDiscountPaise / 100).toFixed(2)}</span>
               </div>
               {activeTab.documentType === "GST" && (
                 <>
                   <div className="flex justify-between text-slate-600 font-medium text-[11px]">
                     <span>Taxable Value:</span>
-                    <span className="font-mono font-bold text-slate-800">â‚¹{(taxablePaise / 100).toFixed(2)}</span>
+                    <span className="font-mono font-bold text-slate-800">₹{(taxablePaise / 100).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-slate-600 font-medium text-[11px]">
                     <span>CGST / SGST:</span>
-                    <span className="font-mono font-bold text-slate-800">â‚¹{((cgstPaise + sgstPaise) / 100).toFixed(2)}</span>
+                    <span className="font-mono font-bold text-slate-800">₹{((cgstPaise + sgstPaise) / 100).toFixed(2)}</span>
                   </div>
                 </>
               )}
               <div className="flex justify-between text-slate-500 font-medium text-[11px] pt-1 border-t border-slate-100">
                 <span>Round-off:</span>
                 <span className="font-mono font-bold text-slate-700">
-                  {roundoffPaise >= 0 ? `+â‚¹${(roundoffPaise / 100).toFixed(2)}` : `-â‚¹${(Math.abs(roundoffPaise) / 100).toFixed(2)}`}
+                  {roundoffPaise >= 0 ? `+₹${(roundoffPaise / 100).toFixed(2)}` : `-₹${(Math.abs(roundoffPaise) / 100).toFixed(2)}`}
                 </span>
               </div>
             </div>
@@ -4048,7 +4048,7 @@ export function PosClient({
                 </span>
               </div>
               <div className="text-[30px] leading-tight font-black font-mono text-[#FDAF18] tracking-tight">
-                â‚¹{(totalAmountPaise / 100).toFixed(2)}
+                ₹{(totalAmountPaise / 100).toFixed(2)}
               </div>
               {amountInWords && (
                 <p className="text-xs text-amber-50/90 pt-1 border-t border-white/15 leading-snug">
@@ -4452,11 +4452,11 @@ export function PosClient({
             Alt+G GST
           </button>
           <span className="bg-white/10 px-2 py-0.5 rounded border border-white/15 text-slate-200">
-            Ctrl+K Search Â· Esc Back
+            Ctrl+K Search · Esc Back
           </span>
         </div>
         <div className="hidden lg:flex items-center gap-3 text-[11px] font-sans text-amber-100 shrink-0">
-          <span><strong>{locationName}</strong> Â· <strong>{cashierName}</strong></span>
+          <span><strong>{locationName}</strong> · <strong>{cashierName}</strong></span>
         </div>
       </footer>
 
@@ -4589,7 +4589,7 @@ export function PosClient({
           <div className="bg-white border-2 border-[#790E11] rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-3">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
               <h3 className="text-base font-black text-[#790E11]">Walk-in Customer Details (Optional)</h3>
-              <button type="button" onClick={() => setCounterDetailsOpen(false)} className="text-slate-500 cursor-pointer">âœ•</button>
+              <button type="button" onClick={() => setCounterDetailsOpen(false)} className="text-slate-500 cursor-pointer">✕</button>
             </div>
             <div className="space-y-2.5 text-sm">
               <div>
@@ -4751,8 +4751,6 @@ export function PosClient({
         onClose={() => setShowRevisionHistory(false)}
         invoiceNumber={initialEditInvoice?.number || "Invoice"}
         revisions={initialEditInvoice?.revisions || []}
-        parties={localParties}
-        locationId={locationId}
         onReverseRevision={
           initialEditInvoice
             ? async (revisionId, revisionNumber, target = "before") => {
@@ -4772,16 +4770,6 @@ export function PosClient({
               }
             : undefined
         }
-        onSplitRevision={async (revisionId, targetPartyId, targetCustomerName) => {
-          const res = await splitInvoiceFromRevisionAction({
-            revisionId,
-            locationId,
-            targetPartyId,
-            targetCustomerName,
-            snapshotTarget: "before",
-          });
-          return res;
-        }}
       />
 
       {/* Save Voucher Confirmation Dialog [F2] */}
@@ -4892,7 +4880,7 @@ export function PosClient({
           role="alert"
           className="fixed bottom-16 right-4 z-50 bg-rose-950 text-white px-4 py-3 rounded-xl shadow-2xl border-2 border-amber-400 flex items-center gap-3 text-xs font-bold"
         >
-          <span>Print failed for {printFallbackToast.number || "bill"} â€” bill is saved.</span>
+          <span>Print failed for {printFallbackToast.number || "bill"} — bill is saved.</span>
           <button
             type="button"
             onClick={() => {
@@ -4909,7 +4897,7 @@ export function PosClient({
             onClick={() => setPrintFallbackToast(null)}
             className="text-white/70 hover:text-white cursor-pointer"
           >
-            âœ•
+            ✕
           </button>
         </div>
       )}
@@ -4924,8 +4912,8 @@ export function PosClient({
                   Billing History: {selectedParty?.name || "Customer"}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {selectedParty?.phone ? `Phone: ${selectedParty.phone} Â· ` : ""}
-                  Type: {selectedParty?.type} Â· Total Invoices: {historyBills.length}
+                  {selectedParty?.phone ? `Phone: ${selectedParty.phone} · ` : ""}
+                  Type: {selectedParty?.type} · Total Invoices: {historyBills.length}
                 </p>
               </div>
               <button
@@ -4958,7 +4946,7 @@ export function PosClient({
                         </span>
                       </div>
                       <span className="font-black text-sm text-slate-900 font-mono">
-                        â‚¹{(inv.totalPaise / 100).toFixed(2)}
+                        ₹{(inv.totalPaise / 100).toFixed(2)}
                       </span>
                     </div>
 
@@ -4981,8 +4969,8 @@ export function PosClient({
                       <div className="text-[11px] text-slate-600 bg-white p-2 rounded-lg border border-slate-200/60 max-h-24 overflow-y-auto space-y-0.5">
                         {inv.lines.map((l: any, i: number) => (
                           <div key={i} className="flex justify-between">
-                            <span className="truncate">{l.productName} Ã— {l.qty}</span>
-                            <span className="font-mono">â‚¹{(l.lineTotalPaise / 100).toFixed(2)}</span>
+                            <span className="truncate">{l.productName} × {l.qty}</span>
+                            <span className="font-mono">₹{(l.lineTotalPaise / 100).toFixed(2)}</span>
                           </div>
                         ))}
                       </div>
@@ -5029,7 +5017,7 @@ export function PosClient({
                 Held Bills ({tabs.filter((t) => t.isHeld).length})
               </h3>
               <button onClick={() => setShowHeldModal(false)} className="text-slate-400 hover:text-slate-700 text-sm">
-                âœ•
+                ✕
               </button>
             </div>
 
@@ -5047,7 +5035,7 @@ export function PosClient({
                       <div>
                         <p className="font-bold text-slate-900">{t.tabTitle}</p>
                         <p className="text-[11px] text-slate-500">
-                          {t.cart.length} item(s) â€¢ Held {t.heldAt ? new Date(t.heldAt).toLocaleTimeString() : ""}
+                          {t.cart.length} item(s) • Held {t.heldAt ? new Date(t.heldAt).toLocaleTimeString() : ""}
                         </p>
                       </div>
 
@@ -5096,7 +5084,7 @@ export function PosClient({
                 onClick={() => setQuickCustomerModalOpen(false)}
                 className="text-slate-400 hover:text-slate-700 text-sm"
               >
-                âœ•
+                ✕
               </button>
             </div>
 
@@ -5216,7 +5204,7 @@ export function PosClient({
               <h3 className="font-black text-lg text-[#12355B]">Invoice Finalized!</h3>
               <p className="font-mono text-sm font-bold text-slate-700 mt-1">{finalizedInvoice.number}</p>
               <p className="text-xl font-black text-slate-900 mt-2 font-mono">
-                â‚¹{(finalizedInvoice.totalPaise / 100).toFixed(2)}
+                ₹{(finalizedInvoice.totalPaise / 100).toFixed(2)}
               </p>
             </div>
 
@@ -5246,7 +5234,7 @@ export function PosClient({
                   <span>Thermal Slip (3&quot;)</span>
                 </div>
                 <span className="text-[10px] font-mono text-slate-400">
-                  {finalizedModalFocusIndex === 0 ? "â†µ Enter / [1]" : "[1]"}
+                  {finalizedModalFocusIndex === 0 ? "↵ Enter / [1]" : "[1]"}
                 </span>
               </Link>
 
@@ -5265,7 +5253,7 @@ export function PosClient({
                   <span>Print A4 Bill</span>
                 </div>
                 <span className="text-[10px] font-mono text-blue-200">
-                  {finalizedModalFocusIndex === 1 ? "â†µ Enter / [2]" : "[2]"}
+                  {finalizedModalFocusIndex === 1 ? "↵ Enter / [2]" : "[2]"}
                 </span>
               </Link>
             </div>
@@ -5283,7 +5271,7 @@ export function PosClient({
             >
               <span>Start Next Bill (F3 / Esc)</span>
               <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-black/20 text-white">
-                {finalizedModalFocusIndex === 2 ? "â†µ Enter" : "F3"}
+                {finalizedModalFocusIndex === 2 ? "↵ Enter" : "F3"}
               </kbd>
             </button>
           </div>
