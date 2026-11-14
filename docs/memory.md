@@ -913,7 +913,19 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   2. Production smoke tests run on 00103: 34 PASS / 0 FAIL.
   3. Safety branch rchive/rev-00104-changes created and pushed to origin to preserve all work.
   4. Commits 55088d3 and 1bb3b69 reverted on main and pushed to origin/main. git diff 0a98e9f HEAD is 100% empty (exact match to 00103).
-- **Status of Revision 00104**: 0% traffic, ready for deletion pending user explicit confirmation (CONFIRM DELETE 00104).
+- **Status of Revision 00104**: 0% traffic, deleted from Cloud Run.
+
+## Incident Report: Rollback of Revision jmd-cart-00103-bpx Corruptions (2026-11-14)
+- **Root Cause Found**: Commit `0a98e9f` ("feat: Split → New Bill from Revision History modal") which was deployed as `jmd-cart-00103-bpx` had inadvertently saved `src/app/shop/pos/pos-client.tsx` with ANSI/Windows-1252 byte corruption. This caused every `₹` to display as `â‚¹`, `·` as `Â·`, and Unicode symbols (`👤`, `✕`, `•`, `↵`) to become malformed mojibake in the live Shop POS interface.
+- **Actions Taken**:
+  1. Reverted commit `0a98e9f` (`git revert 0a98e9f`), cleanly restoring pure UTF-8 formatting and original POS behavior.
+  2. Verified `git grep "â‚¹"` and `git grep "Â·"` returned zero matches across the entire `src/` tree.
+  3. Verified TypeScript typecheck passed cleanly with 0 errors (`pnpm typecheck`).
+  4. Built and deployed clean Docker image to Google Cloud Run via Cloud Build (`jmd-cart-00107-t6k`).
+  5. Shifted 100% live traffic to revision `jmd-cart-00107-t6k`.
+  6. Health check: `https://management.jmdcart.com/api/health` -> `status: ok`, `db: ok`.
+  7. Production smoke tests: 34 PASS, 0 FAIL.
+  8. Live POS UI verified clean without character corruption.
 
 
 ## Prompt #25: Purchase / GRN Module POS-Style Redesign (2026-11-14)
