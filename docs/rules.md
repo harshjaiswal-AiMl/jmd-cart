@@ -102,3 +102,9 @@ Short imperatives for humans and AI agents. If a rule blocks you, stop and ask. 
 - **Morning Issue Invariant (Prompt #18)**: In Morning Issue, items with `godownQty < packSize` must default to 1 piece (never 0), remove must cleanly delete the item, and re-selecting must increment cartons.
 - **Customer Native App Shared Service Layer & Pricing (Prompt #20)**: The customer mobile app (`com.jmdcart.shop`) shares the identical backend service layer (`/api/store/v1`) as `jmdcart.com`. The app never computes prices locally; all prices, GST, delivery charges, and wholesale tier nudges are determined solely by the server. Anonymous browsing uses List C; wholesale tiers A/B are unlocked only upon approved login.
 - **Mobile Privacy & Zero Third-Party SDKs (Prompt #20)**: Zero third-party ad or analytics SDKs are allowed in the mobile app. Push notifications for offers are strictly opt-in (`notificationPreferences.promotional === true`). Account deletion is supported in-app and at `/delete-account`, anonymizing personal data while preserving statutory tax invoices.
+
+
+## Purchase & GRN Rules (Prompt #25)
+- **Zero Business Logic in Presentation**: Purchase form (`/godown/purchases/new`) and register (`/godown/purchases`) redesign must keep all services, calculations, stock movements, supplier ledger entries, GST apportionment, and permissions strictly unchanged.
+- **Empty Parity Diff**: Every field, button, accessible name, test ID, and filter from previous purchase screens must exist in the redesigned voucher and register layouts.
+- **Keyboard-First Navigation**: Every action in the purchase workflow (list browsing, row selection, new voucher creation, supplier search, item lookup, unit switching, quantity, rate, GST selection, hold, repeat line, info modal, line deletion, save confirmation, posting) must be completely operable using the keyboard alone without requiring a mouse.

@@ -174,3 +174,30 @@ The system ships with **zero products, zero stock, zero parties, zero bills**. E
   - 48px minimum touch targets for all interactive steppers and buttons.
   - Offline red alert banner across the top when network disconnected, seamlessly falling back to cached products.
   - High-contrast sunlight readability tuned for Tier-2/Tier-3 Android displays.
+
+
+## Purchase / Goods Receipt Note (GRN) POS-Style Redesign (Prompt #25)
+- **Reference Designs**: `design/stitch-export/management/grn-redesign/` (`grn-voucher-entry-1366.html`, `grn-voucher-entry-1920.html`, `grn-voucher-entry-1024.html`, `grn-voucher-entry-mobile.html`, `grn-register-list.html`, `grn-count-verify.html`).
+- **Layout & Visual Hierarchy**:
+  - **Command Header**: < 140px above grid. Contains voucher type badge (`GRN`), destination godown, supplier/brand search (`Alt+S`), Supplier Bill No, Bill Date, Receiving Destination.
+  - **Voucher Grid**: Full-width dense ledger table matching Shop POS (`VoucherGrid`). Clean borderless cells, tabular numbers, active row highlight, inline smart item search (`searchItems`), quantity, unit selector (`Carton`, `Pcs`, `Dozen`, `Bag`, `Jar`, `Hanger`), purchase rate, GST slab, and reactive line calculations.
+  - **Status Line**: Fixed status line below grid showing current Godown/Shop stock, MRP, pack size, last purchase rate, and `[F8]` info prompt.
+  - **Action & Summary Bar**: Sticky bottom bar with `Confirm & Post [F2]`, `Hold [F4]`, `Cancel [Esc]`, and large Grand Total with Indian Rupees in words (`paiseToIndianWords`).
+  - **Function-Key Footer**:
+    `[F2] Post | [F3] New | [F4] Hold | [F6] Add Product | [F7] Repeat Line | [F8] Item Info | [F9] Delete Line | [Alt+S] Supplier | [Esc] Back | [?] Help`.
+- **Keyboard Map**:
+  - `↑/↓`: Navigate rows in purchases list register.
+  - `Enter`: Open selected voucher in register; move to next cell in entry grid.
+  - `N` / `F3`: New GRN voucher.
+  - `/`: Focus search input in register.
+  - `F`: Toggle status filter in register (`ALL` -> `RECEIVED` -> `CANCELLED`).
+  - `P`: Print selected purchase voucher.
+  - `Alt+S`: Focus supplier / brand search modal.
+  - `F2` or `Ctrl+Enter`: Open Save Confirmation dialog -> Enter to confirm and post receipt.
+  - `F4`: Hold voucher to localStorage.
+  - `F6`: Open Quick Add Product drawer with Quick Save.
+  - `F7`: Repeat previous voucher line.
+  - `F8`: Open full Item Diagnostics info modal.
+  - `F9`: Delete active line (with confirmation if filled).
+  - `Unit Cell (P/C/D/B/J/H)`: Instant one-key unit selection (Pcs, Carton, Dozen, Bag, Jar, Hanger).
+  - `Esc`: Hierarchical back (close popup -> cancel cell -> clear search -> prompt discard if voucher is dirty -> back to register).

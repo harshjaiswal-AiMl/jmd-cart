@@ -26,14 +26,12 @@ export default async function NewPurchasePage() {
   }));
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 md:p-8">
-      <div className="max-w-6xl mx-auto">
-        <PurchaseForm
-          suppliers={suppliers}
-          locations={locations}
-          products={normalizedProducts}
-        />
-      </div>
+    <div className="w-full h-full min-h-[calc(100vh-64px)] bg-slate-100">
+      <PurchaseForm
+        suppliers={suppliers}
+        locations={locations}
+        products={normalizedProducts}
+      />
     </div>
   );
 }

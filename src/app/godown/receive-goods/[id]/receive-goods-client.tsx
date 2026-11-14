@@ -1,7 +1,7 @@
 "use client";
 import { searchItems } from "@/lib/search/smart-search";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -418,6 +418,22 @@ export function ReceiveGoodsClient({
       }
     });
   };
+
+    useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA";
+      if (e.key === "F2") {
+        e.preventDefault();
+        handlePostReceipt();
+      } else if (!isInput && (e.key === "=" || e.key === " ")) {
+        e.preventDefault();
+        handleConfirmAllAsBilled();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isPosted, scan.id]);
 
   const imageSrc = `/api/bills/${scan.id}/image/${currentPage}`;
 

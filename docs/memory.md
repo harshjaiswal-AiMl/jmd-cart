@@ -914,3 +914,33 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
   3. Safety branch rchive/rev-00104-changes created and pushed to origin to preserve all work.
   4. Commits 55088d3 and 1bb3b69 reverted on main and pushed to origin/main. git diff 0a98e9f HEAD is 100% empty (exact match to 00103).
 - **Status of Revision 00104**: 0% traffic, ready for deletion pending user explicit confirmation (CONFIRM DELETE 00104).
+
+
+## Prompt #25: Purchase / GRN Module POS-Style Redesign (2026-11-14)
+- **Branch**: `feat/prompt25-grn-pos-redesign`
+- **Scope**: Redesign entire Purchase / GRN area (Purchases list, New GRN voucher entry, view/print, Scan Bill receive-goods count & verify) to match the Shop POS visual and keyboard-first interaction model.
+- **Visual Design Reference**:
+  - Saved under `design/stitch-export/management/grn-redesign/`:
+    - `grn-voucher-entry-1366.html` (1366x768 reference)
+    - `grn-voucher-entry-1920.html` (1920x1080 Full HD reference)
+    - `grn-voucher-entry-1024.html` (1024x768 Tablet reference)
+    - `grn-voucher-entry-mobile.html` (360px Mobile fallback reference)
+    - `grn-register-list.html` (Busy-style Purchase Register reference)
+    - `grn-count-verify.html` (Scan Bill Count & Verify reference)
+- **Voucher Layout & Dimensions**:
+  - Command Header: Total height <= 140px above grid. Includes GRN badge, supplier card, Supplier Bill No, Bill Date, Receiving destination location.
+  - Voucher Grid: Borderless cells, right-aligned monetary values, sticky header, active row highlighting, inline smart product search (`searchItems`), units (Carton, Pcs, Dozen, Bag, Jar, Hanger), purchase rate, GST slab selection, live total calculations.
+  - Status Line: Shows current Stock (Godown & Shop), MRP, Pack Size, Last Purchase Rate, and `[F8]` diagnostic prompt.
+  - Sticky Action Bar: `Confirm & Post [F2]`, `Hold [F4]`, `Cancel [Esc]` always visible at 1366x768 without scrolling.
+  - Grand Total: Live total with Indian Rupees in words (`paiseToIndianWords`).
+  - Function-Key Footer: `[F2] Post | [F3] New | [F4] Hold | [F6] Add Product | [F7] Repeat Line | [F8] Item Info | [F9] Delete Line | [Alt+S] Supplier | [Esc] Back | [?] Help`.
+- **Keyboard Interaction**:
+  - Full keyboard control across register (`↑/↓` row navigation, `Enter` details, `N/F3` new, `/` search, `F` filter, `P` print, `Esc` back).
+  - One-key unit selection in voucher grid: `P` (Pcs), `C` (Carton), `D` (Dozen), `B` (Bag), `J` (Jar), `H` (Hanger).
+  - Quick Add Product modal (`F6`), Item Diagnostics modal (`F8`), Save Confirmation modal (`F2`).
+  - Scan bill count & verify: `Tab/Enter` step, `Space/=` as per bill, `F2` finish receipt.
+- **Integrity**:
+  - Zero database schema changes.
+  - Zero business logic changes in `purchaseService` or `stockService`.
+  - Typecheck: 0 errors (`tsc --noEmit`).
+  - Next.js Build: 117/117 static & dynamic pages compiled cleanly (`pnpm build`).

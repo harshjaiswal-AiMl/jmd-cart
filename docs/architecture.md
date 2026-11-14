@@ -311,3 +311,13 @@ One codebase, one database, two hostnames routed by Next.js `middleware.ts` base
   - Account deletion endpoint (`/api/store/v1/account/delete-account`) and public web form at `/delete-account`.
   - Personal data anonymized, device/refresh tokens revoked, statutory GST tax invoices legally preserved for Indian accounting compliance.
   - Zero third-party ad or tracking SDKs. Direct APK download page published at `/store/app`.
+
+
+## Purchase & Goods Receipt Note (GRN) POS-Style Architecture (Prompt #25)
+- **Shared Voucher Interface Pattern**:
+  - Unifies Purchase / GRN entry (`/godown/purchases/new`) with Shop POS (`/shop/pos`).
+  - Strict separation of presentation and business logic: The UI layer exposes the dense keyboard-first `VoucherGrid` and command header while delegating 100% of transaction processing to `purchaseService.recordPurchaseReceive` and `stockService.postMovement`.
+  - Financial calculations, GST slab apportionment, supplier ledger entries, and audit logging remain completely immutable and server-authoritative.
+- **Rollback Guardrails & Canary Scripting**:
+  - `scripts/rollback-gcp.ps1`: One-command script to pin production traffic to a known-good Cloud Run revision (`jmd-cart-00103-bpx`), run 34 smoke tests, and output verification status.
+  - Revision immutability: Revisions serving traffic cannot be deleted until explicitly confirmed and 0% traffic verified.
