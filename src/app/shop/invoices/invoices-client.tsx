@@ -389,6 +389,7 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
                 <th className="p-3.5">Date & Time</th>
                 <th className="p-3.5">Customer / Party</th>
                 <th className="p-3.5">Channel</th>
+                <th className="p-3.5 text-center">Agent</th>
                 <th className="p-3.5 text-center">Buyer Tag</th>
                 <th className="p-3.5 text-center">Status</th>
                 <th className="p-3.5 text-right">Amount (₹)</th>
@@ -398,7 +399,7 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
             <tbody className="divide-y divide-slate-100">
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                  <td colSpan={9} className="p-8 text-center text-slate-400">
                     No invoices match your search criteria.
                   </td>
                 </tr>
@@ -460,6 +461,15 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
                     </td>
                     <td className="p-3.5 font-semibold text-slate-700">
                       {inv.channel}
+                    </td>
+                    <td className="p-3.5 text-center font-mono">
+                      {inv.agentCodeSnapshot ? (
+                        <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                          {inv.agentCodeSnapshot}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </td>
                     <td className="p-3.5 text-center">
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-slate-100 text-slate-700">

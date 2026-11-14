@@ -50,6 +50,7 @@ export const finalizeInvoiceInputSchema = z.object({
   customerPhone: z.string().optional(),
   customerAddress: z.string().optional(),
   agentUserId: z.string().optional(),
+  agentCode: z.string().optional(),
   buyerType: z.string().optional(),
   orderDiscountBp: z.number().int().min(0).max(10000).default(0),
   isInterState: z.boolean().default(false),

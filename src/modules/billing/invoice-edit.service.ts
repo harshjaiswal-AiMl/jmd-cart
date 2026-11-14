@@ -21,6 +21,8 @@ export interface EditInvoiceInput {
   customerPhone?: string;
   customerAddress?: string;
   allowPartyChange?: boolean;
+  agentCode?: string | null;
+  agentUserId?: string | null;
   invoiceDate?: Date | string | null;
   dateChangeReason?: string;
   items: EditInvoiceItemInput[];
@@ -241,6 +243,8 @@ export class InvoiceEditService {
           totalPaise: invoice.totalPaise,
           paymentStatus: invoice.paymentStatus,
           version: invoice.version,
+          agentCodeSnapshot: invoice.agentCodeSnapshot,
+          agentUserId: invoice.agentUserId,
         },
         payments: invoice.payments.map((p) => ({
           mode: p.mode,
@@ -547,6 +551,33 @@ export class InvoiceEditService {
           ? PaymentStatus.PARTIAL
           : PaymentStatus.PENDING;
 
+      let resolvedAgentCode = invoice.agentCodeSnapshot;
+      let resolvedAgentUserId = invoice.agentUserId;
+      if (input.agentCode !== undefined) {
+        resolvedAgentCode = input.agentCode ? input.agentCode.trim().toUpperCase() : null;
+        if (resolvedAgentCode) {
+          const matchedAgent = await tx.user.findFirst({
+            where: { agentCode: resolvedAgentCode },
+            select: { id: true },
+          });
+          resolvedAgentUserId = matchedAgent?.id || null;
+        } else {
+          resolvedAgentUserId = null;
+        }
+      } else if (input.agentUserId !== undefined) {
+        resolvedAgentUserId = input.agentUserId || null;
+        if (resolvedAgentUserId) {
+          const matchedAgent = await tx.user.findUnique({
+            where: { id: resolvedAgentUserId },
+            select: { agentCode: true },
+          });
+          resolvedAgentCode = matchedAgent?.agentCode || null;
+        } else {
+          resolvedAgentCode = null;
+        }
+      }
+      const agentCodeChanged = invoice.agentCodeSnapshot !== resolvedAgentCode;
+
       const updatedInvoice = await tx.invoice.update({
         where: { id: invoice.id },
         data: {
@@ -554,6 +585,8 @@ export class InvoiceEditService {
           customerName: resolvedCustomerName,
           customerPhone: resolvedCustomerPhone,
           customerAddress: resolvedCustomerAddress,
+          agentCodeSnapshot: resolvedAgentCode,
+          agentUserId: resolvedAgentUserId,
           invoiceDate: targetDate,
           dateChangeReason: input.dateChangeReason || invoice.dateChangeReason,
           isPostDated: Boolean((invoice as any).isPostDated),
@@ -590,6 +623,8 @@ export class InvoiceEditService {
           customerName: updatedInvoice.customerName,
           customerPhone: updatedInvoice.customerPhone,
           customerAddress: updatedInvoice.customerAddress,
+          agentCodeSnapshot: updatedInvoice.agentCodeSnapshot,
+          agentUserId: updatedInvoice.agentUserId,
           invoiceDate: updatedInvoice.invoiceDate,
           subtotalPaise: updatedInvoice.subtotalPaise,
           discountPaise: updatedInvoice.discountPaise,
@@ -629,6 +664,7 @@ export class InvoiceEditService {
             totalDiffPaise: totalDifferencePaise,
             itemCountDiff: input.items.length - invoice.items.length,
             reason: input.reason,
+            ...(agentCodeChanged ? { agentCodeDiff: { before: invoice.agentCodeSnapshot, after: resolvedAgentCode } } : {}),
           },
           reason: input.reason,
           editorUserId: actorId || null,
@@ -651,6 +687,9 @@ export class InvoiceEditService {
             reason: input.reason,
             totalBefore: invoice.totalPaise,
             totalAfter: invoiceTotals.totalPaise,
+            agentCodeBefore: invoice.agentCodeSnapshot,
+            agentCodeAfter: resolvedAgentCode,
+            ...(agentCodeChanged ? { agentCodeDiff: { before: invoice.agentCodeSnapshot, after: resolvedAgentCode } } : {}),
           },
         },
       });

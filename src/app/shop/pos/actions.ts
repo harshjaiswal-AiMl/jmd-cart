@@ -125,6 +125,8 @@ export async function finalizeBillAction(input: {
   notes?: string;
   creditOverride?: { approvedByUserId: string; reason: string };
   invoiceDate?: string | Date;
+  agentCode?: string;
+  agentUserId?: string;
 }) {
   const session = await auth();
   if (!session?.user) {
@@ -190,6 +192,8 @@ export async function finalizeBillAction(input: {
         notes: input.notes,
         creditOverride: input.creditOverride,
         invoiceDate: input.invoiceDate ? new Date(input.invoiceDate) : undefined,
+        agentCode: input.agentCode,
+        agentUserId: input.agentUserId,
       },
       session.user.id
     );

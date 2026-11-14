@@ -188,6 +188,8 @@ export interface PosBillTab {
   paymentCollected?: boolean;
   billDate?: string;
   documentType?: "RETAIL" | "GST";
+  agentCode?: string;
+  agentUserId?: string | null;
 }
 
 interface PosClientProps {
@@ -209,6 +211,8 @@ interface PosClientProps {
   initialStartNewBill?: boolean;
   canDeleteBill?: boolean;
   canVoidInvoice?: boolean;
+  agents?: Array<{ id: string; name: string; agentCode: string; role: string }>;
+  cashierAgentCode?: string | null;
 }
 
 export function PosClient({
@@ -230,6 +234,8 @@ export function PosClient({
   initialStartNewBill = false,
   canDeleteBill = false,
   canVoidInvoice = false,
+  agents = [],
+  cashierAgentCode = null,
 }: PosClientProps) {
   const effectivePosSettings: PosOperationalSettings = {
     showFinalizedModal: posSettings?.showFinalizedModal ?? false,
@@ -237,6 +243,7 @@ export function PosClient({
     quickFinish: posSettings?.quickFinish ?? false,
     managerCanDelete: posSettings?.managerCanDelete ?? false,
     creditAllParties: posSettings?.creditAllParties ?? true,
+    agentRequired: (posSettings as any)?.agentRequired ?? false,
   };
   const router = useRouter();
   // Admin check for backdated billing
@@ -684,6 +691,8 @@ export function PosClient({
       documentType: "RETAIL",
       isHeld: false,
       billDate: undefined,
+      agentCode: cashierAgentCode || "",
+      agentUserId: cashierId && cashierAgentCode ? cashierId : null,
     },
   ]);
   const [activeTabId, setActiveTabId] = useState<string>("tab-1");
@@ -789,6 +798,8 @@ export function PosClient({
         walkInMobile: initialEditInvoice.customerPhone || "",
         walkInAddress: initialEditInvoice.customerAddress || "",
         billDate: toIstDateString(initialEditInvoice.invoiceDate || initialEditInvoice.createdAt),
+        agentCode: initialEditInvoice.agentCodeSnapshot || initialEditInvoice.agentUser?.agentCode || "",
+        agentUserId: initialEditInvoice.agentUserId || null,
       };
 
       setTabs([editTab]);
@@ -856,6 +867,8 @@ export function PosClient({
         documentType: "RETAIL",
         isHeld: false,
       billDate: undefined,
+      agentCode: cashierAgentCode || "",
+      agentUserId: cashierId && cashierAgentCode ? cashierId : null,
       }
     );
   }, [tabs, activeTabId]);
@@ -1042,6 +1055,51 @@ export function PosClient({
     date: string | null;
   } | null>(null);
   const itemSearchInputRef = useRef<HTMLInputElement>(null);
+  const agentInputRef = useRef<HTMLInputElement>(null);
+  const [showAgentDropdown, setShowAgentDropdown] = useState(false);
+  const [recentAgentCodes, setRecentAgentCodes] = useState<string[]>([]);
+
+  const getDefaultAgentCode = useCallback(() => {
+    if (cashierAgentCode) return cashierAgentCode;
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("last_pos_agent_code") || "";
+    }
+    return "";
+  }, [cashierAgentCode]);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("pos_recent_agent_codes");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) setRecentAgentCodes(parsed);
+      }
+    } catch {}
+  }, []);
+
+  const recordRecentAgentCode = useCallback((code?: string | null) => {
+    if (!code) return;
+    const clean = code.toUpperCase().trim();
+    if (!clean) return;
+    try {
+      localStorage.setItem("last_pos_agent_code", clean);
+      setRecentAgentCodes((prev) => {
+        const next = [clean, ...prev.filter((c) => c !== clean)].slice(0, 5);
+        localStorage.setItem("pos_recent_agent_codes", JSON.stringify(next));
+        return next;
+      });
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (agentInputRef.current && !agentInputRef.current.contains(e.target as Node)) {
+        setShowAgentDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const [selectedWeightBand, setSelectedWeightBand] = useState<string>("ALL");
   const [isWeightViewOpen, setIsWeightViewOpen] = useState(false);
   const [isItemInfoOpen, setIsItemInfoOpen] = useState(false);
@@ -1690,6 +1748,8 @@ export function PosClient({
         walkInMobile: "",
         walkInAddress: "",
         billDate: undefined,
+        agentCode: getDefaultAgentCode(),
+        agentUserId: cashierId && cashierAgentCode ? cashierId : null,
       };
       setActiveTabId(freshId);
       return heldTabs.length > 0 ? [...heldTabs, freshTab] : [freshTab];
@@ -1767,6 +1827,8 @@ export function PosClient({
         remarks: "",
         isHeld: false,
       billDate: undefined,
+      agentCode: cashierAgentCode || "",
+      agentUserId: cashierId && cashierAgentCode ? cashierId : null,
       };
       setTabs([resetTab]);
       setActiveTabId(resetTab.id);
@@ -2092,6 +2154,12 @@ export function PosClient({
           return;
         }
 
+        if (effectivePosSettings.agentRequired && !activeTab.agentCode?.trim()) {
+          setErrorMessage("Agent code is required to finalize bill (pos.agentRequired is enabled).");
+          agentInputRef.current?.focus();
+          return;
+        }
+
         // Handle Invoice Edit Revision Save
         if (isEditMode && initialEditInvoice) {
           const editItems = activeTab.cart.map((c) => {
@@ -2142,9 +2210,12 @@ export function PosClient({
             paymentMode: effectiveMode,
             paymentStatus: derivedPaymentStatus,
             payments,
+            agentCode: activeTab.agentCode?.trim().toUpperCase() || null,
+            agentUserId: activeTab.agentUserId || null,
           });
 
           if (editRes.success && editRes.invoice) {
+            recordRecentAgentCode(activeTab.agentCode);
             const fmtQuery =
               activeTab.documentType === "GST"
                 ? chosenFormat === "thermal"
@@ -2212,6 +2283,8 @@ export function PosClient({
           payments,
           idempotencyKey,
           creditOverride: overrideToUse || undefined,
+          agentCode: activeTab.agentCode?.trim().toUpperCase() || undefined,
+          agentUserId: activeTab.agentUserId || undefined,
           invoiceDate: (() => {
             const isBackdated = isAdmin && Boolean(activeTab.billDate) && activeTab.billDate !== todayStr;
             if (!isBackdated) return undefined;
@@ -2268,6 +2341,7 @@ export function PosClient({
         }
 
         const invoice = res.invoice;
+        recordRecentAgentCode(activeTab.agentCode);
         setApprovedCreditOverride(null);
         setLastUsedPaymentMode(effectiveMode);
         try {
@@ -2352,6 +2426,8 @@ export function PosClient({
         walkInMobile: "",
         walkInAddress: "",
         billDate: undefined,
+        agentCode: getDefaultAgentCode(),
+        agentUserId: cashierId && cashierAgentCode ? cashierId : null,
       };
       setTabs([freshTab]);
       setActiveTabId("tab-1");
@@ -2549,6 +2625,12 @@ export function PosClient({
       } else if (e.key === "F9") {
         e.preventDefault();
         handleDeleteHighlightedOrLastLine();
+      } else if (e.altKey && (e.code === "KeyA" || e.key.toLowerCase() === "a")) {
+        e.preventDefault();
+        e.stopPropagation();
+        agentInputRef.current?.focus();
+        agentInputRef.current?.select();
+        setShowAgentDropdown(true);
       } else if (e.altKey && (e.code === "KeyP" || e.key.toLowerCase() === "p")) {
         e.preventDefault();
         e.stopPropagation();
@@ -4247,6 +4329,145 @@ export function PosClient({
                 </div>
               </div>
             )}
+
+            {/* Agent Code Input (Alt+A) */}
+            <div className="relative">
+              <div className="flex items-center justify-between mb-0.5">
+                <label className="text-[10px] font-bold text-slate-700 flex items-center gap-1">
+                  <span>Agent Code</span>
+                  <kbd className="px-1 py-0.2 rounded text-[9px] font-mono bg-slate-200 text-slate-700 font-normal">
+                    Alt+A
+                  </kbd>
+                </label>
+                {effectivePosSettings.agentRequired && (
+                  <span className="text-[9px] font-black uppercase text-rose-600 bg-rose-50 px-1 rounded border border-rose-200">
+                    Required
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  ref={agentInputRef}
+                  type="text"
+                  maxLength={10}
+                  value={activeTab.agentCode || ""}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 10);
+                    const matched = agents.find((a) => a.agentCode.toUpperCase() === val);
+                    updateActiveTab({
+                      agentCode: val,
+                      agentUserId: matched ? matched.id : null,
+                    });
+                    setShowAgentDropdown(true);
+                  }}
+                  onFocus={() => setShowAgentDropdown(true)}
+                  placeholder="Agent Code (Alt+A)..."
+                  className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg font-mono text-slate-900 font-bold focus:ring-1 focus:ring-slate-900 uppercase"
+                />
+                {activeTab.agentCode ? (
+                  <button
+                    type="button"
+                    onClick={() => updateActiveTab({ agentCode: "", agentUserId: null })}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                ) : null}
+              </div>
+
+              {/* Suggestions Dropdown & Recent Codes */}
+              {showAgentDropdown && (
+                <div
+                  className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-40 p-2 max-h-48 overflow-y-auto space-y-2"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  {/* Recent codes chips */}
+                  {recentAgentCodes.length > 0 && (
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block mb-1 uppercase tracking-wider">
+                        Recent Codes
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {recentAgentCodes.map((code) => (
+                          <button
+                            key={code}
+                            type="button"
+                            onClick={() => {
+                              const matched = agents.find((a) => a.agentCode.toUpperCase() === code);
+                              updateActiveTab({ agentCode: code, agentUserId: matched ? matched.id : null });
+                              setShowAgentDropdown(false);
+                            }}
+                            className="px-2 py-0.5 text-[11px] font-mono font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 rounded border border-slate-200 transition"
+                          >
+                            {code}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Registered agents list */}
+                  {agents.length > 0 && (
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block mb-1 uppercase tracking-wider">
+                        Staff Agents
+                      </span>
+                      <div className="divide-y divide-slate-100">
+                        {agents
+                          .filter((a) =>
+                            !activeTab.agentCode ||
+                            a.agentCode.toUpperCase().includes(activeTab.agentCode.toUpperCase()) ||
+                            a.name.toLowerCase().includes(activeTab.agentCode.toLowerCase())
+                          )
+                          .map((a) => (
+                            <button
+                              key={a.id}
+                              type="button"
+                              onClick={() => {
+                                updateActiveTab({ agentCode: a.agentCode, agentUserId: a.id });
+                                setShowAgentDropdown(false);
+                              }}
+                              className="w-full text-left py-1 px-1.5 hover:bg-amber-50 rounded flex items-center justify-between text-xs transition"
+                            >
+                              <span className="font-semibold text-slate-800">{a.name}</span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono font-bold bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded text-[10px]">
+                                  {a.agentCode}
+                                </span>
+                                <span className="text-[9px] text-slate-400 uppercase">
+                                  {a.role}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-1 border-t border-slate-100 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowAgentDropdown(false)}
+                      className="text-[10px] text-slate-500 hover:text-slate-800 font-bold"
+                    >
+                      Close [Esc]
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Warning if staff agent list exists and code is unknown */}
+              {Boolean(
+                activeTab.agentCode &&
+                agents.length > 0 &&
+                !agents.some((a) => a.agentCode.toUpperCase() === activeTab.agentCode?.toUpperCase())
+              ) && (
+                <p className="text-[10px] text-amber-700 font-medium mt-0.5 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
+                  <span>Unknown code. Staff agent list exists.</span>
+                </p>
+              )}
+            </div>
 
             {/* Remarks Input */}
             <div>

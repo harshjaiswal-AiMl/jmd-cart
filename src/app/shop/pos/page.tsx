@@ -45,7 +45,7 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
     ...(godownLocation ? [godownLocation.id] : []),
   ];
 
-  const [productsRaw, companies, categories, partiesRaw, roleLimits, nextInvoicePreview, posSettings, businessDetails] = await Promise.all([
+  const [productsRaw, companies, categories, partiesRaw, roleLimits, nextInvoicePreview, posSettings, businessDetails, agentsRaw, cashierUser] = await Promise.all([
     prisma.product.findMany({
       where: { active: true },
       include: {
@@ -89,6 +89,15 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
     previewNextInvoiceNumber("INV"),
     settingsService.getPosOperationalSettings(),
     settingsService.getBusinessDetails(),
+    prisma.user.findMany({
+      where: { agentCode: { not: null }, active: true },
+      select: { id: true, name: true, agentCode: true, role: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { agentCode: true },
+    }),
   ]);
 
   const products = productsRaw.map((p) => {
@@ -220,6 +229,8 @@ export default async function ShopPosPage({ searchParams }: { searchParams?: Pro
       initialStartNewBill={params?.new === "1"}
       canDeleteBill={hasPermission(session.user.role as UserRole, Permission.POS_DELETE_BILL)}
       canVoidInvoice={hasPermission(session.user.role as UserRole, Permission.INVOICE_VOID)}
+      agents={agentsRaw.map((a) => ({ id: a.id, name: a.name, agentCode: a.agentCode!, role: a.role }))}
+      cashierAgentCode={cashierUser?.agentCode || null}
     />
   );
 }

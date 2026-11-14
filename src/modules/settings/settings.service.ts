@@ -446,14 +446,16 @@ export class SettingsService {
     quickFinish: boolean;
     managerCanDelete: boolean;
     creditAllParties: boolean;
+    agentRequired: boolean;
   }> {
-    const [showFinalizedModal, askPartyOnNewBill, quickFinish, managerCanDelete, creditAllParties] =
+    const [showFinalizedModal, askPartyOnNewBill, quickFinish, managerCanDelete, creditAllParties, agentRequired] =
       await Promise.all([
         settingsRepository.getSetting<boolean>("pos.showFinalizedModal"),
         settingsRepository.getSetting<boolean>("pos.askPartyOnNewBill"),
         settingsRepository.getSetting<boolean>("pos.quickFinish"),
         settingsRepository.getSetting<boolean>("invoice.managerCanDelete"),
         settingsRepository.getSetting<boolean>("pos.creditAllParties"),
+        settingsRepository.getSetting<boolean>("pos.agentRequired"),
       ]);
     return {
       showFinalizedModal: Boolean(showFinalizedModal ?? false),
@@ -461,6 +463,7 @@ export class SettingsService {
       quickFinish: Boolean(quickFinish ?? false),
       managerCanDelete: Boolean(managerCanDelete ?? false),
       creditAllParties: creditAllParties === null || creditAllParties === undefined ? true : Boolean(creditAllParties),
+      agentRequired: Boolean(agentRequired ?? false),
     };
   }
 

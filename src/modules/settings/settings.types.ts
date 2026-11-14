@@ -113,6 +113,7 @@ export interface PosOperationalSettings {
   quickFinish: boolean;
   managerCanDelete: boolean;
   creditAllParties: boolean;
+  agentRequired?: boolean;
 }
 
 export interface AllSettings {

@@ -10,6 +10,7 @@ import {
   PartyType,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { settingsRepository } from "@/modules/settings/settings.repository";
 import { getNextSequenceNumber } from "@/lib/invoice-number";
 import { stockService } from "@/modules/stock/stock.service";
 import { pricingService } from "@/modules/pricing/pricing.service";
@@ -299,14 +300,35 @@ export class BillingService {
           }
         }
 
-        const effectiveAgentUserId = validated.agentUserId || actorId || null;
-        let agentCodeSnapshot: string | null = null;
-        if (effectiveAgentUserId) {
-          const agentUser = await tx.user.findUnique({
-            where: { id: effectiveAgentUserId },
-            select: { agentCode: true },
+        const agentRequiredSetting = await settingsRepository.getSetting<boolean>("pos.agentRequired");
+        const isAgentRequired = Boolean(agentRequiredSetting ?? false);
+        const inputAgentCode = validated.agentCode?.trim().toUpperCase() || null;
+        if (isAgentRequired && validated.channel === InvoiceChannel.SHOP && !inputAgentCode) {
+          throw new Error("Agent code is required to finalize bill (pos.agentRequired is enabled).");
+        }
+
+        let effectiveAgentUserId = validated.agentUserId || null;
+        let agentCodeSnapshot: string | null = inputAgentCode;
+
+        if (inputAgentCode) {
+          const matchedUser = await tx.user.findFirst({
+            where: { agentCode: inputAgentCode },
+            select: { id: true },
           });
-          agentCodeSnapshot = agentUser?.agentCode || null;
+          if (matchedUser) {
+            effectiveAgentUserId = matchedUser.id;
+          } else if (!effectiveAgentUserId && actorId) {
+            effectiveAgentUserId = actorId;
+          }
+        } else {
+          effectiveAgentUserId = effectiveAgentUserId || actorId || null;
+          if (effectiveAgentUserId) {
+            const agentUser = await tx.user.findUnique({
+              where: { id: effectiveAgentUserId },
+              select: { agentCode: true },
+            });
+            agentCodeSnapshot = agentUser?.agentCode || null;
+          }
         }
 
         // C. Create Invoice record with frozen pricing
