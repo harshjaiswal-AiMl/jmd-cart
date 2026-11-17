@@ -726,10 +726,10 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
     // Focus immediately on newly added row's QTY cell and select its text
     setTimeout(() => {
       const rowEl = document.querySelector(`tr[data-row-index="${targetRow}"]`);
-      const qtyEl = rowEl?.querySelector('[data-grn-field="qty"]');
+      const qtyEl = rowEl?.querySelector('[data-grn-field="qty"]') as HTMLInputElement | null;
       if (qtyEl) {
         qtyEl.focus();
-        if ("select" in qtyEl && typeof qtyEl.select === "function") {
+        if (typeof qtyEl.select === "function") {
           qtyEl.select();
         }
       }
@@ -1311,10 +1311,10 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                   } else if (lines.length > 0) {
                     e.preventDefault();
                     setGridFocus({ row: 0, col: 0 });
-                    const firstQty = document.querySelector('tr[data-row-index="0"] [data-grn-field="qty"]');
+                    const firstQty = document.querySelector('tr[data-row-index="0"] [data-grn-field="qty"]') as HTMLInputElement | null;
                     if (firstQty) {
                       firstQty.focus();
-                      if ("select" in firstQty && typeof firstQty.select === "function") {
+                      if (typeof firstQty.select === "function") {
                         firstQty.select();
                       }
                     }
@@ -1341,10 +1341,10 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                   } else if (lines.length > 0) {
                     e.preventDefault();
                     setGridFocus({ row: 0, col: 0 });
-                    const firstQty = document.querySelector('tr[data-row-index="0"] [data-grn-field="qty"]');
+                    const firstQty = document.querySelector('tr[data-row-index="0"] [data-grn-field="qty"]') as HTMLInputElement | null;
                     if (firstQty) {
                       firstQty.focus();
-                      if ("select" in firstQty && typeof firstQty.select === "function") {
+                      if (typeof firstQty.select === "function") {
                         firstQty.select();
                       }
                     }
