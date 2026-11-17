@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Plus, AlertTriangle, Package } from "lucide-react";
 import { posQuickAddProductAction } from "@/app/shop/pos/actions";
 
@@ -26,6 +26,12 @@ export function QuickAddProductModal({
   const [weight, setWeight] = useState("");
   const [packSize, setPackSize] = useState("1");
   const [mrpRs, setMrpRs] = useState("");
+
+  useEffect(() => {
+    if (isOpen && initialSearchName) {
+      setName(initialSearchName);
+    }
+  }, [isOpen, initialSearchName]);
 
   // 3 Pricing Tiers (A, B, C) with Rates & Percentages
   const [priceARs, setPriceARs] = useState("");

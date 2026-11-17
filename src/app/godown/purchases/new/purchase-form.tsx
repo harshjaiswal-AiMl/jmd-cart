@@ -68,6 +68,7 @@ export interface GrnLineItem {
   rateInput: string; // Rate per selected unit
   discPercentInput: string; // Discount %
   gstRateBp: number;
+  amountInput?: string; // Total line amount (editable)
 }
 
 export interface SupplierItem {
@@ -605,6 +606,32 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
     recordUndo();
     setLines((prev) =>
       prev.map((l) => (l.id === lineId ? { ...l, mrpInput: val } : l))
+    );
+  };
+
+  const handleUpdateAmount = (lineId: string, val: string) => {
+    recordUndo();
+    setLines((prev) =>
+      prev.map((l) => {
+        if (l.id !== lineId) return l;
+        const numAmount = parseFloat(val);
+        const qty = parseFloat(l.qtyInput) || 1;
+        const discPct = Math.max(0, Math.min(100, parseFloat(l.discPercentInput) || 0));
+        const discMultiplier = Math.max(0.0001, 1 - discPct / 100);
+        const gstMultiplier = 1 + (l.gstRateBp || 0) / 10000;
+
+        let newRateInput = l.rateInput;
+        if (!isNaN(numAmount) && numAmount >= 0 && qty > 0) {
+          const taxable = numAmount / gstMultiplier;
+          const ratePerUnit = taxable / (qty * discMultiplier);
+          newRateInput = ratePerUnit.toFixed(2);
+        }
+        return {
+          ...l,
+          amountInput: val,
+          rateInput: newRateInput,
+        };
+      })
     );
   };
 
@@ -1291,23 +1318,86 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
           </button>
         </div>
 
-        {/* PROMINENT Bill No. (>= 220px wide, >= 44px tall, 16px bold text) */}
-        <div className="flex items-center gap-2 relative">
+                {/* PROMINENT Bill No. */}
+        <div className="flex items-center gap-1.5">
           <label className="font-black text-slate-900 uppercase text-xs shrink-0">
             Bill No <span className="text-red-500 font-black text-sm">*</span>:
           </label>
-          <div className="relative">
+          <input
+            ref={billNoInputRef}
+            type="text"
+            placeholder="e.g. INV-9982"
+            value={billNo}
+            onChange={(e) => setBillNo(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                searchInputRef.current?.focus();
+                searchInputRef.current?.select();
+              }
+            }}
+            className="w-36 px-2.5 py-1 border-2 border-slate-300 rounded text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11]"
+          />
+        </div>
+
+        {/* Destination Location */}
+        <div className="flex items-center gap-1.5">
+          <span className="font-bold text-slate-700 uppercase text-xs">Dest:</span>
+          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded font-bold text-xs">
+            Main Godown
+          </span>
+        </div>
+
+        {/* Reorder Suggestions (Alt+R) & Previous GRN (Alt+L) */}
+        <div className="flex items-center gap-2 ml-auto">
+          <button
+            type="button"
+            onClick={handleOpenReorderItems}
+            disabled={!selectedSupplier?.companyId}
+            className="bg-white border border-slate-300 hover:border-[#790E11] text-slate-800 font-bold text-xs px-2.5 py-1.5 rounded-md shadow-2xs transition flex items-center gap-1 disabled:opacity-40"
+            title="Suggested items to reorder (Alt+R)"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-[#790E11]" />
+            <span>Reorder (Alt+R)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleOpenPreviousGrns}
+            disabled={!supplierId}
+            className="bg-white border border-slate-300 hover:border-[#790E11] text-slate-800 font-bold text-xs px-2.5 py-1.5 rounded-md shadow-2xs transition flex items-center gap-1 disabled:opacity-40"
+            title="Load previous supplier GRN (Alt+L)"
+          >
+            <History className="w-3.5 h-3.5 text-[#790E11]" />
+            <span>Repeat GRN (Alt+L)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. DEDICATED ITEM SEARCH BAR (Shared Smart Search, Weight Normalization e.g. 'bhuj 400', Barcode & Brand Boost) */}
+      <div className="bg-[#FAFAF7] border-b border-slate-200 px-4 py-2 flex items-center gap-3 shrink-0 relative z-20">
+        <div className="flex-1 relative">
+          <div className="flex items-center bg-white border-2 border-slate-300 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-[#790E11] focus-within:border-[#790E11] transition shadow-xs">
+            <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
             <input
-              ref={billNoInputRef}
+              id="grn-item-search"
+              ref={searchInputRef}
               type="text"
-              placeholder="e.g. INV-9982"
-              value={billNo}
-              onChange={(e) => setBillNo(e.target.value)}
+              placeholder="Scan barcode or search product name / code / weight (e.g. 'bhuj 400') [Ctrl+K / F1]..."
+              value={productSearchQuery}
+              onChange={(e) => {
+                setProductSearchQuery(e.target.value);
+                setSearchDropdownOpen(true);
+                setSearchSelectedIndex(0);
+              }}
+              onFocus={() => {
+                if (productSearchQuery.trim()) setSearchDropdownOpen(true);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown") {
                   if (searchResults.length > 0) {
                     e.preventDefault();
-                    setSearchSelectedIndex((prev) => calculateNextListIndex(prev, "ArrowDown", searchResults.length));
+                    setSearchSelectedIndex((prev) => calculateNextListIndex(prev, "ArrowDown", searchResults.length + 1));
                   } else if (lines.length > 0) {
                     e.preventDefault();
                     setGridFocus({ row: 0, col: 0 });
@@ -1322,7 +1412,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                 } else if (e.key === "ArrowUp") {
                   if (searchResults.length > 0) {
                     e.preventDefault();
-                    setSearchSelectedIndex((prev) => calculateNextListIndex(prev, "ArrowUp", searchResults.length));
+                    setSearchSelectedIndex((prev) => calculateNextListIndex(prev, "ArrowUp", searchResults.length + 1));
                   }
                 } else if (e.key === "Home") {
                   if (searchResults.length > 0) {
@@ -1332,10 +1422,19 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                 } else if (e.key === "End") {
                   if (searchResults.length > 0) {
                     e.preventDefault();
-                    setSearchSelectedIndex(Math.max(0, searchResults.length - 1));
+                    setSearchSelectedIndex(searchResults.length);
                   }
                 } else if (e.key === "Enter") {
-                  if (searchResults.length > 0 && searchResults[searchSelectedIndex]) {
+                  // If product not found OR "Create Product" option selected -> Instant Quick Add!
+                  if (searchResults.length === 0 && productSearchQuery.trim().length > 0) {
+                    e.preventDefault();
+                    setQuickAddOpen(true);
+                    setSearchDropdownOpen(false);
+                  } else if (searchResults.length > 0 && searchSelectedIndex === searchResults.length) {
+                    e.preventDefault();
+                    setQuickAddOpen(true);
+                    setSearchDropdownOpen(false);
+                  } else if (searchResults.length > 0 && searchResults[searchSelectedIndex]) {
                     e.preventDefault();
                     handleSelectProductFromSearch(searchResults[searchSelectedIndex]);
                   } else if (lines.length > 0) {
@@ -1353,7 +1452,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                   setSearchDropdownOpen(false);
                 }
               }}
-              className="w-full text-xs sm:text-sm font-semibold text-slate-900 bg-transparent focus:outline-none placeholder:text-slate-400"
+              className="w-full text-sm font-semibold text-slate-900 bg-transparent focus:outline-none placeholder:text-slate-400"
             />
             {productSearchQuery && (
               <button
@@ -1362,137 +1461,164 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                   setProductSearchQuery("");
                   setSearchDropdownOpen(false);
                 }}
-                className="p-1 text-slate-400 hover:text-slate-600"
+                className="p-1 text-slate-400 hover:text-slate-600 mr-2"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
             <kbd className="hidden sm:inline-block font-mono text-[10px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-              Ctrl+K
+              Ctrl+K / F1
             </kbd>
           </div>
 
-          {/* Autocomplete Search Dropdown (Shop POS Twin with Last Purchase Rate) */}
-          {searchDropdownOpen && searchResults.length > 0 && (
+          {/* Autocomplete Search Dropdown (Shop POS Twin with Instant Create Option) */}
+          {searchDropdownOpen && productSearchQuery.trim().length > 0 && (
             <div
               ref={searchDropdownContainerRef}
               className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-300 rounded-xl shadow-2xl z-50 max-h-80 overflow-y-auto divide-y divide-slate-100 font-sans"
             >
-              {searchResults.map((prod, idx) => {
-                const isSelected = idx === searchSelectedIndex;
-                const lastRateInfo = supplierRates[prod.id];
-                const isSupplierBrand = selectedSupplier?.companyId && prod.companyId === selectedSupplier.companyId;
+              {searchResults.length === 0 ? (
+                <div
+                  onClick={() => {
+                    setQuickAddOpen(true);
+                    setSearchDropdownOpen(false);
+                  }}
+                  className="p-4 text-center cursor-pointer bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 rounded-lg m-2 transition select-none"
+                >
+                  <div className="font-bold text-sm flex items-center justify-center gap-2">
+                    <Plus className="w-4 h-4 text-[#790E11]" />
+                    <span>Product nahi mila? Click ya <b>[Enter]</b> press karke <b>"{productSearchQuery.trim()}"</b> turant banayein!</span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1">Ye product turant ban kar is GRN me add ho jayega</p>
+                </div>
+              ) : (
+                <>
+                  {searchResults.map((prod, idx) => {
+                    const isSelected = idx === searchSelectedIndex;
+                    const lastRateInfo = supplierRates[prod.id];
+                    const isSupplierBrand = selectedSupplier?.companyId && prod.companyId === selectedSupplier.companyId;
 
-                return (
+                    return (
+                      <div
+                        key={prod.id}
+                        data-search-index={idx}
+                        onMouseEnter={() => setSearchSelectedIndex(idx)}
+                        onClick={() => handleSelectProductFromSearch(prod)}
+                        className={`px-3 py-2.5 flex items-center justify-between text-xs sm:text-sm cursor-pointer transition ${
+                          isSelected
+                            ? "bg-[#790E11] text-white font-semibold"
+                            : "bg-white text-slate-900 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`font-mono font-bold text-xs px-1.5 py-0.5 rounded ${
+                            isSelected ? "bg-white/20 text-[#FDAF18]" : "bg-slate-100 text-[#790E11]"
+                          }`}>
+                            {prod.shortCode}
+                          </span>
+                          <span className="truncate">{prod.name} {prod.weight || ""}</span>
+                          {prod.company?.name && (
+                            <span className={`text-[11px] ${isSelected ? "text-slate-200" : "text-slate-500"}`}>
+                              ({prod.company.name})
+                            </span>
+                          )}
+                          {isSupplierBrand && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                              isSelected ? "bg-[#FDAF18] text-[#790E11]" : "bg-amber-100 text-amber-800"
+                            }`}>
+                              Supplier Brand
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-4 shrink-0 text-right">
+                          {lastRateInfo ? (
+                            <div className="text-right">
+                              <span className={`block text-[10px] uppercase font-bold ${
+                                isSelected ? "text-slate-300" : "text-slate-400"
+                              }`}>
+                                Last Purchase Rate
+                              </span>
+                              <span className={`font-mono font-black text-xs ${
+                                isSelected ? "text-[#FDAF18]" : "text-emerald-700"
+                              }`}>
+                                ₹{(lastRateInfo.lastRatePaise / 100).toFixed(2)}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="text-right">
+                              <span className={`block text-[10px] uppercase font-bold ${
+                                isSelected ? "text-slate-300" : "text-slate-400"
+                              }`}>
+                                Est. Purchase
+                              </span>
+                              <span className={`font-mono font-bold text-xs ${
+                                isSelected ? "text-slate-200" : "text-slate-600"
+                              }`}>
+                                ₹{(((prod.mrpPaise || 0) * 0.7) / 100).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="text-right pl-2 border-l border-slate-200">
+                            <span className={`block text-[10px] uppercase font-bold ${
+                              isSelected ? "text-slate-300" : "text-slate-400"
+                            }`}>
+                              MRP
+                            </span>
+                            <span className={`font-mono font-bold text-xs ${
+                              isSelected ? "text-slate-100" : "text-slate-800"
+                            }`}>
+                              ₹{((prod.mrpPaise || 0) / 100).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Option to create new product even when results exist */}
                   <div
-                    key={prod.id}
-                    data-search-index={idx}
-                    onMouseEnter={() => setSearchSelectedIndex(idx)}
-                    onClick={() => handleSelectProductFromSearch(prod)}
-                    className={`px-3 py-2.5 flex items-center justify-between text-xs sm:text-sm cursor-pointer transition ${
-                      isSelected
-                        ? "bg-[#790E11] text-white font-semibold"
-                        : "bg-white text-slate-900 hover:bg-slate-50"
+                    data-search-index={searchResults.length}
+                    onMouseEnter={() => setSearchSelectedIndex(searchResults.length)}
+                    onClick={() => {
+                      setQuickAddOpen(true);
+                      setSearchDropdownOpen(false);
+                    }}
+                    className={`px-3 py-2 flex items-center justify-between text-xs cursor-pointer border-t border-slate-200 transition ${
+                      searchSelectedIndex === searchResults.length
+                        ? "bg-[#790E11] text-white font-bold"
+                        : "bg-slate-50 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`font-mono font-bold text-xs px-1.5 py-0.5 rounded ${
-                        isSelected ? "bg-white/20 text-[#FDAF18]" : "bg-slate-100 text-[#790E11]"
-                      }`}>
-                        {prod.shortCode}
-                      </span>
-                      <span className="truncate">{prod.name} {prod.weight || ""}</span>
-                      {prod.company?.name && (
-                        <span className={`text-[11px] ${isSelected ? "text-slate-200" : "text-slate-500"}`}>
-                          ({prod.company.name})
-                        </span>
-                      )}
-                      {isSupplierBrand && (
-                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
-                          isSelected ? "bg-[#FDAF18] text-[#790E11]" : "bg-amber-100 text-amber-800"
-                        }`}>
-                          Supplier Brand
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-4 shrink-0 text-right">
-                      {lastRateInfo ? (
-                        <div className="text-right">
-                          <span className={`block text-[10px] uppercase font-bold ${
-                            isSelected ? "text-slate-300" : "text-slate-400"
-                          }`}>
-                            Last Purchase Rate
-                          </span>
-                          <span className={`font-mono font-black text-xs ${
-                            isSelected ? "text-[#FDAF18]" : "text-emerald-700"
-                          }`}>
-                            ₹{(lastRateInfo.lastRatePaise / 100).toFixed(2)}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="text-right">
-                          <span className={`block text-[10px] uppercase font-bold ${
-                            isSelected ? "text-slate-300" : "text-slate-400"
-                          }`}>
-                            Est. Purchase
-                          </span>
-                          <span className={`font-mono font-bold text-xs ${
-                            isSelected ? "text-slate-200" : "text-slate-600"
-                          }`}>
-                            ₹{(((prod.mrpPaise || 0) * 0.7) / 100).toFixed(2)}
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="text-right pl-2 border-l border-slate-200">
-                        <span className={`block text-[10px] uppercase font-bold ${
-                          isSelected ? "text-slate-300" : "text-slate-400"
-                        }`}>
-                          MRP
-                        </span>
-                        <span className={`font-mono font-bold text-xs ${
-                          isSelected ? "text-slate-100" : "text-slate-800"
-                        }`}>
-                          ₹{((prod.mrpPaise || 0) / 100).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
+                    <span className="flex items-center gap-1.5 font-bold">
+                      <Plus className="w-3.5 h-3.5 text-amber-500" />
+                      Naya product banayein: "{productSearchQuery.trim()}" (Alt+N)
+                    </span>
+                    <span className="text-[11px] opacity-75 font-mono">+ Add Master</span>
                   </div>
-                );
-              })}
+                </>
+              )}
             </div>
           )}
         </div>
 
-        {/* Reorder Suggestions (Alt+R) & Previous GRN (Alt+L) */}
+        {/* Quick Add Product Button (Alt+N) */}
         <button
           type="button"
-          onClick={handleOpenReorderItems}
-          disabled={!selectedSupplier?.companyId}
-          className="bg-white border border-slate-300 hover:border-[#790E11] text-slate-800 font-bold text-xs px-2.5 py-1.5 rounded-md shadow-2xs transition flex items-center gap-1 disabled:opacity-40"
-          title="Suggested items to reorder (Alt+R)"
+          onClick={() => setQuickAddOpen(true)}
+          className="bg-white border border-slate-300 hover:border-[#790E11] text-slate-800 font-bold text-xs px-3 py-2 rounded-lg shadow-2xs transition flex items-center gap-1.5 shrink-0"
+          title="Create new product master (Alt+N)"
         >
-          <TrendingUp className="w-3.5 h-3.5 text-[#790E11]" />
-          <span>Reorder (Alt+R)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={handleOpenPreviousGrns}
-          disabled={!supplierId}
-          className="bg-white border border-slate-300 hover:border-[#790E11] text-slate-800 font-bold text-xs px-2.5 py-1.5 rounded-md shadow-2xs transition flex items-center gap-1 disabled:opacity-40"
-          title="Load previous supplier GRN (Alt+L)"
-        >
-          <History className="w-3.5 h-3.5 text-[#790E11]" />
-          <span>Repeat GRN (Alt+L)</span>
+          <Plus className="w-3.5 h-3.5 text-[#790E11]" />
+          <span>+ Product (Alt+N)</span>
         </button>
 
         {/* All Products Toggle (Alt+B) */}
         <button
           type="button"
           onClick={() => setAllProductsToggle((prev) => !prev)}
-          className={`px-3 py-1.5 rounded-md text-xs font-bold border transition flex items-center gap-1.5 shadow-2xs ${
+          className={`px-3 py-2 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 shadow-2xs shrink-0 ${
             allProductsToggle
               ? "bg-[#790E11] text-white border-[#790E11]"
               : "bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
@@ -1720,9 +1846,8 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey) || e.key === "ArrowRight") {
                               e.preventDefault();
-                              // LAST COLUMN REACHED: "LAST JAISE PAHUCHE WAISE AGAIN SEARCH PE"
-                              searchInputRef.current?.focus();
-                              searchInputRef.current?.select();
+                              // Move to editable Amount (Col 6)
+                              setGridFocus({ row: rIdx, col: 6 });
                             } else if (e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey)) {
                               e.preventDefault();
                               setGridFocus({ row: rIdx, col: 4 });
@@ -1756,9 +1881,34 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                         </select>
                       </td>
 
-                      {/* Amount */}
-                      <td className="py-2 px-3 text-right font-mono font-black text-slate-950 border-r border-slate-100">
-                        ₹{(calc?.total || 0).toFixed(2)}
+                      {/* Amount (Col 6, data-grn-field="amount" - EDITABLE) */}
+                      <td className="py-1 px-1 text-right font-mono font-black text-slate-950 border-r border-slate-100">
+                        <AccessibleNumberInput
+                          value={line.amountInput ?? (calc?.total || 0).toFixed(2)}
+                          dataField="amount"
+                          dataRowIndex={rIdx}
+                          onChange={(val) => handleUpdateAmount(line.id, val)}
+                          isFocused={isCurrentRow && gridFocus.col === 6}
+                          min={0}
+                          onCommitNext={() => {
+                            // Cycle back to item search bar
+                            searchInputRef.current?.focus();
+                            searchInputRef.current?.select();
+                          }}
+                          onNavigateLeft={() => setGridFocus({ row: rIdx, col: 5 })}
+                          onNavigateRight={() => {
+                            searchInputRef.current?.focus();
+                            searchInputRef.current?.select();
+                          }}
+                          onNavigateUp={() => setGridFocus({ row: Math.max(0, rIdx - 1), col: 6 })}
+                          onNavigateDown={() => {
+                            if (rIdx === lines.length - 1) {
+                              handleAddLine();
+                            } else {
+                              setGridFocus({ row: rIdx + 1, col: 6 });
+                            }
+                          }}
+                        />
                       </td>
 
                       {/* Delete */}
@@ -2676,6 +2826,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
         onProductCreated={handleProductCreated}
         companies={companies}
         locationId={locationId}
+        initialSearchName={productSearchQuery.trim()}
       />
 
       {/* Edit Product Master Modal (Alt+M) */}
