@@ -1487,7 +1487,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                 >
                   <div className="font-bold text-sm flex items-center justify-center gap-2">
                     <Plus className="w-4 h-4 text-[#790E11]" />
-                    <span>Product nahi mila? Click ya <b>[Enter]</b> press karke <b>"{productSearchQuery.trim()}"</b> turant banayein!</span>
+                    <span>Product nahi mila? Click ya <b>[Enter]</b> press karke <b>&quot;{productSearchQuery.trim()}&quot;</b> turant banayein!</span>
                   </div>
                   <p className="text-xs text-slate-600 mt-1">Ye product turant ban kar is GRN me add ho jayega</p>
                 </div>
@@ -1593,7 +1593,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                   >
                     <span className="flex items-center gap-1.5 font-bold">
                       <Plus className="w-3.5 h-3.5 text-amber-500" />
-                      Naya product banayein: "{productSearchQuery.trim()}" (Alt+N)
+                      Naya product banayein: &quot;{productSearchQuery.trim()}&quot; (Alt+N)
                     </span>
                     <span className="text-[11px] opacity-75 font-mono">+ Add Master</span>
                   </div>
