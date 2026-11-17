@@ -1,5 +1,5 @@
-import { useRovingFocus, useListboxKeyboard } from "@/lib/keyboard/hooks";
 "use client";
+import { useRovingFocus, useListboxKeyboard } from "@/lib/keyboard/hooks";
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
