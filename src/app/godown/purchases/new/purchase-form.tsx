@@ -1,3 +1,4 @@
+import { useRovingFocus, useListboxKeyboard } from "@/lib/keyboard/hooks";
 "use client";
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
@@ -42,8 +43,6 @@ import { ItemInfoModal } from "@/components/pos/ItemInfoModal";
 import { QuickAddProductModal } from "@/components/pos/QuickAddProductModal";
 import { EditProductMasterModal } from "@/components/pos/EditProductMasterModal";
 import {
-  useRovingFocus,
-  useListboxKeyboard,
   calculateNextListIndex,
   calculateNextGridPosition,
   isAtCaretBoundary,
@@ -65,6 +64,7 @@ export interface GrnLineItem {
   product?: SearchableProduct | null;
   qtyInput: string;
   unit: UnitType;
+  mrpInput?: string;
   rateInput: string; // Rate per selected unit
   discPercentInput: string; // Discount %
   gstRateBp: number;
@@ -252,12 +252,14 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
     (defaultProd?: ProductItem): GrnLineItem => {
       const p = defaultProd || catalog[0];
       const rate = p ? ((p.mrpPaise || 0) * 0.7) / 100 : 50;
+      const mrp = p ? ((p.mrpPaise || 0) / 100).toFixed(2) : "0.00";
       return {
         id: `line_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         productId: p?.id || "",
         product: p as any,
         qtyInput: "1",
         unit: "Carton",
+        mrpInput: mrp,
         rateInput: rate > 0 ? (rate * (p?.packSize || 1)).toFixed(2) : "100.00",
         discPercentInput: "0",
         gstRateBp: p?.gstRateBp ?? 500,
@@ -583,18 +585,26 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
       prev.map((l) => {
         if (l.id !== lineId) return l;
         const multiplier = l.unit === "Carton" ? p?.packSize || 1 : 1;
-        // Check if supplier rate history exists for this product
         const histRate = supplierRates[prodId];
         const ratePerPc = histRate ? histRate.lastRatePaise / 100 : (p ? ((p.mrpPaise || 0) * 0.7) / 100 : 50);
+        const mrp = p ? ((p.mrpPaise || 0) / 100).toFixed(2) : "0.00";
 
         return {
           ...l,
           productId: prodId,
           product: p as any,
+          mrpInput: mrp,
           gstRateBp: p?.gstRateBp ?? l.gstRateBp,
           rateInput: (ratePerPc * multiplier).toFixed(2),
         };
       })
+    );
+  };
+
+  const handleUpdateMrp = (lineId: string, val: string) => {
+    recordUndo();
+    setLines((prev) =>
+      prev.map((l) => (l.id === lineId ? { ...l, mrpInput: val } : l))
     );
   };
 
@@ -678,15 +688,52 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
   // Add product from Search Bar directly
   const handleSelectProductFromSearch = (product: ProductItem) => {
     recordUndo();
-    if (lines.length === 1 && lines[0].productId === catalog[0]?.id && lines[0].qtyInput === "1") {
-      handleUpdateProduct(lines[0].id, product.id);
-    } else {
-      const newLine = createEmptyLine(product);
-      setLines((prev) => [...prev, newLine]);
-      setGridFocus({ row: lines.length, col: 0 });
-    }
+    let targetRow = 0;
+    const mrp = ((product.mrpPaise || 0) / 100).toFixed(2);
+    const rate = ((product.mrpPaise || 0) * 0.7) / 100;
+    const histRate = supplierRates[product.id];
+    const ratePerPc = histRate ? histRate.lastRatePaise / 100 : rate;
+
+    setLines((prev) => {
+      if (
+        prev.length === 1 &&
+        (!prev[0].productId || prev[0].productId === catalog[0]?.id) &&
+        prev[0].qtyInput === "1"
+      ) {
+        targetRow = 0;
+        const mult = prev[0].unit === "Carton" ? product.packSize || 1 : 1;
+        return [
+          {
+            ...prev[0],
+            productId: product.id,
+            product: product as any,
+            mrpInput: mrp,
+            rateInput: (ratePerPc * mult).toFixed(2),
+            gstRateBp: product.gstRateBp ?? 500,
+          },
+        ];
+      } else {
+        targetRow = prev.length;
+        const newLine = createEmptyLine(product);
+        return [...prev, newLine];
+      }
+    });
+
     setProductSearchQuery("");
     setSearchDropdownOpen(false);
+    setGridFocus({ row: targetRow, col: 0 });
+
+    // Focus immediately on newly added row's QTY cell and select its text
+    setTimeout(() => {
+      const rowEl = document.querySelector(`tr[data-row-index="${targetRow}"]`);
+      const qtyEl = rowEl?.querySelector('[data-grn-field="qty"]');
+      if (qtyEl) {
+        qtyEl.focus();
+        if ("select" in qtyEl && typeof qtyEl.select === "function") {
+          qtyEl.select();
+        }
+      }
+    }, 40);
   };
 
   // Barcode Scanner Fast-Keystroke Detection
@@ -1257,86 +1304,51 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
               value={billNo}
               onChange={(e) => setBillNo(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  searchInputRef.current?.focus();
-                }
-              }}
-              className={`w-[220px] h-[40px] px-3 font-mono font-bold text-base text-slate-950 bg-white border-2 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-[#790E11] shadow-2xs ${
-                duplicateWarning
-                  ? "border-amber-500 bg-amber-50"
-                  : !billNo.trim()
-                  ? "border-slate-300 focus:border-[#790E11]"
-                  : "border-emerald-600"
-              }`}
-            />
-            {/* Inline Duplicate Bill Warning */}
-            {duplicateWarning && (
-              <div className="absolute left-0 top-full mt-1 bg-amber-50 border border-amber-300 text-amber-900 px-2.5 py-1 rounded-md text-[11px] shadow-lg z-50 whitespace-nowrap flex items-center gap-1.5 font-bold">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span>
-                  Bill #{duplicateWarning.existingBillNo} already recorded on {duplicateWarning.billDate} (₹{(duplicateWarning.totalPaise / 100).toFixed(2)})
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Destination Location */}
-        <div className="flex items-center gap-1.5">
-          <span className="font-bold text-slate-700 uppercase text-xs">Dest:</span>
-          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded font-bold text-xs">
-            Main Godown
-          </span>
-        </div>
-
-        {/* Note / Challan */}
-        <div className="flex items-center gap-1.5 flex-1 max-w-xs">
-          <span className="font-bold text-slate-700 uppercase text-xs">Note:</span>
-          <input
-            type="text"
-            placeholder="Challan / LR / vehicle..."
-            value={narration}
-            onChange={(e) => setNarration(e.target.value)}
-            className="w-full border border-slate-300 rounded px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11] bg-white font-medium"
-          />
-        </div>
-      </div>
-
-      {/* 3. ITEM SEARCH BAR (Shared Smart Search, Weight Normalization e.g. 'bhuj 400', Barcode & Brand Boost) */}
-      <div className="bg-[#FAFAF7] border-b border-slate-200 px-4 py-2 flex items-center gap-3 shrink-0 relative">
-        <div className="flex-1 relative">
-          <div className="flex items-center bg-white border-2 border-slate-300 rounded-lg px-3 py-1.5 focus-within:ring-2 focus-within:ring-[#790E11] focus-within:border-[#790E11] transition shadow-xs">
-            <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Scan barcode or search product name / code / weight (e.g. 'bhuj 400') [Ctrl+K / F1]..."
-              value={productSearchQuery}
-              onChange={(e) => {
-                setProductSearchQuery(e.target.value);
-                setSearchDropdownOpen(true);
-                setSearchSelectedIndex(0);
-              }}
-              onFocus={() => {
-                if (productSearchQuery.trim()) setSearchDropdownOpen(true);
-              }}
-              onKeyDown={(e) => {
                 if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  setSearchSelectedIndex((prev) => calculateNextListIndex(prev, "ArrowDown", searchResults.length));
+                  if (searchResults.length > 0) {
+                    e.preventDefault();
+                    setSearchSelectedIndex((prev) => calculateNextListIndex(prev, "ArrowDown", searchResults.length));
+                  } else if (lines.length > 0) {
+                    e.preventDefault();
+                    setGridFocus({ row: 0, col: 0 });
+                    const firstQty = document.querySelector('tr[data-row-index="0"] [data-grn-field="qty"]');
+                    if (firstQty) {
+                      firstQty.focus();
+                      if ("select" in firstQty && typeof firstQty.select === "function") {
+                        firstQty.select();
+                      }
+                    }
+                  }
                 } else if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  setSearchSelectedIndex((prev) => calculateNextListIndex(prev, "ArrowUp", searchResults.length));
+                  if (searchResults.length > 0) {
+                    e.preventDefault();
+                    setSearchSelectedIndex((prev) => calculateNextListIndex(prev, "ArrowUp", searchResults.length));
+                  }
                 } else if (e.key === "Home") {
-                  e.preventDefault();
-                  setSearchSelectedIndex(0);
+                  if (searchResults.length > 0) {
+                    e.preventDefault();
+                    setSearchSelectedIndex(0);
+                  }
                 } else if (e.key === "End") {
-                  e.preventDefault();
-                  setSearchSelectedIndex(Math.max(0, searchResults.length - 1));
-                } else if (e.key === "Enter" && searchResults[searchSelectedIndex]) {
-                  e.preventDefault();
-                  handleSelectProductFromSearch(searchResults[searchSelectedIndex]);
+                  if (searchResults.length > 0) {
+                    e.preventDefault();
+                    setSearchSelectedIndex(Math.max(0, searchResults.length - 1));
+                  }
+                } else if (e.key === "Enter") {
+                  if (searchResults.length > 0 && searchResults[searchSelectedIndex]) {
+                    e.preventDefault();
+                    handleSelectProductFromSearch(searchResults[searchSelectedIndex]);
+                  } else if (lines.length > 0) {
+                    e.preventDefault();
+                    setGridFocus({ row: 0, col: 0 });
+                    const firstQty = document.querySelector('tr[data-row-index="0"] [data-grn-field="qty"]');
+                    if (firstQty) {
+                      firstQty.focus();
+                      if ("select" in firstQty && typeof firstQty.select === "function") {
+                        firstQty.select();
+                      }
+                    }
+                  }
                 } else if (e.key === "Escape") {
                   setSearchDropdownOpen(false);
                 }
@@ -1525,6 +1537,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                   return (
                     <tr
                       key={line.id}
+                      data-row-index={rIdx}
                       onClick={() => setGridFocus({ row: rIdx, col: gridFocus.col })}
                       className={`hover:bg-slate-50 transition ${
                         isCurrentRow ? "bg-amber-50/70 font-semibold" : ""
@@ -1569,14 +1582,23 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                         </div>
                       </td>
 
-                      {/* Qty (Accessible Number Input with Inline Math) */}
+                      {/* Qty (Col 0, data-grn-field="qty") */}
                       <td className="py-1 px-1 text-right border-r border-slate-100">
                         <AccessibleNumberInput
                           value={line.qtyInput}
+                          dataField="qty"
+                          dataRowIndex={rIdx}
                           onChange={(val) => handleUpdateQty(line.id, val)}
                           isFocused={isCurrentRow && gridFocus.col === 0}
                           onCommitNext={() => setGridFocus({ row: rIdx, col: 1 })}
-                          onNavigateUp={() => setGridFocus({ row: Math.max(0, rIdx - 1), col: 0 })}
+                          onNavigateUp={() => {
+                            if (rIdx === 0) {
+                              searchInputRef.current?.focus();
+                              searchInputRef.current?.select();
+                            } else {
+                              setGridFocus({ row: rIdx - 1, col: 0 });
+                            }
+                          }}
                           onNavigateDown={() => {
                             if (rIdx === lines.length - 1) {
                               handleAddLine();
@@ -1584,14 +1606,20 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                               setGridFocus({ row: rIdx + 1, col: 0 });
                             }
                           }}
+                          onNavigateLeft={() => {
+                            searchInputRef.current?.focus();
+                            searchInputRef.current?.select();
+                          }}
                           onNavigateRight={() => setGridFocus({ row: rIdx, col: 1 })}
                         />
                       </td>
 
-                      {/* Unit (Accessible Unit Select with Single-Letter Keys) */}
+                      {/* Unit (Col 1, data-grn-field="unit") */}
                       <td className="py-1 px-1 text-center border-r border-slate-100">
                         <AccessibleUnitSelect
                           value={line.unit}
+                          dataField="unit"
+                          dataRowIndex={rIdx}
                           onChange={(newUnit) => handleUpdateUnit(line.id, newUnit)}
                           isFocused={isCurrentRow && gridFocus.col === 1}
                           onCommitNext={() => setGridFocus({ row: rIdx, col: 2 })}
@@ -1608,16 +1636,13 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                         />
                       </td>
 
-                      {/* MRP */}
-                      <td className="py-2 px-2 text-right font-mono text-slate-700 font-semibold border-r border-slate-100">
-                        ₹{(((prod?.mrpPaise || 0)) / 100).toFixed(2)}
-                      </td>
-
-                      {/* Purchase Rate per selected unit */}
+                      {/* MRP (Col 2, data-grn-field="mrp" - EDITABLE) */}
                       <td className="py-1 px-1 text-right border-r border-slate-100">
                         <AccessibleNumberInput
-                          value={line.rateInput}
-                          onChange={(val) => handleUpdateRate(line.id, val)}
+                          value={line.mrpInput || (((prod?.mrpPaise || 0)) / 100).toFixed(2)}
+                          dataField="mrp"
+                          dataRowIndex={rIdx}
+                          onChange={(val) => handleUpdateMrp(line.id, val)}
                           isFocused={isCurrentRow && gridFocus.col === 2}
                           onCommitNext={() => setGridFocus({ row: rIdx, col: 3 })}
                           onNavigateLeft={() => setGridFocus({ row: rIdx, col: 1 })}
@@ -1633,14 +1658,14 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                         />
                       </td>
 
-                      {/* Disc % */}
+                      {/* Purchase Rate (Col 3, data-grn-field="rate") */}
                       <td className="py-1 px-1 text-right border-r border-slate-100">
                         <AccessibleNumberInput
-                          value={line.discPercentInput}
-                          onChange={(val) => handleUpdateDisc(line.id, val)}
+                          value={line.rateInput}
+                          dataField="rate"
+                          dataRowIndex={rIdx}
+                          onChange={(val) => handleUpdateRate(line.id, val)}
                           isFocused={isCurrentRow && gridFocus.col === 3}
-                          min={0}
-                          max={100}
                           onCommitNext={() => setGridFocus({ row: rIdx, col: 4 })}
                           onNavigateLeft={() => setGridFocus({ row: rIdx, col: 2 })}
                           onNavigateRight={() => setGridFocus({ row: rIdx, col: 4 })}
@@ -1655,31 +1680,70 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                         />
                       </td>
 
-                      {/* GST % */}
+                      {/* Disc % (Col 4, data-grn-field="disc") */}
+                      <td className="py-1 px-1 text-right border-r border-slate-100">
+                        <AccessibleNumberInput
+                          value={line.discPercentInput}
+                          dataField="disc"
+                          dataRowIndex={rIdx}
+                          onChange={(val) => handleUpdateDisc(line.id, val)}
+                          isFocused={isCurrentRow && gridFocus.col === 4}
+                          min={0}
+                          max={100}
+                          onCommitNext={() => setGridFocus({ row: rIdx, col: 5 })}
+                          onNavigateLeft={() => setGridFocus({ row: rIdx, col: 3 })}
+                          onNavigateRight={() => setGridFocus({ row: rIdx, col: 5 })}
+                          onNavigateUp={() => setGridFocus({ row: Math.max(0, rIdx - 1), col: 4 })}
+                          onNavigateDown={() => {
+                            if (rIdx === lines.length - 1) {
+                              handleAddLine();
+                            } else {
+                              setGridFocus({ row: rIdx + 1, col: 4 });
+                            }
+                          }}
+                        />
+                      </td>
+
+                      {/* GST % (Col 5, data-grn-field="gst" - LAST EDITABLE COLUMN: JUMPS BACK TO SEARCH) */}
                       <td className="py-1 px-1 text-center border-r border-slate-100">
                         <select
+                          ref={(el) => {
+                            if (isCurrentRow && gridFocus.col === 5 && el && document.activeElement !== el) {
+                              el.focus();
+                            }
+                          }}
+                          data-grn-field="gst"
+                          data-row-index={rIdx}
                           value={line.gstRateBp}
                           onChange={(e) => handleUpdateGst(line.id, parseInt(e.target.value))}
-                          onFocus={() => setGridFocus({ row: rIdx, col: 4 })}
+                          onFocus={() => setGridFocus({ row: rIdx, col: 5 })}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === "Tab") {
+                            if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey) || e.key === "ArrowRight") {
                               e.preventDefault();
-                              if (rIdx === lines.length - 1) {
-                                handleAddLine();
+                              // LAST COLUMN REACHED: "LAST JAISE PAHUCHE WAISE AGAIN SEARCH PE"
+                              searchInputRef.current?.focus();
+                              searchInputRef.current?.select();
+                            } else if (e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey)) {
+                              e.preventDefault();
+                              setGridFocus({ row: rIdx, col: 4 });
+                            } else if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              setGridFocus({ row: Math.max(0, rIdx - 1), col: 5 });
+                            } else if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              if (rIdx < lines.length - 1) {
+                                setGridFocus({ row: rIdx + 1, col: 5 });
                               } else {
-                                setGridFocus({ row: rIdx + 1, col: 0 });
+                                handleAddLine();
                               }
-                            } else if (e.key === "ArrowLeft") {
+                            } else if (e.key === "Escape") {
                               e.preventDefault();
-                              setGridFocus({ row: rIdx, col: 3 });
-                            } else if (e.key === "ArrowRight") {
-                              e.preventDefault();
-                              // Move to summary panel
-                              summaryPanelRef.current?.focus();
+                              searchInputRef.current?.focus();
+                              searchInputRef.current?.select();
                             }
                           }}
                           className={`w-full text-center font-bold px-1 py-1 rounded text-xs focus:outline-none ${
-                            isCurrentRow && gridFocus.col === 4
+                            isCurrentRow && gridFocus.col === 5
                               ? "outline-2 outline-[#790E11] bg-[#FEF3C7]"
                               : "border border-slate-200 bg-white"
                           }`}

@@ -110,7 +110,7 @@ export function AccessibleDateInput({
   };
 
   return (
-    <div className="relative inline-flex items-center">
+    <div className={`relative inline-flex items-center ${className}`}>
       <input
         ref={inputRef}
         type="text"
@@ -120,24 +120,15 @@ export function AccessibleDateInput({
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
         placeholder="DD-MM-YYYY"
-        className={`font-mono text-xs font-bold px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11] bg-white text-slate-900 w-28 ${className}`}
-        title="Type date or press + / - to step day"
+        className="w-[105px] border border-slate-300 rounded px-2 py-1 text-xs font-mono font-bold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11]"
       />
-      <input
-        type="date"
-        tabIndex={-1}
-        value={value}
-        onChange={(e) => {
-          if (e.target.value) onChange(e.target.value);
-        }}
-        className="absolute opacity-0 pointer-events-none w-0 h-0"
-      />
+      <CalendarIcon className="w-3.5 h-3.5 text-slate-400 absolute right-2 pointer-events-none" />
     </div>
   );
 }
 
 // ==========================================
-// 2. Accessible Unit Select (Single-Letter Keys)
+// 2. Accessible Unit Select (Single-letter hotkeys)
 // ==========================================
 
 export type UnitOption = "Carton" | "Pcs" | "Dozen" | "Bag" | "Jar" | "Hanger";
@@ -152,6 +143,8 @@ export interface AccessibleUnitSelectProps {
   onNavigateDown?: () => void;
   className?: string;
   isFocused?: boolean;
+  dataField?: string;
+  dataRowIndex?: number;
 }
 
 const UNITS: UnitOption[] = ["Carton", "Pcs", "Dozen", "Bag", "Jar", "Hanger"];
@@ -166,9 +159,17 @@ export function AccessibleUnitSelect({
   onNavigateDown,
   className = "",
   isFocused = false,
+  dataField = "unit",
+  dataRowIndex,
 }: AccessibleUnitSelectProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isFocused && containerRef.current) {
+      containerRef.current.focus();
+    }
+  }, [isFocused]);
 
   const cycleUnit = (direction: 1 | -1) => {
     const currIdx = UNITS.indexOf(value);
@@ -212,20 +213,17 @@ export function AccessibleUnitSelect({
       } else if (onNavigateUp) {
         onNavigateUp();
       }
-    } else if (e.key === "ArrowLeft") {
+    } else if (e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey)) {
+      e.preventDefault();
       if (onNavigateLeft) {
-        e.preventDefault();
         onNavigateLeft();
       }
-    } else if (e.key === "ArrowRight") {
-      if (onNavigateRight) {
-        e.preventDefault();
-        onNavigateRight();
-      }
-    } else if (e.key === "Enter" || e.key === "Tab") {
+    } else if (e.key === "ArrowRight" || e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+      e.preventDefault();
       if (onCommitNext) {
-        e.preventDefault();
         onCommitNext();
+      } else if (onNavigateRight) {
+        onNavigateRight();
       }
     } else if (e.key === "Escape") {
       setOpen(false);
@@ -236,6 +234,8 @@ export function AccessibleUnitSelect({
     <div
       ref={containerRef}
       tabIndex={0}
+      data-grn-field={dataField}
+      data-row-index={dataRowIndex}
       onKeyDown={handleKeyDown}
       className={`relative inline-block w-full text-center font-bold text-xs rounded cursor-pointer select-none focus:outline-none ${
         isFocused ? "outline-2 outline-[#790E11] bg-[#FEF3C7]" : "border border-slate-200 bg-white"
@@ -292,6 +292,8 @@ export interface AccessibleNumberInputProps {
   className?: string;
   isFocused?: boolean;
   align?: "left" | "right" | "center";
+  dataField?: string;
+  dataRowIndex?: number;
 }
 
 export function AccessibleNumberInput({
@@ -308,6 +310,8 @@ export function AccessibleNumberInput({
   className = "",
   isFocused = false,
   align = "right",
+  dataField,
+  dataRowIndex,
 }: AccessibleNumberInputProps) {
   const [inputText, setInputText] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -315,6 +319,13 @@ export function AccessibleNumberInput({
   useEffect(() => {
     setInputText(value);
   }, [value]);
+
+  useEffect(() => {
+    if (isFocused && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isFocused]);
 
   const commitValue = () => {
     const raw = inputText.trim();
@@ -348,7 +359,7 @@ export function AccessibleNumberInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
       commitValue();
       if (onCommitNext) {
         e.preventDefault();
@@ -362,9 +373,9 @@ export function AccessibleNumberInput({
       e.preventDefault();
       commitValue();
       if (onNavigateDown) onNavigateDown();
-    } else if (e.key === "ArrowLeft") {
+    } else if (e.key === "ArrowLeft" || (e.key === "Tab" && e.shiftKey)) {
       const el = inputRef.current;
-      if (el && isAtCaretBoundary(el.value, el.selectionStart, el.selectionEnd, "ArrowLeft")) {
+      if ((e.key === "Tab" && e.shiftKey) || (el && isAtCaretBoundary(el.value, el.selectionStart, el.selectionEnd, "ArrowLeft"))) {
         if (onNavigateLeft) {
           e.preventDefault();
           commitValue();
@@ -380,13 +391,6 @@ export function AccessibleNumberInput({
           onNavigateRight();
         }
       }
-    } else if (e.key === "+" || e.key === "-") {
-      // If cursor is at start and typing regular sign, allow.
-      // But if user pressed + / - to step integer quantity, handle step
-      const currentNum = parseFloat(inputText) || 0;
-      if (e.key === "+" && !inputText.includes("+") && !inputText.includes("*")) {
-        // Can be math or step
-      }
     }
   };
 
@@ -394,6 +398,8 @@ export function AccessibleNumberInput({
     <input
       ref={inputRef}
       type="text"
+      data-grn-field={dataField}
+      data-row-index={dataRowIndex}
       value={inputText}
       onChange={(e) => setInputText(e.target.value)}
       onKeyDown={handleKeyDown}
