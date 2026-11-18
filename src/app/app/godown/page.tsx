@@ -321,7 +321,7 @@ export default async function GodownAppPage({
       customerName: cp.invoice?.customerName || cp.invoice?.party?.name || "Counter Customer",
       customerAddress: cp.invoice?.customerAddress || cp.invoice?.party?.address || null,
       customerPhone: cp.invoice?.customerPhone || cp.invoice?.party?.phone || null,
-      handoverTime: (cp.completedAt || cp.updatedAt).toISOString(),
+      handoverTime: (cp.completedAt || cp.createdAt).toISOString(),
       totalCartons,
       totalPieces,
       items: rawItems.map((it) => ({
