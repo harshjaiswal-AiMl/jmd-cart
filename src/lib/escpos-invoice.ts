@@ -59,8 +59,9 @@ export function formatInvoiceForEscPos(
   
 
   // Customer block (3 rows: Name, Mobile, Address - omitted if empty)
-  if (vm.customer.name) {
-    builder.twoColumn("CUSTOMER:", vm.customer.name, width);
+  const custName = vm.customer.name || (vm.customer.mobile || vm.customer.address ? "Walk-in" : null);
+  if (custName) {
+    builder.twoColumn("CUSTOMER:", custName, width);
     if (vm.customer.mobile) {
       builder.twoColumn("PHONE:", vm.customer.mobile, width);
     }

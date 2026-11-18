@@ -114,15 +114,15 @@ export function BillViewClient({ bill }: BillViewClientProps) {
                 <span className="text-slate-700 font-mono">{bill.customerPhone}</span>
               </div>
             )}
+            {bill.customerAddress && (
+              <div className="text-slate-600 text-[11px] break-words max-w-xs ml-auto leading-tight">
+                {bill.customerAddress}
+              </div>
+            )}
             {bill.partyGstin && (
               <div>
                 <span className="text-slate-400">GSTIN: </span>
                 <span className="font-mono text-slate-900 font-medium">{bill.partyGstin}</span>
-              </div>
-            )}
-            {bill.customerAddress && (
-              <div className="text-slate-500 text-[11px] truncate max-w-xs ml-auto">
-                {bill.customerAddress}
               </div>
             )}
           </div>

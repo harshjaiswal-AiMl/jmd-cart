@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { InvoiceWithDetails } from "@/modules/billing/billing.types";
 import { formatDmy, formatDmyHm, toIstDateString, startOfIstDay, endOfIstDay } from "@/lib/datetime";
@@ -16,6 +16,9 @@ import {
   TrendingUp,
   DollarSign,
   AlertCircle,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { cancelInvoiceAction } from "./actions";
 
@@ -23,6 +26,20 @@ interface InvoicesClientProps {
   initialInvoices: InvoiceWithDetails[];
   canCancel?: boolean;
 }
+
+interface VisibleColumns {
+  channel: boolean;
+  agent: boolean;
+  buyerTag: boolean;
+  status: boolean;
+}
+
+const DEFAULT_COLUMNS: VisibleColumns = {
+  channel: false,
+  agent: false,
+  buyerTag: false,
+  status: false,
+};
 
 export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesClientProps) {
   const [invoicesList, setInvoicesList] = useState<InvoiceWithDetails[]>(initialInvoices);
@@ -36,8 +53,44 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
   const [voidReason, setVoidReason] = useState("");
   const [voidError, setVoidError] = useState<string | null>(null);
   const [isVoiding, setIsVoiding] = useState(false);
+  const [columns, setColumns] = useState<VisibleColumns>(DEFAULT_COLUMNS);
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+  const [showMoreTotals, setShowMoreTotals] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("jmd:invoices:columns:v1");
+      if (saved) {
+        setColumns({ ...DEFAULT_COLUMNS, ...JSON.parse(saved) });
+      }
+    } catch {
+      // LocalStorage unavailable
+    }
+  }, []);
 
   const todayStr = useMemo(() => toIstDateString(new Date()), []);
+
+  const rangeLabel = useMemo(() => {
+    switch (datePreset) {
+      case "TODAY":
+        return { total: "Today's Total Bill", credit: "Today Credit" };
+      case "YESTERDAY":
+        return { total: "Yesterday's Total Bill", credit: "Yesterday Credit" };
+      case "THIS_WEEK":
+        return { total: "This Week's Total Bill", credit: "This Week Credit" };
+      case "THIS_MONTH":
+        return { total: "This Month's Total Bill", credit: "This Month Credit" };
+      case "THIS_FY":
+        return { total: "This FY's Total Bill", credit: "This FY Credit" };
+      case "CUSTOM":
+        return {
+          total: customDate ? `${customDate} Total Bill` : "Filtered Total Bill",
+          credit: customDate ? `${customDate} Credit` : "Filtered Credit",
+        };
+      default:
+        return { total: "All-Time Total Bill", credit: "All-Time Credit" };
+    }
+  }, [datePreset, customDate]);
 
   const filteredInvoices = useMemo(() => {
     const now = new Date();
@@ -100,7 +153,8 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
     let taxablePaise = 0;
     let taxPaise = 0;
     let discountPaise = 0;
-    let paidPaise = 0;
+    let cashPaise = 0;
+    let upiPaise = 0;
     let cancelledCount = 0;
 
     let shopCount = 0;
@@ -119,15 +173,25 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
       taxPaise += inv.cgstPaise + inv.sgstPaise + inv.igstPaise;
       discountPaise += inv.discountPaise;
 
-      const invoicePaid = inv.payments.reduce((sum, p) => sum + p.amountPaise, 0);
-      paidPaise += invoicePaid;
+      let invCash = 0;
+      let invUpi = 0;
+      for (const p of inv.payments) {
+        if (p.mode === "CASH") {
+          invCash += p.amountPaise;
+        } else if (p.mode === "UPI" || p.mode === "CARD") {
+          invUpi += p.amountPaise;
+        }
+      }
+      cashPaise += invCash;
+      upiPaise += invUpi;
 
       if (inv.channel === InvoiceChannel.SHOP) shopCount++;
       else if (inv.channel === InvoiceChannel.VAN) vanCount++;
       else if (inv.channel === InvoiceChannel.ONLINE) onlineCount++;
     }
 
-    const pendingPaise = Math.max(0, totalAmountPaise - paidPaise);
+    // Exactly reconciled: Cash Collected + UPI Collected + Today Credit = Total Bill
+    const creditPaise = Math.max(0, totalAmountPaise - (cashPaise + upiPaise));
     const avgBillPaise = count > 0 ? Math.round(totalAmountPaise / count) : 0;
 
     return {
@@ -136,8 +200,9 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
       taxablePaise,
       taxPaise,
       discountPaise,
-      paidPaise,
-      pendingPaise,
+      cashPaise,
+      upiPaise,
+      creditPaise,
       avgBillPaise,
       cancelledCount,
       shopCount,
@@ -196,59 +261,86 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* 4 Reconciled Summary Tiles */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Total Billed</div>
-            <div className="text-lg font-black font-mono text-emerald-400 mt-0.5">
+            <div className="text-[10px] uppercase font-bold text-slate-400">{rangeLabel.total}</div>
+            <div className="text-xl font-black font-mono text-emerald-400 mt-0.5">
               ₹{(totals.totalAmountPaise / 100).toFixed(2)}
             </div>
           </div>
 
           <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Taxable Value</div>
-            <div className="text-lg font-black font-mono text-white mt-0.5">
-              ₹{(totals.taxablePaise / 100).toFixed(2)}
+            <div className="text-[10px] uppercase font-bold text-slate-400">Cash Collected</div>
+            <div className="text-xl font-black font-mono text-emerald-300 mt-0.5">
+              ₹{(totals.cashPaise / 100).toFixed(2)}
             </div>
           </div>
 
           <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-            <div className="text-[10px] uppercase font-bold text-slate-400">GST Collected</div>
-            <div className="text-lg font-black font-mono text-blue-300 mt-0.5">
-              ₹{(totals.taxPaise / 100).toFixed(2)}
+            <div className="text-[10px] uppercase font-bold text-slate-400">UPI Collected</div>
+            <div className="text-xl font-black font-mono text-blue-300 mt-0.5">
+              ₹{(totals.upiPaise / 100).toFixed(2)}
             </div>
           </div>
 
           <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Discount Given</div>
-            <div className="text-lg font-black font-mono text-amber-300 mt-0.5">
-              ₹{(totals.discountPaise / 100).toFixed(2)}
-            </div>
-          </div>
-
-          <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Cash/UPI Paid</div>
-            <div className="text-lg font-black font-mono text-emerald-300 mt-0.5">
-              ₹{(totals.paidPaise / 100).toFixed(2)}
-            </div>
-          </div>
-
-          <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-            <div className="text-[10px] uppercase font-bold text-slate-400">Pending / Credit</div>
-            <div className="text-lg font-black font-mono text-rose-300 mt-0.5">
-              ₹{(totals.pendingPaise / 100).toFixed(2)}
+            <div className="text-[10px] uppercase font-bold text-slate-400">{rangeLabel.credit}</div>
+            <div className="text-xl font-black font-mono text-amber-300 mt-0.5">
+              ₹{(totals.creditPaise / 100).toFixed(2)}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-white/60 pt-1">
-          <span>Average Bill Value: <strong className="text-white font-mono">₹{(totals.avgBillPaise / 100).toFixed(2)}</strong></span>
+        {/* Collapsible Additional Totals */}
+        <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => setShowMoreTotals(!showMoreTotals)}
+            className="inline-flex items-center gap-1.5 text-white/70 hover:text-white font-bold transition focus:outline-none"
+          >
+            {showMoreTotals ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            <span>{showMoreTotals ? "Hide additional totals" : "More totals (Tax, GST, Discount, Avg)"}</span>
+          </button>
           {totals.cancelledCount > 0 && (
-            <span className="text-rose-400 flex items-center gap-1">
+            <span className="text-rose-400 flex items-center gap-1 text-[11px]">
               <AlertCircle className="w-3.5 h-3.5" />
               <span>{totals.cancelledCount} cancelled bill(s) excluded from money totals</span>
             </span>
           )}
         </div>
+
+        {showMoreTotals && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+            <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Taxable Value</div>
+              <div className="text-base font-black font-mono text-white mt-0.5">
+                ₹{(totals.taxablePaise / 100).toFixed(2)}
+              </div>
+            </div>
+
+            <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+              <div className="text-[10px] uppercase font-bold text-slate-400">GST Collected</div>
+              <div className="text-base font-black font-mono text-blue-300 mt-0.5">
+                ₹{(totals.taxPaise / 100).toFixed(2)}
+              </div>
+            </div>
+
+            <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Discount Given</div>
+              <div className="text-base font-black font-mono text-amber-300 mt-0.5">
+                ₹{(totals.discountPaise / 100).toFixed(2)}
+              </div>
+            </div>
+
+            <div className="bg-white/5 p-2.5 rounded-xl border border-white/10">
+              <div className="text-[10px] uppercase font-bold text-slate-400">Average Bill Value</div>
+              <div className="text-base font-black font-mono text-emerald-300 mt-0.5">
+                ₹{(totals.avgBillPaise / 100).toFixed(2)}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filter bar with Date Presets */}
@@ -376,6 +468,62 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
               </button>
             )}
           </div>
+
+          {/* Columns Visibility Popover */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowColumnMenu(!showColumnMenu)}
+              className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition shadow-2xs"
+              title="Customize visible columns"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+              <span>Columns</span>
+            </button>
+            {showColumnMenu && (
+              <div className="absolute right-0 top-full mt-1.5 z-20 w-48 bg-white rounded-xl shadow-lg border border-slate-200 p-3 space-y-2 text-xs">
+                <div className="font-bold text-slate-800 pb-1 border-b border-slate-100 flex items-center justify-between">
+                  <span>Show Columns</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowColumnMenu(false)}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+                {(["channel", "agent", "buyerTag", "status"] as const).map((col) => (
+                  <label key={col} className="flex items-center gap-2 cursor-pointer text-slate-700 hover:text-slate-900 select-none">
+                    <input
+                      type="checkbox"
+                      checked={columns[col]}
+                      onChange={(e) => {
+                        const updated = { ...columns, [col]: e.target.checked };
+                        setColumns(updated);
+                        try {
+                          localStorage.setItem("jmd:invoices:columns:v1", JSON.stringify(updated));
+                        } catch {}
+                      }}
+                      className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>{col === "buyerTag" ? "Buyer Tag" : col === "channel" ? "Channel" : col === "agent" ? "Agent" : "Status"}</span>
+                  </label>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setColumns(DEFAULT_COLUMNS);
+                    try {
+                      localStorage.removeItem("jmd:invoices:columns:v1");
+                    } catch {}
+                  }}
+                  className="text-[11px] text-slate-400 hover:text-slate-600 underline pt-1 block"
+                >
+                  Reset to default
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -388,10 +536,10 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
                 <th className="p-3.5">Invoice #</th>
                 <th className="p-3.5">Date & Time</th>
                 <th className="p-3.5">Customer / Party</th>
-                <th className="p-3.5">Channel</th>
-                <th className="p-3.5 text-center">Agent</th>
-                <th className="p-3.5 text-center">Buyer Tag</th>
-                <th className="p-3.5 text-center">Status</th>
+                {columns.channel && <th className="p-3.5">Channel</th>}
+                {columns.agent && <th className="p-3.5 text-center">Agent</th>}
+                {columns.buyerTag && <th className="p-3.5 text-center">Buyer Tag</th>}
+                {columns.status && <th className="p-3.5 text-center">Status</th>}
                 <th className="p-3.5 text-right">Amount (₹)</th>
                 <th className="p-3.5 text-center">Actions</th>
               </tr>
@@ -399,21 +547,42 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
             <tbody className="divide-y divide-slate-100">
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-slate-400">
+                  <td
+                    colSpan={
+                      5 +
+                      (columns.channel ? 1 : 0) +
+                      (columns.agent ? 1 : 0) +
+                      (columns.buyerTag ? 1 : 0) +
+                      (columns.status ? 1 : 0)
+                    }
+                    className="p-8 text-center text-slate-400"
+                  >
                     No invoices match your search criteria.
                   </td>
                 </tr>
               ) : (
                 filteredInvoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/70 transition">
+                  <tr
+                    key={inv.id}
+                    className={`hover:bg-slate-50/70 transition ${
+                      inv.status === InvoiceStatus.CANCELLED ? "opacity-75 bg-red-50/30" : ""
+                    }`}
+                  >
                     <td className="p-3.5 font-mono font-bold text-slate-900">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <Link
                           href={`/shop/invoices/${inv.id}`}
-                          className="text-blue-600 hover:underline"
+                          className={`text-blue-600 hover:underline ${
+                            inv.status === InvoiceStatus.CANCELLED ? "line-through text-slate-500" : ""
+                          }`}
                         >
                           {inv.number}
                         </Link>
+                        {inv.status === InvoiceStatus.CANCELLED && (
+                          <span className="px-1.5 py-0.2 rounded font-black text-[9px] uppercase bg-rose-100 text-rose-800 border border-rose-300">
+                            CANCELLED
+                          </span>
+                        )}
                         {inv.isRevised && (
                           <span className="px-1.5 py-0.2 rounded font-black text-[9px] uppercase bg-purple-100 text-purple-900 border border-purple-300">
                             Rev {inv.version}
@@ -459,38 +628,48 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
                         </span>
                       )}
                     </td>
-                    <td className="p-3.5 font-semibold text-slate-700">
-                      {inv.channel}
-                    </td>
-                    <td className="p-3.5 text-center font-mono">
-                      {inv.agentCodeSnapshot ? (
-                        <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
-                          {inv.agentCodeSnapshot}
+                    {columns.channel && (
+                      <td className="p-3.5 font-semibold text-slate-700">
+                        {inv.channel}
+                      </td>
+                    )}
+                    {columns.agent && (
+                      <td className="p-3.5 text-center font-mono">
+                        {inv.agentCodeSnapshot ? (
+                          <span className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                            {inv.agentCodeSnapshot}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
+                    )}
+                    {columns.buyerTag && (
+                      <td className="p-3.5 text-center">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-slate-100 text-slate-700">
+                          {inv.buyerType || "CUSTOMER"}
                         </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase bg-slate-100 text-slate-700">
-                        {inv.buyerType || "CUSTOMER"}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <span
-                        className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                          inv.status === "FINAL"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : inv.status === "CANCELLED"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {inv.status}
-                      </span>
-                    </td>
+                      </td>
+                    )}
+                    {columns.status && (
+                      <td className="p-3.5 text-center">
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                            inv.status === "FINAL"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : inv.status === "CANCELLED"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {inv.status}
+                        </span>
+                      </td>
+                    )}
                     <td className="p-3.5 text-right font-mono font-black text-slate-900">
-                      ₹{(inv.totalPaise / 100).toFixed(2)}
+                      <span className={inv.status === InvoiceStatus.CANCELLED ? "line-through text-slate-400" : ""}>
+                        ₹{(inv.totalPaise / 100).toFixed(2)}
+                      </span>
                     </td>
                     <td className="p-3.5 text-center">
                       <div className="flex items-center justify-center gap-1.5">

@@ -248,10 +248,10 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
     }
   };
 
-  // Helper to construct a new line
+  // Helper to construct a new line (empty by default per Prompt #27 Item 3)
   const createEmptyLine = useCallback(
     (defaultProd?: ProductItem): GrnLineItem => {
-      const p = defaultProd || catalog[0];
+      const p = defaultProd;
       const rate = p ? ((p.mrpPaise || 0) * 0.7) / 100 : 50;
       const mrp = p ? ((p.mrpPaise || 0) / 100).toFixed(2) : "0.00";
       return {
@@ -266,11 +266,11 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
         gstRateBp: p?.gstRateBp ?? 500,
       };
     },
-    [catalog]
+    []
   );
 
-  // Grid Lines State
-  const [lines, setLines] = useState<GrnLineItem[]>(() => [createEmptyLine()]);
+  // Grid Lines State (empty by default per Prompt #27 Item 3)
+  const [lines, setLines] = useState<GrnLineItem[]>([]);
 
   // Current selected supplier
   const selectedSupplier = useMemo(
@@ -313,7 +313,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
   // Draft Autosave (debounced 2s)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (lines.length === 1 && !billNo.trim() && lines[0].productId === catalog[0]?.id && lines[0].qtyInput === "1") {
+    if (lines.length === 0 && !billNo.trim()) {
       return;
     }
     const timer = setTimeout(() => {
@@ -335,7 +335,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
     return () => clearTimeout(timer);
   }, [supplierId, billNo, billDate, locationId, narration, billDiscountPercent, freightChargesInput, loadingChargesInput, lines, catalog]);
 
-  // Check for unsaved autosaved draft on mount
+  // Check for unsaved autosaved draft on mount (or auto-open supplier modal per Prompt #27 Item 3)
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -345,11 +345,14 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
         if (parsed.lines && parsed.lines.length > 0) {
           setHasUnsavedDraft(true);
           setDraftTimestamp(parsed.savedAt || "Earlier Session");
+          return;
         }
       }
     } catch (e) {
       console.error("Draft read error", e);
     }
+    // No unsaved draft: automatically open supplier modal
+    setSupplierModalOpen(true);
   }, []);
 
   const handleResumeAutosavedDraft = () => {
@@ -376,6 +379,38 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
     localStorage.removeItem("jmd_grn_draft_autosave");
     setHasUnsavedDraft(false);
   };
+
+  const handleStartNewGrn = useCallback(() => {
+    setLines([]);
+    setBillNo("");
+    setNarration("");
+    setBillDiscountPercent("0");
+    setFreightChargesInput("0");
+    setLoadingChargesInput("0");
+    setSupplierId("");
+    setHasUnsavedDraft(false);
+    localStorage.removeItem("jmd_grn_draft_autosave");
+    setSupplierModalOpen(true);
+  }, []);
+
+  // Keyboard control when unsaved draft dialog is active (Enter = Resume, N = Start new, D = Discard)
+  useEffect(() => {
+    if (!hasUnsavedDraft) return;
+    const handleDraftKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleResumeAutosavedDraft();
+      } else if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        handleStartNewGrn();
+      } else if (e.key === "d" || e.key === "D" || e.key === "Escape") {
+        e.preventDefault();
+        handleStartNewGrn();
+      }
+    };
+    window.addEventListener("keydown", handleDraftKeyDown);
+    return () => window.removeEventListener("keydown", handleDraftKeyDown);
+  }, [hasUnsavedDraft, handleStartNewGrn]);
 
   // Filtered suppliers for Alt+P modal (Token-prefix matching with junk supplier flagging)
   const isJunkSupplier = (s: SupplierItem) => {
@@ -829,7 +864,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
     // Reset to fresh voucher
     setBillNo("");
     setNarration("");
-    setLines([createEmptyLine()]);
+    setLines([]);
     setBillDiscountPercent("0");
     setFreightChargesInput("0");
     setLoadingChargesInput("0");
@@ -1016,11 +1051,10 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
         setConfirmPostOpen(true);
       } else if (e.key === "F3") {
         e.preventDefault();
-        if (lines.length > 1 || billNo.trim()) {
+        if (lines.length > 0 || billNo.trim()) {
           setDiscardConfirmOpen(true);
         } else {
-          setLines([createEmptyLine()]);
-          setBillNo("");
+          handleStartNewGrn();
         }
       } else if (e.key === "F4") {
         e.preventDefault();
@@ -1142,27 +1176,34 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-[#FAFAF7] font-sans select-none overflow-hidden text-slate-900 text-sm">
-      {/* Draft Autosave Recovery Banner */}
+      {/* Draft Autosave Recovery Banner (Keyboard Accessible per Prompt #27 Item 3) */}
       {hasUnsavedDraft && (
-        <div className="bg-amber-100 border-b border-amber-300 px-4 py-1.5 flex items-center justify-between text-xs text-amber-900 shrink-0 font-medium">
+        <div className="bg-amber-100 border-b border-amber-300 px-4 py-2 flex flex-wrap items-center justify-between text-xs text-amber-900 shrink-0 font-medium z-40">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-amber-700" />
-            <span>Unsaved purchase draft found from <b>{draftTimestamp}</b>. Would you like to resume it?</span>
+            <span>Unsaved purchase draft found from <b>{draftTimestamp}</b>.</span>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleDiscardAutosavedDraft}
-              className="px-2 py-0.5 text-xs text-amber-800 hover:underline"
+              onClick={handleStartNewGrn}
+              className="px-2.5 py-1 text-xs font-bold text-amber-900 bg-amber-200/80 hover:bg-amber-200 rounded border border-amber-400"
             >
-              Discard
+              [D] Discard
+            </button>
+            <button
+              type="button"
+              onClick={handleStartNewGrn}
+              className="px-2.5 py-1 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 rounded border border-slate-300 shadow-2xs"
+            >
+              [N] Start New
             </button>
             <button
               type="button"
               onClick={handleResumeAutosavedDraft}
-              className="bg-[#790E11] text-white font-bold text-xs px-2.5 py-0.5 rounded shadow-2xs hover:bg-[#5e0a0d]"
+              className="bg-[#790E11] text-white font-bold text-xs px-3 py-1 rounded shadow-2xs hover:bg-[#5e0a0d]"
             >
-              Resume Draft
+              [Enter] Resume Draft
             </button>
           </div>
         </div>
@@ -1203,11 +1244,10 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
             type="button"
             tabIndex={topBarFocus.getTabIndex(0)}
             onClick={() => {
-              if (lines.length > 1 || billNo.trim()) {
+              if (lines.length > 0 || billNo.trim()) {
                 setDiscardConfirmOpen(true);
               } else {
-                setLines([createEmptyLine()]);
-                setBillNo("");
+                handleStartNewGrn();
               }
             }}
             className="bg-[#FC830D] hover:bg-[#e07205] text-slate-950 font-black text-xs px-3 py-1.5 rounded-md shadow-xs transition focus:ring-2 focus:ring-[#790E11]"
@@ -1324,6 +1364,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
             Bill No <span className="text-red-500 font-black text-sm">*</span>:
           </label>
           <input
+            id="grn-bill-no"
             ref={billNoInputRef}
             type="text"
             placeholder="e.g. INV-9982"
@@ -1336,7 +1377,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
                 searchInputRef.current?.select();
               }
             }}
-            className="w-36 px-2.5 py-1 border-2 border-slate-300 rounded text-xs font-bold text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11]"
+            className="w-44 px-3 py-1 border-2 border-slate-400 rounded text-sm font-black text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-[#790E11] focus:border-[#790E11]"
           />
         </div>
 
@@ -2222,11 +2263,10 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
               <button
                 type="button"
                 onClick={() => {
-                  if (lines.length > 1 || billNo.trim()) {
+                  if (lines.length > 0 || billNo.trim()) {
                     setDiscardConfirmOpen(true);
                   } else {
-                    setLines([createEmptyLine()]);
-                    setBillNo("");
+                    handleStartNewGrn();
                   }
                 }}
                 className="w-full bg-amber-50 border border-amber-300 text-amber-900 font-bold text-xs py-2 rounded-md hover:bg-amber-100 transition focus:ring-2 focus:ring-[#790E11]"
@@ -2738,11 +2778,8 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
               <button
                 type="button"
                 onClick={() => {
-                  setLines([createEmptyLine()]);
-                  setBillNo("");
-                  setNarration("");
                   setDiscardConfirmOpen(false);
-                  localStorage.removeItem("jmd_grn_draft_autosave");
+                  handleStartNewGrn();
                 }}
                 className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded"
               >

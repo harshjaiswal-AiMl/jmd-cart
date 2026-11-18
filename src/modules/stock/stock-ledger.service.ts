@@ -21,6 +21,7 @@ export interface ProductLedgerRow {
   typeBadgeClass: string;
   referenceType: string | null;
   referenceId: string | null;
+  referenceNumber?: string | null;
   referenceUrl: string | null;
   partyOrDestination: string;
   inQty: number;
@@ -338,23 +339,100 @@ export class StockLedgerService {
     const totalPages = Math.ceil(totalRows / limit) || 1;
     const paginated = filtered.slice((page - 1) * limit, page * limit);
 
+    // Prompt #27 Item 5: Enrich movements at read time with human-readable invoice #, GRN #, and party name
+    const invoiceIds = new Set<string>();
+    const grnIds = new Set<string>();
+
+    for (const { m } of paginated) {
+      if (m.referenceId) {
+        const refTypeUpper = m.referenceType?.toUpperCase();
+        if (refTypeUpper === "INVOICE") {
+          invoiceIds.add(m.referenceId);
+        } else if (refTypeUpper === "GRN" || refTypeUpper === "PURCHASE") {
+          grnIds.add(m.referenceId);
+        }
+      }
+    }
+
+    const [invoices, purchases] = await Promise.all([
+      invoiceIds.size > 0
+        ? prisma.invoice.findMany({
+            where: { id: { in: Array.from(invoiceIds) } },
+            select: {
+              id: true,
+              number: true,
+              customerName: true,
+              party: { select: { id: true, name: true } },
+            },
+          })
+        : [],
+      grnIds.size > 0
+        ? prisma.purchase.findMany({
+            where: { id: { in: Array.from(grnIds) } },
+            select: {
+              id: true,
+              billNo: true,
+              supplier: { select: { id: true, name: true } },
+            },
+          })
+        : [],
+    ]);
+
+    const invoiceMap = new Map<string, { id: string; number: string; customerName: string | null; party: { id: string; name: string } | null }>(
+      invoices.map((inv) => [inv.id, inv])
+    );
+    const purchaseMap = new Map<string, { id: string; billNo: string; supplier: { id: string; name: string } | null }>(
+      purchases.map((p) => [p.id, p])
+    );
+
     const rows: ProductLedgerRow[] = paginated.map(({ m, inQty, outQty, runningBalance }) => {
       const typeMeta = getTypeMeta(m.type, inQty, outQty);
       const balanceCartons = Math.floor(runningBalance / packSize);
       const balanceLoose = runningBalance % packSize;
 
+      let referenceNumber: string | null = null;
       let partyOrDestination = "—";
+
+      // 1. Invoice enrichment
+      if (m.referenceType?.toUpperCase() === "INVOICE" && m.referenceId) {
+        const inv = invoiceMap.get(m.referenceId);
+        if (inv) {
+          referenceNumber = inv.number;
+          partyOrDestination = inv.party?.name || inv.customerName || "Walk-in Retail";
+        }
+      }
+
+      // 2. Purchase / GRN enrichment
+      if ((m.referenceType?.toUpperCase() === "GRN" || m.referenceType?.toUpperCase() === "PURCHASE") && m.referenceId) {
+        const p = purchaseMap.get(m.referenceId);
+        if (p) {
+          referenceNumber = p.billNo ? `Bill #${p.billNo}` : m.referenceId;
+          partyOrDestination = p.supplier?.name || "Supplier";
+        }
+      }
+
+      // 3. Fallback extraction from reason string if referenceId was not found in DB
+      if (!referenceNumber && m.reason) {
+        const invMatch = m.reason.match(/Invoice\s*#([A-Za-z0-9\/\-_]+)/i);
+        if (invMatch) {
+          referenceNumber = invMatch[1];
+        }
+      }
+
+      // 4. Meta & Location fallback for party
       const meta = m.meta as any;
-      if (meta?.partyName) {
-        partyOrDestination = meta.partyName;
-      } else if (meta?.supplierName) {
-        partyOrDestination = meta.supplierName;
-      } else if (m.toLocation?.name && m.toLocation.id !== targetLocationId) {
-        partyOrDestination = `To: ${m.toLocation.name}`;
-      } else if (m.fromLocation?.name && m.fromLocation.id !== targetLocationId) {
-        partyOrDestination = `From: ${m.fromLocation.name}`;
-      } else if (m.toLocation?.name) {
-        partyOrDestination = m.toLocation.name;
+      if (partyOrDestination === "—") {
+        if (meta?.partyName) {
+          partyOrDestination = meta.partyName;
+        } else if (meta?.supplierName) {
+          partyOrDestination = meta.supplierName;
+        } else if (m.toLocation?.name && m.toLocation.id !== targetLocationId) {
+          partyOrDestination = `To: ${m.toLocation.name}`;
+        } else if (m.fromLocation?.name && m.fromLocation.id !== targetLocationId) {
+          partyOrDestination = `From: ${m.fromLocation.name}`;
+        } else if (m.toLocation?.name) {
+          partyOrDestination = m.toLocation.name;
+        }
       }
 
       return {
@@ -365,6 +443,7 @@ export class StockLedgerService {
         typeBadgeClass: typeMeta.badgeClass,
         referenceType: m.referenceType,
         referenceId: m.referenceId,
+        referenceNumber: referenceNumber || m.referenceId,
         referenceUrl: getReferenceUrl(m.referenceType, m.referenceId),
         partyOrDestination,
         inQty,

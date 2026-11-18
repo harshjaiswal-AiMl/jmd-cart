@@ -179,32 +179,47 @@ export function A4Invoice({
         <span className="font-bold text-slate-700 block uppercase text-[10pt] tracking-wider mb-1">
           Billed To / Buyer Details
         </span>
-        {invoice.party ? (
-          <div className="grid grid-cols-2 gap-2 text-[10.5pt]">
-            <div>
-              <p className="font-bold text-slate-900 text-xs">
-                {invoice.party.name}
-              </p>
-              <p className="text-slate-600">{invoice.party.address || "Saharsa, Bihar"}</p>
+        {(() => {
+          const name = invoice.customerName || invoice.party?.name;
+          const phone = invoice.customerPhone || invoice.party?.phone;
+          const address = invoice.customerAddress || invoice.party?.address;
+          const gstin = invoice.party?.gstin;
+
+          if (name || phone || address) {
+            return (
+              <div className="grid grid-cols-2 gap-2 text-[10.5pt]">
+                <div>
+                  <p className="font-bold text-slate-900 text-xs">
+                    {name || "Walk-in Retail Customer"}
+                  </p>
+                  {phone && (
+                    <p className="text-slate-700">
+                      <strong className="text-slate-700">Phone:</strong> {phone}
+                    </p>
+                  )}
+                  {address && (
+                    <p className="text-slate-600 break-words leading-tight">{address}</p>
+                  )}
+                </div>
+                <div>
+                  <p>
+                    <strong className="text-slate-700">GSTIN:</strong>{" "}
+                    {gstin || "Unregistered Consumer"}
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="text-[10.5pt] text-slate-700">
+              <span className="font-semibold text-slate-900">
+                Walk-in Retail Customer (Cash / Counter Sale)
+              </span>
+              <span className="ml-3 text-slate-500">Unregistered Consumer</span>
             </div>
-            <div>
-              <p>
-                <strong className="text-slate-700">Phone:</strong> {invoice.party.phone}
-              </p>
-              <p>
-                <strong className="text-slate-700">GSTIN:</strong>{" "}
-                {invoice.party.gstin || "Unregistered Consumer"}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="text-[10.5pt] text-slate-700">
-            <span className="font-semibold text-slate-900">
-              Walk-in Retail Customer (Cash / Counter Sale)
-            </span>
-            <span className="ml-3 text-slate-500">Unregistered Consumer</span>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Item Table */}

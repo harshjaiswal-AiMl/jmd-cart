@@ -225,12 +225,121 @@ export default async function GodownAppPage({
     };
   });
 
+  // 8. Today's Dispatches (Prompt #27 Item 6)
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+
+  const [todayRuns, todayPickups] = await Promise.all([
+    prisma.dispatchRun.findMany({
+      where: {
+        updatedAt: { gte: todayStart },
+        status: { in: ["OUT_FOR_DELIVERY", "COMPLETED", "IN_PROGRESS"] },
+      },
+      include: {
+        van: true,
+        deliveryUser: true,
+        orders: {
+          include: {
+            order: {
+              include: {
+                party: true,
+                items: {
+                  include: {
+                    product: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 20,
+    }),
+    prisma.counterPickup.findMany({
+      where: {
+        completedAt: { gte: todayStart },
+        status: "COMPLETED",
+      },
+      include: {
+        invoice: {
+          include: {
+            party: true,
+          },
+        },
+      },
+      orderBy: { completedAt: "desc" },
+      take: 20,
+    }),
+  ]);
+
+  const todayDispatches = [];
+
+  for (const run of todayRuns) {
+    for (const ro of run.orders) {
+      const o = ro.order;
+      const totalPieces = o.items.reduce((s, it) => s + it.qty, 0);
+      const totalCartons = o.items.reduce((s, it) => {
+        const ps = it.product?.packSize || 1;
+        return s + Math.floor(it.qty / ps);
+      }, 0);
+
+      todayDispatches.push({
+        id: `run-${run.id}-${o.id}`,
+        type: "RUN",
+        referenceNumber: o.orderNumber,
+        destination: run.van?.name || "Delivery Van",
+        customerName: o.party?.name || "Customer",
+        customerAddress: o.party?.address || null,
+        customerPhone: o.contactPhone || o.party?.phone || null,
+        handoverTime: ro.run.updatedAt.toISOString(),
+        totalCartons,
+        totalPieces,
+        items: o.items.map((it) => {
+          const ps = it.product?.packSize || 1;
+          return {
+            productName: it.product?.name || "Item",
+            cartons: Math.floor(it.qty / ps),
+            pieces: it.qty % ps,
+            totalPieces: it.qty,
+          };
+        }),
+      });
+    }
+  }
+
+  for (const cp of todayPickups) {
+    const rawItems = (cp.items as any[]) || [];
+    const totalPieces = rawItems.reduce((s, it) => s + (it.qty || 0), 0);
+    const totalCartons = rawItems.reduce((s, it) => s + (it.cartons || 0), 0);
+
+    todayDispatches.push({
+      id: `pickup-${cp.id}`,
+      type: "COUNTER_PICKUP",
+      referenceNumber: cp.billNumber || "Invoice",
+      destination: "Shop POS Counter",
+      customerName: cp.invoice?.customerName || cp.invoice?.party?.name || "Counter Customer",
+      customerAddress: cp.invoice?.customerAddress || cp.invoice?.party?.address || null,
+      customerPhone: cp.invoice?.customerPhone || cp.invoice?.party?.phone || null,
+      handoverTime: (cp.completedAt || cp.updatedAt).toISOString(),
+      totalCartons,
+      totalPieces,
+      items: rawItems.map((it) => ({
+        productName: it.productName || "Item",
+        cartons: it.cartons || 0,
+        pieces: it.loose || 0,
+        totalPieces: it.qty || 0,
+      })),
+    });
+  }
+
   return (
     <GodownMobileClient
       initialProducts={godownProducts}
       vanLocations={vanLocations}
       pendingOrders={combinedOrders}
       activeVanLoads={activeVanLoads}
+      todayDispatches={todayDispatches}
       lowStockCount={lowStockCount}
       unreviewedCorrectionsCount={unreviewedCorrectionsCount}
       initialTab={searchParams?.tab || "home"}

@@ -70,11 +70,11 @@ export function DemandBillCredit({ invoice, business }: DemandBillCreditProps) {
               <p className="font-semibold uppercase text-gray-900 break-words leading-tight">
                 {vm.customer.name || "Cash / Retail Customer"}
               </p>
-              {vm.customer.address && (
-                <p className="text-gray-800 leading-tight break-words">{vm.customer.address}</p>
-              )}
               {vm.customer.mobile && (
                 <p className="font-medium text-gray-800">{vm.customer.mobile}</p>
+              )}
+              {vm.customer.address && (
+                <p className="text-gray-800 leading-tight break-words">{vm.customer.address}</p>
               )}
               {vm.customer.gstin && (
                 <p className="font-mono text-[9px] text-gray-800">GSTIN: {vm.customer.gstin}</p>

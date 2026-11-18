@@ -178,8 +178,8 @@ function renderCreditDemandA5Html(
       <div>
         <div style="font-weight:900;margin-bottom:2px">Party Details :</div>
         <div style="font-weight:900;text-transform:uppercase">${escapeHtml(vm.customer.name || "Customer")}</div>
-        ${vm.customer.address ? `<div>${escapeHtml(vm.customer.address)}</div>` : ""}
         ${vm.customer.mobile ? `<div style="font-weight:700">${escapeHtml(vm.customer.mobile)}</div>` : ""}
+        ${vm.customer.address ? `<div>${escapeHtml(vm.customer.address)}</div>` : ""}
         ${vm.customer.gstin ? `<div style="font-size:10pt">GSTIN: ${escapeHtml(vm.customer.gstin)}</div>` : ""}
       </div>
       <div>
@@ -278,6 +278,9 @@ export function renderDirectPrintHtml(
   ];
   if (vm.customer.mobile) {
     metaRows.push({ label: "Mobile", value: vm.customer.mobile });
+  }
+  if (vm.customer.address) {
+    metaRows.push({ label: "Address", value: vm.customer.address });
   }
   metaRows.push({ label: "Mode", value: modeLabel });
   if (isGst && vm.customer.gstin) {

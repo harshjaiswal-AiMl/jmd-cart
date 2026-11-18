@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { LocationType, MovementType, UserRole } from "@prisma/client";
 import { stockService } from "@/modules/stock/stock.service";
 import { vanService } from "@/modules/van/van.service";
+import { stockLedgerService } from "@/modules/stock/stock-ledger.service";
 import { pushNotificationService } from "@/modules/notifications/push-notification.service";
 import { revalidatePath } from "next/cache";
 
@@ -343,5 +344,39 @@ export async function quickAddOrUpdateGodownProductAction(input: {
   } catch (err: any) {
     console.error("[quickAddOrUpdateGodownProductAction error]:", err);
     return { success: false, error: err.message || "Failed to update product/stock" };
+  }
+}
+
+export async function getProductMovementLedgerAction(productId: string) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  try {
+    const godown = await prisma.location.findFirst({
+      where: { type: LocationType.GODOWN, active: true },
+    });
+
+    if (!godown) {
+      return { success: false, error: "Godown location not found" };
+    }
+
+    const report = await stockLedgerService.getProductLedgerReport(session.user.role, {
+      productId,
+      locationId: godown.id,
+      limit: 50,
+    });
+
+    return {
+      success: true,
+      product: report.product,
+      location: report.location,
+      rows: report.rows,
+      summary: report.summary,
+    };
+  } catch (err: any) {
+    console.error("[getProductMovementLedgerAction error]:", err);
+    return { success: false, error: err.message || "Failed to load movement ledger" };
   }
 }

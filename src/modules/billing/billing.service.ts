@@ -402,6 +402,13 @@ export class BillingService {
               where: { type: "GODOWN", active: true },
             })
           : null;
+        const isPartyJmdShop = Boolean(
+          partySnapshotName &&
+            (effectivePartyId === "party-jmd-shop" ||
+              partySnapshotName.trim().toLowerCase().includes("jmd retail") ||
+              partySnapshotName.trim().toLowerCase() === "jmd shop" ||
+              partySnapshotName.trim().toLowerCase() === "jmd")
+        );
 
         for (const [lineIdx, line] of orderPricing.lines.entries()) {
           const inputItem = validated.items[lineIdx];
@@ -415,47 +422,40 @@ export class BillingService {
           const packSize = prod?.packSize || 1;
 
           if (isShopLocation && godownLocation) {
-            const godownBal = await tx.stockBalance.findUnique({
-              where: {
-                productId_locationId: {
+            if (isPartyJmdShop) {
+              // Internal billing in the name of JMD Shop: items leave Godown and add to Shop
+              await stockService.postMovement(
+                {
+                  type: MovementType.TRANSFER,
                   productId: line.productId,
-                  locationId: godownLocation.id,
+                  fromLocationId: godownLocation.id,
+                  toLocationId: validated.locationId,
+                  qty: line.qty,
+                  referenceType: "INVOICE",
+                  referenceId: invoice.id,
+                  reason: `Invoice #${invoiceNumber} (Transfer Godown to Shop)`,
+                  idempotencyKey: `${validated.idempotencyKey}_xfer_shop_${lineIdx}_${line.productId}`,
+                  actorId,
                 },
-              },
-            });
-            const shopBal = await tx.stockBalance.findUnique({
-              where: {
-                productId_locationId: {
-                  productId: line.productId,
-                  locationId: validated.locationId,
-                },
-              },
-            });
-
-            const godownQty = godownBal?.qty ?? 0;
-            const shopQty = shopBal?.qty ?? 0;
-
-            if (packSize > 1) {
+                tx
+              );
+            } else if (packSize > 1) {
               const cartons = Math.floor(line.qty / packSize);
               const cartonPcs = cartons * packSize;
               const loosePcs = line.qty % packSize;
 
-              // 1. Full cartons: Deduct from Godown (or fallback to Shop if shop has enough carton stock and godown does not)
+              // 1. Full cartons: ALWAYS deduct from Godown
               if (cartonPcs > 0) {
-                const cartonSourceLocId = godownQty >= cartonPcs ? godownLocation.id : (shopQty >= cartonPcs ? validated.locationId : godownLocation.id);
-
                 await stockService.postMovement(
                   {
                     type: MovementType.SALE,
                     productId: line.productId,
-                    fromLocationId: cartonSourceLocId,
+                    fromLocationId: godownLocation.id,
                     toLocationId: null,
                     qty: cartonPcs,
                     referenceType: "INVOICE",
                     referenceId: invoice.id,
                     reason: `Invoice #${invoiceNumber} (Cartons from Godown)`,
-
-
                     idempotencyKey: `${validated.idempotencyKey}_sale_ctn_${lineIdx}_${line.productId}`,
                     actorId,
                   },
@@ -463,89 +463,36 @@ export class BillingService {
                 );
               }
 
-              // 2. Loose pieces: Deduct from Shop if available, else from Godown
+              // 2. Loose pieces: ALWAYS deduct from Shop (NO silent fallback to Godown)
               if (loosePcs > 0) {
-                if (shopQty >= loosePcs) {
-                  const shopLooseBefore = shopQty % packSize;
-                  if (shopLooseBefore < loosePcs) {
-                    const deficit = loosePcs - shopLooseBefore;
-                    const cartonsOpened = Math.ceil(deficit / packSize);
-                    await tx.auditLog.create({
-                      data: {
-                        actorId: actorId || null,
-                        action: "CARTON_AUTO_CONVERT",
-                        entity: "CartonConversion",
-                        entityId: line.productId,
-                        before: {
-                          cartonsAvailable: Math.floor(shopQty / packSize),
-                          looseAvailable: shopLooseBefore,
-                        },
-                        after: {
-                          productId: line.productId,
-                          locationId: validated.locationId,
-                          cartonsOpened,
-                          looseGenerated: cartonsOpened * packSize,
-                          looseUsed: loosePcs,
-                          reason: "auto-convert",
-                          referenceType: "INVOICE",
-                          referenceId: invoice.id,
-                          referenceNumber: invoiceNumber,
-                        },
-                      },
-                    });
-                  }
-
-                  await stockService.postMovement(
-                    {
-                      type: MovementType.SALE,
-                      productId: line.productId,
-                      fromLocationId: validated.locationId,
-                      toLocationId: null,
-                      qty: loosePcs,
-                      referenceType: "INVOICE",
-                      referenceId: invoice.id,
-                      reason: `Invoice #${invoiceNumber} (Loose from Shop)`,
-                      idempotencyKey: `${validated.idempotencyKey}_sale_loose_${lineIdx}_${line.productId}`,
-                      actorId,
-                    },
-                    tx
-                  );
-                } else {
-                  // Shop shelf has 0 or insufficient pieces; fulfill loose pieces directly from Godown
-                  await stockService.postMovement(
-                    {
-                      type: MovementType.SALE,
-                      productId: line.productId,
-                      fromLocationId: godownLocation.id,
-                      toLocationId: null,
-                      qty: loosePcs,
-                      referenceType: "INVOICE",
-                      referenceId: invoice.id,
-                      reason: `Invoice #${invoiceNumber} (Loose from Godown)`,
-                      idempotencyKey: `${validated.idempotencyKey}_sale_loose_${line.productId}`,
-                      actorId,
-                    },
-                    tx
-                  );
-                }
+                await stockService.postMovement(
+                  {
+                    type: MovementType.SALE,
+                    productId: line.productId,
+                    fromLocationId: validated.locationId,
+                    toLocationId: null,
+                    qty: loosePcs,
+                    referenceType: "INVOICE",
+                    referenceId: invoice.id,
+                    reason: `Invoice #${invoiceNumber} (Loose from Shop)`,
+                    idempotencyKey: `${validated.idempotencyKey}_sale_loose_${lineIdx}_${line.productId}`,
+                    actorId,
+                  },
+                  tx
+                );
               }
             } else {
-              // packSize === 1: Deduct from Shop if shop has stock, else from Godown
-              const sourceLocId =
-                shopQty >= line.qty ? validated.locationId : godownLocation.id;
-
+              // packSize === 1: Retail sale from Shop always reduces Shop stock
               await stockService.postMovement(
                 {
                   type: MovementType.SALE,
                   productId: line.productId,
-                  fromLocationId: sourceLocId,
+                  fromLocationId: validated.locationId,
                   toLocationId: null,
                   qty: line.qty,
                   referenceType: "INVOICE",
                   referenceId: invoice.id,
-                  reason: `Invoice #${invoiceNumber} (${
-                    sourceLocId === validated.locationId ? "Shop" : "Godown"
-                  })`,
+                  reason: `Invoice #${invoiceNumber} (Loose from Shop)`,
                   idempotencyKey: `${validated.idempotencyKey}_sale_${lineIdx}_${line.productId}`,
                   actorId,
                 },

@@ -30,6 +30,7 @@ import {
   completeGodownOrderAction,
   issueVanLoadSheetAction,
   quickAddOrUpdateGodownProductAction,
+  getProductMovementLedgerAction,
 } from "./actions";
 
 interface GodownProduct {
@@ -91,6 +92,25 @@ export interface ActiveVanLoad {
   }>;
 }
 
+export interface TodayDispatchItem {
+  id: string;
+  type: string;
+  referenceNumber: string;
+  destination: string;
+  customerName: string;
+  customerAddress: string | null;
+  customerPhone: string | null;
+  handoverTime: string;
+  totalCartons: number;
+  totalPieces: number;
+  items: Array<{
+    productName: string;
+    cartons: number;
+    pieces: number;
+    totalPieces: number;
+  }>;
+}
+
 interface Props {
   initialProducts: GodownProduct[];
   vanLocations: VanLocation[];
@@ -98,6 +118,7 @@ interface Props {
   activeVanLoads?: ActiveVanLoad[];
   lowStockCount: number;
   unreviewedCorrectionsCount: number;
+  todayDispatches?: TodayDispatchItem[];
   initialTab?: string;
   user: { id: string; name: string; role: string };
 }
@@ -107,6 +128,7 @@ export function GodownMobileClient({
   vanLocations,
   pendingOrders: initialOrders,
   activeVanLoads = [],
+  todayDispatches = [],
   lowStockCount,
   unreviewedCorrectionsCount,
   initialTab = "home",
@@ -117,6 +139,45 @@ export function GodownMobileClient({
   const [editingSheetNo, setEditingSheetNo] = useState<string | null>(null);
   const [suggestionInputs, setSuggestionInputs] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<string>(initialTab);
+  const [lang, setLang] = useState<"en" | "hi">("en");
+
+  // Movement Ledger state
+  const [selectedLedgerProduct, setSelectedLedgerProduct] = useState<GodownProduct | null>(null);
+  const [ledgerSearchQuery, setLedgerSearchQuery] = useState("");
+  const [ledgerDropdownOpen, setLedgerDropdownOpen] = useState(false);
+  const [ledgerRows, setLedgerRows] = useState<any[]>([]);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("jmd_godown_lang");
+      if (saved === "hi" || saved === "en") setLang(saved);
+    } catch {}
+  }, []);
+
+  const fetchProductLedger = async (prodId: string) => {
+    setLedgerLoading(true);
+    try {
+      const res = await getProductMovementLedgerAction(prodId);
+      if (res.success && res.rows) {
+        setLedgerRows(res.rows);
+      } else {
+        setLedgerRows([]);
+      }
+    } catch {
+      setLedgerRows([]);
+    } finally {
+      setLedgerLoading(false);
+    }
+  };
+
+  const ledgerSearchResults = useMemo(() => {
+    if (!ledgerSearchQuery.trim()) return [];
+    return searchItems(ledgerSearchQuery, allProducts, {
+      keys: ["name", "shortCode"],
+      limit: 10,
+    });
+  }, [ledgerSearchQuery, allProducts]);
 
   const startEditLoad = (vl: ActiveVanLoad) => {
     setEditingVanDayId(vl.id);
@@ -734,6 +795,30 @@ export function GodownMobileClient({
 
   return (
     <div className="space-y-4 max-w-md mx-auto font-sans pb-16">
+      {/* App Bar with Language Toggle */}
+      <div className="flex items-center justify-between px-1 py-1">
+        <div className="flex items-center gap-2">
+          <Warehouse className="w-5 h-5 text-[#12355B]" />
+          <span className="font-black text-sm text-slate-900 tracking-tight">
+            {lang === "hi" ? "जय माता दी गोदाम" : "JMD Godown"}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const next = lang === "en" ? "hi" : "en";
+              setLang(next);
+              try {
+                localStorage.setItem("jmd_godown_lang", next);
+              } catch {}
+            }}
+            className="px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-xs font-bold text-slate-800 shadow-2xs hover:bg-slate-50 transition"
+          >
+            {lang === "en" ? "हिन्दी" : "English"}
+          </button>
+        </div>
+      </div>
       {/* FULL SCREEN RINGING OVERLAY WHEN NEW ORDER ARRIVES (Browser / PWA Only) */}
       {!isNativeApp && activeRingAlert && (
         <div className="fixed inset-0 z-50 bg-red-650 bg-red-600 text-white flex flex-col justify-between p-6 animate-pulse">
@@ -899,8 +984,49 @@ export function GodownMobileClient({
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-800 flex items-center justify-center mb-2">
                 <Layers className="w-5 h-5" />
               </div>
-              <div className="font-bold text-xs text-slate-900">Stock Count</div>
-              <p className="text-[10px] text-slate-500 mt-0.5">Physical counts &amp; logs</p>
+              <div className="font-bold text-xs text-slate-900">{lang === "hi" ? "स्टॉक गिनती" : "Stock Count"}</div>
+              <p className="text-[10px] text-slate-500 mt-0.5">{lang === "hi" ? "गिनती व लॉग्स" : "Physical counts & logs"}</p>
+            </button>
+          </div>
+
+          {/* Prompt #27 Item 6: Today's Dispatch & Movement Ledger Tiles */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setActiveTab("today-dispatch")}
+              className="p-4 bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl shadow-xs text-left active:scale-95 transition"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold text-indigo-300 uppercase">
+                  {lang === "hi" ? "आज का डिस्पैच" : "Today's Dispatch"}
+                </span>
+                <Truck className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="text-2xl font-black font-mono">
+                {todayDispatches.length}
+              </div>
+              <p className="text-[10px] text-indigo-200 mt-0.5">
+                {todayDispatches.reduce((s, d) => s + d.totalCartons, 0)} {lang === "hi" ? "कार्टन डिस्पैच हुए" : "cartons dispatched"}
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("movement-ledger")}
+              className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs text-left hover:border-blue-400 active:scale-95 transition"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">
+                  {lang === "hi" ? "मूवमेंट लेज़र" : "Movement Ledger"}
+                </span>
+                <Clock className="w-4 h-4 text-[#12355B]" />
+              </div>
+              <div className="font-bold text-xs text-slate-900">
+                {lang === "hi" ? "प्रोडक्ट मूवमेंट व पार्टी" : "Product & Party Log"}
+              </div>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {lang === "hi" ? "माल कब कहाँ गया चेक करें" : "Track stock destinations"}
+              </p>
             </button>
           </div>
 
@@ -1550,11 +1676,262 @@ export function GodownMobileClient({
         </div>
       )}
 
+            {/* PROMPT #27 ITEM 6: TODAY'S DISPATCH SECTION */}
+      {activeTab === "today-dispatch" && (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("home")}
+                  className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 font-bold"
+                >
+                  ←
+                </button>
+                <h2 className="font-black text-sm text-slate-900">
+                  {lang === "hi" ? "आज का डिस्पैच" : "Today's Dispatch"}
+                </h2>
+              </div>
+              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full">
+                {todayDispatches.length} {lang === "hi" ? "डिस्पैच" : "dispatches"}
+              </span>
+            </div>
+
+            {/* Summary Bar */}
+            <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-center text-xs mb-3 font-mono">
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-sans font-bold">
+                  {lang === "hi" ? "कुल डिस्पैच" : "Total Runs"}
+                </div>
+                <div className="font-black text-slate-900 text-base">{todayDispatches.length}</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-sans font-bold">
+                  {lang === "hi" ? "कार्टन" : "Cartons"}
+                </div>
+                <div className="font-black text-emerald-700 text-base">
+                  {todayDispatches.reduce((s, d) => s + d.totalCartons, 0)}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase font-sans font-bold">
+                  {lang === "hi" ? "पीस" : "Pieces"}
+                </div>
+                <div className="font-black text-blue-700 text-base">
+                  {todayDispatches.reduce((s, d) => s + d.totalPieces, 0)}
+                </div>
+              </div>
+            </div>
+
+            {/* List of dispatches */}
+            {todayDispatches.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                {lang === "hi" ? "आज कोई डिस्पैच नहीं हुआ है।" : "No dispatches recorded today."}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {todayDispatches.map((disp) => (
+                  <div key={disp.id} className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono font-black text-slate-900">{disp.referenceNumber}</span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                        {disp.destination}
+                      </span>
+                    </div>
+                    <div className="text-xs">
+                      <div className="font-bold text-slate-900">{disp.customerName}</div>
+                      {disp.customerAddress && (
+                        <div className="text-[11px] text-slate-500 leading-tight">{disp.customerAddress}</div>
+                      )}
+                      {disp.customerPhone && (
+                        <div className="mt-1">
+                          <a
+                            href={`tel:${disp.customerPhone}`}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:underline"
+                          >
+                            📞 <span>{disp.customerPhone}</span>
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                    <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-600 space-y-1">
+                      <div className="font-bold text-slate-700">{lang === "hi" ? "सामान:" : "Items:"}</div>
+                      {disp.items.map((it, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-[10.5px]">
+                          <span className="text-slate-800 font-medium">{it.productName}</span>
+                          <span className="font-mono font-bold text-slate-700">
+                            {it.cartons > 0 ? `${it.cartons} ctn ` : ""}{it.pieces > 0 ? `${it.pieces} pcs` : it.cartons === 0 ? `${it.totalPieces} pcs` : ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono text-right pt-1">
+                      {new Date(disp.handoverTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* PROMPT #27 ITEM 6: MOVEMENT LEDGER SECTION */}
+      {activeTab === "movement-ledger" && (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("home")}
+                  className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 font-bold"
+                >
+                  ←
+                </button>
+                <h2 className="font-black text-sm text-slate-900">
+                  {lang === "hi" ? "प्रोडक्ट मूवमेंट लेज़र" : "Movement Ledger"}
+                </h2>
+              </div>
+            </div>
+
+            {/* Product Search Box */}
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder={lang === "hi" ? "प्रोडक्ट का नाम या कोड खोजें..." : "Search product by name or code..."}
+                value={ledgerSearchQuery}
+                onChange={(e) => {
+                  setLedgerSearchQuery(e.target.value);
+                  setLedgerDropdownOpen(true);
+                }}
+                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#12355B]"
+              />
+              {ledgerDropdownOpen && ledgerSearchResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-white rounded-xl shadow-lg border border-slate-200 max-h-56 overflow-y-auto divide-y divide-slate-100">
+                  {ledgerSearchResults.map((prod) => (
+                    <div
+                      key={prod.id}
+                      onClick={() => {
+                        setSelectedLedgerProduct(prod);
+                        setLedgerSearchQuery(prod.name);
+                        setLedgerDropdownOpen(false);
+                        fetchProductLedger(prod.id);
+                      }}
+                      className="p-2.5 text-xs hover:bg-blue-50 cursor-pointer flex justify-between items-center"
+                    >
+                      <div>
+                        <div className="font-bold text-slate-900">{prod.name}</div>
+                        <div className="text-[10px] text-slate-500 font-mono">[{prod.shortCode}] {prod.weight || ""}</div>
+                      </div>
+                      <div className="text-right font-mono font-bold text-slate-700 text-[11px]">
+                        {prod.godownCartons} ctn + {prod.godownLoose} pcs
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Selected Product Banner */}
+            {selectedLedgerProduct && (
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div className="font-black text-xs text-slate-900">{selectedLedgerProduct.name}</div>
+                  <div className="text-[10px] text-slate-500 font-mono">
+                    [{selectedLedgerProduct.shortCode}] Pack Size: {selectedLedgerProduct.packSize}
+                  </div>
+                </div>
+                <div className="text-right font-mono">
+                  <div className="text-[10px] uppercase font-bold text-slate-500">
+                    {lang === "hi" ? "गोदाम स्टॉक" : "Godown Stock"}
+                  </div>
+                  <div className="font-black text-emerald-700 text-xs">
+                    {selectedLedgerProduct.godownCartons} ctn + {selectedLedgerProduct.godownLoose} pcs
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading state */}
+            {ledgerLoading && (
+              <div className="p-8 text-center text-slate-400 text-xs font-semibold">
+                {lang === "hi" ? "मूवमेंट लोड हो रहा है..." : "Loading movement ledger..."}
+              </div>
+            )}
+
+            {/* Movements list */}
+            {!ledgerLoading && selectedLedgerProduct && ledgerRows.length === 0 && (
+              <div className="p-8 text-center text-slate-400 text-xs">
+                {lang === "hi" ? "इस प्रोडक्ट के लिए कोई मूवमेंट नहीं मिला।" : "No movements found for this product."}
+              </div>
+            )}
+
+            {!ledgerLoading && ledgerRows.length > 0 && (
+              <div className="space-y-2.5">
+                {ledgerRows.map((row) => (
+                  <div key={row.id} className="p-3 rounded-xl border border-slate-200 bg-white space-y-1.5 text-xs shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-blue-700">
+                        {row.referenceNumber || row.referenceId || row.typeLabel}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${row.typeBadgeClass}`}>
+                        {row.typeLabel}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between font-semibold text-slate-800">
+                      <span>{lang === "hi" ? "पार्टी:" : "Party:"} {row.partyOrDestination}</span>
+                      <span className={`font-mono font-black ${row.inQty > 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                        {row.inQty > 0 ? `+${row.inQty} pcs` : `-${row.outQty} pcs`}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-100">
+                      <span>{new Date(row.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</span>
+                      <span>{lang === "hi" ? "बचा:" : "Bal:"} {row.balanceFormatted}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* TAB 5: MORE */}
       {activeTab === "more" && (
         <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-4 animate-in fade-in duration-150">
           <h2 className="font-bold text-sm text-slate-900">Godown Operations &amp; Settings</h2>
           <div className="space-y-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setActiveTab("today-dispatch")}
+              className="w-full p-3 rounded-xl border border-slate-200 flex items-center justify-between hover:bg-slate-50 transition text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <Truck className="w-4 h-4 text-emerald-600" />
+                <span className="font-bold text-slate-900">
+                  {lang === "hi" ? "आज का डिस्पैच" : "Today's Dispatch"}
+                </span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("movement-ledger")}
+              className="w-full p-3 rounded-xl border border-slate-200 flex items-center justify-between hover:bg-slate-50 transition text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <Clock className="w-4 h-4 text-[#12355B]" />
+                <span className="font-bold text-slate-900">
+                  {lang === "hi" ? "प्रोडक्ट मूवमेंट लेज़र" : "Movement Ledger"}
+                </span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </button>
+
             <Link
               href="/godown/receive-goods"
               className="p-3 rounded-xl border border-slate-200 flex items-center justify-between hover:bg-slate-50 transition"
@@ -1620,7 +1997,7 @@ export function GodownMobileClient({
             }`}
           >
             <Warehouse className="w-5 h-5 mb-0.5" />
-            <span>Home</span>
+            <span>{lang === "hi" ? "होम" : "Home"}</span>
           </button>
 
           <button
@@ -1631,7 +2008,7 @@ export function GodownMobileClient({
             }`}
           >
             <Package className="w-5 h-5 mb-0.5" />
-            <span>Orders</span>
+            <span>{lang === "hi" ? "ऑर्डर्स" : "Orders"}</span>
             {orders.length > 0 && (
               <span className="absolute top-1 right-2 w-2 h-2 rounded-full bg-red-600" />
             )}
@@ -1645,7 +2022,7 @@ export function GodownMobileClient({
             }`}
           >
             <Truck className="w-5 h-5 mb-0.5" />
-            <span>Issue</span>
+            <span>{lang === "hi" ? "इश्यू" : "Issue"}</span>
           </button>
 
           <button
@@ -1656,18 +2033,18 @@ export function GodownMobileClient({
             }`}
           >
             <Layers className="w-5 h-5 mb-0.5" />
-            <span>Stock</span>
+            <span>{lang === "hi" ? "स्टॉक" : "Stock"}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab("more")}
             className={`flex flex-col items-center py-1 px-3 text-[10px] font-bold transition ${
-              activeTab === "more" ? "text-[#12355B]" : "text-slate-400"
+              activeTab === "more" || activeTab === "today-dispatch" || activeTab === "movement-ledger" ? "text-[#12355B]" : "text-slate-400"
             }`}
           >
             <Download className="w-5 h-5 mb-0.5" />
-            <span>More</span>
+            <span>{lang === "hi" ? "अधिक" : "More"}</span>
           </button>
         </div>
       </div>

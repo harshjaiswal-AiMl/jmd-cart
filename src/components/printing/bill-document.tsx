@@ -61,6 +61,9 @@ export function BillDocument({
   if (vm.customer.mobile) {
     headerRows.push({ label: "Mobile", value: vm.customer.mobile });
   }
+  if (vm.customer.address) {
+    headerRows.push({ label: "Address", value: vm.customer.address });
+  }
   headerRows.push({ label: "Mode", value: modeLabel });
   if (isGst && vm.customer.gstin) {
     headerRows.push({ label: "GSTIN", value: vm.customer.gstin });

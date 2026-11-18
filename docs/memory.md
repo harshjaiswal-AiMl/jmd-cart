@@ -1028,3 +1028,52 @@ Read this first in every session. Keep it current: add decisions and gotchas as 
 4. **Feature Parity & Golden Fixtures**:
    - Existing calculations (taxable, tax, round-off, ratePaise conversion), stock ledger movements (`PURCHASE_RECEIPT`), supplier ledger posting (`LedgerKind.INVOICE`), and audit logging remain 100% intact.
    - All 21 existing unit/integration tests must continue passing.
+
+
+## Prompt #27: Fix List — Invoices Summary & Columns, Customer Address on Bill, GRN Flow, Stock Rules & Godown App (2026-11-18)
+- **Branch**: `feat/prompt-27`
+- **Scope Lock**: Exactly 6 items implemented with zero mouse dependency and no historical ledger rewriting.
+
+### Root Cause Analysis & Owner Inquiries Answered
+1. **Stock Rules Confirmation (Owner Inquiry)**:
+   - *Question 1*: "When we bill in the name of JMD Shop, does the item leave the Godown after dispatch and add to the Shop, or not?"
+     - *Answer*: **YES.** In dispatch handover (`convertReservationsToSale`) and now in POS billing, billing to "JMD Shop" acts as an internal stock transfer: stock leaves the Godown (`fromLocationId = Godown`) and adds to the Shop (`toLocationId = Shop`) with `type = MovementType.TRANSFER`.
+   - *Question 2*: "When we bill regular customers, is anything added to Shop?"
+     - *Answer*: **NO.** Goods billed to external customers leave for the customer (`toLocationId = null`). Nothing is added to Shop stock upon customer sale.
+   - *Root Cause of -9070 pcs Godown Negative Stock*:
+     - In `src/modules/billing/billing.service.ts` lines 514-530, a silent fallback was executing whenever Shop loose stock was insufficient: `if (shopQty >= loosePcs) { deduct from shop } else { deduct loose from godown }`.
+     - Because Godown never holds loose unpackaged units, every time Shop stock ran out, retail sales drained Godown loose stock into negative numbers under reason `"Invoice #... (Loose from Godown)"`.
+     - **Fix**: Removed the silent fallback completely. The owner's rule is strictly enforced: **cartons always reduce Godown stock (`Cartons from Godown`); loose pieces always reduce Shop stock (`Loose from Shop`)**.
+2. **Stock Ledger Internal IDs (Owner Issue)**:
+   - In `src/modules/stock/stock-ledger.service.ts`, `referenceId` was passing internal CUIDs (`cmwamustu000wzzt...`) and `partyOrDestination` defaulted to `"—"`.
+   - **Fix**: Enriched movements at read time with `prisma.invoice` and `prisma.purchase` lookups. Every row now displays human-readable invoice numbers (`INV/26-27/000157`), party/customer names, and running balances without modifying historical immutable movement records.
+3. **Invoices Summary & Columns**:
+   - Filtered Total Summary card shows **only 4 reconciled tiles**: `Today's Total Bill`, `Cash Collected`, `UPI Collected`, `Today Credit` (`Cash + UPI + Credit = Total Bill`).
+   - Dynamic range labels based on date preset ("Today's", "Yesterday's", "This Week's", "This Month's", "All-Time").
+   - Secondary metrics (Taxable, GST, Discount, Avg Bill, Channels) moved to collapsible "More totals" section.
+   - Default table columns: `Invoice #`, `Date & Time`, `Customer / Party`, `Amount`, plus `Actions`.
+   - `Channel`, `Agent`, `Buyer Tag`, `Status` hidden by default; restorable via "Columns" popover menu and remembered in `localStorage` (`jmd:invoices:columns:v1`).
+   - Cancelled invoices remain clearly flagged with red badge and strikethrough even when Status column is hidden.
+4. **Customer Address on Bills**:
+   - In shared invoice view model, thermal 80mm/58mm, A4, A5, Demand Bill, reprint, ESC/POS, and public token link page, customer address is rendered directly under Mobile when present.
+   - Resolution order: `invoice.customerAddress` snapshot first, then `party.address` fallback. Empty address prints nothing (no blank label).
+5. **GRN Opening Flow (`/godown/purchases/new`)**:
+   - Default product row removed (`lines` starts as empty array `[]`).
+   - On Mount / New GRN (`F3`), automatically opens Supplier modal with search autofocus.
+   - Supplier selection moves cursor to Bill No (`#grn-bill-no`).
+   - Enter in Bill No moves cursor to Product Search (`#grn-item-search`).
+   - Unsaved draft banner supports keyboard shortcuts: `Enter` = Resume, `N` = Start new, `D` = Discard.
+6. **JMD Godown App (`/app/godown`)**:
+   - Added Hindi/English language toggle (`[EN | HI]`) in header, persisted in `localStorage`.
+   - Added "Today's Dispatch" section (tile on Home + entry in More) showing count, cartons, pieces, destination, customer, tap-to-call phone, handover time, and items breakdown.
+   - Added "Movement Ledger" section (tile on Home + entry in More) with smart product search, live Godown stock, and movement cards showing date, party, invoice #, in/out quantity, and balance.
+
+### Test Evidence & Verification
+- Unit test suite: **6 test files, 20 tests PASSING (100%)**:
+  1. `tests/unit/p27-invoices-summary-columns.test.ts` (3 tests pass)
+  2. `tests/unit/p27-bill-address.test.ts` (5 tests pass)
+  3. `tests/unit/p27-grn-opening-flow.test.ts` (4 tests pass)
+  4. `tests/unit/p27-stock-rules-evidence.test.ts` (3 tests pass)
+  5. `tests/unit/p27-stock-ledger.test.ts` (3 tests pass)
+  6. `tests/unit/p27-godown-app.test.ts` (2 tests pass)
+- Regression test suite: `tests/unit/no-mouse-reachability.test.ts` (10 tests pass).

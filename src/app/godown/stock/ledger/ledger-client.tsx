@@ -202,7 +202,7 @@ export function LedgerClient({
       formatISTDateTime(r.createdAt),
       r.typeLabel,
       r.referenceType || "",
-      r.referenceId || "",
+      r.referenceNumber || r.referenceId || "",
       `"${r.partyOrDestination.replace(/"/g, '""')}"`,
       r.inQty,
       r.outQty,
@@ -703,11 +703,11 @@ export function LedgerClient({
                               href={row.referenceUrl}
                               className="text-blue-600 hover:text-blue-800 underline font-semibold"
                             >
-                              {row.referenceId || row.referenceType}
+                              {row.referenceNumber || row.referenceId || row.referenceType}
                             </Link>
                           ) : (
                             <span className="text-slate-600">
-                              {row.referenceId || row.referenceType || "—"}
+                              {row.referenceNumber || row.referenceId || row.referenceType || "—"}
                             </span>
                           )}
                         </td>

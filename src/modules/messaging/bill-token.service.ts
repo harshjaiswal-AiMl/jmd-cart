@@ -177,7 +177,7 @@ export class BillTokenService {
       buyerType: inv.buyerType,
       customerName: inv.party?.name || inv.customerName || "Customer",
       customerPhone: inv.party?.phone || inv.customerPhone,
-      customerAddress: inv.party?.address || inv.customerAddress,
+      customerAddress: inv.customerAddress || inv.party?.address || null,
       partyGstin: inv.party?.gstin,
       subtotalPaise: inv.subtotalPaise,
       discountPaise: inv.discountPaise,
