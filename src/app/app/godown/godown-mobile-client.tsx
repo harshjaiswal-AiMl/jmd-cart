@@ -174,7 +174,6 @@ export function GodownMobileClient({
   const ledgerSearchResults = useMemo(() => {
     if (!ledgerSearchQuery.trim()) return [];
     return searchItems(ledgerSearchQuery, allProducts, {
-      keys: ["name", "shortCode"],
       limit: 10,
     });
   }, [ledgerSearchQuery, allProducts]);
