@@ -141,6 +141,8 @@ export function GodownMobileClient({
   const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [lang, setLang] = useState<"en" | "hi">("en");
 
+  const [allProducts, setAllProducts] = useState<GodownProduct[]>(initialProducts);
+
   // Movement Ledger state
   const [selectedLedgerProduct, setSelectedLedgerProduct] = useState<GodownProduct | null>(null);
   const [ledgerSearchQuery, setLedgerSearchQuery] = useState("");
@@ -317,7 +319,6 @@ export function GodownMobileClient({
   const [testPushStatus, setTestPushStatus] = useState<string | null>(null);
   const [pushSubscribed, setPushSubscribed] = useState(false);
 
-  const [allProducts, setAllProducts] = useState<GodownProduct[]>(initialProducts);
   const [quickAddModalOpen, setQuickAddModalOpen] = useState(false);
   const [quickAddForm, setQuickAddForm] = useState({
     name: "",
