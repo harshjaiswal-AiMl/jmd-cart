@@ -173,11 +173,14 @@ export function GodownMobileClient({
     }
   };
 
-  const ledgerSearchResults = useMemo(() => {
+  const ledgerSearchResults = useMemo<GodownProduct[]>(() => {
     if (!ledgerSearchQuery.trim()) return [];
-    return searchItems(ledgerSearchQuery, allProducts, {
+    const hits = searchItems(ledgerSearchQuery, allProducts, {
       limit: 10,
     });
+    return hits
+      .map((h) => allProducts.find((p) => p.id === h.id))
+      .filter((p): p is GodownProduct => Boolean(p));
   }, [ledgerSearchQuery, allProducts]);
 
   const startEditLoad = (vl: ActiveVanLoad) => {
