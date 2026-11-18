@@ -292,7 +292,7 @@ export default async function GodownAppPage({
         customerName: o.party?.name || "Customer",
         customerAddress: o.party?.address || null,
         customerPhone: o.contactPhone || o.party?.phone || null,
-        handoverTime: ro.run.updatedAt.toISOString(),
+        handoverTime: run.updatedAt.toISOString(),
         totalCartons,
         totalPieces,
         items: o.items.map((it) => {
