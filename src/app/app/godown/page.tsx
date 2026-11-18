@@ -233,7 +233,7 @@ export default async function GodownAppPage({
     prisma.dispatchRun.findMany({
       where: {
         updatedAt: { gte: todayStart },
-        status: { in: ["OUT_FOR_DELIVERY", "COMPLETED", "IN_PROGRESS"] },
+        status: { in: ["OUT", "CLOSED", "PACKED"] },
       },
       include: {
         van: true,
