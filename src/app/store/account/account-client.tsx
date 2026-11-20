@@ -1294,7 +1294,6 @@ export function AccountClient({
                           <Link href={`/store/products/${item.productId}`} className="block text-center py-2">
                             <div className="w-full h-36 flex items-center justify-center">
                               {item.imageUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
                                 <img
                                   src={item.imageUrl}
                                   alt={item.name}
