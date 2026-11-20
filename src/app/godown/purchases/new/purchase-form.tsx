@@ -1172,7 +1172,7 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
     setSearchDropdownOpen(false);
     setQuickAddOpen(false);
     setTimeout(() => {
-      const newQty = document.querySelector(`tr[data-row-index="${targetRowIndex}"] [data-grn-field="qty"]`);
+      const newQty = document.querySelector(`tr[data-row-index="${targetRowIndex}"] [data-grn-field="qty"]`) as HTMLInputElement | null;
       if (newQty) {
         newQty.focus();
         if (typeof newQty.select === 'function') newQty.select();

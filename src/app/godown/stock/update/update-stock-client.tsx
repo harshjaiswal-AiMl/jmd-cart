@@ -144,7 +144,7 @@ export function UpdateStockClient({
       const sBal = shopLocation ? p.balancesByLocation[shopLocation.id] || 0 : 0;
       return gBal < 0 || sBal < 0;
     }).length;
-  }, [products, godownLocation?.id, shopLocation?.id]);
+  }, [products, godownLocation?.id, shopLocation?.id, shopLocation]);
 
   const handleStageAllNegativeToZero = () => {
     const negativeItems = products.filter((p) => {
@@ -298,7 +298,7 @@ export function UpdateStockClient({
 
   const modifiedProducts = useMemo(() => {
     return products.filter((p) => isRowModified(p));
-  }, [products, tableEdits, godownLocation?.id, shopLocation?.id]);
+  }, [products, tableEdits, godownLocation?.id, shopLocation?.id, isRowModified]);
 
   const modifiedCount = modifiedProducts.length;
 
@@ -328,7 +328,7 @@ export function UpdateStockClient({
 
       return true;
     });
-  }, [products, tableSearch, tableCompanyFilter, showOnlyModified, showOnlyNegative, tableEdits, godownLocation?.id, shopLocation?.id]);
+  }, [products, tableSearch, tableCompanyFilter, showOnlyModified, showOnlyNegative, tableEdits, godownLocation?.id, shopLocation?.id, isRowModified, shopLocation]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / tablePageSize));
   const paginatedProducts = useMemo(() => {
