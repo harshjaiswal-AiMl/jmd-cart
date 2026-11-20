@@ -403,7 +403,8 @@ export function WholesaleClient({
                             <td className="py-3.5 px-3">
                               <div className="flex items-center gap-3">
                                 {p.imageUrl ? (
-                                  <img
+                                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                                     src={mediaUrl(p.imageUrl, 160) || p.imageUrl}
                                     alt={p.name}
                                     width={40}

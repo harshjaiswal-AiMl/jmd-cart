@@ -9,6 +9,7 @@ export function StoreFooter() {
           {/* Column 1: Brand & Regional Depot Info */}
           <div className="space-y-4">
             <Link prefetch={false} href="/" className="flex items-center gap-2">
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src="/brand/jmd-cart-logo.png"
                 alt="JMD Cart Logo"

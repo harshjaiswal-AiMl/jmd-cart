@@ -369,6 +369,7 @@ export function StoreHeader({
           {/* Logo & Interactive Location Trigger */}
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
             <Link prefetch={false} href="/" className="flex items-center gap-1 sm:gap-2 group shrink-0">
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src="/brand/jmd-cart-logo.png"
                 alt="JMD Cart Logo"
@@ -463,7 +464,8 @@ export function StoreHeader({
                         >
                           <div className="w-12 h-12 rounded-lg border border-outline-variant/40 bg-white p-1 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-2xs group-hover:border-primary/40">
                             {item.imageUrl ? (
-                              <img
+                              // eslint-disable-next-line @next/next/no-img-element
+              <img
                                 src={mediaUrl(item.imageUrl, 160) || item.imageUrl}
                                 alt={item.name}
                                 width={48}
@@ -792,7 +794,8 @@ export function StoreHeader({
                       >
                         <div className="w-10 h-10 rounded-lg border border-outline-variant/40 bg-white p-0.5 flex items-center justify-center flex-shrink-0 overflow-hidden shadow-2xs">
                           {item.imageUrl ? (
-                            <img
+                            // eslint-disable-next-line @next/next/no-img-element
+              <img
                               src={mediaUrl(item.imageUrl, 160) || item.imageUrl}
                               alt={item.name}
                               width={40}

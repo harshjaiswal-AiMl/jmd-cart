@@ -235,7 +235,7 @@ export function VanBillingClient({
       setIsPartyDirty(false);
       setPartySaveSuccess(false);
     }
-  }, [selectedParty?.id, selectedParty?.name, selectedParty?.phone, selectedParty?.address]);
+  }, [selectedParty]);
 
   const handleSavePartyInVan = async () => {
     if (!selectedParty) return;

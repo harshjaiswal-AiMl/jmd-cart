@@ -44,7 +44,8 @@ export default async function OrderTrackingPage({
               href="/store"
               className="flex items-center gap-2 group"
             >
-              <img
+              // eslint-disable-next-line @next/next/no-img-element
+                  <img
                 src="/brand/jmd-cart-logo.png"
                 alt="JMD Cart Logo"
                 className="h-8 w-auto object-contain"

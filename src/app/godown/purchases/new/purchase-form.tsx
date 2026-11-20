@@ -1166,8 +1166,18 @@ export function PurchaseForm({ suppliers, locations, products: initialProducts }
     setCatalog((prev) => [formatted, ...prev]);
     const newLine = createEmptyLine(formatted);
     setLines((prev) => [...prev, newLine]);
-    setGridFocus({ row: lines.length, col: 0 });
+    const targetRowIndex = lines.length;
+    setGridFocus({ row: targetRowIndex, col: 0 });
+    setProductSearchQuery("");
+    setSearchDropdownOpen(false);
     setQuickAddOpen(false);
+    setTimeout(() => {
+      const newQty = document.querySelector(`tr[data-row-index="${targetRowIndex}"] [data-grn-field="qty"]`);
+      if (newQty) {
+        newQty.focus();
+        if (typeof newQty.select === 'function') newQty.select();
+      }
+    }, 60);
   };
 
   // 12 empty rows baseline

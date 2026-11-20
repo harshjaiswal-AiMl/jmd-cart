@@ -91,6 +91,7 @@ export function StoreBannerCarousel({ banners }: StoreBannerCarouselProps) {
                   - Zero letterbox space, image occupies 100% of slide area seamlessly
                 */}
                 <div className="w-full aspect-[16/8.5] sm:aspect-[2.4/1] md:aspect-[2.7/1] max-h-[260px] sm:max-h-[280px] md:max-h-[300px] overflow-hidden bg-surface-container-low">
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={mediaUrl(banner.imageUrl, 800) || banner.imageUrl || ""}
                     srcSet={banner.imageUrl ? mediaSrcSet(banner.imageUrl, [400, 800, 1200]) : undefined}

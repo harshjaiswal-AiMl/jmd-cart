@@ -49,6 +49,7 @@ export function BillMessagingCard({
     if (defaultPhone && !phone) setPhone(defaultPhone);
     if (initialBillUrl && !billUrl) setBillUrl(initialBillUrl);
     if (initialWaMeUrl && !waMeUrl) setWaMeUrl(initialWaMeUrl);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultPhone, initialBillUrl, initialWaMeUrl]);
 
   // Keyboard shortcut listener (Alt+W for wa.me, Alt+M for resend)
@@ -64,6 +65,7 @@ export function BillMessagingCard({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [waMeUrl, phone, sendWhatsApp, sendSms]);
 
   const handleOpenWhatsApp = () => {

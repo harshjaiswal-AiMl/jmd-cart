@@ -39,6 +39,7 @@ export function ProductImage({
   }
 
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={resolvedUrl}
       srcSet={srcSet || undefined}

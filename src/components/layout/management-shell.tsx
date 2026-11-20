@@ -350,6 +350,7 @@ export function ManagementShell({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   // Close mobile drawer on route change
@@ -448,6 +449,7 @@ export function ManagementShell({
             className="flex items-center gap-2.5 overflow-hidden"
           >
             <div className="w-9 h-9 rounded-xl bg-white p-0.5 flex items-center justify-center shrink-0 shadow-sm border border-slate-700">
+              // eslint-disable-next-line @next/next/no-img-element
               <img src="/brand/jmd-cart-logo.png" alt="JMD Management Logo" className="w-full h-full object-contain" />
             </div>
             {!isCollapsed && (

@@ -631,6 +631,7 @@ export function CatalogueClient({
                       }`}
                     >
                       {cat.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={mediaUrl(cat.imageUrl, 160) || cat.imageUrl}
                           alt=""
@@ -872,7 +873,8 @@ export function CatalogueClient({
                       <div className="flex items-center gap-2.5">
                         {cat.imageUrl && (
                           <div className="w-8 h-8 rounded-lg bg-surface-container-low p-1 overflow-hidden border border-outline-variant/30 flex items-center justify-center shrink-0">
-                            <img
+                            // eslint-disable-next-line @next/next/no-img-element
+                        <img
                               src={mediaUrl(cat.imageUrl, 160) || cat.imageUrl}
                               alt={cat.name}
                               width={32}
@@ -951,7 +953,8 @@ export function CatalogueClient({
                 <>
                   <div className="w-20 h-20 mx-auto rounded-3xl bg-surface-container-low p-3 border border-outline-variant/40 shadow-xs flex items-center justify-center">
                     {selectedCategoryData.imageUrl ? (
-                      <img
+                      // eslint-disable-next-line @next/next/no-img-element
+                        <img
                         src={mediaUrl(selectedCategoryData.imageUrl, 160) || selectedCategoryData.imageUrl}
                         alt={selectedCategoryData.name}
                         width={80}
@@ -1030,6 +1033,7 @@ export function CatalogueClient({
                   <div className="flex items-center gap-3.5">
                     {selectedCategoryData?.imageUrl && (
                       <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-surface-container-lowest p-2 border border-primary/20 shadow-xs flex items-center justify-center shrink-0">
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={mediaUrl(selectedCategoryData.imageUrl, 160) || selectedCategoryData.imageUrl}
                           alt={selectedCategoryData.name}

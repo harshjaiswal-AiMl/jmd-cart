@@ -136,6 +136,41 @@ export function UpdateStockClient({
   const [tableSearch, setTableSearch] = useState<string>("");
   const [tableCompanyFilter, setTableCompanyFilter] = useState<string>("");
   const [showOnlyModified, setShowOnlyModified] = useState<boolean>(false);
+  const [showOnlyNegative, setShowOnlyNegative] = useState<boolean>(false);
+
+  const negativeProductsCount = useMemo(() => {
+    return products.filter((p) => {
+      const gBal = p.balancesByLocation[godownLocation?.id || ""] || 0;
+      const sBal = shopLocation ? p.balancesByLocation[shopLocation.id] || 0 : 0;
+      return gBal < 0 || sBal < 0;
+    }).length;
+  }, [products, godownLocation?.id, shopLocation?.id]);
+
+  const handleStageAllNegativeToZero = () => {
+    const negativeItems = products.filter((p) => {
+      const gBal = p.balancesByLocation[godownLocation?.id || ""] || 0;
+      const sBal = shopLocation ? p.balancesByLocation[shopLocation.id] || 0 : 0;
+      return gBal < 0 || sBal < 0;
+    });
+    if (negativeItems.length === 0) return;
+
+    setTableEdits((prev) => {
+      const next = { ...prev };
+      negativeItems.forEach((p) => {
+        const gBal = p.balancesByLocation[godownLocation?.id || ""] || 0;
+        const sBal = shopLocation ? p.balancesByLocation[shopLocation.id] || 0 : 0;
+        next[p.id] = {
+          godownCartons: gBal < 0 ? 0 : getProductGodownCartons(p),
+          godownLoose: gBal < 0 ? 0 : getProductGodownLoose(p),
+          shopCartons: sBal < 0 ? 0 : getProductShopCartons(p),
+          shopLoose: sBal < 0 ? 0 : getProductShopLoose(p),
+        };
+      });
+      return next;
+    });
+    setShowOnlyModified(true);
+    setTableAuditReason("Reconcile negative stock balances to zero (Physical Count)");
+  };
   const [tablePage, setTablePage] = useState<number>(1);
   const [tablePageSize, setTablePageSize] = useState<number>(100);
   const [tableAuditReason, setTableAuditReason] = useState<string>("Physical stock count verification (Godown & Shop)");
@@ -284,11 +319,16 @@ export function UpdateStockClient({
     return products.filter((p) => {
       if (searchIds && !searchIds.has(p.id)) return false;
       if (showOnlyModified && !isRowModified(p)) return false;
+      if (showOnlyNegative) {
+        const gBal = p.balancesByLocation[godownLocation?.id || ""] || 0;
+        const sBal = shopLocation ? p.balancesByLocation[shopLocation.id] || 0 : 0;
+        if (gBal >= 0 && sBal >= 0) return false;
+      }
       if (tableCompanyFilter && p.companyId !== tableCompanyFilter) return false;
 
       return true;
     });
-  }, [products, tableSearch, tableCompanyFilter, showOnlyModified, tableEdits, godownLocation?.id, shopLocation?.id]);
+  }, [products, tableSearch, tableCompanyFilter, showOnlyModified, showOnlyNegative, tableEdits, godownLocation?.id, shopLocation?.id]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / tablePageSize));
   const paginatedProducts = useMemo(() => {
@@ -958,6 +998,38 @@ export function UpdateStockClient({
                 )}
               </div>
             </div>
+
+            {negativeProductsCount > 0 && (
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-2 text-xs text-red-900 font-bold">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>Found {negativeProductsCount} products with negative stock balances (due to historical billing).</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOnlyNegative((prev) => !prev);
+                      setTablePage(1);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${
+                      showOnlyNegative
+                        ? "bg-red-700 text-white border-red-800"
+                        : "bg-white text-red-700 border-red-300 hover:bg-red-50"
+                    }`}
+                  >
+                    {showOnlyNegative ? "Showing Negative Stock" : "Filter Negative Stock"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStageAllNegativeToZero}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition shadow-xs"
+                  >
+                    1-Click Stage Negative to 0
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Filter & Search Bar */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
