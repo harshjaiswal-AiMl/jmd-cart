@@ -704,7 +704,7 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
                                 ? "91" + (inv.customerPhone || inv.party?.phone || "").replace(/\D/g, "")
                                 : (inv.customerPhone || inv.party?.phone || "").replace(/\D/g, "")
                             }?text=${encodeURIComponent(
-                              `Namaste ${inv.customerName || inv.party?.name || "Customer"},\nAapka JMD Cart bill #${inv.number} tayar hai.\nKul Rashi: ₹${(inv.grandTotalPaise / 100).toFixed(2)}\nBill Dekhein: https://jmdcart.com/b/${inv.id}\nDhanyawad! - JMD Cart`
+                              `Namaste ${inv.customerName || inv.party?.name || "Customer"},\nAapka JMD Cart bill #${inv.number} tayar hai.\nKul Rashi: ₹${(inv.totalPaise / 100).toFixed(2)}\nBill Dekhein: https://jmdcart.com/b/${inv.id}\nDhanyawad! - JMD Cart`
                             )}`}
                             target="_blank"
                             rel="noopener noreferrer"
