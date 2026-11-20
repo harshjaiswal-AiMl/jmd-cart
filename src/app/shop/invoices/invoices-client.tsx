@@ -17,6 +17,7 @@ import {
   DollarSign,
   AlertCircle,
   SlidersHorizontal,
+  MessageCircle,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -696,6 +697,23 @@ export function InvoicesClient({ initialInvoices, canCancel = false }: InvoicesC
                         >
                           <Printer className="w-4 h-4" />
                         </Link>
+                        {(inv.customerPhone || inv.party?.phone) && (
+                          <a
+                            href={`https://wa.me/${
+                              (inv.customerPhone || inv.party?.phone || "").replace(/\D/g, "").length === 10
+                                ? "91" + (inv.customerPhone || inv.party?.phone || "").replace(/\D/g, "")
+                                : (inv.customerPhone || inv.party?.phone || "").replace(/\D/g, "")
+                            }?text=${encodeURIComponent(
+                              `Namaste ${inv.customerName || inv.party?.name || "Customer"},\nAapka JMD Cart bill #${inv.number} tayar hai.\nKul Rashi: ₹${(inv.grandTotalPaise / 100).toFixed(2)}\nBill Dekhein: https://jmdcart.com/b/${inv.id}\nDhanyawad! - JMD Cart`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Send on WhatsApp"
+                            className="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </a>
+                        )}
                         {canCancel && inv.status === "FINAL" && (
                           <button
                             type="button"

@@ -568,6 +568,67 @@ export function CatalogueClient({
           />
         )}
 
+        {/* Top Wholesale Brands Showcase */}
+        {!selectedCompany && !currentSearch && companies && companies.length > 0 && (
+          <section className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 py-3">
+            <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent p-3.5 sm:p-4 rounded-2xl border border-amber-500/20 shadow-2xs">
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-amber-700 text-[20px] sm:text-[22px]">verified</span>
+                  <div>
+                    <h2 className="font-headline text-xs sm:text-sm md:text-base font-bold text-on-surface leading-none">
+                      Top FMCG Wholesale Brands
+                    </h2>
+                    <p className="text-[10px] sm:text-[11px] text-on-surface-variant font-medium mt-0.5">
+                      Direct factory supply • Verified distributor rates
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] sm:text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 shrink-0">
+                  {companies.length} Brands
+                </span>
+              </div>
+
+              {/* Horizontal Scrollable Brand Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                {companies.map((comp) => (
+                  <button
+                    key={comp.id}
+                    type="button"
+                    onClick={() => handleCompanyChange(comp.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-outline-variant/50 hover:border-primary/60 hover:bg-primary/5 rounded-xl text-xs font-bold text-on-surface hover:text-primary transition shadow-2xs shrink-0 cursor-pointer"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span>{comp.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Active Brand Filter Notice */}
+        {selectedCompany && (
+          <section className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 py-2">
+            <div className="flex items-center justify-between bg-primary/10 border border-primary/30 px-3.5 sm:px-4 py-2.5 rounded-xl shadow-2xs">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-[18px] sm:text-[20px]">storefront</span>
+                <span className="text-xs font-bold text-primary">
+                  Showing products for brand: <b>{companies.find((c) => c.id === selectedCompany)?.name || "Selected Brand"}</b>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleCompanyChange("")}
+                className="text-xs font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>Clear Brand</span>
+                <span className="material-symbols-outlined text-[14px]">close</span>
+              </button>
+            </div>
+          </section>
+        )}
+
         {/* 5. Shop by Category (Zepto / Blinkit 2-Row Visual Category Grid) - Hidden when filtering by category or searching so products display immediately */}
         {!selectedCategory && !currentSearch && (
           <section id="categories" className="max-w-[1280px] mx-auto px-3 sm:px-4 lg:px-8 pt-5 pb-3">
